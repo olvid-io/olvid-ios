@@ -62,12 +62,47 @@ actor MessagesCoordinator {
     private typealias DownloadMessagesTask = Task<Void,Error>
     private var downloadMessagesTaskInProgressForOwnedCryptoId = [ObvCryptoIdentity: DownloadMessagesTask]()
 
+    private var continuationForAsyncStreamOfObvMessageOrObvOwnedMessage: AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]>.Continuation?
+
 }
 
 
 // MARK: - MessagesDelegate
 
 extension MessagesCoordinator: MessagesDelegate {
+
+    public func getAsyncStreamOfObvMessageOrObvOwnedMessages() -> AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]> {
+        let stream = AsyncStream([ObvTypes.ObvMessageOrObvOwnedMessage].self) { [weak self] (continuation: AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]>.Continuation) in
+            guard let self else { return }
+
+            Task {
+                
+                await self.replaceContinuationForAsyncStreamOfObvMessageOrObvOwnedMessage(by: continuation)
+
+                // We stream the messages currently in DB that still nee to be processed by the app (these messages are, in
+                // particular, no marked as "on hold")
+                let objectIDsOfProcessableInboxMessages: [NSManagedObjectID]
+                do {
+                    objectIDsOfProcessableInboxMessages = try await self.getObjectIDsOfInboxMessagesToBeProcessedByApp()
+                } catch {
+                    Self.logger.fault("Could not obtain objectIDs of processable messages: \(error.localizedDescription)")
+                    assertionFailure() // In production, continue anyway
+                    objectIDsOfProcessableInboxMessages = []
+                }
+                
+                // We split the objectsIDs in slices of 10 items
+                
+                let slices = objectIDsOfProcessableInboxMessages.toSlices(ofMaxSize: 10)
+                
+                for slice in slices {
+                    let messages = try await self.getObvMessageOrObvOwnedMessagesToBeProcessedByApp(inboxMessageObjectIDs: slice)
+                    continuation.yield(messages)
+                }
+                
+            }
+        }
+        return stream
+    }
 
     
     func downloadAllMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async {
@@ -574,9 +609,28 @@ extension MessagesCoordinator: MessagesDelegate {
                 Self.logger.debug("✉️ [\(flowId.shortDebugDescription)] Notifying about \(messages.count) decrypted application messages")
                 ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] Notifying the engine about \(messages.count) decrypted application messages")
                 
-                ObvNetworkFetchNotificationNew.applicationMessagesDecrypted(messages: messages, flowId: flowId)
-                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
+                if let continuation = continuationForAsyncStreamOfObvMessageOrObvOwnedMessage {
+                    continuation.yield(messages)
+                } else {
+                    // The messages will be fetched and streamed when the stream is requested by the app
+                }
                 
+                // We also notify the engine that we received an app message from that contact, so that the engine coordinator
+                // can notifiy the identity manager
+                Task {
+                    let contactIds: [ObvContactIdentifier] = messages.compactMap { message in
+                        switch message {
+                        case .obvMessage(let obvMessage):
+                            return obvMessage.fromContactIdentity
+                        case .obvOwnedMessage:
+                            return nil
+                        }
+                    }
+                    ObvNetworkFetchNotificationNew.applicationMessagesWhereReceivedFromContacts(contactIds: Set(contactIds))
+                        .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
+
+                }
+
             }
             
         }
@@ -787,9 +841,9 @@ extension MessagesCoordinator {
         }
         
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
-            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+            contextCreator.performBackgroundTask { context in
                 do {
-                    guard let message = try InboxMessage.get(messageId: messageId, within: obvContext) else {
+                    guard let message = try InboxMessage.get(messageId: messageId, within: context) else {
                         return continuation.resume(returning: false)
                     }
                     let shouldDownload = message.hasEncryptedExtendedMessagePayload && (message.extendedMessagePayload == nil) && message.extendedMessagePayloadKey != nil
@@ -829,6 +883,72 @@ extension MessagesCoordinator { //}: URLSessionDataDelegate {
         
         return op1.obvMessageOrObvOwnedMessage
         
+    }
+    
+}
+
+
+// MARK: - ObvMessageOrObvOwnedMessage stream management
+
+extension MessagesCoordinator {
+    
+    private func replaceContinuationForAsyncStreamOfObvMessageOrObvOwnedMessage(by newContinuation: AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]>.Continuation) {
+        if let continuation = self.continuationForAsyncStreamOfObvMessageOrObvOwnedMessage {
+            continuation.finish()
+        }
+        continuationForAsyncStreamOfObvMessageOrObvOwnedMessage = newContinuation
+    }
+        
+    
+    private func getObjectIDsOfInboxMessagesToBeProcessedByApp() async throws -> [NSManagedObjectID] {
+        guard let delegateManager else {
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+        guard let contextCreator = delegateManager.contextCreator else {
+            assertionFailure()
+            throw ObvError.theContextCreatorIsNotSet
+        }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[NSManagedObjectID], any Error>) in
+            contextCreator.performBackgroundTask { context in
+                do {
+                    let objectIDsOfProcessableInboxMessages: [NSManagedObjectID] = try InboxMessage.getObjectIDsOfInboxMessagesToBeProcessedByApp(within: context)
+                    return continuation.resume(returning: objectIDsOfProcessableInboxMessages)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
+    private func getObvMessageOrObvOwnedMessagesToBeProcessedByApp(inboxMessageObjectIDs: [NSManagedObjectID]) async throws -> [ObvMessageOrObvOwnedMessage] {
+        guard let delegateManager else {
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+        guard let contextCreator = delegateManager.contextCreator else {
+            assertionFailure()
+            throw ObvError.theContextCreatorIsNotSet
+        }
+        let inbox = delegateManager.inbox
+        return await withCheckedContinuation { (continuation: CheckedContinuation<[ObvMessageOrObvOwnedMessage], Never>) in
+            contextCreator.performBackgroundTask { context in
+                var messages = [ObvMessageOrObvOwnedMessage]()
+                for objectID in inboxMessageObjectIDs {
+                    do {
+                        if let obvMessageOrObvOwnedMessage = try InboxMessage.getObvMessageOrObvOwnedMessageToBeProcessedByApp(inboxMessageObjectID: objectID, inbox: inbox, within: context) {
+                            messages.append(obvMessageOrObvOwnedMessage)
+                        }
+                    } catch {
+                        Self.logger.fault("Could not get processable ObvMessageOrObvOwnedMessage for InboxMessageObjectID: \(objectID)")
+                        assertionFailure() // In production, continue with the next item
+                    }
+                }
+                assert(messages.count == inboxMessageObjectIDs.count)
+                return continuation.resume(returning: messages)
+            }
+        }
     }
     
 }

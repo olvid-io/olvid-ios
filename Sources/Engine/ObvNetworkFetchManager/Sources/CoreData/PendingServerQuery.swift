@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,19 +18,19 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvMetaManager
 import ObvEncoder
 import ObvCrypto
 import ObvTypes
-import OlvidUtils
 
 
 @objc(PendingServerQuery)
-final class PendingServerQuery: NSManagedObject, ObvManagedObject {
+final class PendingServerQuery: NSManagedObject {
 
     private static let entityName = "PendingServerQuery"
+    private static let logger = Logger(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: PendingServerQuery.entityName)
 
     // MARK: Attributes
     
@@ -84,28 +84,33 @@ final class PendingServerQuery: NSManagedObject, ObvManagedObject {
         }
     }
     
+    // MARK: - Observers
     
-    // MARK: Other variables
-
-    weak var delegateManager: ObvNetworkFetchDelegateManager?
-    weak var obvContext: ObvContext?
-
+    private static var observersHolder = ObserversHolder()
     
+    public static func addObvObserver(_ newObserver: PendingServerQueryObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
     // MARK: - Initializer
 
-    convenience init(serverQuery: ServerQuery, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) {
+    private convenience init(serverQuery: ServerQuery, within context: NSManagedObjectContext) {
 
-        let entityDescription = NSEntityDescription.entity(forEntityName: PendingServerQuery.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: PendingServerQuery.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
 
         self.encodedElements = serverQuery.encodedElements
         self.queryType = serverQuery.queryType
         self.rawOwnedIdentity = serverQuery.ownedIdentity.getIdentity()
-        self.delegateManager = delegateManager
-        self.obvContext = obvContext
         self.isWebSocket = serverQuery.isWebSocket
         self.rawCreationDate = Date.now
 
+    }
+    
+    
+    static func createPendingServerQuery(serverQuery: ServerQuery, within context: NSManagedObjectContext) -> Self {
+        let newPendingServerQuery = Self.init(serverQuery: serverQuery, within: context)
+        return newPendingServerQuery
     }
 
 }
@@ -115,13 +120,12 @@ final class PendingServerQuery: NSManagedObject, ObvManagedObject {
 
 extension PendingServerQuery {
 
-    func deletePendingServerQuery(within obvContext: ObvContext) {
-        guard self.managedObjectContext == obvContext.context else {
-            assertionFailure("Unexpected context")
-            return
+    func deletePendingServerQuery() throws {
+        guard let context = self.managedObjectContext else {
+            assertionFailure()
+            throw ObvError.noContext
         }
-        self.obvContext = obvContext
-        obvContext.delete(self)
+        context.delete(self)
     }
 
 }
@@ -156,13 +160,11 @@ extension PendingServerQuery {
     }
 
     
-    static func get(objectId: NSManagedObjectID, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> PendingServerQuery? {
+    static func get(objectId: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PendingServerQuery? {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
         request.predicate = Predicate.withObjectID(objectId)
         request.fetchLimit = 1
-        let item = try obvContext.fetch(request).first
-        item?.delegateManager = delegateManager
-        item?.obvContext = obvContext
+        let item = try context.fetch(request).first
         return item
     }
     
@@ -173,7 +175,7 @@ extension PendingServerQuery {
     }
     
     
-    static func getAllServerQuery(for identity: ObvCryptoIdentity, isWebSocket: BoolOrAny, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
+    static func getAllServerQuery(for identity: ObvCryptoIdentity, isWebSocket: BoolOrAny, within context: NSManagedObjectContext) throws -> [PendingServerQuery] {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
         var subpredicates = [Predicate.withOwnedCryptoIdentity(identity)]
         switch isWebSocket {
@@ -183,16 +185,13 @@ extension PendingServerQuery {
             subpredicates += [Predicate.whereIsWebSocketIs(isWebSocket)]
         }
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subpredicates)
-        let items = try obvContext.fetch(request)
-        items.forEach { item in
-            item.delegateManager = delegateManager
-            item.obvContext = obvContext
-        }
+        request.fetchBatchSize = 1_000
+        let items = try context.fetch(request)
         return items
     }
 
     
-    static func getAllServerQuery(isWebSocket: BoolOrAny, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
+    static func getAllServerQuery(isWebSocket: BoolOrAny, within context: NSManagedObjectContext) throws -> [PendingServerQuery] {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
         request.fetchBatchSize = 1_000
         switch isWebSocket {
@@ -201,29 +200,33 @@ extension PendingServerQuery {
         case .bool(let isWebSocket):
             request.predicate = Predicate.whereIsWebSocketIs(isWebSocket)
         }
-        let items = try obvContext.fetch(request)
-        items.forEach { item in
-            item.delegateManager = delegateManager
-            item.obvContext = obvContext
-        }
+        let items = try context.fetch(request)
         return items
     }
     
     
-    static func deleteAllServerQuery(for identity: ObvCryptoIdentity, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws {
-        let serverQueries = try getAllServerQuery(for: identity, isWebSocket: .any, delegateManager: delegateManager, within: obvContext)
+    static func deleteAllServerQuery(for identity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
+        let serverQueries = try getAllServerQuery(for: identity, isWebSocket: .any, within: context)
         for serverQuery in serverQueries {
-            serverQuery.deletePendingServerQuery(within: obvContext)
+            do {
+                try serverQuery.deletePendingServerQuery()
+            } catch {
+                assertionFailure() // In production, continue with the next server query
+            }
         }
     }
 
     
-    static func deleteAllWebSocketServerQuery(within obvContext: ObvContext) throws {
+    static func deleteAllWebSocketServerQuery(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
         request.predicate = Predicate.whereIsWebSocketIs(true)
-        let items = try obvContext.fetch(request)
+        let items = try context.fetch(request)
         items.forEach { item in
-            item.deletePendingServerQuery(within: obvContext)
+            do {
+                try item.deletePendingServerQuery()
+            } catch {
+                assertionFailure() // In production, continue with the next server query
+            }
         }
     }
     
@@ -235,9 +238,9 @@ extension PendingServerQuery {
 extension PendingServerQuery {
     
     enum ObvError: Error {
-        case theDelegateManagerIsNil
         case couldNotFindPendingServerQuery
         case couldNotParseOwnedIdentity
+        case noContext
     }
     
 }
@@ -249,17 +252,49 @@ extension PendingServerQuery {
     override func didSave() {
         super.didSave()
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog.init(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: PendingServerQuery.entityName)
-            os_log("The delegate manager is not set", log: log, type: .fault)
-            return
-        }
-
-        if isInserted, let flowId = self.obvContext?.flowId {
+        if self.isInserted {
             let objectID = self.objectID
             let isWebSocket = self.isWebSocket
-            Task { await delegateManager.networkFetchFlowDelegate.newPendingServerQueryToProcessWithObjectId(objectID, isWebSocket: isWebSocket, flowId: flowId) }
+            Task { await Self.observersHolder.aPendingServerQueryWasInserted(objectID: objectID, isWebSocket: isWebSocket) }
         }
+        
     }
 
+}
+
+
+// MARK: - PendingServerQuery observers
+
+public protocol PendingServerQueryObserver: AnyObject {
+    func aPendingServerQueryWasInserted(objectID: NSManagedObjectID, isWebSocket: Bool) async
+}
+
+
+private actor ObserversHolder: PendingServerQueryObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PendingServerQueryObserver?
+        init(value: PendingServerQueryObserver?) {
+            self.value = value
+        }
+    }
+    
+    func addObserver(_ newObserver: PendingServerQueryObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+    
+    // Implementing PersistedDiscussionObserver
+    
+    func aPendingServerQueryWasInserted(objectID: NSManagedObjectID, isWebSocket: Bool) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.aPendingServerQueryWasInserted(objectID: objectID, isWebSocket: isWebSocket)
+                }
+            }
+        }
+    }
+    
 }

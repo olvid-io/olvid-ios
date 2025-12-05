@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvOperation
 import ObvServerInterface
@@ -128,7 +128,7 @@ extension TryToDeleteMessageAndAttachmentsCoordinator: TryToDeleteMessageAndAtta
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
                 obvContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump // In case cancelExternallyRequested is set to true
 
-                guard let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else { return }
+                guard let message = try? OutboxMessage.get(messageId: messageId, within: obvContext.context) else { return }
                 
                 guard message.uploaded || message.cancelExternallyRequested else {
                     os_log("Aborting the deletion of a message that is neither uploaded nor cancelled", log: log, type: .debug)
@@ -153,7 +153,7 @@ extension TryToDeleteMessageAndAttachmentsCoordinator: TryToDeleteMessageAndAtta
                     
                     // We remove the database entries (deleting the message cascade deletes the headers and attachments)
                     do {
-                        try message.deleteThisOutboxMessage(delegateManager: delegateManager)
+                        try message.deleteThisOutboxMessage()
                         try obvContext.save(logOnFailure: log)
                     } catch {
                         os_log("We could not delete the message %{public}@ nor its attachments", log: log, type: .error, messageId.debugDescription)
@@ -318,14 +318,14 @@ extension TryToDeleteMessageAndAttachmentsCoordinator: URLSessionDataDelegate {
         
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            guard let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else { return }
+            guard let message = try? OutboxMessage.get(messageId: messageId, within: obvContext.context) else { return }
             
             // We remove the attachment *content*, if required
             removeTheAttachmentFilesThatAreMarkedAsDeleteAfterSend(attachments: message.attachments)
             
             // We remove the database entries (deleting the message cascade deletes the headers and attachments)
             do {
-                try message.deleteThisOutboxMessage(delegateManager: delegateManager)
+                try message.deleteThisOutboxMessage()
                 try obvContext.save(logOnFailure: log)
             } catch {
                 os_log("We could not delete the message %{public}@ nor its attachments", log: log, type: .error, messageId.debugDescription)

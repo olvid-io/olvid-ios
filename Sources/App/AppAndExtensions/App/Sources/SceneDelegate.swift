@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
   
 
 import UIKit
-import os.log
+import OSLog
 import Intents
 import ObvEngine
 import OlvidUtils
@@ -29,13 +29,14 @@ import ObvAppCoreConstants
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
-    var window: KeyboardWindow? // Can handle keyboard input
+    var window: UIWindow? // Can handle keyboard input
     var privacyWindow: UIWindow? // For iOS
     
     private var rootViewController: RootViewController?
     private let privacyViewControler = UIStoryboard(name: "LaunchScreen", bundle: nil).instantiateInitialViewController()!
     
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "SceneDelegate")
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "SceneDelegate")
     
     /// On some occasions, we want to prevent the privacy window from showing the next time ``SceneDelegate.sceneWillResignActive(_:)`` is called.
     /// This variable is typically set to `true` from a child view controller, just before showing a system alert. This is for example the case during onboarding,
@@ -53,7 +54,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let rootViewController = RootViewController()
         self.rootViewController = rootViewController
-        let window = KeyboardWindow(windowScene: windowScene)
+        let window = UIWindow(windowScene: windowScene)
         window.rootViewController = rootViewController
         window.makeKeyAndVisible()
         self.window = window
@@ -160,7 +161,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         // This method is called by the system when an activity can be continued after the app was initialized.
         // We also call it "manually" when scene will connect with options containing one (or more) user activity.
-        os_log("📲 Continue user activity", log: Self.log, type: .info)
+        // This is also the method called when returning to the app after a keycloak authentication
+        Self.logger.info("📲🧥 Continue user activity")
         Task {
             assert(Thread.isMainThread)
             assert(rootViewController != nil)

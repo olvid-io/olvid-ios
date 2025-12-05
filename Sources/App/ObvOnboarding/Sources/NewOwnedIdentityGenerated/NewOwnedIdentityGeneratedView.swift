@@ -106,16 +106,27 @@ struct NewOwnedIdentityGeneratedView: View {
                 
                 Spacer()
                 
-                Button(action: startUsingOlvidAction) {
-                    Text("START_USING_OLVID")
-                        .foregroundStyle(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
+                if #available(iOS 26, *) {
+                    Button(action: startUsingOlvidAction) {
+                        Text("START_USING_OLVID")
+                            .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .buttonSizing(.flexible)
+                    .padding()
+                } else {
+                    Button(action: startUsingOlvidAction) {
+                        HStack {
+                            Spacer(minLength: 0)
+                            Text("START_USING_OLVID")
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding()
                 }
-                .background(Color.blue01)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding()
-                
+
             }
             
         }
@@ -127,20 +138,21 @@ struct NewOwnedIdentityGeneratedView: View {
 
 // MARK: - Previews
 
-struct NewOwnedIdentityGeneratedView_Previews: PreviewProvider {
-    
-    private final class ActionsForPreviews: NewOwnedIdentityGeneratedViewActionsProtocol {
-        func startUsingOlvidAction() async {}
-    }
-    
-    private static let actions = ActionsForPreviews()
-    
-    static var previews: some View {
-        Group {
-            NewOwnedIdentityGeneratedView(actions: actions)
-            NewOwnedIdentityGeneratedView(actions: actions)
-                //.environment(\.locale, .init(identifier: "fr"))
-        }
-    }
+#if DEBUG
+
+private final class ActionsForPreviews: NewOwnedIdentityGeneratedViewActionsProtocol {
+    func startUsingOlvidAction() async {}
 }
 
+private let actions = ActionsForPreviews()
+
+#Preview("en") {
+    NewOwnedIdentityGeneratedView(actions: actions)
+}
+
+#Preview("fr") {
+    NewOwnedIdentityGeneratedView(actions: actions)
+        .environment(\.locale, .init(identifier: "fr"))
+}
+
+#endif

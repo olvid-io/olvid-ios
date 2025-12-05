@@ -33,7 +33,7 @@ public final class PersistedContactGroupJoined: PersistedContactGroup {
     // MARK: Attributes
 
     @NSManaged private(set) var customPhotoFilename: String?
-    @NSManaged private(set) var groupNameCustom: String?
+    @NSManaged public private(set) var groupNameCustom: String?
     @NSManaged private var rawStatus: Int
 
     // MARK: Relationships
@@ -46,8 +46,7 @@ public final class PersistedContactGroupJoined: PersistedContactGroup {
         return PublishedDetailsStatusType(rawValue: self.rawStatus)!
     }
     
-    /// Should only be called by PersistedContactGroup#displayPhotoURL
-    var customPhotoURL: URL? {
+    public var customPhotoURL: URL? {
         guard let customPhotoFilename = customPhotoFilename else { return nil }
         return ObvUICoreDataConstants.ContainerURL.forCustomGroupProfilePictures.appendingPathComponent(customPhotoFilename)
     }
@@ -110,7 +109,7 @@ extension PersistedContactGroupJoined {
     
     func setGroupNameCustom(to groupNameCustom: String?) throws -> Bool {
         let groupNameCustomHadToBeUpdated: Bool
-        let newGroupNameCustom = groupNameCustom?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newGroupNameCustom = groupNameCustom?.trimmingCharacters(in: .whitespacesAndNewlines).mapToNilIfZeroLength()
         if let newGroupNameCustom, !newGroupNameCustom.isEmpty {
             if self.groupNameCustom != newGroupNameCustom {
                 self.groupNameCustom = newGroupNameCustom
@@ -139,4 +138,14 @@ extension PersistedContactGroupJoined {
         try? createOrUpdateTheAssociatedDisplayedContactGroup()
     }
 
+    public func markPublishedDetailsAsSeen() {
+        switch self.status {
+        case .noNewPublishedDetails:
+            return
+        case .unseenPublishedDetails:
+            self.setStatus(to: .seenPublishedDetails)
+        case .seenPublishedDetails:
+            return
+        }
+    }
 }

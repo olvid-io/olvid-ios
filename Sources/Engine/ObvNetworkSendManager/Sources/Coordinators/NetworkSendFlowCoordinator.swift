@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvTypes
 import ObvOperation
 import ObvMetaManager
@@ -80,18 +80,17 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
                                                 encryptedExtendedMessagePayload: message.encryptedExtendedMessagePayload,
                                                 isAppMessageWithUserContent: message.isAppMessageWithUserContent,
                                                 isVoipMessage: message.isVoipMessageForStartingCall,
-                                                delegateManager: delegateManager,
-                                                within: obvContext)
+                                                within: obvContext.context)
         else {
             os_log("Could not create outboxMessage in database", log: log, type: .error)
             throw Self.makeError(message: "Could not create outboxMessage in database")
         }
         
         for header in message.headers {
-            _ = MessageHeader(message: outboxMessage,
-                              toCryptoIdentity: header.toIdentity,
-                              deviceUid: header.deviceUid,
-                              wrappedKey: header.wrappedMessageKey)
+            _ = try MessageHeader(message: outboxMessage,
+                                  toCryptoIdentity: header.toIdentity,
+                                  deviceUid: header.deviceUid,
+                                  wrappedKey: header.wrappedMessageKey)
         }
         
         var attachmentIds = [ObvAttachmentIdentifier]()
@@ -201,7 +200,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
             
             guard let self else { return }
             
-            guard let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else {
+            guard let message = try? OutboxMessage.get(messageId: messageId, within: obvContext.context) else {
                 os_log("Could not find message %{public}@ in database", log: log, type: .fault, messageId.debugDescription)
                 return
             }

@@ -1,0 +1,40 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "MY_OWN_IDS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meine Profile"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My profiles"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mis perfiles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mes profils"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I miei profili"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

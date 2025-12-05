@@ -18,25 +18,42 @@
  */
 
 import UIKit
+import OSLog
 import ObvTypes
 import ObvUICoreData
 import ObvAppTypes
+import Combine
+import ObvAppCoreConstants
 
 
 final class OlvidUserActivitySingleton: NSObject {
     
     static let shared = OlvidUserActivitySingleton()
     
-    private override init() {}
+    private override init() {
+        super.init()
+        produceStreamsOnChangeOfDiscussionID()
+    }
 
     private let internalQueue = DispatchQueue(label: "OlvidUserActivitySingleton internal queue")
+    
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "OlvidUserActivitySingleton")
 
+    public struct DiscussionID: Equatable {
+        let permanentID: DiscussionPermanentID
+        let objectID: TypeSafeManagedObjectID<PersistedDiscussion>
+    }
+    
     @Published private(set) var currentUserActivity: OlvidUserActivity?
-    @Published private(set) var currentDiscussionPermanentID: DiscussionPermanentID?
+    @Published private(set) var currentDiscussionID: DiscussionID?
     
     /// Allows to track the current active appearance. Particularly useful under macOS, e.g., when deciding whether to show a user notification or not.
     @Published private(set) var traitCollectionActiveAppearance: UIUserInterfaceActiveAppearance?
 
+    private var cancellables: Set<AnyCancellable> = []
+    
+    private var continuationForStreamUUID = [UUID: AsyncStream<OlvidUserActivitySingleton.DiscussionID?>.Continuation]()
+    
 }
 
 
@@ -52,10 +69,9 @@ extension OlvidUserActivitySingleton {
     
 }
 
+// MARK: - Methods allowing the MainFlowController and the ObvFlowController to update the current activity
 
-// MARK: - UINavigationControllerDelegate
-
-extension OlvidUserActivitySingleton: UINavigationControllerDelegate {
+extension OlvidUserActivitySingleton {
     
     @MainActor
     func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId, viewController: UIViewController) async {
@@ -66,7 +82,7 @@ extension OlvidUserActivitySingleton: UINavigationControllerDelegate {
             newUserActivity = currentUserActivity
                 .withUpdatedOwnedCryptoId(newOwnedCryptoId)
         } else {
-            newUserActivity = .init(ownedCryptoId: newOwnedCryptoId, selectedTab: .latestDiscussions, currentDiscussion: nil)
+            newUserActivity = .init(ownedCryptoId: newOwnedCryptoId, currentFlow: .latestDiscussions, currentDiscussion: nil)
         }
         
         // Update
@@ -74,6 +90,52 @@ extension OlvidUserActivitySingleton: UINavigationControllerDelegate {
         updateWith(newUserActivity: newUserActivity, viewController: viewController)
 
     }
+    
+    @MainActor
+    func switchCurrentFlow(to newCurrentFlow: ObvAppTypes.ObvFlow, currentOwnedCryptoId: ObvCryptoId, viewController: UIViewController) {
+        
+        let newUserActivity: OlvidUserActivity
+
+        if let currentUserActivity {
+            newUserActivity = currentUserActivity
+                .widthUpdatedCurrentFlow(newCurrentFlow)
+                .withUpdatedOwnedCryptoId(currentOwnedCryptoId)
+        } else {
+            newUserActivity = .init(ownedCryptoId: currentOwnedCryptoId, currentFlow: newCurrentFlow, currentDiscussion: nil)
+        }
+
+        // Update
+        
+        updateWith(newUserActivity: newUserActivity, viewController: viewController)
+
+    }
+    
+    
+    @MainActor
+    func switchCurrentDiscussion(to newCurrentDiscussion: ObvDiscussionIdentifier?, viewController: UIViewController) {
+        
+        guard let currentUserActivity else {
+            Self.logger.fault("Cannot update the discussion of the current user activity as the current user activity is nil")
+            assertionFailure()
+            return
+        }
+        
+        let newUserActivity: OlvidUserActivity = currentUserActivity.withUpdatedCurrentDiscussion(newCurrentDiscussion)
+
+        // Update
+        
+        updateWith(newUserActivity: newUserActivity, viewController: viewController)
+        
+    }
+
+    
+}
+
+
+
+// MARK: - Private methods
+
+extension OlvidUserActivitySingleton {
     
     private func determineCurrentDiscussionWhenShowing(_ viewController: SomeSingleDiscussionViewController) -> ObvDiscussionIdentifier? {
         assert(Thread.isMainThread)
@@ -87,11 +149,11 @@ extension OlvidUserActivitySingleton: UINavigationControllerDelegate {
     }
     
     
-    private func determineDiscussionPermanentID(from discussionActivityIdentifier: ObvDiscussionIdentifier) -> DiscussionPermanentID? {
+    private func determineDiscussionPermanentID(from discussionActivityIdentifier: ObvDiscussionIdentifier) -> DiscussionID? {
         assert(Thread.isMainThread)
         let discussionId = discussionActivityIdentifier.toDiscussionIdentifier()
         if let discussion = try? PersistedDiscussion.getPersistedDiscussion(ownedCryptoId: discussionActivityIdentifier.ownedCryptoId, discussionId: discussionId, within: ObvStack.shared.viewContext) {
-            return discussion.discussionPermanentID
+            return DiscussionID(permanentID: discussion.discussionPermanentID, objectID: discussion.typedObjectID)
         } else {
             assertionFailure()
             return nil
@@ -99,82 +161,11 @@ extension OlvidUserActivitySingleton: UINavigationControllerDelegate {
     }
     
     
-    /// This singleton is set as the delegate of the four UINavigationControllers (which are ObvFlowControllers) corresponding to the four main tabs (discussions, contacts,
-    /// groups, and invitations). It is also the delegate of the navigation controller constructed when using a split screen (e.g., on an iPad), where the split view controller shows
-    /// a UINavigationController for its secondary view controller. Being a delegate of these UINavigationControllers makes it possible to be notified each time their stack of
-    /// controllers is updated (which happens, e.g., when the user pushes a new discussion on screen, or pops one). Each time this happens, we get a change to update
-    /// the current user activity.
-    func navigationController(_ navigationController: UINavigationController, willShow viewController: UIViewController, animated: Bool) {
-
-        guard navigationController.viewControllers.isEmpty == false else { // this sanity check is done when we're removing all of the view controllers (`navigationController.viewControllers = []`). there is no visible view controller, thus this method fails in swift
-            currentUserActivity = nil
-            currentDiscussionPermanentID = nil
-            return
-        }
-        
-        // Determine the current (single) discussion
-        
-        let currentDiscussion: ObvDiscussionIdentifier?
-        
-        switch viewController {
-        case let vc as SomeSingleDiscussionViewController:
-            currentDiscussion = determineCurrentDiscussionWhenShowing(vc)
-        case is OlvidPlaceholderViewController:
-            currentDiscussion = nil
-        default:
-            if navigationController is ObvFlowController {
-                // This happens when changing tab on an iPhone or on an Mac
-                assert(navigationController.parent?.parent is UISplitViewController == true)
-                if (navigationController.parent?.parent as? UISplitViewController)?.isCollapsed == true {
-                    // iPhone case: The ObvFlowController does define the shown discussion
-                    currentDiscussion = nil
-                } else {
-                    assert((navigationController.parent?.parent as? UISplitViewController)?.isCollapsed == false)
-                    // Mac case: The ObvFlowController does *not* define the shown discussion
-                    currentDiscussion = currentUserActivity?.currentDiscussion
-                }
-            } else {
-                currentDiscussion = currentUserActivity?.currentDiscussion
-            }
-        }
-        
-        // Determine the activity type
-        
-        let newUserActivity: OlvidUserActivity
-        
-        switch navigationController {
-        case let flowController as DiscussionsFlowViewController:
-            newUserActivity = .init(ownedCryptoId: flowController.currentOwnedCryptoId, selectedTab: .latestDiscussions, currentDiscussion: currentDiscussion)
-        case let flowController as ContactsFlowViewController:
-            newUserActivity = .init(ownedCryptoId: flowController.currentOwnedCryptoId, selectedTab: .contacts, currentDiscussion: currentDiscussion)
-        case let flowController as GroupsFlowViewController:
-            newUserActivity = .init(ownedCryptoId: flowController.currentOwnedCryptoId, selectedTab: .groups, currentDiscussion: currentDiscussion)
-        case let flowController as NewInvitationsFlowViewController:
-            newUserActivity = .init(ownedCryptoId: flowController.currentOwnedCryptoId, selectedTab: .invitations, currentDiscussion: currentDiscussion)
-        default:
-            if let mainFlowViewController = navigationController.parent as? MainFlowViewController {
-                guard let currentUserActivity else { return }
-                newUserActivity = currentUserActivity
-                    .withUpdatedCurrentDiscussion(currentDiscussion)
-                    .withUpdatedOwnedCryptoId(mainFlowViewController.currentOwnedCryptoId)
-            } else {
-                assertionFailure()
-                return
-            }
-        }
-
-        // Update
-        
-        updateWith(newUserActivity: newUserActivity, viewController: viewController)
-
-    }
-    
-    
     private func updateWith(newUserActivity: OlvidUserActivity, viewController: UIViewController) {
         
         // Determine the current discussion's permanent ID
         
-        let newCurrentDiscussionPermanentID: DiscussionPermanentID?
+        let newCurrentDiscussionPermanentID: OlvidUserActivitySingleton.DiscussionID?
         if let currentDiscussion = newUserActivity.currentDiscussion {
             newCurrentDiscussionPermanentID = determineDiscussionPermanentID(from: currentDiscussion)
         } else {
@@ -201,13 +192,13 @@ extension OlvidUserActivitySingleton: UINavigationControllerDelegate {
                                     
             guard newUserActivity != previousUserActivity else { return }
             
-            let previousDiscussionPermanentID = self.currentDiscussionPermanentID
+            let previousDiscussionID = self.currentDiscussionID
             
             self.currentUserActivity = newUserActivity
-            self.currentDiscussionPermanentID = newCurrentDiscussionPermanentID
+            self.currentDiscussionID = newCurrentDiscussionPermanentID
             
             debugPrint("📺 Current user activity is \(newUserActivity.debugDescription)")
-            debugPrint("📺 Current discussion permanentID is \(currentDiscussionPermanentID?.debugDescription ?? "None")")
+            debugPrint("📺 Current discussion permanentID is \(currentDiscussionID?.objectID.debugDescription ?? "None")")
 
             // Inform the system about the user new activity
   
@@ -219,8 +210,8 @@ extension OlvidUserActivitySingleton: UINavigationControllerDelegate {
             
             // Notify
   
-            if previousDiscussionPermanentID != self.currentDiscussionPermanentID {
-                ObvMessengerInternalNotification.currentDiscussionDidChange(previousDiscussion: previousDiscussionPermanentID, currentDiscussion: currentDiscussionPermanentID)
+            if previousDiscussionID != self.currentDiscussionID {
+                ObvMessengerInternalNotification.currentDiscussionDidChange(previousDiscussion: previousDiscussionID?.permanentID, currentDiscussion: currentDiscussionID?.permanentID)
                     .postOnDispatchQueue()
             }
             
@@ -234,6 +225,39 @@ extension OlvidUserActivitySingleton: UINavigationControllerDelegate {
 
         }
 
+    }
+    
+}
+
+
+// MARK: - Producing a stream of OlvidUserActivitySingleton.DiscussionID
+
+extension OlvidUserActivitySingleton {
+    
+    func getAsyncStreamOfOlvidUserActivitySingletonDiscussionID() -> (streamUUID: UUID, stream: AsyncStream<OlvidUserActivitySingleton.DiscussionID?>) {
+        let streamUUID = UUID()
+        let stream = AsyncStream(OlvidUserActivitySingleton.DiscussionID?.self) { [weak self] (continuation: AsyncStream<OlvidUserActivitySingleton.DiscussionID?>.Continuation) in
+            guard let self else { continuation.finish(); return }
+            continuationForStreamUUID[streamUUID] = continuation
+        }
+        return (streamUUID, stream)
+
+    }
+    
+    func finishAsyncStreamOfOlvidUserActivitySingletonDiscussionID(streamUUID: UUID) {
+        if let continuation = continuationForStreamUUID.removeValue(forKey: streamUUID) {
+            continuation.finish()
+        }
+    }
+    
+    private func produceStreamsOnChangeOfDiscussionID() {
+        self.$currentDiscussionID
+            .sink { [weak self] newValue in
+                self?.continuationForStreamUUID.values.forEach { continuation in
+                    continuation.yield(newValue)
+                }
+            }
+            .store(in: &cancellables)
     }
     
 }

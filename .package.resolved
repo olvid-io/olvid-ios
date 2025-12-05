@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/openid/AppAuth-iOS",
       "state" : {
-        "revision" : "c89ed571ae140f8eb1142735e6e23d7bb8c34cb2",
-        "version" : "1.7.5"
+        "revision" : "145104f5ea9d58ae21b60add007c33c1cc0c948e",
+        "version" : "2.0.0"
       }
     },
     {

@@ -32,6 +32,8 @@ public enum CircledInitialsIcon: Hashable, Sendable {
     case personBadgePlus
     case personFillBadgeMinus
     case personFillBadgePlus
+    case personBust
+    case personBustFill
     
     
     public var icon: SystemIcon {
@@ -44,6 +46,8 @@ public enum CircledInitialsIcon: Hashable, Sendable {
         case .personBadgePlus: return .personBadgePlus
         case .personFillBadgeMinus: return .personFillBadgeMinus
         case .personFillBadgePlus: return .personFillBadgePlus
+        case .personBust: return .personBust
+        case .personBustFill: return .personBustFill
         }
     }
 

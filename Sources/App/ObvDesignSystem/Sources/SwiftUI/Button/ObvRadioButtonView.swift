@@ -35,6 +35,10 @@ public struct ObvRadioButtonView<T: Equatable>: View {
         self.value = value
         self._selectedValue = selectedValue
     }
+    
+    var accessibilityLabel: Text {
+        isSelected ? Text("SELECTED") : Text("UNSELECTED")
+    }
 
     private var isSelected: Bool { selectedValue == value }
     
@@ -52,6 +56,8 @@ public struct ObvRadioButtonView<T: Equatable>: View {
                     EmptyView()
                 }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
     }
     
 }

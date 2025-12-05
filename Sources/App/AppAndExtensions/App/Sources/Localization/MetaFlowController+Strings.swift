@@ -26,14 +26,6 @@ extension MetaFlowController {
     
     struct Strings {
         
-        struct AlertChannelEstablishementRestarted {
-            static let title = NSLocalizedString("The channel establishment was restarted", comment: "Alert title")
-        }
-        
-        struct AlertChannelEstablishementRestartedFailed {
-            static let title = NSLocalizedString("At least one of the channel establishment failed to restart", comment: "Alert title")
-        }
-
         static let authorizationRequired = NSLocalizedString("Authorization Required", comment: "Alert title")
         static let cameraAccessDeniedExplanation = NSLocalizedString("Olvid is not authorized to access the camera. You can change this setting within the Settings app.", comment: "Body of an alert")
         static let goToSettingsButtonTitle = NSLocalizedString("Open Settings", comment: "Button title")

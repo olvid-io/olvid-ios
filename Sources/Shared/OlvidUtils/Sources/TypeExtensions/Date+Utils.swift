@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,4 +29,17 @@ public extension Date {
         self.init(timeIntervalSince1970: Double(epochInMs) / 1000)
     }
 
+    static func obvMax(date1: Date?, date2: Date?) -> Date? {
+        switch (date1, date2) {
+            case (.none, .none):
+            return nil
+        case (.none, .some):
+            return date2
+        case (.some, .none):
+            return date1
+        case (.some(let d1), .some(let d2)):
+            return d1 > d2 ? d1 : d2
+        }
+    }
+    
 }

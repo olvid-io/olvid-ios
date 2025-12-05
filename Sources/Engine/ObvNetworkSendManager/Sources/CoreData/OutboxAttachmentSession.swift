@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,14 +25,11 @@ import OlvidUtils
 
 
 @objc(OutboxAttachmentSession)
-final class OutboxAttachmentSession: NSManagedObject, ObvManagedObject {
+final class OutboxAttachmentSession: NSManagedObject {
     
     // MARK: Internal constants
     
     private static let entityName = "OutboxAttachmentSession"
-    private static let attachmentKey = "attachment"
-    private static let rawIdentifierKey = "rawIdentifier"
-    private static let rawAppTypeKey = "rawAppType"
 
     // MARK: Attributes
     
@@ -49,8 +46,6 @@ final class OutboxAttachmentSession: NSManagedObject, ObvManagedObject {
     
     fileprivate static let backgroundURLSessionIdentifierPrefix = "UploadAttachmentSession"
 
-    weak var obvContext: ObvContext?
-
     private(set) var appType: AppType? {
         get { return AppType(rawValue: rawAppType) }
         set { self.rawAppType = newValue!.rawValue }
@@ -61,9 +56,9 @@ final class OutboxAttachmentSession: NSManagedObject, ObvManagedObject {
     // Initializer
     
     convenience init?(attachment: OutboxAttachment, appType: AppType) {
-        guard let obvContext = attachment.obvContext else { return nil }
-        let entityDescription = NSEntityDescription.entity(forEntityName: OutboxAttachmentSession.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        guard let context = attachment.managedObjectContext else { return nil }
+        let entityDescription = NSEntityDescription.entity(forEntityName: OutboxAttachmentSession.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.appType = appType
         self.rawIdentifier = UUID()
         self.timestamp = Date()
@@ -74,55 +69,75 @@ final class OutboxAttachmentSession: NSManagedObject, ObvManagedObject {
 
 extension OutboxAttachmentSession {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case rawAppType = "rawAppType"
+            case rawIdentifier = "rawIdentifier"
+            case timestamp = "timestamp"
+            // Relationships
+            case attachment = "attachment"
+        }
+        static var withoutAttachment: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.attachment)
+        }
+        static func withAppType(_ appType: AppType) -> NSPredicate {
+            NSPredicate(Key.rawAppType, EqualToInt: appType.rawValue)
+        }
+        static func withRawIdentifier(_ rawIdentifier: UUID) -> NSPredicate {
+            NSPredicate(Key.rawIdentifier, EqualToUuid: rawIdentifier)
+        }
+    }
+    
     @nonobjc static func fetchRequest() -> NSFetchRequest<OutboxAttachmentSession> {
         return NSFetchRequest<OutboxAttachmentSession>(entityName: OutboxAttachmentSession.entityName)
     }
 
     
-    static func deleteAllOrphaned(within obvContext: ObvContext) throws {
+    static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: OutboxAttachmentSession.entityName)
-        fetchRequest.predicate = NSPredicate(format: "%K == NIL", attachmentKey)
+        fetchRequest.predicate = Predicate.withoutAttachment
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }
     }
     
     
-    static func getSessionIdentifiersOfAllOrphanedOutboxAttachmentSession(within obvContext: ObvContext) throws -> Set<String> {
+    static func getSessionIdentifiersOfAllOrphanedOutboxAttachmentSession(within context: NSManagedObjectContext) throws -> Set<String> {
         let request: NSFetchRequest<OutboxAttachmentSession> = OutboxAttachmentSession.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == NIL", attachmentKey)
-        request.propertiesToFetch = [rawIdentifierKey]
-        let items = try obvContext.fetch(request)
+        request.predicate = Predicate.withoutAttachment
+        request.propertiesToFetch = [Predicate.Key.rawIdentifier.rawValue]
+        let items = try context.fetch(request)
         return Set(items.map({ $0.sessionIdentifier }))
     }
     
     
-    static func getAll(within obvContext: ObvContext) throws -> [OutboxAttachmentSession] {
+    static func getAll(within context: NSManagedObjectContext) throws -> [OutboxAttachmentSession] {
         let request: NSFetchRequest<OutboxAttachmentSession> = OutboxAttachmentSession.fetchRequest()
-        return try obvContext.fetch(request)
+        return try context.fetch(request)
     }
     
     
-    static func getAllCreatedByAppType(_ appType: AppType, within obvContext: ObvContext) throws -> [OutboxAttachmentSession] {
+    static func getAllCreatedByAppType(_ appType: AppType, within context: NSManagedObjectContext) throws -> [OutboxAttachmentSession] {
         let request: NSFetchRequest<OutboxAttachmentSession> = OutboxAttachmentSession.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %d", rawAppTypeKey, appType.rawValue)
-        return try obvContext.fetch(request)
+        request.predicate = Predicate.withAppType(appType)
+        return try context.fetch(request)
     }
 
-    static func getWithSessionIdentifier(_ sessionIdentifier: String, within obvContext: ObvContext) throws -> OutboxAttachmentSession? {
+    static func getWithSessionIdentifier(_ sessionIdentifier: String, within context: NSManagedObjectContext) throws -> OutboxAttachmentSession? {
         guard let rawIdentifier = parseSessionIdentifier(sessionIdentifier) else { return nil }
         let request: NSFetchRequest<OutboxAttachmentSession> = OutboxAttachmentSession.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", rawIdentifierKey, rawIdentifier as NSUUID)
+        request.predicate = Predicate.withRawIdentifier(rawIdentifier)
         request.fetchLimit = 1
-        return try obvContext.fetch(request).first
+        return try context.fetch(request).first
     }
 }
 

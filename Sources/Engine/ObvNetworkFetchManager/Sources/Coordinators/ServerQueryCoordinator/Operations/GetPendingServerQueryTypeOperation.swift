@@ -46,7 +46,7 @@ final class GetPendingServerQueryTypeOperation: ContextualOperationWithSpecificR
         
         do {
             
-            guard let serverQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectID, delegateManager: delegateManager, within: obvContext) else {
+            guard let serverQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectID, within: obvContext.context) else {
                 return cancel(withReason: .pendingServerQueryNotFound)
             }
             
@@ -79,7 +79,7 @@ final class GetPendingServerQueryTypeOperation: ContextualOperationWithSpecificR
                     .uploadPreKeyForCurrentDevice:
                 
                 guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedIdentity, flowId: flowId) else {
-                    serverQuery.deletePendingServerQuery(within: obvContext)
+                    try? serverQuery.deletePendingServerQuery()
                     return cancel(withReason: .ownedIdentityIsNotActive)
                 }
                 

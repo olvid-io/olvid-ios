@@ -24,36 +24,45 @@ import ObvDesignSystem
 
 
 @MainActor
-protocol EditGroupTypeViewDataSource: AnyObject {
-    func getAsyncSequenceOfSingleGroupV2MainViewModel(groupIdentifier: ObvGroupV2Identifier) throws -> (streamUUID: UUID, stream: AsyncStream<SingleGroupV2MainViewModelOrNotFound>)
-    func finishAsyncSequenceOfSingleGroupV2MainViewModel(streamUUID: UUID)
+public protocol EditGroupTypeViewDataSource {
+    func getAsyncSequenceOfSingleGroupV2MainViewModel(_ view: EditGroupTypeView, groupIdentifier: ObvGroupV2Identifier) async throws -> (streamUUID: UUID, stream: AsyncStream<SingleGroupV2MainViewModelOrNotFound>)
+    func finishAsyncSequenceOfSingleGroupV2MainViewModel(_ view: EditGroupTypeView, streamUUID: UUID)
 }
 
 
 @MainActor
-protocol EditGroupTypeViewActionsProtocol: AnyObject {
-    func userWantsToLeaveGroupFlow(groupIdentifier: ObvGroupV2Identifier)
-    func userWantsToUpdateGroupV2(groupIdentifier: ObvGroupV2Identifier, changeset: ObvGroupV2.Changeset) async throws // During edition
-    func userChosedGroupTypeAndWantsToSelectAdmins(groupIdentifier: ObvGroupV2Identifier, selectedGroupType: ObvGroupType) // During edition
-    func userChosedGroupTypeDuringGroupCreation(creationSessionUUID: UUID, ownedCryptoId: ObvCryptoId, selectedGroupType: ObvGroupType)
+public protocol EditGroupTypeViewActionsForEdition: AnyObject {
+    func userWantsToUpdateGroupV2(_ view: EditGroupTypeView, groupIdentifier: ObvGroupV2Identifier, changeset: ObvGroupV2.Changeset) async throws // During edition
 }
 
+
+@MainActor
+public protocol EditGroupTypeViewNavigationDuringCreation {
+    func userChosedGroupTypeDuringGroupCreation(_ view: EditGroupTypeView, creationSessionUUID: UUID, ownedCryptoId: ObvCryptoId, selectedGroupType: ObvGroupType)
+}
+
+
+@MainActor
+public protocol EditGroupTypeViewNavigationDuringEdition {
+    func userChosedGroupTypeAndWantsToSelectAdmins(_ view: EditGroupTypeView, groupIdentifier: ObvGroupV2Identifier, selectedGroupType: ObvGroupType)
+    func userWantsToLeaveGroupFlowAsGroupWasDisbanded(_ view: EditGroupTypeView, groupIdentifier: ObvGroupV2Identifier)
+    func editGroupTypeViewShouldBeDismissed(_ view: EditGroupTypeView, groupIdentifier: ObvGroupV2Identifier)
+}
 
 struct EditGroupTypeViewModel {
-    let initialGroupType: ObvGroupType?
+    let initialGroupType: ObvGroupType
 }
 
 
 
-struct EditGroupTypeView: View {
+public struct EditGroupTypeView: View {
     
     let mode: Mode
     let dataSource: EditGroupTypeViewDataSource
-    let actions: EditGroupTypeViewActionsProtocol
         
     enum Mode {
-        case creation(creationSessionUUID: UUID, ownedCryptoId: ObvCryptoId, preSelectedGroupType: ObvGroupType)
-        case edition(groupIdentifier: ObvTypes.ObvGroupV2Identifier)
+        case creation(creationSessionUUID: UUID, ownedCryptoId: ObvCryptoId, preSelectedGroupType: ObvGroupType, navigation: EditGroupTypeViewNavigationDuringCreation)
+        case edition(groupIdentifier: ObvTypes.ObvGroupV2Identifier, navigation: EditGroupTypeViewNavigationDuringEdition, actions: EditGroupTypeViewActionsForEdition)
     }
 
     @State private var model: EditGroupTypeViewModel? // Set only once
@@ -68,7 +77,7 @@ struct EditGroupTypeView: View {
 
     private func onAppear() {
         switch mode {
-        case .creation(creationSessionUUID: _, ownedCryptoId: _, preSelectedGroupType: let preSelectedGroupType):
+        case .creation(creationSessionUUID: _, ownedCryptoId: _, preSelectedGroupType: let preSelectedGroupType, navigation: _):
             // We don't need any stream during a group creation.
             // Instead, if the selectedGroupTypeValue is nil, we set it to the preselected value
             if self.selectedGroupTypeValue == nil {
@@ -85,12 +94,12 @@ struct EditGroupTypeView: View {
                     self.remoteDeleteAnythingPolicy = remoteDeleteAnythingPolicy
                 }
             }
-        case .edition(let groupIdentifier):
+        case .edition(groupIdentifier: let groupIdentifier, navigation: let navigation, actions: _):
             Task {
                 do {
-                    let (streamUUID, stream) = try dataSource.getAsyncSequenceOfSingleGroupV2MainViewModel(groupIdentifier: groupIdentifier)
+                    let (streamUUID, stream) = try await dataSource.getAsyncSequenceOfSingleGroupV2MainViewModel(self, groupIdentifier: groupIdentifier)
                     if let previousStreamUUID = self.modelStreamUUID {
-                        dataSource.finishAsyncSequenceOfSingleGroupV2MainViewModel(streamUUID: previousStreamUUID)
+                        dataSource.finishAsyncSequenceOfSingleGroupV2MainViewModel(self, streamUUID: previousStreamUUID)
                     }
                     self.modelStreamUUID = streamUUID
                     for await item in stream {
@@ -105,7 +114,7 @@ struct EditGroupTypeView: View {
                                 self.model = nil
                             }
                             
-                            actions.userWantsToLeaveGroupFlow(groupIdentifier: groupIdentifier)
+                            navigation.userWantsToLeaveGroupFlowAsGroupWasDisbanded(self, groupIdentifier: groupIdentifier)
                             
                         case .model(let model):
                             
@@ -126,8 +135,6 @@ struct EditGroupTypeView: View {
                                         self.selectedGroupTypeValue = .advanced
                                         self.isReadOnly = isReadOnly
                                         self.remoteDeleteAnythingPolicy = remoteDeleteAnythingPolicy
-                                    case .none:
-                                        self.selectedGroupTypeValue = nil
                                     }
                                 }
                             }
@@ -145,7 +152,7 @@ struct EditGroupTypeView: View {
     
     private func onDisappear() {
         if let previousStreamUUID = self.modelStreamUUID {
-            dataSource.finishAsyncSequenceOfSingleGroupV2MainViewModel(streamUUID: previousStreamUUID)
+            dataSource.finishAsyncSequenceOfSingleGroupV2MainViewModel(self, streamUUID: previousStreamUUID)
             self.modelStreamUUID = nil
         }
     }
@@ -176,19 +183,19 @@ struct EditGroupTypeView: View {
         guard selectedGroupTypeValue == .standard else { assertionFailure(); return }
         
         switch mode {
-        case .creation(creationSessionUUID: let creationSessionUUID, ownedCryptoId: let ownedCryptoId, preSelectedGroupType: _):
-            actions.userChosedGroupTypeDuringGroupCreation(creationSessionUUID: creationSessionUUID, ownedCryptoId: ownedCryptoId, selectedGroupType: selectedGroupType)
-        case .edition(groupIdentifier: let groupIdentifier):
+        case .creation(creationSessionUUID: let creationSessionUUID, ownedCryptoId: let ownedCryptoId, preSelectedGroupType: _, navigation: let navigation):
+            navigation.userChosedGroupTypeDuringGroupCreation(self, creationSessionUUID: creationSessionUUID, ownedCryptoId: ownedCryptoId, selectedGroupType: selectedGroupType)
+        case .edition(groupIdentifier: let groupIdentifier, navigation: let navigation, actions: let actions):
             guard let serializedGroupType = try? selectedGroupType.toSerializedGroupType() else { assertionFailure(); return }
             let changes: Set<ObvGroupV2.Change> = [.groupType(serializedGroupType: serializedGroupType)]
             isInterfaceDisabled = true
             hudCategory = .progress
             Task {
                 do {
-                    try await actions.userWantsToUpdateGroupV2(groupIdentifier: groupIdentifier, changeset: .init(changes: changes))
+                    try await actions.userWantsToUpdateGroupV2(self, groupIdentifier: groupIdentifier, changeset: .init(changes: changes))
                     hudCategory = .checkmark
                     try? await Task.sleep(seconds: 1)
-                    actions.userWantsToLeaveGroupFlow(groupIdentifier: groupIdentifier)
+                    navigation.editGroupTypeViewShouldBeDismissed(self, groupIdentifier: groupIdentifier)
                 } catch {
                     assertionFailure()
                     hudCategory = .xmark
@@ -205,16 +212,16 @@ struct EditGroupTypeView: View {
         guard selectedGroupType != .standard else { assertionFailure(); return }
         
         switch mode {
-        case .creation(creationSessionUUID: let creationSessionUUID, ownedCryptoId: let ownedCryptoId, preSelectedGroupType: _):
-            actions.userChosedGroupTypeDuringGroupCreation(creationSessionUUID: creationSessionUUID, ownedCryptoId: ownedCryptoId, selectedGroupType: selectedGroupType)
-        case .edition(let groupIdentifier):
-            actions.userChosedGroupTypeAndWantsToSelectAdmins(groupIdentifier: groupIdentifier, selectedGroupType: selectedGroupType)
+        case .creation(creationSessionUUID: let creationSessionUUID, ownedCryptoId: let ownedCryptoId, preSelectedGroupType: _, navigation: let navigation):
+            navigation.userChosedGroupTypeDuringGroupCreation(self, creationSessionUUID: creationSessionUUID, ownedCryptoId: ownedCryptoId, selectedGroupType: selectedGroupType)
+        case .edition(groupIdentifier: let groupIdentifier, navigation: let navigation, actions: _):
+            navigation.userChosedGroupTypeAndWantsToSelectAdmins(self, groupIdentifier: groupIdentifier, selectedGroupType: selectedGroupType)
         }
         
     }
 
     
-    var body: some View {
+    public var body: some View {
         ZStack {
             
             Color(AppTheme.shared.colorScheme.systemBackground)
@@ -262,11 +269,11 @@ struct EditGroupTypeView: View {
                 guard let selectedGroupTypeValue, let model else { return true }
                 switch selectedGroupTypeValue {
                 case .standard:
-                    return selectedGroupTypeValue == model.initialGroupType?.value
+                    return selectedGroupTypeValue == model.initialGroupType.value
                 case .managed:
-                    return selectedGroupTypeValue == model.initialGroupType?.value
+                    return selectedGroupTypeValue == model.initialGroupType.value
                 case .readOnly:
-                    return selectedGroupTypeValue == model.initialGroupType?.value
+                    return selectedGroupTypeValue == model.initialGroupType.value
                 case .advanced:
                     return false // Since we want to allow navigation to the screen allowing to choose advanced parameters
                 }
@@ -382,11 +389,7 @@ struct EditGroupTypeView: View {
 
 extension EditGroupTypeViewModel {
     init(singleGroupV2MainViewModel: SingleGroupV2MainViewModel) {
-        guard let groupType = singleGroupV2MainViewModel.groupType else {
-            self.init(initialGroupType: nil)
-            return
-        }
-        self.init(initialGroupType: groupType)
+        self.init(initialGroupType: singleGroupV2MainViewModel.groupType)
     }
 }
 
@@ -408,7 +411,7 @@ extension EditGroupTypeViewModel {
 @MainActor
 private final class DataSourceForPreviews: EditGroupTypeViewDataSource {
     
-    func getAsyncSequenceOfSingleGroupV2MainViewModel(groupIdentifier: ObvGroupV2Identifier) throws -> (streamUUID: UUID, stream: AsyncStream<SingleGroupV2MainViewModelOrNotFound>) {
+    func getAsyncSequenceOfSingleGroupV2MainViewModel(_ view: EditGroupTypeView, groupIdentifier: ObvGroupV2Identifier) throws -> (streamUUID: UUID, stream: AsyncStream<SingleGroupV2MainViewModelOrNotFound>) {
         let stream = AsyncStream(SingleGroupV2MainViewModelOrNotFound.self) { (continuation: AsyncStream<SingleGroupV2MainViewModelOrNotFound>.Continuation) in
             let model = PreviewsHelper.singleGroupV2MainViewModels[0]
             continuation.yield(.model(model: model))
@@ -416,8 +419,7 @@ private final class DataSourceForPreviews: EditGroupTypeViewDataSource {
         return (UUID(), stream)
     }
     
-    
-    func finishAsyncSequenceOfSingleGroupV2MainViewModel(streamUUID: UUID) {
+    func finishAsyncSequenceOfSingleGroupV2MainViewModel(_ view: EditGroupTypeView, streamUUID: UUID) {
         // Nothing to terminate in these previews
     }
     
@@ -425,26 +427,27 @@ private final class DataSourceForPreviews: EditGroupTypeViewDataSource {
 
 
 @MainActor
-private final class ActionsForPreviews: EditGroupTypeViewActionsProtocol {
-    
-    func userChosedGroupTypeDuringGroupCreation(creationSessionUUID: UUID, ownedCryptoId: ObvTypes.ObvCryptoId, selectedGroupType: ObvAppTypes.ObvGroupType) {
-        // Nothing to simulate
-    }
-    
-    func userChosedGroupTypeAndWantsToSelectAdmins(groupIdentifier: ObvTypes.ObvGroupV2Identifier, selectedGroupType: ObvAppTypes.ObvGroupType) {
-        // Nothing to simulate
-    }
-    
-    func userWantsToUpdateGroupV2(groupIdentifier: ObvTypes.ObvGroupV2Identifier, changeset: ObvTypes.ObvGroupV2.Changeset) async throws {
+private final class ActionsForPreviews: EditGroupTypeViewActionsForEdition {
+            
+    func userWantsToUpdateGroupV2(_ view: EditGroupTypeView, groupIdentifier: ObvTypes.ObvGroupV2Identifier, changeset: ObvTypes.ObvGroupV2.Changeset) async throws {
         try await Task.sleep(seconds: 1)
     }
-    
-    func userWantsToLeaveGroupFlow(groupIdentifier: ObvGroupV2Identifier) {
-        // Nothing to simulate
-    }
-    
+        
 }
 
+
+@MainActor
+private final class NavigationForPreviews {}
+
+extension NavigationForPreviews: EditGroupTypeViewNavigationDuringEdition {
+    func userChosedGroupTypeAndWantsToSelectAdmins(_ view: EditGroupTypeView, groupIdentifier: ObvTypes.ObvGroupV2Identifier, selectedGroupType: ObvAppTypes.ObvGroupType) {}
+    func userWantsToLeaveGroupFlowAsGroupWasDisbanded(_ view: EditGroupTypeView, groupIdentifier: ObvGroupV2Identifier) {}
+    func editGroupTypeViewShouldBeDismissed(_ view: EditGroupTypeView, groupIdentifier: ObvGroupV2Identifier) {}
+}
+ 
+extension NavigationForPreviews: EditGroupTypeViewNavigationDuringCreation {
+    func userChosedGroupTypeDuringGroupCreation(_ view: EditGroupTypeView, creationSessionUUID: UUID, ownedCryptoId: ObvTypes.ObvCryptoId, selectedGroupType: ObvAppTypes.ObvGroupType) {}
+}
 
 @MainActor
 private let dataSourceForPreviews = DataSourceForPreviews()
@@ -452,17 +455,17 @@ private let dataSourceForPreviews = DataSourceForPreviews()
 @MainActor
 private let actionsForPreviews = ActionsForPreviews()
 
+@MainActor
+private let navigationForPreviews = NavigationForPreviews()
 
 #Preview("Creation") {
-    EditGroupTypeView(mode: .creation(creationSessionUUID: UUID(), ownedCryptoId: PreviewsHelper.cryptoIds[0], preSelectedGroupType: .standard),
-                      dataSource: dataSourceForPreviews,
-                      actions: actionsForPreviews)
+    EditGroupTypeView(mode: .creation(creationSessionUUID: UUID(), ownedCryptoId: PreviewsHelper.cryptoIds[0], preSelectedGroupType: .standard, navigation: navigationForPreviews),
+                      dataSource: dataSourceForPreviews)
 }
 
 #Preview("Edition") {
-    EditGroupTypeView(mode: .edition(groupIdentifier: PreviewsHelper.obvGroupV2Identifiers[0]),
-                      dataSource: dataSourceForPreviews,
-                      actions: actionsForPreviews)
+    EditGroupTypeView(mode: .edition(groupIdentifier: PreviewsHelper.obvGroupV2Identifiers[0], navigation: navigationForPreviews, actions: actionsForPreviews),
+                      dataSource: dataSourceForPreviews)
 }
 
 #endif

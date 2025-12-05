@@ -19,7 +19,7 @@
 
 import UIKit
 import BackgroundTasks
-import os.log
+import OSLog
 import CoreData
 import ObvEngine
 import ObvUICoreData
@@ -30,7 +30,6 @@ import ObvAppCoreConstants
 /// See https://developer.apple.com/documentation/backgroundtasks/starting-and-terminating-tasks-during-development for testing background tasks.
 final class BackgroundTasksManager {
     
-    private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: BackgroundTasksManager.self))
     private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: BackgroundTasksManager.self))
 
     /// Also used in info.plist in "Permitted background task scheduler identifiers".
@@ -45,6 +44,7 @@ final class BackgroundTasksManager {
     enum ObvProcessingTask: String, CaseIterable {
         case appDatabaseSync = "io.olvid.background.processing.database.sync"
         case performNewBackup = "io.olvid.background.processing.perform.new.backup"
+        case appInboxSyncMessageIdsKeptForLater = "io.olvid.background.processing.app.inbox.sync.message.ids.kept.for.later"
     }
 
     weak var delegate: BackgroundTasksManagerDelegate?
@@ -101,7 +101,7 @@ final class BackgroundTasksManager {
     }
     
     init() {
-        os_log("🤿 Registering background task", log: Self.log, type: .info)
+        Self.logger.info("🤿 Registering background task")
         
         // Register the refresh background task
         
@@ -131,10 +131,10 @@ final class BackgroundTasksManager {
                     return taskResults
                 }
                 
-                os_log("🤿 All Background Tasks did complete", log: Self.log, type: .info)
+                Self.logger.info("🤿 All Background Tasks did complete")
                 //ObvDisplayableLogs.shared.log("All Background Tasks did complete")
                 for taskResult in taskResults {
-                    os_log("🤿 Background Task '%{public}@' did complete. Success is: %{public}@", log: Self.log, type: .info, taskResult.taskDescription, taskResult.isSuccess.description)
+                    Self.logger.info("🤿 Background Task '\(taskResult.taskDescription, privacy: .public)' did complete. Success is: \(taskResult.isSuccess.description, privacy: .public)")
                     //ObvDisplayableLogs.shared.log("Background Task '\(taskResult.taskDescription)' did complete. Success is: \(taskResult.isSuccess.description)")
                 }
                 backgroundTask.setTaskCompleted(success: true)
@@ -151,6 +151,8 @@ final class BackgroundTasksManager {
                 Task { [weak self] in
                     guard let self else { assertionFailure(); task.setTaskCompleted(success: false); return }
                     switch processingTask {
+                    case .appInboxSyncMessageIdsKeptForLater:
+                        await self.handleAppInboxSyncMessageIdsKeptForLater(bgProcessingTask: bgProcessingTask)
                     case .appDatabaseSync:
                         await self.handleAppDatabaseSync(bgProcessingTask: bgProcessingTask)
                     case .performNewBackup:
@@ -189,7 +191,7 @@ final class BackgroundTasksManager {
                 }
                 return expiration.expirationDate
             } catch {
-                os_log("🤿 We could not get earliest message expiration: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                Self.logger.fault("🤿 We could not get earliest message expiration: \(error.localizedDescription, privacy: .public)")
                 assertionFailure()
                 return nil
             }
@@ -202,7 +204,7 @@ final class BackgroundTasksManager {
                 }
                 return expiration
             } catch {
-                os_log("🤿 We could not get earliest mute expiration: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                Self.logger.fault("🤿 We could not get earliest mute expiration: \(error.localizedDescription, privacy: .public)")
                 assertionFailure()
                 return nil
             }
@@ -242,10 +244,10 @@ final class BackgroundTasksManager {
                 try BGTaskScheduler.shared.submit(request)
             } catch let error {
                 //ObvDisplayableLogs.shared.log("Could not schedule background task: \(error.localizedDescription)")
-                os_log("🤿 Could not schedule background task: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                Self.logger.fault("🤿 Could not schedule background task: \(error.localizedDescription, privacy: .public)")
             }
             //ObvDisplayableLogs.shared.log("Background task was submitted with earliest begin date \(String(describing: earliestBeginDate.description))")
-            os_log("🤿 Background task was submitted with earliest begin date %{public}@", log: Self.log, type: .info, String(describing: earliestBeginDate.description))
+            Self.logger.info("🤿 Background task was submitted with earliest begin date \(String(describing: earliestBeginDate.description), privacy: .public)")
         }
 
     }
@@ -253,6 +255,34 @@ final class BackgroundTasksManager {
     
     private func scheduleProcessingTask(_ processingTask: ObvProcessingTask) async {
         switch processingTask {
+            
+        case .appInboxSyncMessageIdsKeptForLater:
+            
+            // If there already is a pending task request, we don't schedule one
+            
+            let pendingTaskRequests = await BGTaskScheduler.shared.pendingTaskRequests().filter({ $0.identifier == processingTask.rawValue })
+
+            if let pendingRequest = pendingTaskRequests.first {
+                
+                Self.logger.info("🤿 We don't schedule a \(processingTask.rawValue) processing task as there already a pending task with earliestBeginDate \(pendingRequest.earliestBeginDate?.description ?? "none")")
+                
+            } else {
+             
+                guard let userDefaults else { assertionFailure(); return }
+                let dateOfLastAppInboxSyncMessageIdsKeptForLater = userDefaults.dateOrNil(forKey: ObvMessengerConstants.UserDefaultsKeys.dateOfLastAppInboxSyncMessageIdsKeptForLater.rawValue) ?? .distantPast
+                let dateOfNextAppDatabaseSync = max(Date.now, dateOfLastAppInboxSyncMessageIdsKeptForLater.addingTimeInterval(.init(hours: 6)))
+                let request = BGProcessingTaskRequest(identifier: processingTask.rawValue)
+                request.earliestBeginDate = dateOfNextAppDatabaseSync
+                request.requiresNetworkConnectivity = false
+                do {
+                    try BGTaskScheduler.shared.submit(request)
+                    debugPrint("Task submitted (\(processingTask.rawValue)")
+                } catch {
+                    Self.logger.fault("🤿 Could not schedule processing task \(processingTask.rawValue)")
+                    assertionFailure()
+                }
+                
+            }
             
         case .appDatabaseSync:
 
@@ -316,7 +346,7 @@ final class BackgroundTasksManager {
 
     
     private func commonCompletion(obvTask: ObvSubBackgroundTask, backgroundTask: BGTask, success: Bool) {
-        os_log("🤿 Background Task '%{public}' did complete. Success is: %{public}@", log: Self.log, type: .info, obvTask.description, success.description)
+        Self.logger.info("🤿 Background Task '\(obvTask.description, privacy: .public)' did complete. Success is: \(success.description, privacy: .public)")
         //ObvDisplayableLogs.shared.log("Background Task '\(obvTask.description)' did complete. Success is: \(success.description)")
         backgroundTask.setTaskCompleted(success: success)
     }
@@ -332,7 +362,7 @@ extension BackgroundTasksManager {
     private func processListMessagesOnServerBackgroundTaskWasLaunched(obvEngine: ObvEngine, success: @escaping (Bool) -> Void) async {
         
         let tag = UUID()
-        os_log("🤿 We are performing a background fetch. We tag it as %{public}@", log: Self.log, type: .info, tag.uuidString)
+        Self.logger.info("🤿 We are performing a background fetch. We tag it as \(tag.uuidString, privacy: .public)")
         
         let isSuccess: Bool
         do {
@@ -351,12 +381,49 @@ extension BackgroundTasksManager {
             assertionFailure()
         }
         
-        os_log("🤿 Calling the completion handler of the background fetch tagged as %{public}@. The result is %{public}@", log: Self.log, type: .info, tag.uuidString, isSuccess.description)
+        Self.logger.info("🤿 Calling the completion handler of the background fetch tagged as \(tag.uuidString, privacy: .public). The result is \(isSuccess.description, privacy: .public)")
 
         return success(isSuccess)
         
     }
 
+}
+
+
+// MARK: - Handling the
+
+extension BackgroundTasksManager {
+    
+    private func handleAppInboxSyncMessageIdsKeptForLater(bgProcessingTask: BGProcessingTask) async {
+        
+        // Handle the task
+        
+        guard let delegate = self.delegate else {
+            ObvDisplayableLogs.shared.log("🤿 The delegate is not set. Cannot handle the task.")
+            return bgProcessingTask.setTaskCompleted(success: false)
+        }
+        
+        do {
+            ObvDisplayableLogs.shared.log("🤿 Calling the syncMessageIdsKeptForLater delegate method.")
+            try await delegate.syncMessageIdsKeptForLater(self)
+        } catch {
+            ObvDisplayableLogs.shared.log("🤿 The call to the syncMessageIdsKeptForLater delegate method failed.")
+            return bgProcessingTask.setTaskCompleted(success: false)
+        }
+        
+        ObvDisplayableLogs.shared.log("🤿 The call to the syncMessageIdsKeptForLater delegate method was successful.")
+
+        // Re-schedule a task of the same type
+        
+        await scheduleProcessingTask(.appInboxSyncMessageIdsKeptForLater)
+
+        // Complete the task
+        
+        return bgProcessingTask.setTaskCompleted(success: true)
+
+    }
+
+    
 }
 
 

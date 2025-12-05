@@ -60,11 +60,7 @@ struct VerticalUsersView<Model: VerticalUsersViewModelProtocol>: View {
                     ContentUnavailableView.search
                 }
             } else {
-                if #available(iOS 18.0, *) {
-                    ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_TEXT") , systemIcon: .person, description: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION_WHEN_USING_FLOATING_BUTTON"))
-                } else {
-                    ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_TEXT"), systemIcon: .person, description: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION"))
-                }
+                ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_TEXT") , systemIcon: .person, description: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION_WHEN_USING_FLOATING_BUTTON"))
             }
         } else {
             UsersScrollingView(model: model, actions: actions, configuration: configuration)

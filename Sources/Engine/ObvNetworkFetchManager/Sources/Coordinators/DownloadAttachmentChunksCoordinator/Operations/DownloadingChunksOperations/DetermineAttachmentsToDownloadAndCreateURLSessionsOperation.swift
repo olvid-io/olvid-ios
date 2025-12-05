@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,6 @@ import CoreData
 import OlvidUtils
 
 
-/// 2023-12 ok
 final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: ContextualOperationWithSpecificReasonForCancel<DetermineAttachmentsToDownloadAndCreateURLSessionsOperation.ReasonForCancel>, @unchecked Sendable {
     
     private let uuid = UUID()
@@ -53,14 +52,14 @@ final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: Context
             let attachmentsToDownload: [InboxAttachment]
             switch kind {
             case .allDownloadableAttachmentsWithoutSession:
-                let allDownloadableAttachments = try InboxAttachment.getAllDownloadableWithoutSession(within: obvContext)
+                let allDownloadableAttachments = try InboxAttachment.getAllDownloadableWithoutSession(within: obvContext.context)
                 attachmentsToDownload = allDownloadableAttachments
             case .allDownloadableAttachmentsWithoutSessionForMessage(messageId: let messageId):
-                let allDownloadableAttachments = try InboxAttachment.getAllDownloadableWithoutSession(within: obvContext)
+                let allDownloadableAttachments = try InboxAttachment.getAllDownloadableWithoutSession(within: obvContext.context)
                 let attachments = allDownloadableAttachments.filter({ $0.messageId == messageId })
                 attachmentsToDownload = attachments
             case .specificDownloadableAttachmentsWithoutSession(attachmentId: let attachmentId, resumeRequestedByApp: let resumeRequestedByApp):
-                guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
+                guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else { return }
                 if resumeRequestedByApp {
                     try attachment.resumeDownload()
                     attachmentsToDownload = [attachment]
@@ -164,7 +163,7 @@ final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: Context
 
                 // Now that we have an URLSession for downloading the attachment, we determine the chunks to download
                 
-                let chunks = try InboxAttachmentChunk.getAllMissingAttachmentChunks(ofAttachmentId: attachmentId, within: obvContext)
+                let chunks = try InboxAttachmentChunk.getAllMissingAttachmentChunks(ofAttachmentId: attachmentId, within: obvContext.context)
 
                 guard !chunks.isEmpty else {
                     // All chunks are acknowledged. Mark the attachment as downloaded and continue with the next attachment

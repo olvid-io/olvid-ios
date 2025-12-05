@@ -23,7 +23,7 @@ import SwiftUI
 import OlvidUtils
 import os.log
 
-final public class CoreDataStack<PersistentContainerType: NSPersistentContainer> {
+final public class CoreDataStack<PersistentContainerType: NSPersistentContainer>: @unchecked Sendable {
     
     private let modelName: String
     private let transactionAuthor: String

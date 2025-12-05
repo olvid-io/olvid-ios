@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import ObvCrypto
-import os.log
+import OSLog
 import ObvSettings
 import ObvUICoreDataStructs
 import ObvTypes
@@ -35,7 +35,7 @@ extension PersistedContactGroup {
         let groupOwner: ObvCryptoId = try ObvCryptoId(identity: self.ownerIdentity)
         let groupV1Identifier = GroupV1Identifier(groupUid: self.groupUid, groupOwner: groupOwner)
         return .init(groupV1Identifier: groupV1Identifier,
-                     groupName: self.groupName,
+                     groupDisplayName: self.displayName,
                      category: self.category.structureCategory,
                      displayPhotoURL: self.displayPhotoURL,
                      contactIdentities: contactIdentities,

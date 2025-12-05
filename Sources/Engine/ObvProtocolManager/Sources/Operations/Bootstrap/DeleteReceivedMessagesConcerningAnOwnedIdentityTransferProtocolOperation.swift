@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,7 @@ final class DeleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocolOpera
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         do {
-            try ReceivedMessage.deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(within: obvContext)
+            try ReceivedMessage.deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(within: obvContext.context)
         } catch {
             return cancel(withReason: .coreDataError(error: error))
         }

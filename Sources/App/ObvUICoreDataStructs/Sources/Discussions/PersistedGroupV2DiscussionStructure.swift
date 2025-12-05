@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvTypes
 import ObvAppTypes
 
 
-public struct PersistedGroupV2DiscussionStructure {
+public struct PersistedGroupV2DiscussionStructure: Sendable {
 
     let groupIdentifier: Data
     let ownerIdentity: PersistedObvOwnedIdentityStructure

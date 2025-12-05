@@ -151,7 +151,7 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvIdentifia
                 try self.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: messageUploadTimestampFromServer)
                 _ = try PersistedMessageSystem(.discussionWasRemotelyWiped, optionalContactIdentity: contact, optionalOwnedCryptoId: nil, optionalCallLogItem: nil, discussion: self, timestamp: messageUploadTimestampFromServer)
             } catch {
-                assertionFailure(error.localizedDescription)
+                assertionFailure(error.localizedDescription) // In production, continue anyway
             }
             
         }
@@ -161,12 +161,12 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvIdentifia
     
     // MARK: - Inserting system messages on group members updates
     
-    func groupMemberHasJoined(_ memberIdentity: PersistedObvContactIdentity) throws {
-        try PersistedMessageSystem.insertMemberOfGroupV2HasJoinedSystemMessage(within: self, memberIdentity: memberIdentity)
+    func groupMemberHasJoined(_ memberIdentity: PersistedObvContactIdentity, markAsRead: Bool) throws {
+        try PersistedMessageSystem.insertMemberOfGroupV2HasJoinedSystemMessage(within: self, memberIdentity: memberIdentity, markAsRead: markAsRead)
     }
     
-    func groupMemberHasLeft(_ memberIdentity: PersistedObvContactIdentity) throws {
-        try PersistedMessageSystem.insertMemberOfGroupV2HasLeftSystemMessage(within: self, memberIdentity: memberIdentity)
+    func groupMemberHasLeft(_ memberIdentity: PersistedObvContactIdentity, markAsRead: Bool) throws {
+        try PersistedMessageSystem.insertMemberOfGroupV2HasLeftSystemMessage(within: self, memberIdentity: memberIdentity, markAsRead: markAsRead)
     }
     
     func ownedIdentityBecameAnAdmin() throws {
@@ -195,6 +195,12 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvIdentifia
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             PersistedDiscussion.Predicate.persistedDiscussion(withObjectID: objectID)
         }
+        static func withObvGroupV2Identifier(_ groupId: ObvGroupV2Identifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withOwnCryptoId(groupId.ownedCryptoId),
+                withGroupIdentifier(groupId.identifier.appGroupIdentifier),
+            ])
+        }
     }
     
     
@@ -222,7 +228,7 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvIdentifia
         case .preDiscussion, .active:
             throw ObvUICoreDataError.discussionIsNotLocked
         case .locked:
-            try discussion.deletePersistedDiscussion()
+            try discussion.deletePersistedDiscussionFromDatabase()
         }
     }
         
@@ -246,6 +252,21 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvIdentifia
         return try context.fetch(request).first
     }
 
+    
+    static func isPersistedGroupV2DiscussionExisting(groupId: ObvGroupV2Identifier, within context: NSManagedObjectContext) throws -> Bool {
+        return try getPersistedDiscussionGroupV2ObjectID(groupId: groupId, within: context) != nil
+    }
+
+    
+    static func getPersistedDiscussionGroupV2ObjectID(groupId: ObvGroupV2Identifier, within context: NSManagedObjectContext) throws -> TypeSafeManagedObjectID<PersistedGroupV2Discussion>? {
+        let batchFetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        batchFetchRequest.resultType = .managedObjectIDResultType
+        batchFetchRequest.predicate = Predicate.withObvGroupV2Identifier(groupId)
+        batchFetchRequest.fetchLimit = 1
+        let result = try context.fetch(batchFetchRequest) as? [NSManagedObjectID] ?? []
+        return result.map({ TypeSafeManagedObjectID<PersistedGroupV2Discussion>(objectID: $0) }).first
+    }
+    
 }
 
 

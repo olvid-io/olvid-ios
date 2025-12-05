@@ -37,11 +37,11 @@ public class PersistedContactGroup: NSManagedObject {
 
     // MARK: - Attributes
     
-    @NSManaged public private(set) var groupName: String
+    @NSManaged private var groupName: String? // Non-optional in the model
     @NSManaged private var groupUidRaw: Data
     @NSManaged public private(set) var note: String?
     @NSManaged public private(set) var ownerIdentity: Data // MUST be kept in sync with the owner relationship of subclasses
-    @NSManaged private var photoURL: URL? // Reset with the engine photo URL when it changes and during bootstrap
+    @NSManaged public private(set) var photoURL: URL? // Reset with the engine photo URL when it changes and during bootstrap
     @NSManaged private var rawCategory: Int
     @NSManaged private(set) var rawOwnedIdentityIdentity: Data // Required for core data constraints
 
@@ -87,11 +87,19 @@ public class PersistedContactGroup: NSManagedObject {
         return UID(uid: groupUidRaw)!
     }
     
+    public var groupNameSanitized: String? {
+        self.groupName?.trimmingCharacters(in: .whitespacesAndNewlines).mapToNilIfZeroLength()
+    }
+    
+    public var groupNameSanitizedOrDefaultName: String {
+        self.groupNameSanitized ?? String(localized: "GROUP_TITLE_WHEN_NO_SPECIFIC_TITLE_IS_GIVEN")
+    }
+    
     public var displayName: String {
         if let groupJoined = self as? PersistedContactGroupJoined {
-            return groupJoined.groupNameCustom ?? self.groupName
+            return groupJoined.groupNameCustom ?? groupNameSanitizedOrDefaultName
         } else {
-            return self.groupName
+            return groupNameSanitizedOrDefaultName
         }
     }
 
@@ -120,7 +128,7 @@ public class PersistedContactGroup: NSManagedObject {
 
 
     public var circledInitialsConfiguration: CircledInitialsConfiguration {
-        .group(photo: .url(url: displayPhotoURL), groupUid: groupUid)
+        .groupV1(photo: .url(url: displayPhotoURL), groupUid: groupUid)
     }
     
     
@@ -262,7 +270,10 @@ public class PersistedContactGroup: NSManagedObject {
     func processWipeMessageRequest(of messagesToDelete: [MessageReferenceJSON], receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> [InfoAboutWipedOrDeletedPersistedMessage] {
         
         guard self.contactIdentities.contains(contact) || self.ownerIdentity == contact.cryptoId.getIdentity() else {
-            throw ObvUICoreDataError.unexpectedContact
+            let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
         
         let infos = try discussion.processWipeMessageRequest(of: messagesToDelete, from: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -332,7 +343,10 @@ public class PersistedContactGroup: NSManagedObject {
     func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, source: ObvMessageSource, receivedLocation: ReceivedLocation?) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?) {
         
         guard self.contactIdentities.contains(contact) else {
-            throw ObvUICoreDataError.unexpectedContact
+            let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         return try discussion.createOrOverridePersistedMessageReceived(
@@ -366,7 +380,10 @@ public class PersistedContactGroup: NSManagedObject {
     func processUpdateMessageRequest(_ updateMessageJSON: UpdateMessageJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
 
         guard self.contactIdentities.contains(contact) else {
-            throw ObvUICoreDataError.unexpectedContact
+            let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         let updatedMessage = try discussion.processUpdateMessageRequest(updateMessageJSON, receivedFromContactCryptoId: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -425,7 +442,10 @@ public class PersistedContactGroup: NSManagedObject {
     func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage? {
         
         guard self.contactIdentities.contains(contact) else {
-            throw ObvUICoreDataError.unexpectedContact
+            let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         let updatedMessage = try discussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
@@ -446,13 +466,58 @@ public class PersistedContactGroup: NSManagedObject {
 
     }
 
+    // MARK: - Process poll vote requests
+
+    func processSetOrUpdatePollVoteOnMessageLocalRequest(from ownedIdentity: PersistedObvOwnedIdentity,
+                                                         for message: PersistedMessage,
+                                                         pollCandidateUUID: UUID,
+                                                         voted: Bool,
+                                                         version: Int) throws {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvUICoreDataError.unexpectedOwnedIdentity
+        }
+
+        try discussion.processSetOrUpdatePollVoteOnMessageLocalRequest(from: ownedIdentity, for: message, pollCandidateUUID: pollCandidateUUID, voted: voted, version: version)
+        
+    }
+
+    
+    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.contactIdentities.contains(contact) else {
+            let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
+        }
+
+        let updatedMessage = try discussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        return updatedMessage
+
+    }
+    
+    
+    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvUICoreDataError.unexpectedOwnedIdentity
+        }
+
+        let updatedMessage = try discussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        return updatedMessage
+
+    }
     
     // MARK: - Process screen capture detections
 
     func processDetectionThatSensitiveMessagesWereCaptured(_ screenCaptureDetectionJSON: ScreenCaptureDetectionJSON, from contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws {
         
         guard self.contactIdentities.contains(contact) else {
-            throw ObvUICoreDataError.unexpectedContact
+            let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         try discussion.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -518,7 +583,7 @@ public class PersistedContactGroup: NSManagedObject {
     
     // MARK: - Observers
     
-    private static var observersHolder = ObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
     
     public static func addObvObserver(_ newObserver: PersistedContactGroupObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -543,7 +608,7 @@ extension PersistedContactGroup {
         self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
 
         self.rawCategory = category.rawValue
-        self.groupName = groupName
+        self.groupName = groupName.sanitizedGroupName
         self.groupUidRaw = contactGroup.groupUid.raw
         self.ownerIdentity = contactGroup.groupOwner.cryptoId.getIdentity()
         self.photoURL = contactGroup.trustedOrLatestPhotoURL
@@ -556,10 +621,11 @@ extension PersistedContactGroup {
                                                                          ownedCryptoId: ownedIdentity.cryptoId,
                                                                          within: context) {
             try discussion.setStatus(to: .active)
+            try? discussion.resetTitle(to: groupNameSanitizedOrDefaultName)
             self.discussion = discussion
         } else {
             self.discussion = try PersistedGroupDiscussion(contactGroup: self,
-                                                           groupName: groupName,
+                                                           groupName: groupNameSanitizedOrDefaultName,
                                                            ownedIdentity: ownedIdentity,
                                                            status: .active,
                                                            isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
@@ -598,10 +664,9 @@ extension PersistedContactGroup {
     
 
     private func resetGroupName(to groupName: String) throws {
-        let newGroupName = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !newGroupName.isEmpty else { assertionFailure(); throw ObvUICoreDataError.tryingToResetGroupNameWithEmptyString }
-        if self.groupName != groupName {
-            self.groupName = groupName
+        let sanitizedGroupName = groupName.sanitizedGroupName
+        if self.groupName != sanitizedGroupName {
+            self.groupName = sanitizedGroupName
         }
         try resetDiscussionTitle()
     }
@@ -656,11 +721,11 @@ extension PersistedContactGroup {
             return
         }
         // We make sure all contact identities concern the same owned identity
-        let ownedIdentities = Set(contactIdentities.map { $0.ownedIdentity })
+        let ownedIdentities = Set(contactIdentities.map { $0.ownedCryptoId })
         guard ownedIdentities.count == 1 else {
             throw ObvUICoreDataError.unexpecterCountOfOwnedIdentities
         }
-        let ownedIdentity = ownedIdentities.first!.cryptoId
+        let ownedIdentity = ownedIdentities.first!
         // Get the persisted contacts corresponding to the contact identities
         let cryptoIds = Set(contactIdentities.map { $0.cryptoId })
         let persistedContact = try PersistedObvContactIdentity.getAllContactsWithCryptoId(in: cryptoIds, ofOwnedIdentity: ownedIdentity, whereOneToOneStatusIs: .any, within: context)
@@ -733,6 +798,12 @@ extension PersistedContactGroup {
                 NSPredicate(Key.ownerIdentity, EqualToData: groupId.groupOwner.getIdentity()),
             ])
         }
+        static func withGroupId(_ groupId: ObvGroupV1Identifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withOwnCryptoId(groupId.ownedCryptoId),
+                withGroupIdentifier(groupId.groupV1Identifier),
+            ])
+        }
     }
     
     
@@ -752,6 +823,9 @@ extension PersistedContactGroup {
         return try context.fetch(request).first
     }
 
+    public static func getContactGroup(groupIdentifier: ObvGroupV1Identifier, within context: NSManagedObjectContext) throws -> PersistedContactGroup? {
+        return try getContactGroup(groupIdentifier: groupIdentifier.groupV1Identifier, ownedCryptoId: groupIdentifier.ownedCryptoId, within: context)
+    }
     
     public static func getContactGroup(groupIdentifier: GroupV1Identifier, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedContactGroup? {
         let request: NSFetchRequest<PersistedContactGroup> = PersistedContactGroup.fetchRequest()
@@ -808,6 +882,24 @@ extension PersistedContactGroup {
         return try context.existingObject(with: objectID) as? PersistedContactGroup
     }
     
+    
+    public static func isGroupMemberExisting(groupId: ObvGroupV1Identifier, memberCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Bool {
+        // To be group member, the member must be a contact
+        let contactId = ObvContactIdentifier(contactCryptoId: memberCryptoId, ownedCryptoId: groupId.ownedCryptoId)
+        guard let persistedContact = try PersistedObvContactIdentity.get(persisted: contactId, whereOneToOneStatusIs: .any, within: context) else {
+            return false
+        }
+        let batchFetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        batchFetchRequest.resultType = .managedObjectIDResultType
+        batchFetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupId(groupId),
+            Predicate.withContactIdentity(persistedContact),
+        ])
+        batchFetchRequest.fetchLimit = 1
+        let result = try context.fetch(batchFetchRequest) as? [NSManagedObjectID] ?? []
+        return !result.isEmpty
+    }
+    
 }
 
 
@@ -826,6 +918,18 @@ extension PersistedContactGroup {
         return fetchedResultsController
     }
     
+    
+    public static func getFetchedResultsController(groupV1Identifier: ObvGroupV1Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedContactGroup> {
+        let request: NSFetchRequest<PersistedContactGroup> = PersistedContactGroup.fetchRequest()
+        request.predicate = Predicate.withGroupId(groupV1Identifier)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
 }
 
 
@@ -877,7 +981,7 @@ extension PersistedContactGroup {
                 let ownedIdentity = self.rawOwnedIdentityIdentity
                 if let ownedCryptoId = try? ObvCryptoId(identity: ownedIdentity) {
                     Task {
-                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedContactGroupChanged(ownedCryptoId: ownedCryptoId)
+                        await PersistedContactGroup.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedContactGroupChanged(ownedCryptoId: ownedCryptoId)
                     }
                 } else {
                     assertionFailure()
@@ -966,7 +1070,7 @@ struct PersistedContactGroupSyncSnapshotNode: ObvSyncSnapshotNode {
 
 // MARK: - PersistedContactGroup observers
 
-public protocol PersistedContactGroupObserver: AnyObject {
+public protocol PersistedContactGroupObserver: AnyObject, Sendable {
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedContactGroupChanged(ownedCryptoId: ObvCryptoId) async
 }
 
@@ -996,4 +1100,18 @@ private actor ObserversHolder: PersistedContactGroupObserver {
         }
     }
 
+}
+
+
+private extension String {
+    
+    var sanitizedGroupName: String {
+        let sanitized = self.trimmingWhitespacesAndNewlines().mapToNilIfZeroLength()
+        if let sanitized {
+            return sanitized
+        } else {
+            return " " // We cannot have a string of 0 length in DB. This will be mapped to nil when extracting the name out
+        }
+    }
+    
 }

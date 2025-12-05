@@ -22,12 +22,60 @@ import SwiftUI
 
 public struct ObvChevronRight: View {
     
-    public init() {}
+    let isHiglihted: Bool
+    
+    public init(isHiglihted: Bool = false) {
+        self.isHiglihted = isHiglihted
+    }
+    
+    @ViewBuilder
+    var content: some View {
+        ZStack {
+            Image(systemIcon: .chevronRightCircle).opacity(0)
+            Image(systemIcon: .chevronRight).opacity(0)
+            Image(systemIcon: isHiglihted ? .chevronRightCircle : .chevronRight)
+        }
+        .foregroundStyle(isHiglihted ? .primary : .tertiary)
+        .foregroundColor(isHiglihted ? .accentColor : .primary)
+        .font(.callout)
+    }
     
     public var body: some View {
-        Image(systemIcon: .chevronRight)
-            .foregroundStyle(.tertiary)
-            .tint(.primary)
-            .font(.callout)
+        if #available(iOS 17, *) {
+            content
+                .contentTransition(.symbolEffect(.replace))
+        } else {
+            content
+        }
     }
+}
+
+
+#Preview {
+    HStack {
+        ObvChevronRight(isHiglihted: false)
+        ObvChevronRight(isHiglihted: true)
+    }
+}
+
+
+
+
+@available(iOS 17.0, *)
+struct ReplaceSymbolAnimationView: View {
+
+    @State var isHiglihted = false
+    
+    var body: some View {
+        HStack {
+            Toggle(String(describing: "isHiglihted"), isOn: $isHiglihted)
+            ObvChevronRight(isHiglihted: isHiglihted)
+        }
+    }
+}
+
+
+@available(iOS 17.0, *)
+#Preview {
+    ReplaceSymbolAnimationView()
 }

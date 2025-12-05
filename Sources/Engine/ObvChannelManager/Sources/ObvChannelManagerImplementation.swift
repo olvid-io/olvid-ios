@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -37,6 +37,7 @@ public final class ObvChannelManagerImplementation: ObvChannelDelegate, ObvProce
     }
     
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvChannelManagerImplementation")
+    lazy private var logger = Logger(subsystem: logSubsystem, category: "ObvChannelManagerImplementation")
     
     private static let logCategory = "ObvChannelManagerImplementation"
     
@@ -59,9 +60,7 @@ public final class ObvChannelManagerImplementation: ObvChannelDelegate, ObvProce
                                                     obliviousChannelLifeDelegate: obliviousChannelLifeManager)
         networkReceivedMessageDecryptor.delegateManager = delegateManager // Weak reference
         obliviousChannelLifeManager.delegateManager = delegateManager // Weak reference
-        KeyMaterial.delegateManager = delegateManager // Weak reference
         ObvObliviousChannel.delegateManager = delegateManager // Weak reference
-        Provision.delegateManager = delegateManager // Weak reference
     }
  
     public func setObvUserInterfaceChannelDelegate(_ obvUserInterfaceChannelDelegate: ObvUserInterfaceChannelDelegate) {
@@ -135,6 +134,7 @@ extension ObvChannelManagerImplementation {
     
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {}
 
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
     
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
 
@@ -220,11 +220,9 @@ extension ObvChannelManagerImplementation {
     
     public func postChannelMessage(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, within obvContext: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>] {
         assert(!Thread.isMainThread)
-        os_log("Posting a message within obvContext: %{public}@", log: log, type: .info, obvContext.name)
-        debugPrint("🚨 Posting a message within obvContext: \(obvContext.name)")
+        logger.info("Posting a message within obvContext: \(obvContext.name, privacy: .public)")
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
-        debugPrint("🚨 A slot was made avaible for posting message within obvContext \(obvContext.name)")
-        os_log(" A slot was made avaible for posting message within obvContext: %{public}@", log: log, type: .info, obvContext.name)
+        logger.info("A slot was made avaible for posting message within obvContext: \(obvContext.name, privacy: .public)")
         let channelType = message.channelType.obvChannelType
         let messageIdentifiersForCryptoIdentities = try channelType.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
         return messageIdentifiersForCryptoIdentities
@@ -345,15 +343,15 @@ extension ObvChannelManagerImplementation {
     }
     
     
-    public func getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
+    public func getAllObliviousChannelIdentifiers(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
-        return try ObvObliviousChannel.getAllKnownRemoteDeviceUids(within: obvContext)
+        return try ObvObliviousChannel.getAllObliviousChannelIdentifiers(within: obvContext.context)
     }
     
     
     public func deleteAllObliviousChannelsWithTheCurrentDeviceUid(_ currentDeviceUid: UID, within obvContext: ObvContext) throws {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
-        try ObvObliviousChannel.deleteAllObliviousChannelsForCurrentDeviceUid(currentDeviceUid, within: obvContext)
+        try ObvObliviousChannel.deleteAllObliviousChannelsForCurrentDeviceUID(currentDeviceUid, within: obvContext.context)
     }
     
 }

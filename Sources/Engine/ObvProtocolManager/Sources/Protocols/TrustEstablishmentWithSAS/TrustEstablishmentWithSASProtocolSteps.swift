@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -370,7 +370,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     guard !(try TrustEstablishmentCommitmentReceived.exists(ownedCryptoIdentity: ownedIdentity,
                                                                             commitment: commitment,
-                                                                            within: obvContext)) else {
+                                                                            within: obvContext.context)) else {
                         os_log("The commitment received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
                         throw ObvError.commitmentReplay
                     }
@@ -379,13 +379,7 @@ extension TrustEstablishmentWithSASProtocol {
                     throw error
                 }
                 
-                guard TrustEstablishmentCommitmentReceived(ownedCryptoIdentity: ownedIdentity,
-                                                           commitment: commitment,
-                                                           within: obvContext) != nil else {
-                    os_log("We could not insert a new TrustEstablishmentCommitmentReceived entry", log: log, type: .fault)
-                    assertionFailure()
-                    throw ObvError.couldNotInsertNewTrustEstablishmentCommitmentReceivedEntry
-                }
+                _ = TrustEstablishmentCommitmentReceived(ownedCryptoIdentity: ownedIdentity, commitment: commitment, within: obvContext.context)
                 
                 // Show a dialog allowing Bob to accept or reject Alice's invitation
                 
@@ -439,7 +433,6 @@ extension TrustEstablishmentWithSASProtocol {
         
         enum ObvError: Error {
             case commitmentReplay
-            case couldNotInsertNewTrustEstablishmentCommitmentReceivedEntry
             case couldNotGenerateObvChannelDialogMessageToSend
             case generateObvChannelProtocolMessageToSend
         }
@@ -477,7 +470,7 @@ extension TrustEstablishmentWithSASProtocol {
             do {
                 guard !(try TrustEstablishmentCommitmentReceived.exists(ownedCryptoIdentity: ownedIdentity,
                                                                         commitment: commitment,
-                                                                        within: obvContext)) else {
+                                                                        within: obvContext.context)) else {
                     os_log("The commitment received (propagation) was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
                     throw ObvError.commitmentReplay
                 }
@@ -486,13 +479,9 @@ extension TrustEstablishmentWithSASProtocol {
                 throw error
             }
             
-            guard TrustEstablishmentCommitmentReceived(ownedCryptoIdentity: ownedIdentity,
+            _ = TrustEstablishmentCommitmentReceived(ownedCryptoIdentity: ownedIdentity,
                                                        commitment: commitment,
-                                                       within: obvContext) != nil else {
-                os_log("We could not insert a new TrustEstablishmentCommitmentReceived entry", log: log, type: .fault)
-                assertionFailure()
-                throw ObvError.couldNotInsertNewTrustEstablishmentCommitmentReceivedEntry
-            }
+                                                       within: obvContext.context)
 
             // Show a dialog allowing Bob to accept or reject Alice's invitation
             
@@ -1197,7 +1186,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let trustOrigin = TrustOrigin.direct(timestamp: Date())
                     
-                    if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+                    if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                         try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                     } else {
                         try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
@@ -1245,7 +1234,6 @@ extension TrustEstablishmentWithSASProtocol {
     enum ObvError: Error {
         case couldNotGenerateObvChannelDialogMessageToSend
         case commitmentReplay
-        case couldNotInsertNewTrustEstablishmentCommitmentReceivedEntry
     }
 
 }

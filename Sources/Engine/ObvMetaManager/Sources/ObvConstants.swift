@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import ObvTypes
 import ObvCrypto
 
 public struct ObvConstants {
+    
     public static let serverSessionNonceLength = 32
     public static let broadcastDeviceUid = UID(uid: Data(repeating: 0xff, count: UID.length))!
     
@@ -37,15 +38,14 @@ public struct ObvConstants {
     public static let relistDelay: TimeInterval = 5
     
     // Constants related to the oblivious channels
-    public static let thresholdNumberOfDecryptedMessagesSinceLastFullRatchetSentMessage = 20
-    public static let thresholdTimeIntervalSinceLastFullRatchetSentMessage = TimeInterval(hours: 24) // restart the full ratchet after 24 hours without response
+    public static let thresholdTimeIntervalSinceLastFullRatchetRequest = TimeInterval(days: 30) // restart the full ratchet after 30 days without response
     public static let thresholdNumberOfEncryptedMessagesPerFullRatchet = 500 // do a full ratchet after 500 messages
-    public static let fullRatchetTimeIntervalValidity = TimeInterval(months: 1) // do a full ratchet every month
+    public static let fullRatchetTimeIntervalValidity = TimeInterval(days: 30) // do a full ratchet 30 days
     public static let reprovisioningThreshold = 50 // Must be at least 3 to allow the full ratchet to finish
-    public static let expirationTimeIntervalOfProvisionedKey = 86400.0 * 2 // 2 days
+    public static let expirationTimeIntervalOfProvisionedKey = TimeInterval(days: 60)
     
-    public static let userDataRefreshInterval = 86400.0 * 7 // 7 days
-    public static let getUserDataLocalFileLifespan = 86400.0 * 7 // 7 days
+    public static let userDataRefreshInterval = TimeInterval(days: 7) // 7 days
+    public static let getUserDataLocalFileLifespan = TimeInterval(days: 7) // 7 days
     
     // Constants related to protocols
     public static let defaultNumberOfDigitsForSAS = 4
@@ -58,10 +58,10 @@ public struct ObvConstants {
     public static let maxAllowedTimeForProcessingReceivedRemoteNotification = 15.0 // In seconds (must be a Double)
     
     // Backup related constants
-    public static let maxTimeUntilBackupIsRequired: TimeInterval = 24 * 60 * 60 // In seconds, 24h
+    public static let maxTimeUntilBackupIsRequired: TimeInterval = TimeInterval(hours: 24) // In seconds, 24h
     
     // Keycloak revocation related constants
-    public static let keycloakSignatureValidity: TimeInterval = 5_184_000 // In seconds, 60 days
+    public static let keycloakSignatureValidity: TimeInterval = TimeInterval(days: 60) // In seconds, 60 days
 
     // Group V2 invitation nonce
     public static let groupInvitationNonceLength = 16
@@ -109,6 +109,6 @@ public struct ObvConstants {
     
     // Channel creation ping interval for remote devices without channel
 
-    public static let channelCreationPingInterval = TimeInterval(days: 3)
+    public static let channelCreationPingInterval = TimeInterval(days: 30)
 
 }

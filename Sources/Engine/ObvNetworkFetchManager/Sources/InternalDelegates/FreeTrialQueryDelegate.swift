@@ -25,6 +25,6 @@ import OlvidUtils
 protocol FreeTrialQueryDelegate: AnyObject {
     
     func queryFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Bool
-    func startFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements
+    func startFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws
 
 }

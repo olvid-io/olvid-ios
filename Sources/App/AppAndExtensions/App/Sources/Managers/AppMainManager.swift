@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,6 +34,7 @@ import ObvKeycloakManager
 import ObvNetworkStatus
 import ObvAppTypes
 import ObvLocation
+import ObvAppInboxDatabase
 
 
 final actor AppMainManager: ObvErrorMaker {
@@ -114,6 +115,7 @@ final actor AppMainManager: ObvErrorMaker {
         await performPreInitialization()
         try performAppCoreDataStackInitialization()
         try performObvUserNotificationsStackInitialization()
+        try performObvAppInboxStackInitialization()
         let obvEngine = try await performEngineAndEngineCoreDataStackInitialization()
         await initializeManagers(obvEngine: obvEngine,
                                  backgroundTasksManager: backgroundTasksManager)
@@ -125,6 +127,14 @@ final actor AppMainManager: ObvErrorMaker {
         observeNotifications()
         
         changeAppStateTo(.initializedButWasNeverOnScreen(obvEngine: obvEngine))
+
+        assert(appManagersHolder != nil)
+        await appManagersHolder?.applicationWasInitializedButWasNeverOnScreen()
+        
+        assert(appCoordinatorsHolder != nil)
+        await appCoordinatorsHolder?.applicationWasInitializedButWasNeverOnScreen()
+
+        await obvEngine.applicationWasInitializedButWasNeverOnScreen()
         
     }
     
@@ -179,7 +189,7 @@ final actor AppMainManager: ObvErrorMaker {
         let forTheFirstTime = !metaFlowControllerViewDidAppearAtLeastOnce
         metaFlowControllerViewDidAppearAtLeastOnce = true
 
-        await obvEngine.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
+        obvEngine.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         
         assert(appManagersHolder != nil)
         await appManagersHolder?.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
@@ -268,6 +278,27 @@ final actor AppMainManager: ObvErrorMaker {
         }
         runningLog.addEvent(message: "The initialization of the User Notifications stack was successful")
 
+    }
+    
+    
+    private func performObvAppInboxStackInitialization() throws {
+        
+        runningLog.addEvent(message: "ObvAppInboxStackInitialization starts")
+        defer { runningLog.addEvent(message: "ObvAppInboxStackInitialization ends") }
+        
+        runningLog.addEvent(message: "Initializing the App Inbox stack")
+        
+        do {
+            try ObvAppInboxStack.initSharedInstance(transactionAuthor: ObvUICoreDataConstants.AppCategory.mainApp.transactionAuthor,
+                                                    runningLog: runningLog,
+                                                    enableMigrations: true,
+                                                    deleteStoreOnFailure: true)
+        } catch let error {
+            runningLog.addEvent(message: "The initialization of the ObvAppInbox stack failed:\n---\n---\n \(error.localizedDescription)")
+            throw error
+        }
+        runningLog.addEvent(message: "The initialization of the ObvAppInbox stack was successful")
+        
     }
     
     
@@ -1014,11 +1045,12 @@ extension AppMainManager {
 final class BackgroundTaskManagerBasedOnUIApplication: ObvBackgroundTaskManager {
     
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "BackgroundTaskManagerBasedOnUIApplication")
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "BackgroundTaskManagerBasedOnUIApplication")
 
     func beginBackgroundTask(withName name: String?, expirationHandler handler: (() -> Void)?) -> UIBackgroundTaskIdentifier {
         // This method can be safely called on a non-main thread
         let backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: name, expirationHandler: handler)
-        os_log("Begin background task with identifier %{public}d for name %{public}@", log: Self.log, type: .info, backgroundTaskIdentifier.rawValue, name ?? "NONE")
+        Self.logger.info("Begin background task with identifier \(backgroundTaskIdentifier.rawValue, privacy: .public) for name \(name ?? "NONE", privacy: .public)")
         return backgroundTaskIdentifier
     }
 
@@ -1086,7 +1118,7 @@ final actor NewAppStateManager {
 
     private weak var appMainManager: AppMainManager?
     
-    private(set) weak var olvidURLHandler: OlvidURLHandler?
+    private(set) weak var olvidURLRouter: OlvidURLRouter?
     private var olvidURLsOnHold = [OlvidURL]()
 
     fileprivate func setAppMainManager(_ appMainManager: AppMainManager) {
@@ -1299,23 +1331,24 @@ final actor NewAppStateManager {
     }
     
     
-    // MARK: Handling Olvid URLs
+    // MARK: Routing Olvid URLs
     
     
-    func setOlvidURLHandler(to olvidURLHandler: OlvidURLHandler) async {
-        assert(self.olvidURLHandler == nil)
-        self.olvidURLHandler = olvidURLHandler
+    func setOlvidURLRouter(to olvidURLRouter: OlvidURLRouter) async {
+        assert(self.olvidURLRouter == nil)
+        self.olvidURLRouter = olvidURLRouter
         while let olvidURLOnHold = olvidURLsOnHold.popLast() {
-            _ = await olvidURLHandler.handleOlvidURL(olvidURLOnHold)
+            _ = await olvidURLRouter.routeOlvidURL(olvidURLOnHold)
         }
     }
     
     
     /// Can be called from anywhere within the app. This methods forwards the `OlvidURL` to the appropriate handler,
     /// at the appropriate time (i.e., when a handler is available).
-    func handleOlvidURL(_ olvidURL: OlvidURL) async {
-        if let olvidURLHandler = self.olvidURLHandler {
-            await olvidURLHandler.handleOlvidURL(olvidURL)
+    func routeOlvidURL(_ olvidURL: OlvidURL) async {
+        if let olvidURLRouter = self.olvidURLRouter {
+            // Inpractice, the router is the instance of MetaFlowController
+            await olvidURLRouter.routeOlvidURL(olvidURL)
         } else {
             olvidURLsOnHold.append(olvidURL)
         }

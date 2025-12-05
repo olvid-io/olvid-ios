@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,12 +18,13 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvTypes
 import OlvidUtils
 import ObvUICoreData
 import CoreData
 import ObvSettings
+import ObvAppTypes
 
 
 final class UpdateContactsSortOrderOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {

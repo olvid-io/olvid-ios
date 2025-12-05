@@ -169,7 +169,7 @@ final class SingleDiscussionSearchView: UIInputView {
         
         stack.addArrangedSubview(label)
         label.backgroundColor = .clear
-        label.text = "Test of test"
+        label.text = ""
         label.font = UIFont.preferredFont(forTextStyle: .body)
         label.adjustsFontForContentSizeCategory = true
         label.textColor = .secondaryLabel

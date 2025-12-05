@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,12 +32,20 @@ public struct ObvDecryptedReceivedReturnReceipt {
         .init(contactCryptoId: contactCryptoId, ownedCryptoId: encryptedReceivedReturnReceipt.ownedCryptoId)
     }
     
+    public var ownedCryptoId: ObvCryptoId {
+        encryptedReceivedReturnReceipt.ownedCryptoId
+    }
+    
     public var nonce: Data {
         encryptedReceivedReturnReceipt.nonce
     }
     
     public var timestamp: Date {
         encryptedReceivedReturnReceipt.timestamp
+    }
+    
+    public var serverUID: UID {
+        encryptedReceivedReturnReceipt.serverUid
     }
     
     public init(contactCryptoId: ObvCryptoId, status: ObvReturnReceiptStatus, attachmentNumber: Int?, encryptedReceivedReturnReceipt: ObvEncryptedReceivedReturnReceipt) {

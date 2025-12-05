@@ -33,6 +33,22 @@ public struct ObvContentUnavailableView: View {
         case search
     }
 
+    public struct Model: Sendable, Equatable {
+        public let title: String
+        public let systemIcon: SystemIcon
+        public let description: String?
+        public init(title: String, systemIcon: SystemIcon, description: String?) {
+            self.title = title
+            self.systemIcon = systemIcon
+            self.description = description
+        }
+    }
+    
+    
+    public init(_ model: Model) {
+        self.init(title: model.title, systemIcon: model.systemIcon, description: model.description)
+    }
+
     
     public init(title: String, systemIcon: SystemIcon, description: String?) {
         self.init(title: title, systemIcon: systemIcon, description: description, specialCase: nil)
@@ -57,7 +73,7 @@ public struct ObvContentUnavailableView: View {
     
     public var body: some View {
         
-        if #available(iOS 17, *) {
+        if #available(iOS 17.0, *) {
 
             switch specialCase {
                 

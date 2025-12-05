@@ -61,9 +61,9 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
                 
                 // Check that the message does not already exist in DB. If it exists, add it to the list of messages to process if required
                 
-                if try InboxMessage.get(messageId: messageId, within: obvContext) != nil {
+                if try InboxMessage.get(messageId: messageId, within: obvContext.context) != nil {
                     
-                    if try InboxMessage.getProcessableMessage(messageIdentifier: messageId, within: obvContext) != nil {
+                    if try InboxMessage.getMessageToBeProcessedByChannel(messageIdentifier: messageId, within: obvContext.context) != nil {
                         idsOfMessagesToProcess.append(messageId)
                     }
                     
@@ -83,9 +83,9 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
                             messageUploadTimestampFromServer: messageAndAttachmentsOnServer.messageUploadTimestampFromServer,
                             downloadTimestampFromServer: downloadTimestampFromServer,
                             localDownloadTimestamp: localDownloadTimestamp,
-                            within: obvContext)
+                            within: obvContext.context)
                     } catch {
-                        guard let inboxMessageError = error as? InboxMessage.InternalError else {
+                        guard let inboxMessageError = error as? InboxMessage.ObvError else {
                             logger.fault("[\(flowIdDescription)] Could not insert message in DB for identity \(ownedIdentityDescription) for some unknown reason.")
                             assertionFailure()
                             continue
@@ -99,6 +99,10 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
                             // This can happen
                             logger.error("[\(flowIdDescription)] Could not insert message in DB for identity \(ownedIdentityDescription): \(inboxMessageError.localizedDescription)")
                             continue
+                        default:
+                            logger.error("[\(flowIdDescription)] Could not insert message in DB for identity \(ownedIdentityDescription): \(inboxMessageError.localizedDescription)")
+                            assertionFailure()
+                            continue
                         }
                     }
                     
@@ -107,7 +111,7 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
                                                                          attachmentNumber: attachmentOnServer.attachmentNumber,
                                                                          byteCountToDownload: attachmentOnServer.expectedLength,
                                                                          expectedChunkLength: attachmentOnServer.expectedChunkLength,
-                                                                         within: obvContext)
+                                                                         within: obvContext.context)
                         else {
                             logger.fault("[\(flowIdDescription)] Could not insert attachment in DB for identity \(ownedIdentityDescription)")
                             continue

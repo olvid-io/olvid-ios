@@ -226,6 +226,8 @@ final class CancelUploadOrDownloadOfPersistedMessagesOperation: AsyncOperationWi
             switch messageToCancelFromEngine {
             case .sent(let ownedCryptoId, let messageIdentifierFromEngine):
                 do {
+                    // Bug: when deleting a "sent" message, sent from another owned device, this method is called with an empty messageIdentifierFromEngine.
+                    // The following method will thus fail. This should be investigated.
                     try obvEngine.cancelPostOfMessage(withIdentifier: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
                 } catch {
                     assertionFailure(error.localizedDescription)

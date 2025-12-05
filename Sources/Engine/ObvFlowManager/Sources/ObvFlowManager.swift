@@ -35,6 +35,8 @@ public final class ObvFlowManager: ObvFlowDelegate {
         delegateManager.prependLogSubsystem(with: prefix)
     }
     
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
+
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvFlowManagerImplementation")

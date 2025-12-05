@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -148,20 +148,21 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 4 || message.encodedInputs.count == 5 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
-            let encodedOwnRawPermissions = message.encodedInputs[0]
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 4 || encodedInputs.count == 5 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            let encodedOwnRawPermissions = encodedInputs[0]
             guard let listOfEncodedOwnRawPermissions = [ObvEncoded](encodedOwnRawPermissions) else { throw Self.makeError(message: "Could not decode list of encoded own permissions") }
             self.ownRawPermissions = try Set(listOfEncodedOwnRawPermissions.map { try $0.obvDecode() })
-            let encodedMembers = message.encodedInputs[1]
+            let encodedMembers = encodedInputs[1]
             guard let listOfEncodedMembers = [ObvEncoded](encodedMembers) else { throw Self.makeError(message: "Could not decode list members") }
             self.otherGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
-            let encodedCoreDetails = message.encodedInputs[2]
+            let encodedCoreDetails = encodedInputs[2]
             self.serializedGroupCoreDetails = try encodedCoreDetails.obvDecode()
-            let encodedGroupType = message.encodedInputs[3]
+            let encodedGroupType = encodedInputs[3]
             self.serializedGroupType = try encodedGroupType.obvDecode()
-            if message.encodedInputs.count > 4 {
-                let encodedPhotoURL = message.encodedInputs[4]
+            if encodedInputs.count > 4 {
+                let encodedPhotoURL = encodedInputs[4]
                 self.photoURL = try encodedPhotoURL.obvDecode()
             } else {
                 self.photoURL = nil
@@ -189,7 +190,7 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }
@@ -220,9 +221,10 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
-            self.blobUploadResult = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
+            self.blobUploadResult = try encodedInputs[0].obvDecode()
         }
 
     }
@@ -246,8 +248,9 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 0 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 0 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
         }
 
     }
@@ -287,12 +290,13 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 4 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
-            let encodedGroupIdentifier = message.encodedInputs[0]
-            let encodedGroupVersion = message.encodedInputs[1]
-            let encodedBlobKeys = message.encodedInputs[2]
-            let encodedNotifiedDeviceUIDs = message.encodedInputs[3]
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 4 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
+            let encodedGroupIdentifier = encodedInputs[0]
+            let encodedGroupVersion = encodedInputs[1]
+            let encodedBlobKeys = encodedInputs[2]
+            let encodedNotifiedDeviceUIDs = encodedInputs[3]
             self.groupIdentifier = try encodedGroupIdentifier.obvDecode()
             self.groupVersion = try encodedGroupVersion.obvDecode()
             self.blobKeys = try encodedBlobKeys.obvDecode()
@@ -335,11 +339,12 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 3 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
-            let encodedGroupIdentifier = message.encodedInputs[0]
-            let encodedGroupVersion = message.encodedInputs[1]
-            let encodedBlobKeys = message.encodedInputs[2]
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 3 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
+            let encodedGroupIdentifier = encodedInputs[0]
+            let encodedGroupVersion = encodedInputs[1]
+            let encodedBlobKeys = encodedInputs[2]
             self.groupIdentifier = try encodedGroupIdentifier.obvDecode()
             self.groupVersion = try encodedGroupVersion.obvDecode()
             self.blobKeys = try encodedBlobKeys.obvDecode()
@@ -386,16 +391,17 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 3 || message.encodedInputs.count == 4 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
-            let encodedGroupIdentifier = message.encodedInputs[0]
-            let encodedGroupVersion = message.encodedInputs[1]
-            let encodedBlobKeys = message.encodedInputs[2]
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 3 || encodedInputs.count == 4 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
+            let encodedGroupIdentifier = encodedInputs[0]
+            let encodedGroupVersion = encodedInputs[1]
+            let encodedBlobKeys = encodedInputs[2]
             self.groupIdentifier = try encodedGroupIdentifier.obvDecode()
             self.groupVersion = try encodedGroupVersion.obvDecode()
             self.blobKeys = try encodedBlobKeys.obvDecode()
-            if message.encodedInputs.count == 4 {
-                let encodedInviter = message.encodedInputs[3]
+            if encodedInputs.count == 4 {
+                let encodedInviter = encodedInputs[3]
                 self.inviter = try encodedInviter.obvDecode()
             } else {
                 self.inviter = nil
@@ -437,8 +443,9 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             self.internalServerQueryIdentifier = try message.encodedInputs[0].obvDecode()
             self.result = try message.encodedInputs[1].obvDecode()
         }
@@ -464,8 +471,9 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 0 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 0 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
         }
 
     }
@@ -486,8 +494,9 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
             self.groupDeletionWasSuccessful = try message.encodedInputs[0].obvDecode()
         }
         
@@ -526,7 +535,7 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Could not get encoded user dialog response") }
             invitationAccepted = try encodedUserDialogResponse.obvDecode()
             guard let userDialogUuid = message.userDialogUuid else { assertionFailure(); throw Self.makeError(message: "Could not get user dialog UUID") }
@@ -563,8 +572,8 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (groupIdentifier, groupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity, isReponse) = try encodedElements.obvDecode()
         }
         
@@ -599,8 +608,8 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (groupIdentifier, groupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity, isReponse) = try encodedElements.obvDecode()
         }
         
@@ -634,8 +643,8 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (groupIdentifier, encryptedAdministratorChain, signature) = try encodedElements.obvDecode()
         }
         
@@ -665,8 +674,8 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (invitationAccepted, ownGroupInvitationNonce) = try encodedElements.obvDecode()
         }
         
@@ -704,7 +713,7 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }
@@ -728,8 +737,8 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (groupIdentifier) = try encodedElements.obvDecode()
         }
         
@@ -758,8 +767,8 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (groupIdentifier) = try encodedElements.obvDecode()
         }
         
@@ -799,7 +808,7 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             (groupIdentifier, changeset) = try message.encodedInputs.obvDecode()
         }
         
@@ -830,8 +839,9 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             self.result = try message.encodedInputs[0].obvDecode()
         }
 
@@ -863,7 +873,7 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             groupIdentifier = try message.encodedInputs.obvDecode()
         }
         
@@ -889,8 +899,8 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (groupIdentifier, groupInvitationNonce) = try encodedElements.obvDecode()
         }
         
@@ -927,7 +937,7 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             groupIdentifier = try message.encodedInputs.obvDecode()
         }
         
@@ -959,7 +969,7 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             groupIdentifier = try message.encodedInputs.obvDecode()
         }
         
@@ -986,8 +996,8 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (groupIdentifier, encryptedAdministratorChain, signature) = try encodedElements.obvDecode()
         }
         
@@ -1025,7 +1035,7 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             groupIdentifier = try message.encodedInputs.obvDecode()
         }
         
@@ -1059,7 +1069,7 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             (remoteIdentity, remoteDeviceUID) = try message.encodedInputs.obvDecode()
         }
         
@@ -1094,8 +1104,8 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedInputs = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
             guard encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements in BlobKeysBatchAfterChannelCreationMessage") }
             let encodedListOfGroupInfos = encodedInputs[0]
             guard let listOfEncodedGroupInfos = [ObvEncoded](encodedListOfGroupInfos) else { assertionFailure(); throw Self.makeError(message: "Could not decode encoded list in BlobKeysBatchAfterChannelCreationMessage")}
@@ -1141,12 +1151,13 @@ extension GroupV2Protocol {
         // Init when receiving this message (the query response are added after the encoded inputs)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
-            let encodedGroupIdentifier = message.encodedInputs[0]
-            let encodedGroupVersion = message.encodedInputs[1]
-            let encodedBlobKeys = message.encodedInputs[2]
-            let encodedInviter = message.encodedInputs[3]
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
+            let encodedGroupIdentifier = encodedInputs[0]
+            let encodedGroupVersion = encodedInputs[1]
+            let encodedBlobKeys = encodedInputs[2]
+            let encodedInviter = encodedInputs[3]
             self.groupIdentifier = try encodedGroupIdentifier.obvDecode()
             self.groupVersion = try encodedGroupVersion.obvDecode()
             self.blobKeys = try encodedBlobKeys.obvDecode()
@@ -1170,7 +1181,7 @@ extension GroupV2Protocol {
         
         init(with message: ReceivedMessage) throws {
             // Never used
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
@@ -1196,7 +1207,7 @@ extension GroupV2Protocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Could not get encoded user dialog response") }
             invitationAccepted = try encodedUserDialogResponse.obvDecode()
             guard let userDialogUuid = message.userDialogUuid else { assertionFailure(); throw Self.makeError(message: "Could not get user dialog UUID") }
@@ -1248,12 +1259,13 @@ extension GroupV2Protocol {
 
         init(with message: ReceivedMessage) throws {
             do {
-                self.coreProtocolMessage = CoreProtocolMessage(with: message)
-                guard message.encodedInputs.count == 4 else { throw Self.makeError(message: "Unexpected number of encoded inputs in InitiateUpdateKeycloakGroupsMessage") }
-                let encodedSignedGroupBlobs = message.encodedInputs[0]
-                let encodedSignedGroupDeletions = message.encodedInputs[1]
-                let encodedSignedGroupKicks = message.encodedInputs[2]
-                let encodedKeycloakCurrentTimestamp = message.encodedInputs[3]
+                self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+                let encodedInputs = try message.encodedInputs
+                guard encodedInputs.count == 4 else { throw Self.makeError(message: "Unexpected number of encoded inputs in InitiateUpdateKeycloakGroupsMessage") }
+                let encodedSignedGroupBlobs = encodedInputs[0]
+                let encodedSignedGroupDeletions = encodedInputs[1]
+                let encodedSignedGroupKicks = encodedInputs[2]
+                let encodedKeycloakCurrentTimestamp = encodedInputs[3]
                 guard let listOfEncodedSignedGroupBlobs = [ObvEncoded](encodedSignedGroupBlobs) else { throw Self.makeError(message: "Could not decode list of signed blobs") }
                 guard let listOfEncodedSignedGroupDeletions = [ObvEncoded](encodedSignedGroupDeletions) else { throw Self.makeError(message: "Could not decode list of signed group deletions") }
                 guard let listOfEncodedSignedGroupKicks = [ObvEncoded](encodedSignedGroupKicks) else { throw Self.makeError(message: "Could not decode list of kicks") }
@@ -1296,10 +1308,11 @@ extension GroupV2Protocol {
 
         init(with message: ReceivedMessage) throws {
             do {
-                self.coreProtocolMessage = CoreProtocolMessage(with: message)
-                guard message.encodedInputs.count == 2 else { throw Self.makeError(message: "Unexpected number of encoded inputs in InitiateTargetedPingMessage") }
-                let encodedGroupIdentifier = message.encodedInputs[0]
-                let encodedPendingMemberIdentity = message.encodedInputs[1]
+                self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+                let encodedInputs = try message.encodedInputs
+                guard encodedInputs.count == 2 else { throw Self.makeError(message: "Unexpected number of encoded inputs in InitiateTargetedPingMessage") }
+                let encodedGroupIdentifier = encodedInputs[0]
+                let encodedPendingMemberIdentity = encodedInputs[1]
                 self.groupIdentifier = try encodedGroupIdentifier.obvDecode()
                 self.pendingMemberIdentity = try encodedPendingMemberIdentity.obvDecode()
             } catch {
@@ -1329,7 +1342,7 @@ extension GroupV2Protocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }

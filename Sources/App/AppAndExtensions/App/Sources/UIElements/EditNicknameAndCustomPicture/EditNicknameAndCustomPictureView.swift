@@ -48,6 +48,7 @@ struct EditNicknameAndCustomPictureView: View, ObvPhotoButtonViewActionsProtocol
         enum IdentifierKind {
             case contact(contactIdentifier: ObvContactIdentifier)
             case groupV2(groupV2Identifier: GroupV2Identifier)
+            case groupV1(groupV1Identifier: GroupV1Identifier)
         }
         
         fileprivate let identifier: IdentifierKind
@@ -83,6 +84,10 @@ struct EditNicknameAndCustomPictureView: View, ObvPhotoButtonViewActionsProtocol
                     photo: .image(image: photo),
                     groupIdentifier: groupV2Identifier,
                     showGreenShield: false)
+            case .groupV1(groupV1Identifier: let groupV1Identifier):
+                self.circledInitialsConfiguration = .groupV1(
+                    photo: .image(image: photo),
+                    groupUid: groupV1Identifier.groupUid)
             }
         }
         
@@ -215,6 +220,8 @@ struct EditNicknameAndCustomPictureView: View, ObvPhotoButtonViewActionsProtocol
             return "EDIT_NICKNAME_AND_CUSTOM_PICTURE_EXPLANATION_FOR_CONTACT"
         case .groupV2:
             return "EDIT_NICKNAME_AND_CUSTOM_PICTURE_EXPLANATION_FOR_GROUP"
+        case .groupV1:
+            return "EDIT_NICKNAME_AND_CUSTOM_PICTURE_EXPLANATION_FOR_GROUP"
         }
     }
     
@@ -240,9 +247,13 @@ struct EditNicknameAndCustomPictureView: View, ObvPhotoButtonViewActionsProtocol
                 .padding()
             }
             VStack {
-                OlvidButton(style: .blue, title: Text("Save"), systemIcon: nil, action: userWantsToSaveNicknameAndCustomPicture)
-                    .disabled(isSaveButtonDisabled)
-                OlvidButton(style: .text, title: Text("Cancel"), systemIcon: nil, action: userWantsToCancel)
+                OlvidButtonNew(action: userWantsToSaveNicknameAndCustomPicture) {
+                    Text("Save")
+                }
+                .disabled(isSaveButtonDisabled)
+                OlvidButtonNew(action: userWantsToCancel, style: .borderless) {
+                    Text("Cancel")
+                }
             }.padding()
         }
         .onAppear(perform: onAppear)

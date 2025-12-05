@@ -66,7 +66,7 @@ final class CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperatio
         do {
             // We had to create a contact, meaning we had to create/unlock a one2one discussion. In that case, we want to (re)send the discussion shared settings to our contact.
             // This allows to make sure those settings are in sync.
-            let contactIdentifier = try contact.contactIdentifier
+            let contactIdentifier = try contact.obvContactIdentifier
             guard let discussionId = try contact.oneToOneDiscussion?.identifier else { return }
             try obvContext.addContextDidSaveCompletionHandler { error in
                 guard error == nil else { return }

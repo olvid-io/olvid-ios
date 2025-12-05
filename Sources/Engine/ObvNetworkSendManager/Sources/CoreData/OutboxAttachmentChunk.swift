@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvTypes
 import ObvCrypto
@@ -27,19 +27,11 @@ import ObvMetaManager
 import OlvidUtils
 
 @objc(OutboxAttachmentChunk)
-final class OutboxAttachmentChunk: NSManagedObject, ObvManagedObject {
+final class OutboxAttachmentChunk: NSManagedObject {
         
     // MARK: Internal constants
     
     private static let entityName = "OutboxAttachmentChunk"
-    private static let acknowledgedTimeStampKey = "acknowledgedTimeStamp"
-    private static let attachmentNumberKey = "attachmentNumber"
-    private static let chunkNumberKey = "chunkNumber"
-    private static let ciphertextChunkLengthKey = "ciphertextChunkLength"
-    private static let rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
-    private static let rawMessageIdUidKey = "rawMessageIdUid"
-    private static let attachmentKey = "attachment"
-    
     private static let errorDomain = "OutboxAttachmentChunk"
     
     private static func makeError(message: String) -> Error {
@@ -66,8 +58,6 @@ final class OutboxAttachmentChunk: NSManagedObject, ObvManagedObject {
     
     // MARK: Variables
     
-    weak var obvContext: ObvContext?
-
     private(set) var acknowledgerAppType: AppType? {
         get {
             if let raw = rawAcknowledgerAppType {
@@ -100,9 +90,9 @@ final class OutboxAttachmentChunk: NSManagedObject, ObvManagedObject {
     // MARK: Initializer
 
     convenience init?(attachment: OutboxAttachment, chunkNumber: Int, ciphertextChunkLength: Int, cleartextChunkLength: Int) {
-        guard let obvContext = attachment.obvContext else { return nil }
-        let entityDescription = NSEntityDescription.entity(forEntityName: OutboxAttachmentChunk.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        guard let context = attachment.managedObjectContext else { return nil }
+        let entityDescription = NSEntityDescription.entity(forEntityName: OutboxAttachmentChunk.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.acknowledgedTimeStamp = nil
         self.attachmentId = attachment.attachmentId
         self.chunkNumber = chunkNumber
@@ -142,14 +132,41 @@ extension OutboxAttachmentChunk {
 
 extension OutboxAttachmentChunk {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case acknowledgedTimeStamp = "acknowledgedTimeStamp"
+            case attachmentNumber = "attachmentNumber"
+            case chunkNumber = "chunkNumber"
+            case ciphertextChunkLength = "ciphertextChunkLength"
+            case cleartextChunkLength = "cleartextChunkLength"
+            case encryptedChunkURL = "encryptedChunkURL"
+            case rawAcknowledgerAppType = "rawAcknowledgerAppType"
+            case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUid = "rawMessageIdUid"
+            case signedURL = "signedURL"
+            // relationships
+            case attachment = "attachment"
+        }
+        static var withoutAttachment: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.attachment)
+        }
+        static func withAttachment(_ attachment: OutboxAttachment) -> NSPredicate {
+            NSPredicate(Key.attachment, equalTo: attachment)
+        }
+        static var withAcknowledgedTimeStamp: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.acknowledgedTimeStamp)
+        }
+    }
+    
     @nonobjc static func fetchRequest() -> NSFetchRequest<OutboxAttachmentChunk> {
         return NSFetchRequest<OutboxAttachmentChunk>(entityName: OutboxAttachmentChunk.entityName)
     }
 
-    static func getAllOrphanedOutboxAttachmentChunk(with obvContext: ObvContext) throws -> [OutboxAttachmentChunk] {
+    static func getAllOrphanedOutboxAttachmentChunk(with context: NSManagedObjectContext) throws -> [OutboxAttachmentChunk] {
         let request: NSFetchRequest<OutboxAttachmentChunk> = OutboxAttachmentChunk.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == NIL", attachmentKey)
-        return try obvContext.fetch(request)
+        request.predicate = Predicate.withoutAttachment
+        return try context.fetch(request)
     }
 
     /// This method uses aggregate functions to return the current uploaded byte count for a given `OutboxAttachment` instance.
@@ -158,12 +175,13 @@ extension OutboxAttachmentChunk {
         // Create an expression description that will allow to aggregate the values of the ciphertextChunkLength column
         let expressionDescription = NSExpressionDescription()
         expressionDescription.name = "uploadedByteCount"
-        expressionDescription.expression = NSExpression(format: "@sum.\(ciphertextChunkLengthKey)")
+        expressionDescription.expression = NSExpression(format: "@sum.\(Predicate.Key.ciphertextChunkLength.rawValue)")
         expressionDescription.expressionResultType = .integer64AttributeType
         // Create a predicate that will restrict to the given attachment and filter out incomplete chunks
-        let predicate = NSPredicate(format: "%K == %@ AND %K != NIL",
-                                    attachmentKey, attachment,
-                                    acknowledgedTimeStampKey)
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withAttachment(attachment),
+            Predicate.withAcknowledgedTimeStamp,
+        ])
         // Create the fetch request
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
         request.resultType = .dictionaryResultType

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvCrypto
 import ObvEncoder
 
 
-public struct ObvGenericIdentity: ObvIdentity {
+public struct ObvGenericIdentity: ObvIdentity, Sendable {
     
     public let cryptoId: ObvCryptoId
     public let currentIdentityDetails: ObvIdentityDetails

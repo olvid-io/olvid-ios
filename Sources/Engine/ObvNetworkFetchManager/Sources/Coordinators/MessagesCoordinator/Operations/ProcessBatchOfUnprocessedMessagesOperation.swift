@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -123,11 +123,11 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                     .untruncatedListPerformed,
                     .removedExpectedContactOfPreKeyMessage:
                 moreUnprocessedMessagesRemain = true
-                messages = try InboxMessage.getBatchOfProcessableMessages(ownedCryptoIdentity: ownedCryptoIdentity, fetchLimit: ObvNetworkFetchDelegateManager.batchSize, within: obvContext)
+                messages = try InboxMessage.getBatchOfMessagesToBeProcessByChannel(ownedCryptoIdentity: ownedCryptoIdentity, fetchLimit: ObvNetworkFetchDelegateManager.batchSize, within: obvContext.context)
             case .oneSliceOfListOfDownloadedMessagesWasSaved(idsOfMessagesToProcess: let idsOfMessagesToProcess):
-                messages = try InboxMessage.getBatchOfProcessableMessages(restrictTo: idsOfMessagesToProcess, within: obvContext)
+                messages = try InboxMessage.getBatchOfMessagesToBeProcessByChannel(restrictTo: idsOfMessagesToProcess, within: obvContext.context)
             case .messageReceivedOnWebSocket(idOfMessageToProcess: let idOfMessageToProcess):
-                messages = try InboxMessage.getBatchOfProcessableMessages(restrictTo: [idOfMessageToProcess], within: obvContext)
+                messages = try InboxMessage.getBatchOfMessagesToBeProcessByChannel(restrictTo: [idOfMessageToProcess], within: obvContext.context)
             }
 
             // If there is no message to process, return
@@ -227,7 +227,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                         
                         // We know we will never be able to decrypt this message, we mark it for deletion (together with its attachments)
                         // to make sure the next batch deletion does delete it for good.
-                        try InboxMessage.markMessageAndAttachmentsForDeletion(messageId: messageId, within: obvContext)
+                        try InboxMessage.markMessageAndAttachmentsForDeletion(messageId: messageId, within: obvContext.context)
                         postOperationTasksToPerform.insert(.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoIdentity))
                         
                     }
@@ -246,7 +246,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                     // Result case 2
                     //
 
-                    try InboxMessage.markMessageAndAttachmentsForDeletion(messageId: messageId, within: obvContext)
+                    try InboxMessage.markMessageAndAttachmentsForDeletion(messageId: messageId, within: obvContext.context)
                     postOperationTasksToPerform.insert(.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoIdentity))
 
                 case .remoteIdentityToSetOnReceivedMessage(messageId: let messageId, remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUID: let remoteDeviceUID, messagePayload: let messagePayload, extendedMessagePayloadKey: let extendedMessagePayloadKey, attachmentsInfos: let attachmentsInfos):
@@ -255,14 +255,14 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                     // Result case 3
                     //
 
-                    guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext) else {
+                    guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext.context) else {
                         assertionFailure()
                         continue
                     }
                     
                     guard inboxMessage.attachments.count == attachmentsInfos.count else {
                         assertionFailure()
-                        try InboxMessage.markMessageAndAttachmentsForDeletion(messageId: messageId, within: obvContext)
+                        try InboxMessage.markMessageAndAttachmentsForDeletion(messageId: messageId, within: obvContext.context)
                         postOperationTasksToPerform.insert(.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoIdentity))
                         continue
                     }
@@ -319,7 +319,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                     // receive a message from a remote identity that is not a contact already (but who is likely to become one soon).
                     // In that case, we keep the message for later processing, when the remote identity becomes a contact.
                     
-                    guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext) else {
+                    guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext.context) else {
                         assertionFailure()
                         continue
                     }

@@ -25,9 +25,7 @@ import ObvAppCoreConstants
 public struct ObvUICoreDataConstants {
     
     public static let logSubsystem = "io.olvid.obvuicoredata"
-    
-    public static let minimumLengthOfPasswordForHiddenProfiles = 4
-    
+        
     public static let seedLengthForHiddenProfiles = 8
     
     static var isRunningOnRealDevice: Bool {

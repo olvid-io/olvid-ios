@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvEncoder
 import ObvTypes
 import ObvCrypto
@@ -28,104 +28,154 @@ import OlvidUtils
 
 
 @objc(ReceivedMessage)
-final class ReceivedMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+final class ReceivedMessage: NSManagedObject {
 
     private static let entityName = "ReceivedMessage"
-    static let errorDomain = "ReceivedMessage"
-
+    static weak var delegateManager: ObvProtocolDelegateManager?
     
     // MARK: Attributes
     
-    private(set) var encodedInputs: [ObvEncoded] {
-        get {
-            let rawValue = kvoSafePrimitiveValue(forKey: Predicate.Key.encodedEncodedInputs.rawValue) as! ObvEncoded
-            return [ObvEncoded](rawValue)!
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue.obvEncode(), forKey: Predicate.Key.encodedEncodedInputs.rawValue)
-        }
-    }
-    
-    @NSManaged private(set) var encodedUserDialogResponse: ObvEncoded? // Non-nil only if the received message is a user response to a UI dialog
-    @NSManaged private(set) var protocolInstanceUid: UID
     @NSManaged private(set) var protocolMessageRawId: Int
-    
-    private(set) var cryptoProtocolId: CryptoProtocolId {
-        get {
-            let rawValue = kvoSafePrimitiveValue(forKey: Predicate.Key.protocolRawId.rawValue) as! Int
-            return CryptoProtocolId(rawValue: rawValue)!
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue.rawValue, forKey: Predicate.Key.protocolRawId.rawValue)
-        }
-    }
-    
-    @NSManaged private var rawMessageIdOwnedIdentity: Data
-    @NSManaged private var rawMessageIdUid: Data
-
-    private(set) var receptionChannelInfo: ObvProtocolReceptionChannelInfo {
-        get {
-            let raw = kvoSafePrimitiveValue(forKey: Predicate.Key.receptionChannelInfo.rawValue) as! Data
-            let encoded = ObvEncoded(withRawData: raw)!
-            return ObvProtocolReceptionChannelInfo(encoded)!
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: Predicate.Key.receptionChannelInfo.rawValue)
-        }
-    }
-    
+    @NSManaged private var protocolRawId: Int
+    @NSManaged private var rawEncodedEncodedInputs: Data? // Non-optional in the model
+    @NSManaged private var rawEncodedUserDialogResponse: Data? // Non-nil only if the received message is a user response to a UI dialog
+    @NSManaged private var rawMessageIdOwnedIdentity: Data? // Non-optional in the model
+    @NSManaged private var rawMessageIdUid: Data? // Non-optional in the model
+    @NSManaged private var rawProtocolInstanceUid: Data? // Non-optional in the model
+    @NSManaged private var rawReceptionChannelInfo: Data? // Non-optional in the model
     @NSManaged private(set) var timestamp: Date
     @NSManaged private(set) var userDialogUuid: UUID? // Non-nil only if the received message is a user response to a UI dialog
 
-    
     // MARK: Other variables
     
-    private(set) var messageId: ObvMessageIdentifier {
-        get { return ObvMessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
-        set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
+    var encodedInputs: [ObvEncoded] {
+        get throws(ObvError) {
+            guard let rawEncodedEncodedInputs else { assertionFailure(); throw .unexpectedNilValue }
+            guard let encoded = ObvEncoded(withRawData: rawEncodedEncodedInputs) else { assertionFailure(); throw .couldNotParseValue }
+            guard let encodedInputs = [ObvEncoded](encoded) else { assertionFailure(); throw .couldNotParseValue }
+            return encodedInputs
+        }
+    }
+    
+    /// Non-nil only if the received message is a user response to a UI dialog
+    var encodedUserDialogResponse: ObvEncoded? {
+        guard let rawEncodedUserDialogResponse else { return nil }
+        return ObvEncoded(withRawData: rawEncodedUserDialogResponse)
     }
 
-    weak var delegateManager: ObvProtocolDelegateManager?
-    weak var obvContext: ObvContext?
+    
+    var protocolInstanceUid: UID {
+        get throws(ObvError) {
+            guard let rawProtocolInstanceUid else { assertionFailure(); throw .unexpectedNilValue }
+            guard let protocolInstanceUid = UID(uid: rawProtocolInstanceUid) else { assertionFailure(); throw .couldNotParseValue }
+            return protocolInstanceUid
+        }
+    }
+
+    
+    var cryptoProtocolId: CryptoProtocolId {
+        get throws {
+            guard let cryptoProtocolId = CryptoProtocolId(rawValue: protocolRawId) else {
+                assertionFailure()
+                throw ObvError.couldNotParseValue
+            }
+            return cryptoProtocolId
+        }
+    }
+
+    
+    var messageId: ObvMessageIdentifier {
+        get throws {
+            guard let rawMessageIdOwnedIdentity else {
+                assertionFailure()
+                throw ObvError.unexpectedNilValue
+            }
+            guard let rawMessageIdUid else {
+                assertionFailure()
+                throw ObvError.unexpectedNilValue
+            }
+            guard let messageId = ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid) else {
+                assertionFailure()
+                throw ObvError.couldNotParseValue
+            }
+            return messageId
+        }
+    }
+    
+    
+    var receptionChannelInfo: ObvProtocolReceptionChannelInfo {
+        get throws {
+            guard let rawReceptionChannelInfo else {
+                assertionFailure()
+                throw ObvError.unexpectedNilValue
+            }
+            guard let encoded = ObvEncoded(withRawData: rawReceptionChannelInfo) else {
+                assertionFailure()
+                throw ObvError.couldNotParseValue
+            }
+            guard let receptionChannelInfo = ObvProtocolReceptionChannelInfo(encoded) else {
+                assertionFailure()
+                throw ObvError.couldNotParseValue
+            }
+            return receptionChannelInfo
+        }
+    }
+
+
     private var messageIdOnDeletion: ObvMessageIdentifier?
 
     // MARK: - Initializer
     
-    convenience init(with message: GenericReceivedProtocolMessage, using prng: PRNGService, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ReceivedMessage.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.encodedInputs = message.encodedInputs
-        self.encodedUserDialogResponse = message.encodedUserDialogResponse
+    /// 2025-08-27: ok
+    private convenience init(with message: GenericReceivedProtocolMessage, using prng: PRNGService, within context: NSManagedObjectContext) {
+        
+        let entityDescription = NSEntityDescription.entity(forEntityName: ReceivedMessage.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        
+        self.rawEncodedEncodedInputs = message.encodedInputs.obvEncode().rawData
+        self.rawEncodedUserDialogResponse = message.encodedUserDialogResponse?.rawData
         self.userDialogUuid = message.userDialogUuid
-        self.protocolInstanceUid = message.protocolInstanceUid
+        self.rawProtocolInstanceUid = message.protocolInstanceUid.raw
         self.protocolMessageRawId = message.protocolMessageRawId
-        self.cryptoProtocolId = message.cryptoProtocolId
-        self.receptionChannelInfo = message.receptionChannelInfo
-        self.messageId = ObvMessageIdentifier(ownedCryptoIdentity: message.toOwnedIdentity, uid: message.receivedMessageUID ?? UID.gen(with: prng))
-        self.delegateManager = delegateManager
+        self.protocolRawId = message.cryptoProtocolId.rawValue
+        self.rawReceptionChannelInfo = message.receptionChannelInfo.obvEncode().rawData
+        self.rawMessageIdOwnedIdentity = message.toOwnedIdentity.getIdentity()
+        self.rawMessageIdUid = message.receivedMessageUID?.raw ?? UID.gen(with: prng).raw
         self.timestamp = message.timestamp
         
-        // Instead of using the didSave method to call the delegate method, we add a "didSave" completion to the obvContext.
-        // This allows to make sure the completions are executed in the right order (first in, first out).
-        // Since the ReceivedMessage received from the network are processed according to their timestamp, this allows to preserver that order.
-        
-        do {
-            let flowId = obvContext.flowId
-            let messageId = self.messageId
-            try obvContext.addContextDidSaveCompletionHandler { error in
-                guard error == nil else { return }
-                delegateManager.receivedMessageDelegate.processReceivedMessage(withId: messageId, flowId: flowId)
-            }
-        } catch {
-            assertionFailure(error.localizedDescription)
-            // Continue anyway
-        }
     }
 
     
+    static func createReceivedMessage(with message: GenericReceivedProtocolMessage, using prng: PRNGService, within context: NSManagedObjectContext) -> ReceivedMessage {
+        return self.init(with: message, using: prng, within: context)
+    }
+    
+    
     func deleteReceivedMessage() throws {
-        guard let managedObjectContext else { throw Self.makeError(message: "Cannot delete message as it has no context") }
+        guard let managedObjectContext else { assertionFailure(); throw ObvError.noContext }
         managedObjectContext.delete(self)
+    }
+    
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ReceivedMessageObserversHolder()
+    
+    public static func addObvObserver(_ newObserver: ReceivedMessageObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
+}
+
+
+// MARK: - Errors
+
+extension ReceivedMessage {
+    
+    enum ObvError: Error {
+        case noContext
+        case unexpectedNilValue
+        case couldNotParseValue
     }
     
 }
@@ -137,13 +187,16 @@ extension ReceivedMessage {
     
     struct Predicate {
         enum Key: String {
-            case encodedEncodedInputs = "encodedEncodedInputs"
-            case protocolInstanceUid = "protocolInstanceUid"
+            case protocolMessageRawId = "protocolMessageRawId"
             case protocolRawId = "protocolRawId"
+            case rawEncodedEncodedInputs = "rawEncodedEncodedInputs"
+            case rawEncodedUserDialogResponse = "rawEncodedUserDialogResponse"
             case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
             case rawMessageIdUid = "rawMessageIdUid"
-            case receptionChannelInfo = "receptionChannelInfo"
+            case rawProtocolInstanceUid = "rawProtocolInstanceUid"
+            case rawReceptionChannelInfo = "rawReceptionChannelInfo"
             case timestamp = "timestamp"
+            case userDialogUuid = "userDialogUuid"
         }
         static func withMessageIdentifier(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -155,7 +208,7 @@ extension ReceivedMessage {
             NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
         }
         static func withProtocolInstanceUid(_ protocolInstanceUid: UID) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.protocolInstanceUid.rawValue, protocolInstanceUid)
+            NSPredicate(Key.rawProtocolInstanceUid, EqualToData: protocolInstanceUid.raw)
         }
         static func withTimestamp(earlierThan timestamp: Date) -> NSPredicate {
             NSPredicate(Key.timestamp, earlierThan: timestamp)
@@ -176,17 +229,16 @@ extension ReceivedMessage {
 
 extension ReceivedMessage {
     
-    static func get(messageId: ObvMessageIdentifier, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> ReceivedMessage? {
+    static func get(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws -> ReceivedMessage? {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.predicate = Predicate.withMessageIdentifier(messageId)
         request.fetchLimit = 1
-        let item = (try? obvContext.fetch(request))?.first
-        item?.delegateManager = delegateManager
+        let item = (try context.fetch(request)).first
         return item
     }
     
     
-    static func getAll(protocolInstanceUid: UID, ownedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> [ReceivedMessage]? {
+    static func getAll(protocolInstanceUid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> [ReceivedMessage]? {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withProtocolInstanceUid(protocolInstanceUid),
@@ -194,29 +246,29 @@ extension ReceivedMessage {
         ])
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestamp.rawValue, ascending: true)]
         request.fetchBatchSize = 1_000
-        let items = (try? obvContext.fetch(request))
-        return items?.map { $0.delegateManager = delegateManager; return $0 }
+        let items = try context.fetch(request)
+        return items
     }
     
     
-    static func delete(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
+    static func deleteReceivedMessage(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
         request.predicate = Predicate.withMessageIdentifier(messageId)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         deleteRequest.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(deleteRequest) as? NSBatchDeleteResult
+        let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }
     }
     
     
-    static func deleteAllAssociatedWithProtocolInstance(withUid protocolInstanceUid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func deleteAllAssociatedWithProtocolInstance(withUid protocolInstanceUid: UID, ownedIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withProtocolInstanceUid(protocolInstanceUid),
@@ -225,59 +277,58 @@ extension ReceivedMessage {
         
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         deleteRequest.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(deleteRequest) as? NSBatchDeleteResult
+        let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }
     }
     
     
-    static func getAllReceivedMessageOlderThan(timestamp: Date, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [ReceivedMessage] {
+    static func getAllReceivedMessageOlderThan(timestamp: Date, within context: NSManagedObjectContext) throws -> [ReceivedMessage] {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.predicate = Predicate.withTimestamp(earlierThan: timestamp)
         request.fetchBatchSize = 1_000
-        let items = try obvContext.fetch(request)
-        items.forEach { $0.delegateManager = delegateManager }
+        let items = try context.fetch(request)
         return items
     }
     
     
-    static func getAllMessageIds(within obvContext: ObvContext) throws -> [ObvMessageIdentifier] {
+    static func getAllMessageIds(within context: NSManagedObjectContext) throws -> [ObvMessageIdentifier] {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.propertiesToFetch = [Predicate.Key.rawMessageIdUid.rawValue, Predicate.Key.rawMessageIdOwnedIdentity.rawValue]
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestamp.rawValue, ascending: true)]
-        let items = try obvContext.fetch(request)
-        return items.map { $0.messageId }
+        let items = try context.fetch(request)
+        return items.compactMap { try? $0.messageId }
     }
     
     
-    static func batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
         fetchRequest.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
         deleteRequest.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(deleteRequest) as? NSBatchDeleteResult
+        let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }
     }
     
     
-    static func deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(within obvContext: ObvContext) throws {
+    static func deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.predicate = Predicate.withCryptoProtocolId(.ownedIdentityTransfer)
         request.propertiesToFetch = []
-        let items = try obvContext.fetch(request)
+        let items = try context.fetch(request)
         try items.forEach { try $0.deleteReceivedMessage() }
     }
     
@@ -291,7 +342,11 @@ extension ReceivedMessage {
         super.willSave()
         
         if isDeleted {
-            messageIdOnDeletion = self.messageId
+            do {
+                messageIdOnDeletion = try self.messageId
+            } catch {
+                assertionFailure()
+            }
         }
         
     }
@@ -299,21 +354,48 @@ extension ReceivedMessage {
     override func didSave() {
         super.didSave()
 
-        guard let delegateManager = self.delegateManager else {
-            let log = OSLog(subsystem: ObvProtocolDelegateManager.defaultLogSubsystem, category: ReceivedMessage.entityName)
-            os_log("The Delegate Manager is not set", log: log, type: .error)
-            return
-        }
-
         if isDeleted {
             assert(messageIdOnDeletion != nil)
-            assert(delegateManager.notificationDelegate != nil)
-            if let messageIdOnDeletion, let notificationDelegate = delegateManager.notificationDelegate {
-                ObvProtocolNotification.protocolReceivedMessageWasDeleted(protocolMessageId: messageIdOnDeletion)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+            if let messageIdOnDeletion {
+                Task { await Self.observersHolder.aReceivedMessageWasDeleted(messageId: messageIdOnDeletion) }
             }
         }
         
+    }
+    
+}
+
+
+// MARK: - ReceivedMessage observers
+
+protocol ReceivedMessageObserver: AnyObject {
+    func aReceivedMessageWasDeleted(messageId: ObvMessageIdentifier) async
+}
+
+
+private actor ReceivedMessageObserversHolder: ReceivedMessageObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ReceivedMessageObserver?
+        init(value: ReceivedMessageObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ReceivedMessageObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+    
+    // Implementing PersistedMessageObserver
+    
+    func aReceivedMessageWasDeleted(messageId: ObvMessageIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aReceivedMessageWasDeleted(messageId: messageId) }
+            }
+        }
     }
     
 }

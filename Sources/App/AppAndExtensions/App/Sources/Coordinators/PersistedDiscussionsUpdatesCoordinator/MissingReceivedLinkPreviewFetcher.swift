@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvUICoreData
 import ObvSettings
 import ObvCrypto
@@ -41,8 +41,6 @@ actor MissingReceivedLinkPreviewFetcher: MissingReceivedLinkPreviewFetcherDelega
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: logCategory)
     
     private var cache = [TypeSafeManagedObjectID<PersistedMessageReceived>: MissingPreviewFetcherTask]()
-    
-    private let Sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
     
     private enum MissingPreviewFetcherTask {
         case inProgress(Task<Void, Error>)
@@ -154,6 +152,7 @@ actor MissingReceivedLinkPreviewFetcher: MissingReceivedLinkPreviewFetcherDelega
         // Compute the sha256 of the file
         let sha256: Data
         do {
+            let Sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
             sha256 = try Sha256.hash(fileAtUrl: fyleURL)
         } catch {
             os_log("[MissingPreviewFetcherCoordinator] Failed to generate sha256 of the file for %{public}@: %{public}@", log: MissingReceivedLinkPreviewFetcher.log, type: .info,  objectID.debugDescription, error.localizedDescription)

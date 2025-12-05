@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,14 +21,14 @@ import Foundation
 import ObvEncoder
 
 
-public enum ObvCapability: String, CaseIterable {
+public enum ObvCapability: String, CaseIterable, Sendable {
     case webrtcContinuousICE = "webrtc_continuous_ice"
     case groupsV2 = "groups_v2"
     case oneToOneContacts = "one_to_one_contacts"
 }
 
 
-extension Set<ObvCapability>: ObvCodable {
+extension Set<ObvCapability>: @retroactive ObvCodable {
     
     public func obvEncode() -> ObvEncoder.ObvEncoded {
         self.map({ $0.rawValue.obvEncode() }).obvEncode()

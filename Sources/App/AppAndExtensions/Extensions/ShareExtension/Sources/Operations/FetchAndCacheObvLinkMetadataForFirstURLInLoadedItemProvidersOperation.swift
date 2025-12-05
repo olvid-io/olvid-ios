@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,20 +18,20 @@
  */
 
 import Foundation
+import OSLog
 import OlvidUtils
-import os.log
 import LinkPresentation
 
 
-/// This operation is used by the share extension and leverages the operation that loads item providers. If one of them occurs to be an https URL, this operation fetches a "link preview" for it so that the share extension can cache it.
+/// This operation is used by the share extension. If one of the `LoadedItemProviderToPaste` occurs to be an https URL, this operation fetches a "link preview" for it so that the share extension can cache it.
 /// Eventually, when sending the message, we use the cache to add the "link preview" to the sent message if appropriate.
 final class FetchAndCacheObvLinkMetadataForFirstURLInLoadedItemProvidersOperation: AsyncOperationWithSpecificReasonForCancel<FetchAndCacheObvLinkMetadataForFirstURLInLoadedItemProvidersOperation.ReasonForCancel>, @unchecked Sendable {
     
-    private let loadedItemProviderProvider: LoadedItemProviderProvider
+    private let loadedItemProvidersToPaste: [LoadedItemProviderToPaste]
     private let currentURLsInCache: Set<URL>
 
-    init(loadedItemProviderProvider: LoadedItemProviderProvider, currentURLsInCache: Set<URL>) {
-        self.loadedItemProviderProvider = loadedItemProviderProvider
+    init(loadedItemProvidersToPaste: [LoadedItemProviderToPaste], currentURLsInCache: Set<URL>) {
+        self.loadedItemProvidersToPaste = loadedItemProvidersToPaste
         self.currentURLsInCache = currentURLsInCache
         super.init()
     }
@@ -40,27 +40,21 @@ final class FetchAndCacheObvLinkMetadataForFirstURLInLoadedItemProvidersOperatio
     
     override func main() async {
         
-        guard let loadedItemProviders = loadedItemProviderProvider.loadedItemProviders else {
-            cancel(withReason: .noLoadedItemProviders)
-            return finish()
-        }
-
-        let loadedHTTPSURL = loadedItemProviders
-            .compactMap { loadItemProvider in
-                switch loadItemProvider {
+        let loadedHTTPSURL = loadedItemProvidersToPaste
+            .compactMap { loadItemProviderToPaste in
+                switch loadItemProviderToPaste {
                 case .url(content: let url):
                     return url
                 case .text(content: let body):
                     guard let firstURLInBody = body.extractURLs().first else { return nil }
                     return firstURLInBody
-                default:
-                    return nil
                 }
             }
             .filter {
                 $0.scheme?.lowercased() == "https"
             }
             .first
+
         guard let loadedHTTPSURL else {
             return finish()
         }

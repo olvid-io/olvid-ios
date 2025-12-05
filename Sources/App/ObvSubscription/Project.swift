@@ -18,8 +18,13 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     dependencies: [
         .Olvid.App.obvUI,
         .Olvid.App.obvDesignSystem,
+        .Olvid.App.obvAppTypes,
+        .Olvid.App.obvAppCoreConstants,
+        .Olvid.App.obvSystemIcon,
+        .Olvid.App.ThirdParty.confettiSwiftUI,
         .Olvid.Shared.obvTypes,
-    ])
+    ],
+    enableSwift6: true)
 
 
 // MARK: - Project

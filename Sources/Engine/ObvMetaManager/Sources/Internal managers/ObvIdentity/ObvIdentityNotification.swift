@@ -38,42 +38,6 @@ public struct ObvIdentityNotification {
         }
     }
     
-    public struct NewPublishedContactIdentityDetails {
-        public static let name = NSNotification.Name("ObvIdentityNotification.NewPublishedContactIdentityDetails")
-        public struct Key {
-            public static let contactCryptoIdentity = "contactCryptoIdentity" // ObvCryptoIdentity
-            public static let ownedCryptoIdentity = "ownedCryptoIdentity"
-            public static let publishedIdentityDetails = "publishedIdentityDetails"
-        }
-        public static func parse(_ notification: Notification) -> (contactCryptoIdentity: ObvCryptoIdentity, ownedCryptoIdentity: ObvCryptoIdentity, publishedIdentityDetails: ObvIdentityDetails)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let contactCryptoIdentity = userInfo[Key.contactCryptoIdentity] as? ObvCryptoIdentity else { return nil }
-            guard let ownedCryptoIdentity = userInfo[Key.ownedCryptoIdentity] as? ObvCryptoIdentity else { return nil }
-            guard let publishedIdentityDetails = userInfo[Key.publishedIdentityDetails] as? ObvIdentityDetails else { return nil }
-            return (contactCryptoIdentity, ownedCryptoIdentity, publishedIdentityDetails)
-        }
-    }
-    
-
-    public struct NewTrustedContactIdentityDetails {
-        public static let name = NSNotification.Name("ObvIdentityNotification.NewTrustedContactIdentityDetails")
-        public struct Key {
-            public static let contactCryptoIdentity = "contactCryptoIdentity" // ObvCryptoIdentity
-            public static let ownedCryptoIdentity = "ownedCryptoIdentity"
-            public static let trustedIdentityDetails = "trustedIdentityDetails"
-        }
-        public static func parse(_ notification: Notification) -> (contactCryptoIdentity: ObvCryptoIdentity, ownedCryptoIdentity: ObvCryptoIdentity, trustedIdentityDetails: ObvIdentityDetails)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let contactCryptoIdentity = userInfo[Key.contactCryptoIdentity] as? ObvCryptoIdentity else { return nil }
-            guard let ownedCryptoIdentity = userInfo[Key.ownedCryptoIdentity] as? ObvCryptoIdentity else { return nil }
-            guard let trustedIdentityDetails = userInfo[Key.trustedIdentityDetails] as? ObvIdentityDetails else { return nil }
-            return (contactCryptoIdentity, ownedCryptoIdentity, trustedIdentityDetails)
-        }
-    }
-
-    
     // MARK: - Creating and deleting Contact Groups
     
     public struct NewContactGroupOwned {

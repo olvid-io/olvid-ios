@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -74,7 +74,7 @@ final class CreatePendingServerQueryOperation: ContextualOperationWithSpecificRe
             
             let serverQuery = ServerQuery(ownedIdentity: ownedCryptoId, queryType: serverQueryType, encodedElements: noElements.obvEncode())
             
-            _ = PendingServerQuery(serverQuery: serverQuery, delegateManager: delegateManager, within: obvContext)
+            _ = PendingServerQuery.createPendingServerQuery(serverQuery: serverQuery, within: obvContext.context)
 
         } catch {
             assertionFailure()

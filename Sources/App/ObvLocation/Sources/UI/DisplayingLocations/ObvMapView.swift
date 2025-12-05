@@ -68,7 +68,7 @@ enum ObvMapViewDataSourceKind {
 }
 
 @MainActor
-protocol ObvMapViewDataSource: DeviceLocationViewDataSource {
+protocol ObvMapViewDataSource {
     func getAsyncStreamOfObvMapViewModel() throws -> AsyncStream<ObvMapViewModel>
 }
 
@@ -88,11 +88,13 @@ public struct ObvMapView: View {
     /// This is typically used when tapping a received message containing a received continuous location, to immediately focus on the message's sender.
     let initialDeviceIdentifierToSelect: ObvDeviceIdentifier?
     let dataSource: any ObvMapViewDataSource
+    let avatarViewDataSource: ObvAvatarViewDataSource
     let actions: any ObvMapViewActionsProtocol
     
-    init(dataSource: any ObvMapViewDataSource, actions: any ObvMapViewActionsProtocol, initialDeviceIdentifierToSelect: ObvDeviceIdentifier? = nil) {
+    init(dataSource: any ObvMapViewDataSource, avatarViewDataSource: ObvAvatarViewDataSource, actions: any ObvMapViewActionsProtocol, initialDeviceIdentifierToSelect: ObvDeviceIdentifier? = nil) {
         self.initialDeviceIdentifierToSelect = initialDeviceIdentifierToSelect
         self.dataSource = dataSource
+        self.avatarViewDataSource = avatarViewDataSource
         self.actions = actions
     }
 
@@ -205,7 +207,7 @@ public struct ObvMapView: View {
     
     public var body: some View {
         ZStack {
-            InternalView(model: $model, selectedDeviceLocation: $selectedDeviceLocation, cameraPosition: $cameraPosition, currentOwnedDeviceLocation: currentOwnedDeviceLocation, dataSource: dataSource)
+            InternalView(model: $model, selectedDeviceLocation: $selectedDeviceLocation, cameraPosition: $cameraPosition, currentOwnedDeviceLocation: currentOwnedDeviceLocation, avatarViewDataSource: avatarViewDataSource)
                 .task { await onTask() }
                 .task { await onTaskForMonitoringCurrentOwnedDeviceLocation() }
             VStack {
@@ -228,7 +230,7 @@ public struct ObvMapView: View {
         @Binding var selectedDeviceLocation: ObvMapViewModel.DeviceLocation?
         @Binding var cameraPosition: MapCameraPosition
         let currentOwnedDeviceLocation: ObvMapViewModel.DeviceLocation?
-        let dataSource: any ObvMapViewDataSource
+        let avatarViewDataSource: ObvAvatarViewDataSource
 
         private let userAnnotationSize: CGFloat = 24.0
 
@@ -278,7 +280,7 @@ public struct ObvMapView: View {
                         // The following annotations represent all other devices positions
                         ForEach(model.deviceLocations) { deviceLocation in
                             Annotation("", coordinate: deviceLocation.coordinate.clCoordinate) {
-                                DeviceLocationView(deviceLocation: deviceLocation, dataSource: dataSource)
+                                DeviceLocationView(deviceLocation: deviceLocation, avatarViewDataSource: avatarViewDataSource)
                             }
                             .tag(deviceLocation)
                         }
@@ -294,7 +296,7 @@ public struct ObvMapView: View {
                                              cameraPosition: $cameraPosition,
                                              selectedDeviceLocation: $selectedDeviceLocation,
                                              currentOwnedDeviceLocation: currentOwnedDeviceLocation,
-                                             dataSource: dataSource)
+                                             avatarViewDataSource: avatarViewDataSource)
                             .padding(.top, 16.0)
                             .padding(.trailing, 16.0)
                         }
@@ -329,7 +331,7 @@ struct ObvMapPickerView: View {
     @Binding var cameraPosition: MapCameraPosition
     @Binding var selectedDeviceLocation: ObvMapViewModel.DeviceLocation?
     let currentOwnedDeviceLocation: ObvMapViewModel.DeviceLocation?
-    let dataSource: DeviceLocationViewDataSource
+    let avatarViewDataSource: ObvAvatarViewDataSource
 
     @State private var pickerIsOpened: Bool = false
     
@@ -342,7 +344,7 @@ struct ObvMapPickerView: View {
                 SystemIconInCircleView(systemIcon: .locationCircle, userAnnotationSize: userAnnotationSize)
             } else {
                 // The user decided to follow a contact device location
-                DeviceLocationView(deviceLocation: selectedDeviceLocation, dataSource: dataSource, userAnnotationSize: userAnnotationSize, withShadow: false)
+                DeviceLocationView(deviceLocation: selectedDeviceLocation, avatarViewDataSource: avatarViewDataSource, userAnnotationSize: userAnnotationSize, withShadow: false)
             }
         } else {
             if cameraPosition == .automatic {
@@ -371,7 +373,7 @@ struct ObvMapPickerView: View {
         @Binding var selectedDeviceLocation: ObvMapViewModel.DeviceLocation?
         @Binding var pickerIsOpened: Bool
         let currentOwnedDeviceLocation: ObvMapViewModel.DeviceLocation?
-        let dataSource: DeviceLocationViewDataSource
+        let avatarViewDataSource: ObvAvatarViewDataSource
         let userAnnotationSize: CGFloat
 
         private func globeButtonTapped() {
@@ -412,7 +414,7 @@ struct ObvMapPickerView: View {
                     ForEach(model.deviceLocations) { deviceLocation in
                         if selectedDeviceLocation != deviceLocation {
                             Button(action: { deviceLocationTapped(deviceLocation: deviceLocation) }) {
-                                DeviceLocationView(deviceLocation: deviceLocation, dataSource: dataSource, userAnnotationSize: userAnnotationSize, withShadow: false)
+                                DeviceLocationView(deviceLocation: deviceLocation, avatarViewDataSource: avatarViewDataSource, userAnnotationSize: userAnnotationSize, withShadow: false)
                             }
                         }
                     }
@@ -448,7 +450,7 @@ struct ObvMapPickerView: View {
                                                       selectedDeviceLocation: $selectedDeviceLocation,
                                                       pickerIsOpened: $pickerIsOpened,
                                                       currentOwnedDeviceLocation: currentOwnedDeviceLocation,
-                                                      dataSource: dataSource,
+                                                      avatarViewDataSource: avatarViewDataSource,
                                                       userAnnotationSize: userAnnotationSize)
 
                         ScrollView(.vertical) {
@@ -457,7 +459,7 @@ struct ObvMapPickerView: View {
                                                           selectedDeviceLocation: $selectedDeviceLocation,
                                                           pickerIsOpened: $pickerIsOpened,
                                                           currentOwnedDeviceLocation: currentOwnedDeviceLocation,
-                                                          dataSource: dataSource,
+                                                          avatarViewDataSource: avatarViewDataSource,
                                                           userAnnotationSize: userAnnotationSize)
                         }
                         
@@ -485,27 +487,25 @@ private extension AnyTransition {
 
 // MARK: - Subview DeviceLocationView
 
-protocol DeviceLocationViewDataSource: ObvAvatarViewDataSource {}
-
 private struct DeviceLocationView: View {
     
     let deviceLocation: ObvMapViewModel.DeviceLocation
     let userAnnotationSize: CGFloat
     let withShadow: Bool
-    let dataSource: DeviceLocationViewDataSource
+    let avatarViewDataSource: ObvAvatarViewDataSource
     
-    init(deviceLocation: ObvMapViewModel.DeviceLocation, dataSource: DeviceLocationViewDataSource, userAnnotationSize: CGFloat = 24.0, withShadow: Bool = true) {
+    init(deviceLocation: ObvMapViewModel.DeviceLocation, avatarViewDataSource: ObvAvatarViewDataSource, userAnnotationSize: CGFloat = 24.0, withShadow: Bool = true) {
         self.deviceLocation = deviceLocation
         self.userAnnotationSize = userAnnotationSize
         self.withShadow = withShadow
-        self.dataSource = dataSource
+        self.avatarViewDataSource = avatarViewDataSource
     }
 
     var body: some View {
         ObvAvatarView(model: deviceLocation.avatarViewModel,
                       style: .map,
                       size: .custom(frameSize: CGSize(width: userAnnotationSize + 4.0, height: userAnnotationSize + 4.0)),
-                      dataSource: dataSource)
+                      dataSource: avatarViewDataSource)
         .shadow(radius: withShadow ? 3.0 : 0.0, x: 0.0, y: withShadow ? 2.0 : 0.0)
     }
     
@@ -535,12 +535,15 @@ private struct SystemIconInCircleView: View {
 
 #if DEBUG
 
-private final class DataSourceForPreviews: ObvMapViewDataSource {
+private final class DataSourceForPreviews: ObvMapViewDataSource, ObvAvatarViewDataSource {
     
-    func fetchAvatar(photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+    func fetchAvatar(_ view: ObvAvatarView, photoURL: URL, avatarSize: ObvAvatarSize) async throws -> UIImage? {
         return UIImage.avatarForURL(url: photoURL)
     }
-    
+
+    func fetchAvatarFromCache(_ view: ObvAvatarView, photoURL: URL, avatarSize: ObvAvatarSize) -> UIImage? {
+        return nil
+    }
     
     func getAsyncStreamOfObvMapViewModel() throws -> AsyncStream<ObvMapViewModel> {
         let stream = AsyncStream(ObvMapViewModel.self) { (continuation: AsyncStream<ObvMapViewModel>.Continuation) in
@@ -581,12 +584,12 @@ private let actionsForPreviews = ActionsForPreviews()
 
 @available(iOS 17.0, *)
 #Preview {
-    ObvMapView(dataSource: dataSourceForPreviews, actions: actionsForPreviews)
+    ObvMapView(dataSource: dataSourceForPreviews, avatarViewDataSource: dataSourceForPreviews, actions: actionsForPreviews)
 }
 
 @available(iOS 17.0, *)
 #Preview("With initial value") {
-    ObvMapView(dataSource: dataSourceForPreviews, actions: actionsForPreviews, initialDeviceIdentifierToSelect: ObvDeviceIdentifier.sampleDatasOfContactDevices[0])
+    ObvMapView(dataSource: dataSourceForPreviews, avatarViewDataSource: dataSourceForPreviews, actions: actionsForPreviews, initialDeviceIdentifierToSelect: ObvDeviceIdentifier.sampleDatasOfContactDevices[0])
 }
 
 

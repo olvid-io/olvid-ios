@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import OlvidUtils
-import os.log
+import OSLog
 import CoreData
 import ObvUICoreData
 
@@ -29,14 +29,14 @@ import ObvUICoreData
 final class SaveBodyTextAndMentionsOfPersistedDraftOperation: ContextualOperationWithSpecificReasonForCancel<SaveBodyTextAndMentionsOfPersistedDraftOperation.ReasonForCancel>, @unchecked Sendable {
 
     /// The draft's permamnt object ID
-    private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
+    private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
     /// The draft's new body to save
     private let bodyText: String
     /// A collection of mentions to add to the draft
     private let mentions: Set<MessageJSON.UserMention>
 
-    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, bodyText: String, mentions: Set<MessageJSON.UserMention>) {
-        self.draftPermanentID = draftPermanentID
+    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, bodyText: String, mentions: Set<MessageJSON.UserMention>) {
+        self.draftObjectID = draftObjectID
         self.bodyText = bodyText
         self.mentions = Set(mentions)
         super.init()
@@ -45,7 +45,7 @@ final class SaveBodyTextAndMentionsOfPersistedDraftOperation: ContextualOperatio
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         do {
-            guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
+            guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindDraftInDatabase)
             }
             

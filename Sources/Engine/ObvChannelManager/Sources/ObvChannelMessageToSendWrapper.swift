@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,8 +28,9 @@ import ObvMetaManager
 
 
 protocol ObvChannelMessageToSendWrapper {
-    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog)
+    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService)
     func generateObvNetworkMessagesToSend() throws -> [ObvNetworkMessageToSend]
+    static var logger: Logger { get }
 }
 
 
@@ -50,17 +51,19 @@ fileprivate extension ObvChannelMessageToSendWrapper {
     
     
     /// The `messageContent` is used to inject a context in the message key. This key will be later used to encrypt this `messageContent`
-    static func generateMessageKeyAndHeaders(contentForMessageKey: Data, using acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog) -> (AuthenticatedEncryptionKey, [ObvNetworkMessageToSend.Header])? {
+    static func generateMessageKeyAndHeaders(contentForMessageKey: Data, isAppMessage: Bool, using acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService) -> (AuthenticatedEncryptionKey, [ObvNetworkMessageToSend.Header])? {
         assert((contentForMessageKey.count & 0x1FF) == 0) // We expect the content to be a multiple of 512
         let cryptoSuiteVersion = acceptableChannels.reduce(ObvCryptoSuite.sharedInstance.latestVersion) { min($0, $1.cryptoSuiteVersion) }
         guard let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption(forSuiteVersion: cryptoSuiteVersion) else {
             return nil
         }
         let messageKey = authEnc.generateMessageKey(with: prng, message: contentForMessageKey)
-        let headers = acceptableChannels.compactMap { $0.wrapMessageKey(messageKey, randomizedWith: prng) }
+        let headers = acceptableChannels.compactMap {
+            $0.wrapMessageKey(messageKey, isAppMessage: isAppMessage, randomizedWith: prng)
+        }
         if headers.count != acceptableChannels.count {
             assertionFailure()
-            os_log("Failed to produce a header for at least one of the acceptable channels", log: log, type: .fault)
+            Self.logger.fault("Failed to produce a header for at least one of the acceptable channels")
         }
         return (messageKey, headers)
     }
@@ -90,6 +93,8 @@ fileprivate extension ObvChannelMessageToSendWrapper {
 
 struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
+    static let logger = Logger(subsystem: "io.olvid.channel", category: "ObvChannelProtocolMessageToSendWrapper")
+    
     private static func makeError(message: String) -> Error {
         NSError(domain: "ObvChannelProtocolMessageToSendWrapper", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
     }
@@ -97,7 +102,6 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     private let protocolMessage: ObvChannelProtocolMessageToSend
     private let acceptableChannels: [ObvNetworkChannel]
     private let prng: PRNGService
-    private let log: OSLog
     
     // MARK: Computed properties
     
@@ -109,12 +113,11 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
     // MARK: Initializer
     
-    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog) {
+    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService) {
         guard let protocolMessage = message as? ObvChannelProtocolMessageToSend else { return nil }
         self.protocolMessage = protocolMessage
         self.acceptableChannels = acceptableChannels
         self.prng = prng
-        self.log = log
     }
     
     
@@ -124,7 +127,12 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
         
         let messageContent = Self.generatePaddedMessageContent(type: messageType, encodedElements: encodedElements)
         
-        guard let (messageKey, headers) = Self.generateMessageKeyAndHeaders(contentForMessageKey: messageContent, using: acceptableChannels, randomizedWith: prng, log: log) else {
+        guard let (messageKey, headers) = Self.generateMessageKeyAndHeaders(
+            contentForMessageKey: messageContent,
+            isAppMessage: false,
+            using: acceptableChannels,
+            randomizedWith: prng)
+        else {
             assertionFailure()
             throw Self.makeError(message: "Could not generate message key and headers")
         }
@@ -167,6 +175,8 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
 
 struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
+    static let logger = Logger(subsystem: "io.olvid.channel", category: "ObvChannelApplicationMessageToSendWrapper")
+
     private static func makeError(message: String) -> Error {
         NSError(domain: "ObvChannelApplicationMessageToSendWrapper", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
     }
@@ -174,7 +184,6 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
     private let applicationMessage: ObvChannelApplicationMessageToSend
     private let acceptableChannels: [ObvNetworkChannel]
     private let prng: PRNGService
-    private let log: OSLog
 
     // MARK: Computed properties
 
@@ -186,12 +195,11 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
 
     // MARK: Initializer
     
-    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog) {
+    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService) {
         guard let applicationMessage = message as? ObvChannelApplicationMessageToSend else { return nil }
         self.applicationMessage = applicationMessage
         self.acceptableChannels = acceptableChannels
         self.prng = prng
-        self.log = log
     }
     
     
@@ -229,7 +237,12 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
         
         let messageContent = Self.generatePaddedMessageContent(type: messageType, encodedElements: encodedElements)
 
-        guard let (messageKey, headers) = Self.generateMessageKeyAndHeaders(contentForMessageKey: messageContent, using: acceptableChannels, randomizedWith: prng, log: log) else {
+        guard let (messageKey, headers) = Self.generateMessageKeyAndHeaders(
+            contentForMessageKey: messageContent,
+            isAppMessage: true,
+            using: acceptableChannels,
+            randomizedWith: prng)
+        else {
             assertionFailure()
             throw Self.makeError(message: "Could not generate message key and headers")
         }

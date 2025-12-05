@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import Foundation
 import ObvTypes
 
 
-public struct PersistedInvitationStructure {
+public struct PersistedInvitationStructure: Sendable {
     
     let actionRequired: Bool
     let date: Date
@@ -31,7 +31,7 @@ public struct PersistedInvitationStructure {
     public let inviterOrMediator: PersistedObvContactIdentityStructure? // Only set when the obvDialog.category is acceptGroupV2Invite or acceptMediatorInvite
     public let oneToOneDiscussionWithInviterOrMediator: PersistedOneToOneDiscussionStructure? // May be set if the obvDialog.category is acceptGroupV2Invite or acceptMediatorInvite, but only if the inviter/mediator is a one2one contact
 
-    public enum Status: Int {
+    public enum Status: Int, Sendable {
         case new = 0
         case updated = 1
         case old = 3

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
@@ -219,7 +219,7 @@ extension UploadAttachmentChunksSessionDelegate: URLSessionTaskDelegate {
         queueSynchronizingCallsToTracker.async {
             obvContext.performAndWait {
                 
-                guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+                guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else {
                     os_log("Could not retrieve attachment %{public}@ in DB", log: log, type: .fault, attachmentId.debugDescription)
                     self.errorForTracker = .cannotFindAttachmentInDatabase
                     return

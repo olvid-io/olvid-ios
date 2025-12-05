@@ -25,6 +25,7 @@ import ObvTypes
 import OSLog
 import ObvUIObvCircledInitials
 import ObvSettings
+import ObvAppTypes
 
 
 @objc(DisplayedContactGroup)
@@ -134,6 +135,37 @@ public final class DisplayedContactGroup: NSManagedObject, Identifiable, ObvIden
         guard let groupV2 else { return false }
         return groupV2.keycloakManaged
     }
+    
+    
+    /// Expected to be non-nil
+    public var discussionIdentifier: ObvDiscussionIdentifier? {
+        switch group {
+        case .groupV1(let group):
+            return try? group.discussion.discussionIdentifier
+        case .groupV2(let group):
+            return try? group.discussion?.discussionIdentifier
+        case nil:
+            return nil
+        }
+    }
+    
+    
+    public var groupIdentifier: ObvGroupIdentifier {
+        get throws {
+            switch group {
+            case .groupV1(let group):
+                let identifier = try group.obvGroupIdentifier
+                return .groupV1(identifier)
+            case .groupV2(let group):
+                let identifier = try group.obvGroupIdentifier
+                return .groupV2(identifier)
+            case nil:
+                assertionFailure()
+                throw ObvUICoreDataError.unexpectedGroupType
+            }
+        }
+    }
+    
     
     /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
     private var isInsertedWhileRestoringSyncSnapshot = false
@@ -423,6 +455,9 @@ public final class DisplayedContactGroup: NSManagedObject, Identifiable, ObvIden
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) -> NSPredicate {
             NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
         }
+        static func withSectionName(_ sectionName: String) -> NSPredicate {
+            NSPredicate(Key.sectionName, EqualToString: sectionName)
+        }
     }
 
     @nonobjc public static func fetchRequest() -> NSFetchRequest<DisplayedContactGroup> {
@@ -472,12 +507,84 @@ public final class DisplayedContactGroup: NSManagedObject, Identifiable, ObvIden
             Predicate.withOwnedIdentity(ownedIdentity),
             Predicate.withContactIdentity(contactIdentity),
         ]
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        return getFetchRequest(predicate: predicate)
+    }
+    
+    
+    public static func getNSFetchRequest(objectID: TypeSafeManagedObjectID<DisplayedContactGroup>) -> NSFetchRequest<DisplayedContactGroup> {
         let request: NSFetchRequest<DisplayedContactGroup> = DisplayedContactGroup.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        request.predicate = Predicate.displayedContactGroup(withObjectID: objectID.objectID)
+        request.fetchLimit = 1
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
         return request
     }
 
+    
+    public static func getPredicate(ownedCryptoId: ObvCryptoId) -> NSPredicate {
+        Predicate.withOwnedIdentity(ownedCryptoId)
+    }
+    
+    
+    public static func getFetchRequest(predicate: NSPredicate) -> NSFetchRequest<DisplayedContactGroup> {
+        let request: NSFetchRequest<DisplayedContactGroup> = DisplayedContactGroup.fetchRequest()
+        request.predicate = predicate
+        request.fetchBatchSize = 1_000
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
+        request.propertiesToFetch = []
+        return request
+    }
+
+    
+    public static func getNSFetchRequest(ownedCryptoId: ObvCryptoId) -> NSFetchRequest<DisplayedContactGroup> {
+        let predicate = getPredicate(ownedCryptoId: ownedCryptoId)
+        return getFetchRequest(predicate: predicate)
+    }
+
+    
+    public static func getSearchPredicate(_ searchText: String?) -> NSPredicate {
+        let predicate: NSPredicate
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
+            let searchTerms = sanitizedSearchText.split(separator: " ").map({ String($0) })
+            let searchTermsPredicates = searchTerms.map({ Predicate.searchPredicate($0) })
+            predicate = NSCompoundPredicate(andPredicateWithSubpredicates: searchTermsPredicates)
+        } else {
+            predicate = NSPredicate(value: true)
+        }
+        return predicate
+    }
+    
+    
+    /// If the `searchText` is an empty string, this method returns all possible results with no search filtering.
+    public static func getAllObjectIDs(ownedCryptoId: ObvCryptoId, sectionName: String, searchText: String?, within context: NSManagedObjectContext) throws -> [TypeSafeManagedObjectID<DisplayedContactGroup>] {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        request.resultType = .managedObjectIDResultType
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedIdentity(ownedCryptoId),
+            Predicate.withSectionName(sectionName),
+            Self.getSearchPredicate(searchText)
+        ])
+        request.fetchBatchSize = 1_000
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
+        request.propertiesToFetch = []
+        let objectIDs = try context.fetch(request) as? [NSManagedObjectID] ?? []
+        return objectIDs.map { TypeSafeManagedObjectID<DisplayedContactGroup>(objectID: $0) }
+    }
+    
+    
+    public static func getDisplayedContactGroup(groupIdentifier: ObvGroupIdentifier, within context: NSManagedObjectContext) throws -> DisplayedContactGroup? {
+        switch groupIdentifier {
+        case .groupV1(let groupV1Identifier):
+            let groupV1 = try PersistedContactGroup.getContactGroup(groupIdentifier: groupV1Identifier, within: context)
+            return groupV1?.displayedContactGroup
+        case .groupV2(let groupV2Identifier):
+            let groupV2 = try PersistedGroupV2.get(groupIdentifier: groupV2Identifier, within: context)
+            return groupV2?.displayedContactGroup
+        }
+    }
+    
+    
     // MARK: - On save
 
     public override func willSave() {

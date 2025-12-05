@@ -52,6 +52,7 @@ enum NewOnboardingState {
     case userWantsToRestoreThisDecryptedBackup(backupRequestIdentifier: UUID)
     case keycloakConfigAvailable(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool)
     case keycloakUserDetailsAndStuffAvailable(keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState)
+    case keycloakDistributionServerMismatch(distributionServerRequiredByKeycloak: URL, ownedCryptoIdToBind: ObvCryptoId)
     case shouldRequestPermission(profileKind: ProfileKind, category: NewAutorisationRequesterViewController.AutorisationCategory)
     case setupNewBackups(profileKind: ProfileKind)
     case finalize(profileKind: ProfileKind)
@@ -96,6 +97,7 @@ enum NewOnboardingState {
                 .showOwnedIdentityTransferFailed,
                 .finalize,
                 .userWantsToProceedWithAddingDevice,
+                .keycloakDistributionServerMismatch,
                 .setupNewBackups:
             return nil
         case .finalOwnedIdentityTransferCheckOnSourceDevice(_, _, _, _, _, let protocolInstanceUID, _),
@@ -162,6 +164,8 @@ enum NewOnboardingState {
             return profileKind.ownedCryptoId
         case .userWantsToProceedWithAddingDevice(ownedCryptoId: let ownedCryptoId, ownedDetails: _):
             return ownedCryptoId
+        case .keycloakDistributionServerMismatch(distributionServerRequiredByKeycloak: _, ownedCryptoIdToBind: let ownedCryptoId):
+            return ownedCryptoId
         }
     }
         
@@ -189,6 +193,7 @@ enum NewOnboardingState {
                 .userWantsToEnterTransferCode,
                 .successfulTransferWasPerfomed,
                 .showOwnedIdentityTransferFailed,
+                .keycloakDistributionServerMismatch,
                 .userWantsToProceedWithAddingDevice:
             return nil
         }

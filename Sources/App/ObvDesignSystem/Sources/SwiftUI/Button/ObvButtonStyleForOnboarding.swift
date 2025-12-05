@@ -50,14 +50,15 @@ public struct ObvButtonStyleForOnboarding: PrimitiveButtonStyle {
                 Spacer()
                 Image(systemIcon: .chevronRight)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
         }
-        .buttonStyle(.bordered)
         .tint(tintColor)
         .foregroundStyle(.primary)
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color(UIColor.lightGray), lineWidth: lineWidth)
-            )
+                .stroke(Color(UIColor.lightGray), lineWidth: lineWidth)
+        )
         .padding(.all, lineWidth)
     }
     

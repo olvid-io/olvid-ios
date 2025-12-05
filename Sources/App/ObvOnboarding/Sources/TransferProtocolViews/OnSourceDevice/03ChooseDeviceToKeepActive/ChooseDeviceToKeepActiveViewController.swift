@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,9 +24,11 @@ import ObvTypes
 import ObvCrypto
 import Contacts
 import ObvSubscription
+import ObvAppTypes
+import ObvDesignSystem
 
 
-protocol ChooseDeviceToKeepActiveViewControllerDelegate: AnyObject, SubscriptionPlansViewActionsProtocol {
+protocol ChooseDeviceToKeepActiveViewControllerDelegate: AnyObject {
     func userChoseDeviceToKeepActive(controller: ChooseDeviceToKeepActiveViewController, ownedCryptoId: ObvCryptoId, ownedDetails: CNContact, enteredSAS: ObvOwnedIdentityTransferSas, ownedDeviceDiscoveryResult: ObvOwnedDeviceDiscoveryResult, currentDeviceIdentifier: Data, targetDeviceName: String, deviceToKeepActive: ObvOwnedDeviceDiscoveryResult.Device?, protocolInstanceUID: UID) async
     func userDidCancelOwnedIdentityTransferProtocol(controller: ChooseDeviceToKeepActiveViewController) async
     func refreshDeviceDiscovery(controller: ChooseDeviceToKeepActiveViewController, for ownedCryptoId: ObvCryptoId) async throws -> ObvOwnedDeviceDiscoveryResult
@@ -37,9 +39,18 @@ final class ChooseDeviceToKeepActiveViewController: UIHostingController<ChooseDe
     
     private weak var delegate: ChooseDeviceToKeepActiveViewControllerDelegate?
     
-    init(model: ChooseDeviceToKeepActiveViewModel, delegate: ChooseDeviceToKeepActiveViewControllerDelegate) {
+    init(model: ChooseDeviceToKeepActiveViewModel,
+         delegate: ChooseDeviceToKeepActiveViewControllerDelegate,
+         olvidShopViewActions: any OlvidShopViewActions,
+         olvidShopViewDataSources: OlvidShopView.DataSources,
+         uiKitDelegateForSwiftUISheet: any UIKitDelegateForSwiftUISheet) {
         let actions = ChooseDeviceToKeepActiveViewActions()
-        let view = ChooseDeviceToKeepActiveView(actions: actions, model: model)
+        let view = ChooseDeviceToKeepActiveView(
+            actions: actions,
+            model: model,
+            olvidShopViewActions: olvidShopViewActions,
+            olvidShopViewDataSources: olvidShopViewDataSources,
+            uiKitDelegateForSwiftUISheet: uiKitDelegateForSwiftUISheet)
         super.init(rootView: view)
         self.delegate = delegate
         actions.delegate = self
@@ -98,28 +109,28 @@ final class ChooseDeviceToKeepActiveViewController: UIHostingController<ChooseDe
     
     // SubscriptionPlansViewActionsProtocol (required for ChooseDeviceToKeepActiveViewActionsProtocol)
 
-    func fetchSubscriptionPlans(for ownedCryptoId: ObvCryptoId, alsoFetchFreePlan: Bool) async throws -> (freePlanIsAvailable: Bool, products: [Product]) {
-        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
-        return try await delegate.fetchSubscriptionPlans(for: ownedCryptoId, alsoFetchFreePlan: alsoFetchFreePlan)
-    }
-    
-    
-    func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws -> APIKeyElements {
-        assertionFailure("Not expected to be called here. The subscription view shall only show plans allowing to subscribe to multidevice")
-        throw ObvError.cannotStartFreeTrialDuringOnboarding
-    }
-    
-    
-    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
-        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
-        return try await delegate.userWantsToBuy(product)
-    }
-    
-    
-    func userWantsToRestorePurchases() async throws {
-        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
-        try await delegate.userWantsToRestorePurchases()
-    }
+//    func fetchSubscriptionPlans(for ownedCryptoId: ObvCryptoId, alsoFetchFreePlan: Bool) async throws -> (freePlanIsAvailable: Bool, products: [Product]) {
+//        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
+//        return try await delegate.fetchSubscriptionPlans(for: ownedCryptoId, alsoFetchFreePlan: alsoFetchFreePlan)
+//    }
+//    
+//    
+//    func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws {
+//        assertionFailure("Not expected to be called here. The subscription view shall only show plans allowing to subscribe to multidevice")
+//        throw ObvError.cannotStartFreeTrialDuringOnboarding
+//    }
+//    
+//    
+//    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
+//        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
+//        return try await delegate.userWantsToBuy(product)
+//    }
+//    
+//    
+//    func userWantsToRestorePurchases() async throws {
+//        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
+//        try await delegate.userWantsToRestorePurchases()
+//    }
     
     
     func refreshDeviceDiscovery(for ownedCryptoId: ObvCryptoId) async throws -> ObvOwnedDeviceDiscoveryResult {
@@ -154,27 +165,27 @@ private final class ChooseDeviceToKeepActiveViewActions: ChooseDeviceToKeepActiv
     
     // SubscriptionPlansViewActionsProtocol (required for ChooseDeviceToKeepActiveViewActionsProtocol)
     
-    func fetchSubscriptionPlans(for ownedCryptoId: ObvCryptoId, alsoFetchFreePlan: Bool) async throws -> (freePlanIsAvailable: Bool, products: [Product]) {
-        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
-        return try await delegate.fetchSubscriptionPlans(for: ownedCryptoId, alsoFetchFreePlan: alsoFetchFreePlan)
-    }
-    
-    func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws -> APIKeyElements {
-        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
-        return try await delegate.userWantsToStartFreeTrialNow(ownedCryptoId: ownedCryptoId)
-    }
-    
-    
-    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
-        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
-        return try await delegate.userWantsToBuy(product)
-    }
-    
-    
-    func userWantsToRestorePurchases() async throws {
-        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
-        try await delegate.userWantsToRestorePurchases()
-    }
+//    func fetchSubscriptionPlans(for ownedCryptoId: ObvCryptoId, alsoFetchFreePlan: Bool) async throws -> (freePlanIsAvailable: Bool, products: [Product]) {
+//        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
+//        return try await delegate.fetchSubscriptionPlans(for: ownedCryptoId, alsoFetchFreePlan: alsoFetchFreePlan)
+//    }
+//    
+//    func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws {
+//        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
+//        try await delegate.userWantsToStartFreeTrialNow(ownedCryptoId: ownedCryptoId)
+//    }
+//    
+//    
+//    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
+//        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
+//        return try await delegate.userWantsToBuy(product)
+//    }
+//    
+//    
+//    func userWantsToRestorePurchases() async throws {
+//        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
+//        try await delegate.userWantsToRestorePurchases()
+//    }
     
     
     func refreshDeviceDiscovery(for ownedCryptoId: ObvCryptoId) async throws -> ObvOwnedDeviceDiscoveryResult {

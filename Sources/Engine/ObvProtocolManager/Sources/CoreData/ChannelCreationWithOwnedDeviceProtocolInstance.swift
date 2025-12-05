@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -55,23 +55,24 @@ final class ChannelCreationWithOwnedDeviceProtocolInstance: NSManagedObject {
 
     // MARK: - Initializer
 
-    convenience init?(protocolInstanceUid: UID, ownedIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: Self.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        guard let protocolInstance = ProtocolInstance.get(cryptoProtocolId: CryptoProtocolId.channelCreationWithOwnedDevice,
-                                                          uid: protocolInstanceUid,
-                                                          ownedIdentity: ownedIdentity,
-                                                          delegateManager: delegateManager,
-                                                          within: obvContext) else { return nil }
+    /// 2025-08-27: ok
+    convenience init?(protocolInstanceUid: UID, ownedIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, within context: NSManagedObjectContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: Self.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        guard let protocolInstance = try ProtocolInstance.get(
+            cryptoProtocolId: CryptoProtocolId.channelCreationWithOwnedDevice,
+            uid: protocolInstanceUid,
+            ownedIdentity: ownedIdentity,
+            within: context) else { return nil }
         self.protocolInstance = protocolInstance
         self.rawRemoteDeviceUid = remoteDeviceUid.raw
-        self.rawOwnedIdentityIdentity = protocolInstance.ownedCryptoIdentity.getIdentity()
+        self.rawOwnedIdentityIdentity = try protocolInstance.ownedCryptoIdentity.getIdentity()
     }
     
     
     private func deleteChannelCreationWithOwnedDeviceProtocolInstance() throws {
-        guard let context = self.managedObjectContext else { throw ObvError.couldNotFindContext }
-        context.delete(self)
+        guard let managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        managedObjectContext.delete(self)
     }
     
     
@@ -100,14 +101,14 @@ final class ChannelCreationWithOwnedDeviceProtocolInstance: NSManagedObject {
 
     /// Since we there must be at most one `ChannelCreationWithOwnedDeviceProtocolInstance` for a given owned identity and remote device, we expect the array returned by this method to contain either 0 or 1 entry.
     /// Yet, to be more resilient, we return all items found so as to let the protocol stop all protocol instances in all cases.
-    static func deleteAll(ownedCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, within obvContext: ObvContext) throws -> [UID] {
+    static func deleteAll(ownedCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, within context: NSManagedObjectContext) throws -> [UID] {
         let request: NSFetchRequest<ChannelCreationWithOwnedDeviceProtocolInstance> = ChannelCreationWithOwnedDeviceProtocolInstance.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
             Predicate.withRemoteDeviceUid(remoteDeviceUid),
         ])
-        let itemsToDelete = try obvContext.context.fetch(request)
-        let protocolInstanceUids = itemsToDelete.compactMap(\.protocolInstance?.uid)
+        let itemsToDelete = try context.fetch(request)
+        let protocolInstanceUids = itemsToDelete.compactMap { try? $0.protocolInstance?.uid }
         try itemsToDelete.forEach { itemToDelete in
             try itemToDelete.deleteChannelCreationWithOwnedDeviceProtocolInstance()
         }
@@ -115,21 +116,21 @@ final class ChannelCreationWithOwnedDeviceProtocolInstance: NSManagedObject {
     }
 
     
-    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, within obvContext: ObvContext) throws -> Bool {
+    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<ChannelCreationWithOwnedDeviceProtocolInstance> = ChannelCreationWithOwnedDeviceProtocolInstance.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
             Predicate.withRemoteDeviceUid(remoteDeviceUid),
         ])
-        let numberOfEntries = try obvContext.count(for: request)
+        let numberOfEntries = try context.count(for: request)
         return numberOfEntries != 0
     }
 
     
-    static func getAll(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt> {
+    static func getAll(within context: NSManagedObjectContext) throws -> Set<ObliviousChannelIdentifierAlt> {
         let request: NSFetchRequest<ChannelCreationWithOwnedDeviceProtocolInstance> = ChannelCreationWithOwnedDeviceProtocolInstance.fetchRequest()
         request.fetchBatchSize = 1_000
-        let items = try obvContext.context.fetch(request)
+        let items = try context.fetch(request)
         return Set(items.compactMap({
             guard let ownedCryptoIdentity = $0.ownedCryptoIdentity else { assertionFailure(); return nil }
             guard let remoteDeviceUid = $0.remoteDeviceUid else { assertionFailure(); return nil }
@@ -141,13 +142,7 @@ final class ChannelCreationWithOwnedDeviceProtocolInstance: NSManagedObject {
     
     enum ObvError: Error {
         case couldNotFindContext
-
-        var localizedDescription: String {
-            switch self {
-            case .couldNotFindContext:
-                return "Could not find context"
-            }
-        }
+        case noContext
     }
     
 }

@@ -33,7 +33,7 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 public enum ObvBackupNotification {
-	case backupableManagerDatabaseContentChanged(flowId: FlowIdentifier)
+	case backupableManagerDatabaseContentChanged
 
 	private enum Name {
 		case backupableManagerDatabaseContentChanged
@@ -56,10 +56,8 @@ public enum ObvBackupNotification {
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .backupableManagerDatabaseContentChanged(flowId: let flowId):
-			info = [
-				"flowId": flowId,
-			]
+		case .backupableManagerDatabaseContentChanged:
+			info = nil
 		}
 		return info
 	}
@@ -73,11 +71,10 @@ public enum ObvBackupNotification {
 		}
 	}
 
-	public static func observeBackupableManagerDatabaseContentChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeBackupableManagerDatabaseContentChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.backupableManagerDatabaseContentChanged.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(flowId)
+			block()
 		}
 	}
 

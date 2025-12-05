@@ -111,34 +111,34 @@ extension Seed {
 
 // MARK: Implementing a ValueTransformer for Seed
 
-public class SeedTransformer: ValueTransformer {
-    
-    override public class func transformedValueClass() -> AnyClass {
-        return Seed.self
-    }
-    
-    override public class func allowsReverseTransformation() -> Bool {
-        return true
-    }
-    
-    
-    /// Turn an Seed into a Data object. This method never fails.
-    override public func transformedValue(_ value: Any?) -> Any? {
-        let uid = value as! Seed
-        return uid.raw
-    }
-    
-    /// Try to turn a Data object back into a Seed. This method can return nil.
-    override public func reverseTransformedValue(_ value: Any?) -> Any? {
-        guard let data = value as? Data else { return nil }
-        return Seed(with: data)
-    }
-    
-}
-
-public extension NSValueTransformerName {
-    static let seedTransformerName = NSValueTransformerName(rawValue: "SeedTransformer")
-}
+//public class SeedTransformer: ValueTransformer {
+//    
+//    override public class func transformedValueClass() -> AnyClass {
+//        return Seed.self
+//    }
+//    
+//    override public class func allowsReverseTransformation() -> Bool {
+//        return true
+//    }
+//    
+//    
+//    /// Turn an Seed into a Data object. This method never fails.
+//    override public func transformedValue(_ value: Any?) -> Any? {
+//        let uid = value as! Seed
+//        return uid.raw
+//    }
+//    
+//    /// Try to turn a Data object back into a Seed. This method can return nil.
+//    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+//        guard let data = value as? Data else { return nil }
+//        return Seed(with: data)
+//    }
+//    
+//}
+//
+//public extension NSValueTransformerName {
+//    static let seedTransformerName = NSValueTransformerName(rawValue: "SeedTransformer")
+//}
 
 
 // MARK: - Overriding CustomDebugStringConvertible

@@ -126,10 +126,6 @@ final class AuxiliaryPreviewMenuManager {
                 return ExtractedContextMenuViewsForiOS16(usingManager: manager)
             }
             
-            if #available(iOS 15, *) {
-                return ExtractedContextMenuViewsForiOS15(usingManager: manager)
-            }
-            
             return nil
         }()
         

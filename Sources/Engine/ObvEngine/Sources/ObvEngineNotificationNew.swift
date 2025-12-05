@@ -42,7 +42,6 @@ public enum ObvEngineNotificationNew {
 	case contactGroupOwnedDiscardedLatestDetails(obvContactGroup: ObvContactGroup)
 	case contactGroupOwnedHasUpdatedLatestDetails(obvContactGroup: ObvContactGroup)
 	case deletedObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier)
-	case newTrustedContactIdentity(obvContactIdentity: ObvContactIdentity)
 	case ownedIdentityWasDeactivated(ownedIdentity: ObvCryptoId)
 	case ownedIdentityWasReactivated(ownedIdentity: ObvCryptoId)
 	case networkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoId)
@@ -52,14 +51,12 @@ public enum ObvEngineNotificationNew {
 	case outboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: Data, ownedIdentity: ObvCryptoId)
 	case callerTurnCredentialsReceived(ownedIdentity: ObvCryptoId, callUuid: UUID, turnCredentials: ObvTurnCredentials)
 	case messageWasAcknowledged(ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool)
-	case newMessagesReceived(messages: [ObvMessageOrObvOwnedMessage])
 	case attachmentWasAcknowledgedByServer(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
 	case attachmentDownloadCancelledByServer(obvAttachment: ObvAttachment)
 	case cannotReturnAnyProgressForMessageAttachments(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data)
 	case attachmentDownloaded(obvAttachment: ObvAttachment)
 	case attachmentDownloadWasResumed(ownCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
 	case attachmentDownloadWasPaused(ownCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
-	case newObvEncryptedReceivedReturnReceipt(encryptedReceivedReturnReceipt: ObvEncryptedReceivedReturnReceipt)
 	case contactWasDeleted(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
 	case newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(ownedIdentity: ObvCryptoId, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?)
 	case newObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier)
@@ -73,12 +70,10 @@ public enum ObvEngineNotificationNew {
 	case wellKnownDownloadedSuccess(serverURL: URL, appInfo: [String: AppInfo])
 	case wellKnownDownloadedFailure(serverURL: URL)
 	case wellKnownUpdatedSuccess(serverURL: URL, appInfo: [String: AppInfo])
-	case updatedContactIdentity(obvContactIdentity: ObvContactIdentity, trustedIdentityDetailsWereUpdated: Bool, publishedIdentityDetailsWereUpdated: Bool)
+	case createdOrUpdatedContactIdentity(obvContactIdentity: ObvContactIdentity)
 	case ownedIdentityUnbindingFromKeycloakPerformed(ownedIdentity: ObvCryptoId)
 	case updatedOwnedIdentity(obvOwnedIdentity: ObvOwnedIdentity)
-	case mutualScanContactAdded(obvContactIdentity: ObvContactIdentity, signature: Data)
 	case messageExtendedPayloadAvailable(message: ObvMessageOrObvOwnedMessage)
-	case contactIsActiveChangedWithinEngine(obvContactIdentity: ObvContactIdentity)
 	case contactWasRevokedAsCompromisedWithinEngine(obvContactIdentifier: ObvContactIdentifier)
 	case ContactObvCapabilitiesWereUpdated(contact: ObvContactIdentity)
 	case OwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvOwnedIdentity)
@@ -104,6 +99,8 @@ public enum ObvEngineNotificationNew {
 	case newContactDevice(obvContactIdentifier: ObvContactIdentifier)
 	case updatedContactDevice(deviceIdentifier: ObvContactDeviceIdentifier)
 	case anOwnedIdentityTransferProtocolFailed(ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, error: Error)
+	case serverAndInboxContainNoMoreUnprocessedMessages(ownedCryptoId: ObvCryptoId, downloadTimestampFromServer: Date)
+	case aPersistedTrustOriginWasInserted(trustOrigin: ObvTrustOrigin)
 
 	private enum Name {
 		case contactGroupHasUpdatedPendingMembersAndGroupMembers
@@ -115,7 +112,6 @@ public enum ObvEngineNotificationNew {
 		case contactGroupOwnedDiscardedLatestDetails
 		case contactGroupOwnedHasUpdatedLatestDetails
 		case deletedObliviousChannelWithContactDevice
-		case newTrustedContactIdentity
 		case ownedIdentityWasDeactivated
 		case ownedIdentityWasReactivated
 		case networkOperationFailedSinceOwnedIdentityIsNotActive
@@ -125,14 +121,12 @@ public enum ObvEngineNotificationNew {
 		case outboxMessageCouldNotBeSentToServer
 		case callerTurnCredentialsReceived
 		case messageWasAcknowledged
-		case newMessagesReceived
 		case attachmentWasAcknowledgedByServer
 		case attachmentDownloadCancelledByServer
 		case cannotReturnAnyProgressForMessageAttachments
 		case attachmentDownloaded
 		case attachmentDownloadWasResumed
 		case attachmentDownloadWasPaused
-		case newObvEncryptedReceivedReturnReceipt
 		case contactWasDeleted
 		case newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity
 		case newObliviousChannelWithContactDevice
@@ -146,12 +140,10 @@ public enum ObvEngineNotificationNew {
 		case wellKnownDownloadedSuccess
 		case wellKnownDownloadedFailure
 		case wellKnownUpdatedSuccess
-		case updatedContactIdentity
+		case createdOrUpdatedContactIdentity
 		case ownedIdentityUnbindingFromKeycloakPerformed
 		case updatedOwnedIdentity
-		case mutualScanContactAdded
 		case messageExtendedPayloadAvailable
-		case contactIsActiveChangedWithinEngine
 		case contactWasRevokedAsCompromisedWithinEngine
 		case ContactObvCapabilitiesWereUpdated
 		case OwnedIdentityCapabilitiesWereUpdated
@@ -177,6 +169,8 @@ public enum ObvEngineNotificationNew {
 		case newContactDevice
 		case updatedContactDevice
 		case anOwnedIdentityTransferProtocolFailed
+		case serverAndInboxContainNoMoreUnprocessedMessages
+		case aPersistedTrustOriginWasInserted
 
 		private var namePrefix: String { String(describing: ObvEngineNotificationNew.self) }
 
@@ -198,7 +192,6 @@ public enum ObvEngineNotificationNew {
 			case .contactGroupOwnedDiscardedLatestDetails: return Name.contactGroupOwnedDiscardedLatestDetails.name
 			case .contactGroupOwnedHasUpdatedLatestDetails: return Name.contactGroupOwnedHasUpdatedLatestDetails.name
 			case .deletedObliviousChannelWithContactDevice: return Name.deletedObliviousChannelWithContactDevice.name
-			case .newTrustedContactIdentity: return Name.newTrustedContactIdentity.name
 			case .ownedIdentityWasDeactivated: return Name.ownedIdentityWasDeactivated.name
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
 			case .networkOperationFailedSinceOwnedIdentityIsNotActive: return Name.networkOperationFailedSinceOwnedIdentityIsNotActive.name
@@ -208,14 +201,12 @@ public enum ObvEngineNotificationNew {
 			case .outboxMessageCouldNotBeSentToServer: return Name.outboxMessageCouldNotBeSentToServer.name
 			case .callerTurnCredentialsReceived: return Name.callerTurnCredentialsReceived.name
 			case .messageWasAcknowledged: return Name.messageWasAcknowledged.name
-			case .newMessagesReceived: return Name.newMessagesReceived.name
 			case .attachmentWasAcknowledgedByServer: return Name.attachmentWasAcknowledgedByServer.name
 			case .attachmentDownloadCancelledByServer: return Name.attachmentDownloadCancelledByServer.name
 			case .cannotReturnAnyProgressForMessageAttachments: return Name.cannotReturnAnyProgressForMessageAttachments.name
 			case .attachmentDownloaded: return Name.attachmentDownloaded.name
 			case .attachmentDownloadWasResumed: return Name.attachmentDownloadWasResumed.name
 			case .attachmentDownloadWasPaused: return Name.attachmentDownloadWasPaused.name
-			case .newObvEncryptedReceivedReturnReceipt: return Name.newObvEncryptedReceivedReturnReceipt.name
 			case .contactWasDeleted: return Name.contactWasDeleted.name
 			case .newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity: return Name.newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity.name
 			case .newObliviousChannelWithContactDevice: return Name.newObliviousChannelWithContactDevice.name
@@ -229,12 +220,10 @@ public enum ObvEngineNotificationNew {
 			case .wellKnownDownloadedSuccess: return Name.wellKnownDownloadedSuccess.name
 			case .wellKnownDownloadedFailure: return Name.wellKnownDownloadedFailure.name
 			case .wellKnownUpdatedSuccess: return Name.wellKnownUpdatedSuccess.name
-			case .updatedContactIdentity: return Name.updatedContactIdentity.name
+			case .createdOrUpdatedContactIdentity: return Name.createdOrUpdatedContactIdentity.name
 			case .ownedIdentityUnbindingFromKeycloakPerformed: return Name.ownedIdentityUnbindingFromKeycloakPerformed.name
 			case .updatedOwnedIdentity: return Name.updatedOwnedIdentity.name
-			case .mutualScanContactAdded: return Name.mutualScanContactAdded.name
 			case .messageExtendedPayloadAvailable: return Name.messageExtendedPayloadAvailable.name
-			case .contactIsActiveChangedWithinEngine: return Name.contactIsActiveChangedWithinEngine.name
 			case .contactWasRevokedAsCompromisedWithinEngine: return Name.contactWasRevokedAsCompromisedWithinEngine.name
 			case .ContactObvCapabilitiesWereUpdated: return Name.ContactObvCapabilitiesWereUpdated.name
 			case .OwnedIdentityCapabilitiesWereUpdated: return Name.OwnedIdentityCapabilitiesWereUpdated.name
@@ -260,6 +249,8 @@ public enum ObvEngineNotificationNew {
 			case .newContactDevice: return Name.newContactDevice.name
 			case .updatedContactDevice: return Name.updatedContactDevice.name
 			case .anOwnedIdentityTransferProtocolFailed: return Name.anOwnedIdentityTransferProtocolFailed.name
+			case .serverAndInboxContainNoMoreUnprocessedMessages: return Name.serverAndInboxContainNoMoreUnprocessedMessages.name
+			case .aPersistedTrustOriginWasInserted: return Name.aPersistedTrustOriginWasInserted.name
 			}
 		}
 	}
@@ -304,10 +295,6 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"obvContactIdentifier": obvContactIdentifier,
 			]
-		case .newTrustedContactIdentity(obvContactIdentity: let obvContactIdentity):
-			info = [
-				"obvContactIdentity": obvContactIdentity,
-			]
 		case .ownedIdentityWasDeactivated(ownedIdentity: let ownedIdentity):
 			info = [
 				"ownedIdentity": ownedIdentity,
@@ -350,10 +337,6 @@ public enum ObvEngineNotificationNew {
 				"isAppMessageWithUserContent": isAppMessageWithUserContent,
 				"isVoipMessage": isVoipMessage,
 			]
-		case .newMessagesReceived(messages: let messages):
-			info = [
-				"messages": messages,
-			]
 		case .attachmentWasAcknowledgedByServer(ownedCryptoId: let ownedCryptoId, messageIdentifierFromEngine: let messageIdentifierFromEngine, attachmentNumber: let attachmentNumber):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
@@ -384,10 +367,6 @@ public enum ObvEngineNotificationNew {
 				"ownCryptoId": ownCryptoId,
 				"messageIdentifierFromEngine": messageIdentifierFromEngine,
 				"attachmentNumber": attachmentNumber,
-			]
-		case .newObvEncryptedReceivedReturnReceipt(encryptedReceivedReturnReceipt: let encryptedReceivedReturnReceipt):
-			info = [
-				"encryptedReceivedReturnReceipt": encryptedReceivedReturnReceipt,
 			]
 		case .contactWasDeleted(ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId):
 			info = [
@@ -447,11 +426,9 @@ public enum ObvEngineNotificationNew {
 				"serverURL": serverURL,
 				"appInfo": appInfo,
 			]
-		case .updatedContactIdentity(obvContactIdentity: let obvContactIdentity, trustedIdentityDetailsWereUpdated: let trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated: let publishedIdentityDetailsWereUpdated):
+		case .createdOrUpdatedContactIdentity(obvContactIdentity: let obvContactIdentity):
 			info = [
 				"obvContactIdentity": obvContactIdentity,
-				"trustedIdentityDetailsWereUpdated": trustedIdentityDetailsWereUpdated,
-				"publishedIdentityDetailsWereUpdated": publishedIdentityDetailsWereUpdated,
 			]
 		case .ownedIdentityUnbindingFromKeycloakPerformed(ownedIdentity: let ownedIdentity):
 			info = [
@@ -461,18 +438,9 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"obvOwnedIdentity": obvOwnedIdentity,
 			]
-		case .mutualScanContactAdded(obvContactIdentity: let obvContactIdentity, signature: let signature):
-			info = [
-				"obvContactIdentity": obvContactIdentity,
-				"signature": signature,
-			]
 		case .messageExtendedPayloadAvailable(message: let message):
 			info = [
 				"message": message,
-			]
-		case .contactIsActiveChangedWithinEngine(obvContactIdentity: let obvContactIdentity):
-			info = [
-				"obvContactIdentity": obvContactIdentity,
 			]
 		case .contactWasRevokedAsCompromisedWithinEngine(obvContactIdentifier: let obvContactIdentifier):
 			info = [
@@ -578,6 +546,15 @@ public enum ObvEngineNotificationNew {
 				"protocolInstanceUID": protocolInstanceUID,
 				"error": error,
 			]
+		case .serverAndInboxContainNoMoreUnprocessedMessages(ownedCryptoId: let ownedCryptoId, downloadTimestampFromServer: let downloadTimestampFromServer):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"downloadTimestampFromServer": downloadTimestampFromServer,
+			]
+		case .aPersistedTrustOriginWasInserted(trustOrigin: let trustOrigin):
+			info = [
+				"trustOrigin": trustOrigin,
+			]
 		}
 		return info
 	}
@@ -665,14 +642,6 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeNewTrustedContactIdentity(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
-		let name = Name.newTrustedContactIdentity.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
-			block(obvContactIdentity)
-		}
-	}
-
 	public static func observeOwnedIdentityWasDeactivated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasDeactivated.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
@@ -752,14 +721,6 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeNewMessagesReceived(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping ([ObvMessageOrObvOwnedMessage]) -> Void) -> NSObjectProtocol {
-		let name = Name.newMessagesReceived.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let messages = notification.userInfo!["messages"] as! [ObvMessageOrObvOwnedMessage]
-			block(messages)
-		}
-	}
-
 	public static func observeAttachmentWasAcknowledgedByServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentWasAcknowledgedByServer.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
@@ -812,14 +773,6 @@ public enum ObvEngineNotificationNew {
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
 			let attachmentNumber = notification.userInfo!["attachmentNumber"] as! Int
 			block(ownCryptoId, messageIdentifierFromEngine, attachmentNumber)
-		}
-	}
-
-	public static func observeNewObvEncryptedReceivedReturnReceipt(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvEncryptedReceivedReturnReceipt) -> Void) -> NSObjectProtocol {
-		let name = Name.newObvEncryptedReceivedReturnReceipt.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let encryptedReceivedReturnReceipt = notification.userInfo!["encryptedReceivedReturnReceipt"] as! ObvEncryptedReceivedReturnReceipt
-			block(encryptedReceivedReturnReceipt)
 		}
 	}
 
@@ -934,13 +887,11 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeUpdatedContactIdentity(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity, Bool, Bool) -> Void) -> NSObjectProtocol {
-		let name = Name.updatedContactIdentity.name
+	public static func observeCreatedOrUpdatedContactIdentity(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.createdOrUpdatedContactIdentity.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
-			let trustedIdentityDetailsWereUpdated = notification.userInfo!["trustedIdentityDetailsWereUpdated"] as! Bool
-			let publishedIdentityDetailsWereUpdated = notification.userInfo!["publishedIdentityDetailsWereUpdated"] as! Bool
-			block(obvContactIdentity, trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated)
+			block(obvContactIdentity)
 		}
 	}
 
@@ -960,28 +911,11 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeMutualScanContactAdded(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity, Data) -> Void) -> NSObjectProtocol {
-		let name = Name.mutualScanContactAdded.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
-			let signature = notification.userInfo!["signature"] as! Data
-			block(obvContactIdentity, signature)
-		}
-	}
-
 	public static func observeMessageExtendedPayloadAvailable(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvMessageOrObvOwnedMessage) -> Void) -> NSObjectProtocol {
 		let name = Name.messageExtendedPayloadAvailable.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let message = notification.userInfo!["message"] as! ObvMessageOrObvOwnedMessage
 			block(message)
-		}
-	}
-
-	public static func observeContactIsActiveChangedWithinEngine(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
-		let name = Name.contactIsActiveChangedWithinEngine.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
-			block(obvContactIdentity)
 		}
 	}
 
@@ -1190,6 +1124,23 @@ public enum ObvEngineNotificationNew {
 			let protocolInstanceUID = notification.userInfo!["protocolInstanceUID"] as! UID
 			let error = notification.userInfo!["error"] as! Error
 			block(ownedCryptoId, protocolInstanceUID, error)
+		}
+	}
+
+	public static func observeServerAndInboxContainNoMoreUnprocessedMessages(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Date) -> Void) -> NSObjectProtocol {
+		let name = Name.serverAndInboxContainNoMoreUnprocessedMessages.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let downloadTimestampFromServer = notification.userInfo!["downloadTimestampFromServer"] as! Date
+			block(ownedCryptoId, downloadTimestampFromServer)
+		}
+	}
+
+	public static func observeAPersistedTrustOriginWasInserted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvTrustOrigin) -> Void) -> NSObjectProtocol {
+		let name = Name.aPersistedTrustOriginWasInserted.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let trustOrigin = notification.userInfo!["trustOrigin"] as! ObvTrustOrigin
+			block(trustOrigin)
 		}
 	}
 

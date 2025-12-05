@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,78 +18,49 @@
  */
 
 import UIKit
-import os.log
+import OSLog
 import ObvTypes
 import ObvEngine
 import ObvUICoreData
 import ObvAppCoreConstants
+import ObvUIGroupV1
 import ObvUIGroupV2
+import ObvSharedDataSources
+import ObvAppNavigation
 
 
-
-final class NewInvitationsFlowViewController: UINavigationController, ObvFlowController {
+final class NewInvitationsFlowViewController: ObvFlowController {
     
-    private(set) var currentOwnedCryptoId: ObvCryptoId
-    let delegatesStack = ObvFlowControllerDelegatesStack()
-    let obvEngine: ObvEngine
-    var floatingButton: UIButton? // Used on iOS 18+ only, set at the ObvFlowController level
-    private var floatingButtonAnimator: FloatingButtonAnimator?
-    let appDataSourceForObvUIGroupV2Router: AppDataSourceForObvUIGroupV2Router
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "NewInvitationsFlowViewController")
+    private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: NewInvitationsFlowViewController.self))
 
-    /// This router allows to present the flow allowing to create a new group v2.
-    /// It is expected to be set only once.
-    /// The delegate methods are implemented in an extension of `ObvFlowController`.
-    private(set) lazy var routerForGroupCreation: ObvUIGroupV2Router = {
-        ObvUIGroupV2Router(mode: .creation(delegate: self),
-                           dataSource: appDataSourceForObvUIGroupV2Router)
-    }()
-    /// This router allows to push the flow allowing to edit a new group v2.
-    /// It is expected to be set only once.
-    /// The delegate methods are implemented in an extension of `ObvFlowController`.
-    private(set) lazy var routerForGroupEdition: ObvUIGroupV2Router = {
-        ObvUIGroupV2Router(mode: .edition(delegate: self),
-                           dataSource: appDataSourceForObvUIGroupV2Router)
-    }()
-
-    let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: NewInvitationsFlowViewController.self))
-    static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: NewInvitationsFlowViewController.self))
-
-    static let errorDomain = ""
+    private var observationTokens = [NSObjectProtocol]()
     
-    weak var flowDelegate: ObvFlowControllerDelegate?
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, dataSources: ObvDataSources) {
+        
+        super.init(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, dataSources: dataSources, doAddFloatingButton: true)
 
-    var observationTokens = [NSObjectProtocol]()
-    
-    init(ownedCryptoId: ObvCryptoId, appListOfGroupMembersViewDataSource: AppDataSourceForObvUIGroupV2Router, obvEngine: ObvEngine) {
-        self.currentOwnedCryptoId = ownedCryptoId
-        self.obvEngine = obvEngine
-        self.appDataSourceForObvUIGroupV2Router = appListOfGroupMembersViewDataSource
-        let vc = AllInvitationsViewController(ownedCryptoId: ownedCryptoId)
-        super.init(rootViewController: vc)
+        let vc = AllInvitationsViewController(ownedCryptoId: ownedCryptoId,
+                                              avatarViewDataSource: dataSources.avatarViewDataSource,
+                                              ownedIdentityChooserViewDataSource: dataSources.ownedIdentityChooserViewDataSource)
         vc.delegate = self
-        self.delegate = delegatesStack
+        vc.unlockingHiddenProfileDelegate = self
+
+        self.setViewControllers([vc], animated: false)
+        
     }
     
-    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
     
-    override var delegate: UINavigationControllerDelegate? {
-        get {
-            super.delegate
-        }
-        set {
-            guard newValue is ObvFlowControllerDelegatesStack else { assertionFailure(); return }
-            super.delegate = newValue
-        }
-    }
-
-    
-    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
-        popToRootViewController(animated: false)
-        self.currentOwnedCryptoId = newOwnedCryptoId
+    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) {
+        super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
         guard let allInvitationsVC = viewControllers.first as? AllInvitationsViewController else { assertionFailure(); return }
-        await allInvitationsVC.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+        allInvitationsVC.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
     }
 
 }
@@ -105,31 +76,17 @@ extension NewInvitationsFlowViewController {
         if #available(iOS 18, *) {
             // The tabbar is configured with iOS 18 APIs, we don't need to specify a tabBarItem
         } else {
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemName: "tray.and.arrow.down", withConfiguration: symbolConfiguration)
-            tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+            let image = UIImage(systemIcon: .trayAndArrowDown)
+            tabBarItem = UITabBarItem(title: String(localized: "Invitations"), image: image, tag: 3)
         }
         
-        delegatesStack.addDelegate(OlvidUserActivitySingleton.shared)
-
         // This is required to activate the interactive pop gesture recognizer. Activating this interactive gesture also requires
         // to override gestureRecognizerShouldBegin(_:).
         // See ``https://stackoverflow.com/questions/18946302/uinavigationcontroller-interactive-pop-gesture-not-working``.
-        if #available(iOS 18, *) {
+        if #available(iOS 17, *) {
             interactivePopGestureRecognizer?.delegate = self
         }
 
-    }
-    
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        if #available(iOS 18, *) {
-            addFloatingButtonIfRequired()
-            let floatingButtonAnimator = FloatingButtonAnimator(floatingButton: floatingButton)
-            self.delegatesStack.addDelegate(floatingButtonAnimator)
-            self.floatingButtonAnimator = floatingButtonAnimator
-        }
     }
 
 }
@@ -170,10 +127,10 @@ extension NewInvitationsFlowViewController: AllInvitationsViewControllerDelegate
                                                                  ownedIdentityCryptoId: ownedCryptoId,
                                                                  whereOneToOneStatusIs: .oneToOne,
                                                                  within: ObvStack.shared.viewContext),
-              let discussionId = contact.oneToOneDiscussion?.discussionPermanentID else {
+              let discussionIdentifier = contact.oneToOneDiscussion?.discussionIdentifier else {
             return
         }
-        let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionId)
+        let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
             .postOnDispatchQueue()
     }

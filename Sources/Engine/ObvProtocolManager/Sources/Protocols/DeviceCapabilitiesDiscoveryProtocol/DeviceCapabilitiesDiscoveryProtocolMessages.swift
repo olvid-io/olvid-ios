@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -71,12 +71,13 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else {
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else {
                 assertionFailure()
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
-            let rawCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(message.encodedInputs[0])
+            let rawCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(encodedInputs[0])
             let ownCapabilities = rawCapabilities.compactMap({ ObvCapability(rawValue: $0) })
             guard ownCapabilities.count == rawCapabilities.count else {
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Could not parse raw capabilities")
@@ -116,14 +117,15 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 3 else {
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 3 else {
                 assertionFailure()
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
-            self.contactIdentity = try message.encodedInputs[0].obvDecode()
-            self.contactDeviceUid = try message.encodedInputs[1].obvDecode()
-            self.isResponse = try message.encodedInputs[2].obvDecode()
+            self.contactIdentity = try encodedInputs[0].obvDecode()
+            self.contactDeviceUid = try encodedInputs[1].obvDecode()
+            self.isResponse = try encodedInputs[2].obvDecode()
         }
 
     }
@@ -156,13 +158,14 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else {
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 2 else {
                 assertionFailure()
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
-            self.otherOwnedDeviceUid = try message.encodedInputs[0].obvDecode()
-            self.isResponse = try message.encodedInputs[1].obvDecode()
+            self.otherOwnedDeviceUid = try encodedInputs[0].obvDecode()
+            self.isResponse = try encodedInputs[1].obvDecode()
         }
 
     }
@@ -196,13 +199,14 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else {
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 2 else {
                 assertionFailure()
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
-            self.rawContactObvCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(message.encodedInputs[0])
-            self.isResponse = try message.encodedInputs[1].obvDecode()
+            self.rawContactObvCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(encodedInputs[0])
+            self.isResponse = try encodedInputs[1].obvDecode()
         }
 
     }
@@ -236,13 +240,14 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else {
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 2 else {
                 assertionFailure()
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
-            self.rawOtherOwnDeviceObvCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(message.encodedInputs[0])
-            self.isReponse = try message.encodedInputs[1].obvDecode()
+            self.rawOtherOwnDeviceObvCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(encodedInputs[0])
+            self.isReponse = try encodedInputs[1].obvDecode()
         }
 
     }

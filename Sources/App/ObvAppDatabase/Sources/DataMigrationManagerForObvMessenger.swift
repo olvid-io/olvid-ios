@@ -23,7 +23,7 @@ import ObvCoreDataStack
 import os.log
 import OlvidUtils
 
-public final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMessengerPersistentContainer>, ObvErrorMaker {
+public final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMessengerPersistentContainer>, ObvErrorMaker, @unchecked Sendable {
 
     private let log = OSLog(subsystem: "io.olvid.messenger", category: "CoreDataStack")
     public static let errorDomain = "DataMigrationManagerForObvMessenger"
@@ -105,9 +105,12 @@ public final class DataMigrationManagerForObvMessenger: DataMigrationManager<Obv
         case version73 = "ObvMessengerModel-v73"
         case version74 = "ObvMessengerModel-v74"
         case version75 = "ObvMessengerModel-v75"
+        case version76 = "ObvMessengerModel-v76"
+        case version77 = "ObvMessengerModel-v77"
+        case version78 = "ObvMessengerModel-v78"
 
         static var latest: ObvMessengerModelVersion {
-            return .version75
+            return .version78
         }
 
         var identifier: String {
@@ -260,7 +263,10 @@ public final class DataMigrationManagerForObvMessenger: DataMigrationManager<Obv
         case .version72: migrationType = .lightweight; destinationVersion = .version73
         case .version73: migrationType = .lightweight; destinationVersion = .version74
         case .version74: migrationType = .lightweight; destinationVersion = .version75
-        case .version75: migrationType = .heavyweight; destinationVersion = .version75
+        case .version75: migrationType = .lightweight; destinationVersion = .version76
+        case .version76: migrationType = .lightweight; destinationVersion = .version77
+        case .version77: migrationType = .heavyweight; destinationVersion = .version78
+        case .version78: migrationType = .heavyweight; destinationVersion = .version78
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

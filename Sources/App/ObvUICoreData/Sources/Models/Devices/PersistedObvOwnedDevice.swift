@@ -73,6 +73,10 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
         }
     }
 
+    public var ownedIdentityIsActive: Bool {
+        ownedIdentity?.isActive ?? false
+    }
+
     public var deviceUID: UID {
         get throws {
             guard let deviceUID = UID(uid: self.identifier) else {
@@ -83,6 +87,10 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
         }
     }
     
+    public var deviceIdentifier: Data {
+        self.identifier
+    }
+
     enum SecureChannelStatusRaw: Int {
         case currentDevice = 0
         case creationInProgress = 1
@@ -447,6 +455,28 @@ extension PersistedObvOwnedDevice {
                                           cacheName: nil)
     }
     
+    public static func getFetchedResultsController(ownedDeviceIdentifier: ObvOwnedDeviceIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvOwnedDevice> {
+        let fetchRequest: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()
+        fetchRequest.predicate = Predicate.withObvOwnedDeviceIdentifier(ownedDeviceIdentifier)
+        fetchRequest.fetchLimit = 1
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.specifiedName.rawValue, ascending: true)]
+        return NSFetchedResultsController(fetchRequest: fetchRequest,
+                                          managedObjectContext: context,
+                                          sectionNameKeyPath: nil,
+                                          cacheName: nil)
+    }
+    
+    /// Returns a `NSFetchedResultsController` for all owned devices of an owned identity.
+    public static func getFetchedResultsController(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvOwnedDevice> {
+        let fetchRequest: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()
+        fetchRequest.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        fetchRequest.fetchBatchSize = 100
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.specifiedName.rawValue, ascending: true)]
+        return NSFetchedResultsController(fetchRequest: fetchRequest,
+                                          managedObjectContext: context,
+                                          sectionNameKeyPath: nil,
+                                          cacheName: nil)
+    }
 }
 
 

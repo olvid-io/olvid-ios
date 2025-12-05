@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,10 +18,10 @@
  */
 
 import Foundation
-import ObvCrypto
+@preconcurrency import ObvCrypto
 
 
-public struct ObvEncryptedReceivedReturnReceipt {
+public struct ObvEncryptedReceivedReturnReceipt: Sendable {
     
     let identity: ObvCryptoIdentity
     public let serverUid: UID
@@ -33,6 +33,26 @@ public struct ObvEncryptedReceivedReturnReceipt {
         ObvCryptoId(cryptoIdentity: self.identity)
     }
     
+    
+    /// Used at the app level
+    public init(ownedCryptoId: ObvCryptoId, serverUid: UID, nonce: Data, encryptedPayload: EncryptedData, timestamp: Date) {
+        self.identity = ownedCryptoId.cryptoIdentity
+        self.serverUid = serverUid
+        self.nonce = nonce
+        self.encryptedPayload = encryptedPayload
+        self.timestamp = timestamp
+    }
+    
+    
+    /// Used at the engine level
+    public init(identity: ObvCryptoIdentity, serverUid: UID, nonce: Data, encryptedPayload: EncryptedData, timestamp: Date) {
+        self.identity = identity
+        self.serverUid = serverUid
+        self.nonce = nonce
+        self.encryptedPayload = encryptedPayload
+        self.timestamp = timestamp
+    }
+
 }
 
 

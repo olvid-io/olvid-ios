@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvTypes
 import ObvMetaManager
 import ObvCrypto
@@ -218,16 +218,16 @@ extension OwnedIdentityDeletionProtocol {
             
             // Delete all received messages
             
-            try ReceivedMessage.batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+            try ReceivedMessage.batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext.context)
             
             // Delete signatures, commitments,... received relating to this owned identity
             
-            try ChannelCreationPingSignatureReceived.batchDeleteAllChannelCreationPingSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
-            try TrustEstablishmentCommitmentReceived.batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
-            try MutualScanSignatureReceived.batchDeleteAllMutualScanSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
-            try GroupV2SignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
-            try ContactOwnedIdentityDeletionSignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
-            try ProtocolInstance.deleteAllProtocolInstancesOfOwnedIdentity(ownedIdentity, withProtocolInstanceUidDistinctFrom: self.protocolInstanceUid, within: obvContext)
+            try ChannelCreationPingSignatureReceived.batchDeleteAllChannelCreationPingSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext.context)
+            try TrustEstablishmentCommitmentReceived.batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext.context)
+            try MutualScanSignatureReceived.batchDeleteAllMutualScanSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext.context)
+            try GroupV2SignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext.context)
+            try ContactOwnedIdentityDeletionSignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext.context)
+            try ProtocolInstance.deleteAllProtocolInstancesOfOwnedIdentity(ownedIdentity, withProtocolInstanceUidDistinctFrom: self.protocolInstanceUid, within: obvContext.context)
             
         }
 
@@ -663,7 +663,7 @@ extension OwnedIdentityDeletionProtocol {
                             let signature: Data
                             do {
                                 let challengeType = ChallengeType.ownedIdentityDeletion(notifiedContactIdentity: contact)
-                                guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
+                                guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext.context) else {
                                     os_log("Could not compute signature", log: log, type: .fault)
                                     assertionFailure()
                                     // Continue with the next contact
@@ -815,7 +815,7 @@ extension OwnedIdentityDeletionProtocol {
                         
             // Check that the signature was not replayed by searching the DB
             
-            guard try !ContactOwnedIdentityDeletionSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext) else {
+            guard try !ContactOwnedIdentityDeletionSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext.context) else {
                 return FinalState()
             }
 
@@ -831,7 +831,7 @@ extension OwnedIdentityDeletionProtocol {
 
             // Store the signature to prevent replay attacks
             
-            _ = ContactOwnedIdentityDeletionSignatureReceived(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext)
+            _ = ContactOwnedIdentityDeletionSignatureReceived(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext.context)
 
             // Propagate the signature to our other owned devices (we use the same concrete message type than the one sent by our contact)
             

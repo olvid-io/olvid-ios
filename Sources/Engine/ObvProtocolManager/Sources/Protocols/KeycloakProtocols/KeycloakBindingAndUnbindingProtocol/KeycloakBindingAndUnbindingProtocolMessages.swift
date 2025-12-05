@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -72,8 +72,8 @@ extension KeycloakBindingAndUnbindingProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (keycloakState, keycloakUserId) = try encodedElements.obvDecode()
         }
 
@@ -105,8 +105,8 @@ extension KeycloakBindingAndUnbindingProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs in OwnedIdentityKeycloakUnbindingMessage") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs in OwnedIdentityKeycloakUnbindingMessage") }
             self.isUnbindRequestByUser = try message.encodedInputs[0].obvDecode()
         }
 
@@ -153,11 +153,11 @@ extension KeycloakBindingAndUnbindingProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             
             // Legacy encoding does not include the isTransferRestricted Boolean
             
-            guard message.encodedInputs.count == 6 || message.encodedInputs.count == 7 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            guard try message.encodedInputs.count == 6 || message.encodedInputs.count == 7 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             
             self.keycloakUserId = try message.encodedInputs[0].obvDecode()
             let keycloakServer: URL = try message.encodedInputs[1].obvDecode()
@@ -167,7 +167,7 @@ extension KeycloakBindingAndUnbindingProtocol {
             let signatureVerificationKey: ObvJWK  = try message.encodedInputs[5].obvDecode()
 
             let isTransferRestricted: Bool
-            if message.encodedInputs.count == 7 {
+            if try message.encodedInputs.count == 7 {
                 isTransferRestricted = try message.encodedInputs[6].obvDecode()
             } else {
                 isTransferRestricted = false
@@ -206,7 +206,7 @@ extension KeycloakBindingAndUnbindingProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }

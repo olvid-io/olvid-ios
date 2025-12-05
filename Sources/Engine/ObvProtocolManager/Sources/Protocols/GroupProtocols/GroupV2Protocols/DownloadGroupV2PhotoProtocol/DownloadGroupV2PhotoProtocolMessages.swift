@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -68,8 +68,8 @@ extension DownloadGroupV2PhotoProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 2 else { throw Self.makeError(message: "Unexpected number of encoded elements") }
             self.groupIdentifier = try message.encodedInputs[0].obvDecode()
             self.serverPhotoInfo = try message.encodedInputs[1].obvDecode()
         }
@@ -102,15 +102,15 @@ extension DownloadGroupV2PhotoProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
 
             if let photoFilenameToDelete = String(encodedElements[0]) {
 
                 // Legacy decoding (changed on 2022-08-05)
 
                 self.photoFilenameToDelete = photoFilenameToDelete
-                guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
+                guard let downloadedUserData = ReceivedMessage.delegateManager?.downloadedUserData else {
                     assertionFailure()
                     throw Self.makeError(message: "Could not get downloaded user data")
                 }
@@ -133,7 +133,7 @@ extension DownloadGroupV2PhotoProtocol {
                     self.photoFilenameToDelete = nil
                 case .downloaded(userDataFilename: let userDataFilename):
                     self.photoFilenameToDelete = userDataFilename
-                    guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
+                    guard let downloadedUserData = ReceivedMessage.delegateManager?.downloadedUserData else {
                         assertionFailure()
                         throw Self.makeError(message: "Could not get downloaded user data")
                     }

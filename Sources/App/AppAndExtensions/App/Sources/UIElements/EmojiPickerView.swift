@@ -32,11 +32,6 @@ final class EmojiPickerHostingViewController: KeyboardHostingController<EmojiPic
 
     fileprivate let model: EmojiPickerViewModel
     
-    // MARK: Attributes - Private - Notifications
-    private var isRegisteredToNotifications = false
-    private var observationTokens = [NSObjectProtocol]()
-    override var canBecomeFirstResponder: Bool { true }
-    
     init(model: EmojiPickerViewModel) {
         self.model = model
         let view = EmojiPickerView(model: model)
@@ -44,10 +39,6 @@ final class EmojiPickerHostingViewController: KeyboardHostingController<EmojiPic
         self.model.delegate = self
     }
 
-    deinit {
-        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
-    }
-    
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -55,13 +46,6 @@ final class EmojiPickerHostingViewController: KeyboardHostingController<EmojiPic
         let closeAction = UIAction { [weak self] _ in self?.dismiss() }
         let closeButton = UIBarButtonItem(systemItem: .cancel, primaryAction: closeAction)
         navigationItem.rightBarButtonItem = closeButton
-        
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        
-        registerForNotification()
         
     }
 
@@ -76,23 +60,6 @@ final class EmojiPickerHostingViewController: KeyboardHostingController<EmojiPic
 
     func dismiss() {
         self.dismiss(animated: true)
-    }
-
-}
-
-extension EmojiPickerHostingViewController {
-
-    private func registerForNotification() {
-        guard !isRegisteredToNotifications else { return }
-        isRegisteredToNotifications = true
-        
-        observationTokens.append(contentsOf: [
-            KeyboardNotification.observeKeyboardDidInputEscapeKeyNotification { [weak self] in
-                OperationQueue.main.addOperation {
-                    self?.dismiss()
-                }
-            },
-        ])
     }
 }
 

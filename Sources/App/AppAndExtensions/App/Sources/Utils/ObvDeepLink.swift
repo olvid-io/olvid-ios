@@ -36,12 +36,14 @@ enum ObvDeepLinkHost: CaseIterable {
     case settings
     case backupSettings
     case voipSettings
+    case discussionsSettings
     case privacySettings
     case interfaceSettings
     case storageManagementSettings
     case message
     case allGroups
     case olvidCallView
+    case groupCreation
 
     var name: String { String(describing: self) }
 
@@ -62,7 +64,7 @@ enum ObvDeepLinkHost: CaseIterable {
 enum ObvDeepLink: Equatable {
     
     case latestDiscussions(ownedCryptoId: ObvCryptoId?)
-    case singleDiscussion(ownedCryptoId: ObvCryptoId, objectPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
+    case singleDiscussion(discussionIdentifier: ObvDiscussionIdentifier)
     case invitations(ownedCryptoId: ObvCryptoId)
     case groupV1Details(ownedCryptoId: ObvCryptoId, objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>)
     case groupV2Details(groupIdentifier: ObvGroupV2Identifier)
@@ -73,6 +75,7 @@ enum ObvDeepLink: Equatable {
     case requestRecordPermission
     case settings
     case backupSettings
+    case discussionsSettings
     case privacySettings
     case interfaceSettings
     case storageManagementSettings
@@ -80,6 +83,7 @@ enum ObvDeepLink: Equatable {
     case message(ObvMessageAppIdentifier)
     case allGroups(ownedCryptoId: ObvCryptoId)
     case olvidCallView
+    case groupCreation
 
     var description: String {
         switch self {
@@ -89,8 +93,8 @@ enum ObvDeepLink: Equatable {
             } else {
                 return host.name
             }
-        case .singleDiscussion(let ownedCryptoId, let objectPermanentID):
-            return [host.name, ownedCryptoId.description, objectPermanentID.description].joined(separator: "|")
+        case .singleDiscussion(discussionIdentifier: let discussionIdentifier):
+            return [host.name, discussionIdentifier.description].joined(separator: "|")
         case .invitations(let ownedCryptoId):
             return [host.name, ownedCryptoId.description].joined(separator: "|")
         case .groupV1Details(let ownedCryptoId, let objectPermanentID):
@@ -113,6 +117,8 @@ enum ObvDeepLink: Equatable {
             return host.name
         case .voipSettings:
             return host.name
+        case .discussionsSettings:
+            return host.name
         case .privacySettings:
             return host.name
         case .interfaceSettings:
@@ -124,6 +130,8 @@ enum ObvDeepLink: Equatable {
         case .allGroups(let ownedCryptoId):
             return [host.name, ownedCryptoId.description].joined(separator: "|")
         case .olvidCallView:
+            return host.name
+        case .groupCreation:
             return host.name
         }
     }
@@ -146,10 +154,9 @@ enum ObvDeepLink: Equatable {
                 return nil
             }
         case .singleDiscussion:
-            guard splits.count == 3 else { assertionFailure(); return nil }
-            guard let ownedCryptoId = ObvCryptoId(splits[1]) else { assertionFailure(); return nil }
-            guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(splits[2]) else { assertionFailure(); return nil }
-            self = .singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: objectPermanentID)
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let discussionIdentifier = ObvDiscussionIdentifier(splits[1]) else { assertionFailure(); return nil }
+            self = .singleDiscussion(discussionIdentifier: discussionIdentifier)
         case .invitations:
             guard splits.count == 2 else { assertionFailure(); return nil }
             guard let ownedCryptoId = ObvCryptoId(splits[1]) else { assertionFailure(); return nil }
@@ -185,6 +192,8 @@ enum ObvDeepLink: Equatable {
             self = .backupSettings
         case .voipSettings:
             self = .voipSettings
+        case .discussionsSettings:
+            self = .discussionsSettings
         case .privacySettings:
             self = .privacySettings
         case .interfaceSettings:
@@ -201,6 +210,8 @@ enum ObvDeepLink: Equatable {
             self = .allGroups(ownedCryptoId: ownedCryptoId)
         case .olvidCallView:
             self = .olvidCallView
+        case .groupCreation:
+            self = .groupCreation
         }
     }
 
@@ -221,11 +232,13 @@ enum ObvDeepLink: Equatable {
         case .backupSettings: return .backupSettings
         case .voipSettings: return .voipSettings
         case .privacySettings: return .privacySettings
+        case .discussionsSettings: return .discussionsSettings
         case .interfaceSettings: return .interfaceSettings
         case .storageManagementSettings: return .storageManagementSettings
         case .message: return .message
         case .allGroups: return .allGroups
         case .olvidCallView: return .olvidCallView
+        case .groupCreation: return .groupCreation
         }
     }
 
@@ -236,8 +249,8 @@ enum ObvDeepLink: Equatable {
         switch self {
         case .latestDiscussions(let ownedCryptoId):
             return ownedCryptoId
-        case .singleDiscussion(ownedCryptoId: let ownedCryptoId, objectPermanentID: _):
-            return ownedCryptoId
+        case .singleDiscussion(discussionIdentifier: let discussionIdentifier):
+            return discussionIdentifier.ownedCryptoId
         case .invitations(let ownedCryptoId):
             return ownedCryptoId
         case .groupV1Details(let ownedCryptoId, _):
@@ -262,6 +275,8 @@ enum ObvDeepLink: Equatable {
             return nil
         case .privacySettings:
             return nil
+        case .discussionsSettings:
+            return nil
         case .interfaceSettings:
             return nil
         case .storageManagementSettings:
@@ -271,6 +286,8 @@ enum ObvDeepLink: Equatable {
         case .allGroups(let ownedCryptoId):
             return ownedCryptoId
         case .olvidCallView:
+            return nil
+        case .groupCreation:
             return nil
         }
     }

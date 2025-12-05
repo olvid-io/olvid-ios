@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import CoreData
 import ObvEngine
 import ObvCrypto
 import ObvTypes
-import os.log
+import OSLog
 import OlvidUtils
 import ObvPlatformBase
 import ObvUIObvCircledInitials
@@ -59,10 +59,11 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
     @NSManaged private var rawWasRecentlyOnline: NSNumber? // Expected to be non-nil
     @NSManaged private var serializedIdentityCoreDetails: Data
     @NSManaged public private(set) var sortDisplayName: String // Should be renamed normalizedSortAndSearchKey
+    @NSManaged private var sortInitial: String? // Non-optional in the model. Contains exactly one character chosen in A-Z#.
 
     // MARK: - Relationships
 
-    @NSManaged private var asGroupV2Member: Set<PersistedGroupV2Member>
+    @NSManaged public private(set) var asGroupV2Member: Set<PersistedGroupV2Member>
     @NSManaged public private(set) var contactGroups: Set<PersistedContactGroup>
     @NSManaged public private(set) var devices: Set<PersistedObvContactDevice>
     @NSManaged private var rawOneToOneDiscussion: PersistedOneToOneDiscussion?
@@ -128,10 +129,6 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
 
     public var status: Status {
         return Status(rawValue: self.rawStatus)!
-    }
-    
-    var sortedContactGroups: [PersistedContactGroup] {
-        contactGroups.sorted { $0.groupName < $1.groupName }
     }
     
     var nameForSettingOneToOneDiscussionTitle: String {
@@ -263,7 +260,7 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
                  cryptoId: cryptoId,
                  tintAdjustementMode: .normal)
     }
-                
+    
 
     public func setCustomPhotoURL(with url: URL?) {
         guard url != self.customPhotoURL else { return }
@@ -349,7 +346,7 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
     
     // MARK: - Observers
     
-    private static var observersHolder = ObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
     
     public static func addObvObserver(_ newObserver: PersistedObvContactIdentityObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -366,7 +363,7 @@ extension PersistedObvContactIdentity {
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvContactIdentity.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
-        guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: contactIdentity.ownedIdentity, within: context) else {
+        guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: contactIdentity.ownedCryptoId, within: context) else {
             throw ObvUICoreDataError.couldNotFindOwnedIdentity
         }
         self.customDisplayName = nil
@@ -384,6 +381,7 @@ extension PersistedObvContactIdentity {
         self.permanentUUID = UUID()
         self.rawStatus = Status.noNewPublishedDetails.rawValue
         self.sortDisplayName = getNormalizedSortAndSearchKey(with: ObvMessengerSettings.Interface.contactsSortOrder)
+        self.sortInitial = Self.computeSortInitialFromSortDisplayName(self.sortDisplayName)
         self.photoURL = contactIdentity.currentIdentityDetails.photoURL
         self.devices = Set<PersistedObvContactDevice>()
         self.contactGroups = Set<PersistedContactGroup>()
@@ -391,14 +389,14 @@ extension PersistedObvContactIdentity {
         self.ownedIdentity = persistedObvOwnedIdentity
         self.wasRecentlyOnline = contactIdentity.wasRecentlyOnline
         if contactIdentity.isOneToOne {
-            if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedIdentity.cryptoId, within: context) {
+            if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedCryptoId, within: context) {
                 try discussion.setStatus(to: .active)
                 self.rawOneToOneDiscussion = discussion
             } else {
                 self.rawOneToOneDiscussion = try PersistedOneToOneDiscussion.createPersistedOneToOneDiscussion(for: self, status: .active, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
             }
         } else {
-            if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedIdentity.cryptoId, within: context) {
+            if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedCryptoId, within: context) {
                 try discussion.setStatus(to: .locked)
                 self.rawOneToOneDiscussion = discussion
             } else {
@@ -409,11 +407,25 @@ extension PersistedObvContactIdentity {
         /* When a contact is inserted, we look for Group v2 instances where this user is a member. More precisely, we look for PersistedGroupV2Member instances corresponding to this new contact identity, for this owned identity. When found, we update these PersistedGroupV2Member instances so that they point to this new PersistedObvContactIdentity instance. */
         
         let membersCorrespondingToThisNewContact = try PersistedGroupV2Member.getAllPersistedGroupV2MemberOfOwnedIdentity(
-            with: contactIdentity.ownedIdentity.cryptoId,
+            with: contactIdentity.ownedCryptoId,
             withIdentity: self.cryptoId,
             within: context)
         for member in membersCorrespondingToThisNewContact {
             try member.updateWith(persistedContact: self)
+        }
+        
+        // When a contact is inserted, we look for `PersistedPollVoteReceived` that have the same `contactIdentity`, and a nil `contact`.
+        // For those found, we re-associated the created contact to the vote. This is useful when a contact (that voted) is deleted and added back.
+        do {
+            let votes = try PersistedPollVoteReceived.getPersistedPollVoteReceivedWithNoAssociatedContact(
+                withContactCryptoId: contactIdentity.cryptoId,
+                ownedCryptoId: persistedObvOwnedIdentity.cryptoId,
+                within: context)
+            votes.forEach { vote in
+                vote.setContactIfCurrentlyNil(to: self)
+            }
+        } catch {
+            assertionFailure() // Do no fail the whole process because of this
         }
 
     }
@@ -439,6 +451,21 @@ extension PersistedObvContactIdentity {
         context.delete(self)
     }
 
+    
+    private static func computeSortInitialFromSortDisplayName(_ newSortDisplayName: String) -> String {
+        let listOfAcceptableNameInitial: [Character] = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ#").map(Character.init)
+        let firstCharacter = String(newSortDisplayName.first ?? "#").uppercased()
+        guard firstCharacter.count == 1 else {
+            assertionFailure()
+            return "#"
+        }
+        if listOfAcceptableNameInitial.contains(firstCharacter) {
+            return firstCharacter
+        } else {
+            return "#"
+        }
+    }
+    
 
     private func getNormalizedSortAndSearchKey(with sortOrder: ContactsSortOrder) -> String {
         guard let coreDetails = self.identityCoreDetails else {
@@ -472,6 +499,11 @@ extension PersistedObvContactIdentity {
                     assertionFailure()
                     Self.logger.fault("Failed to update normalized search key on group discussion: \(error.localizedDescription)")
                 }
+            }
+            // Update the sort initial if required
+            let newSortInitial = Self.computeSortInitialFromSortDisplayName(newSortDisplayName)
+            if self.sortInitial != newSortInitial {
+                self.sortInitial = newSortInitial
             }
         }
     }
@@ -515,7 +547,7 @@ extension PersistedObvContactIdentity {
         if self.isOneToOne {
             if let discussion = self.rawOneToOneDiscussion {
                 try discussion.setStatus(to: .active)
-            } else if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedIdentity.cryptoId, within: context) {
+            } else if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedCryptoId, within: context) {
                 try discussion.setStatus(to: .active)
                 if self.rawOneToOneDiscussion != discussion {
                     self.rawOneToOneDiscussion = discussion
@@ -688,7 +720,7 @@ extension PersistedObvContactIdentity {
     }
     
     
-    var allCapabilitites: Set<ObvCapability> {
+    public var allCapabilitites: Set<ObvCapability> {
         var capabilitites = Set<ObvCapability>()
         for capability in ObvCapability.allCases {
             switch capability {
@@ -739,7 +771,7 @@ extension PersistedObvContactIdentity {
         if let locationJSON = messageJSON.location {
             switch locationJSON.type {
             case .SEND:
-                let locationOneShotReceived = try PersistedLocationOneShotReceived(locationData: locationJSON.locationData, within: context)
+                let locationOneShotReceived = PersistedLocationOneShotReceived(locationData: locationJSON.locationData, within: context)
                 receivedLocation = .oneShot(location: locationOneShotReceived)
             case .SHARING, .END_SHARING:
                 guard let contactDevice = try self.devices.first(where: { try $0.deviceUID == obvMessage.fromContactDeviceUID }) else {
@@ -900,8 +932,10 @@ extension PersistedObvContactIdentity {
             }
             
             guard group.contactIdentities.contains(self) || group.ownerIdentity == self.identity else {
-                assertionFailure()
-                throw ObvUICoreDataError.contactNeitherGroupOwnerNorPartOfGroupMembers
+                let groupIdentifier = ObvGroupIdentifier.groupV1(try group.obvGroupIdentifier)
+                throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                    groupIdentifier: groupIdentifier,
+                    contactCryptoId: self.cryptoId)
             }
             
             return .v1(group: group)
@@ -909,11 +943,26 @@ extension PersistedObvContactIdentity {
         case .groupV2(groupV2Identifier: let groupV2Identifier):
             
             guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
-                throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: groupV2Identifier)
+                guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2Identifier) else {
+                    throw ObvUICoreDataError.couldNotParseGroupIdentifier
+                }
+                let obvGroupIdentifier = ObvGroupV2Identifier(ownedCryptoId: ownedIdentity.cryptoId, identifier: identifier)
+                throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: obvGroupIdentifier)
             }
             
             guard group.otherMembers.contains(where: { $0.cryptoId == self.cryptoId }) else {
-                throw ObvUICoreDataError.contactIsNotPartOfTheGroup(groupIdentifier: groupV2Identifier, contactIdentifier: .init(contactCryptoId: self.cryptoId, ownedCryptoId: ownedIdentity.cryptoId))
+                guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2Identifier) else {
+                    assertionFailure()
+                    throw ObvUICoreDataError.couldNotParseGroupIdentifier
+                }
+                let groupV2Identifier = ObvGroupV2Identifier(ownedCryptoId: ownedIdentity.cryptoId,
+                                                           identifier: identifier)
+                let obvGroupIdentifier = ObvGroupIdentifier.groupV2(groupV2Identifier)
+                let contactIdentifier = ObvContactIdentifier(contactCryptoId: self.cryptoId,
+                                                             ownedCryptoId: ownedIdentity.cryptoId)
+                throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                    groupIdentifier: obvGroupIdentifier,
+                    contactCryptoId: contactIdentifier.contactCryptoId)
             }
             
             return .v2(group: group)
@@ -1199,7 +1248,7 @@ extension PersistedObvContactIdentity {
             case .v2(group: let group):
                 
                 guard let discussion = group.discussion else {
-                    throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+                    throw ObvUICoreDataError.couldNotFindDiscussion
                 }
                 
                 return try PersistedMessageReceived.get(senderSequenceNumber: messageToEdit.senderSequenceNumber,
@@ -1295,6 +1344,50 @@ extension PersistedObvContactIdentity {
             
             let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
             let updatedMessage = try oneToneDiscussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+            return updatedMessage
+
+        }
+
+    }
+
+}
+
+// MARK: - Process poll vote requests
+
+extension PersistedObvContactIdentity {
+    
+    public func processSetOrUpdatePollVoteOnMessageRequestFromThisContact(pollVoteJSON: PollVoteJSON, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        if let oneToOneIdentifier = pollVoteJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            let updatedMessage = try oneToneDiscussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            return updatedMessage
+            
+        } else if let groupIdentifier = pollVoteJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+                
+                let updatedMessage = try group.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                return updatedMessage
+
+            case .v2(group: let group):
+                
+                let updatedMessage = try group.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                
+                return updatedMessage
+
+            }
+            
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            
+            let updatedMessage = try oneToneDiscussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
             return updatedMessage
 
         }
@@ -1453,6 +1546,7 @@ extension PersistedObvContactIdentity {
             case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
             case rawStatus = "rawStatus"
             case sortDisplayName = "sortDisplayName" // Should be renamed normalizedSortAndSearchKey
+            case sortInitial = "sortInitial"
             // Relationships
             case asGroupV2Member = "asGroupV2Member"
             case contactGroups = "contactGroups"
@@ -1461,6 +1555,7 @@ extension PersistedObvContactIdentity {
             case rawOwnedIdentity = "rawOwnedIdentity"
             // Others
             static let ownedIdentityIdentity = [rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
+            static let oneToOneDiscussionStatus = [rawOneToOneDiscussion.rawValue, PersistedDiscussion.Predicate.Key.rawStatus.rawValue].joined(separator: ".")
         }
         static var atLeastOneDeviceAllowsThisContactToReceiveMessages: NSPredicate {
             NSPredicate(Key.atLeastOneDeviceAllowsThisContactToReceiveMessages, is: true)
@@ -1504,7 +1599,24 @@ extension PersistedObvContactIdentity {
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
-        static func inGroupWithIdentifier(_ groupIdentifier: ObvGroupV2Identifier) -> NSPredicate {
+        private static func inGroupV1WithIdentifier(_ groupIdentifier: GroupV1Identifier) -> NSPredicate {
+            // The following predicate ensures the contact's `contactGroups` set contains a `PersistedContactGroup` instance
+            // with the requested GroupV1Identifier. This means the contact is part of the group.
+            let contactGroups = Key.contactGroups.rawValue
+            let variableName = "$\(contactGroups)"
+            let groupUidPath: String = [variableName, PersistedContactGroup.Predicate.Key.groupUidRaw.rawValue].joined(separator: ".")
+            let ownerIdentityPath: String = [variableName, PersistedContactGroup.Predicate.Key.ownerIdentity.rawValue].joined(separator: ".")
+            let format = "SUBQUERY(\(contactGroups), \(variableName), \(groupUidPath) == %@ AND \(ownerIdentityPath) == %@).@count > 0"
+            let predicate = NSPredicate(format: format, groupIdentifier.groupUid.raw as NSData, groupIdentifier.groupOwner.getIdentity() as NSData)
+            return predicate
+        }
+        static func inGroupV1WithIdentifier(_ groupV1Identifier: ObvGroupV1Identifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                inGroupV1WithIdentifier(groupV1Identifier.groupV1Identifier),
+                withOwnedCryptoId(groupV1Identifier.ownedCryptoId),
+            ])
+        }
+        static func inGroupV2WithIdentifier(_ groupIdentifier: ObvGroupV2Identifier) -> NSPredicate {
             
             // The following predicate ensures the contact's `asGroupV2Member` set contains a `PersistedGroupV2Member` instance
             // such that the associated PersistedGroupV2 has the requested identifier. This means the contact is part of the group.
@@ -1524,8 +1636,30 @@ extension PersistedObvContactIdentity {
             ])
             
         }
-        static func notInGroupWithIdentifier(_ groupIdentifier: ObvGroupV2Identifier) -> NSPredicate {
-            NSCompoundPredicate(notPredicateWithSubpredicate: inGroupWithIdentifier(groupIdentifier))
+        static func inGroupWithIdentifier(_ groupIdentifier: ObvGroupV1Identifier) -> NSPredicate {
+
+            // The following predicate ensures the contact's `contactGroups` set contains a `PersistedContactGroup` instance
+            // such that the `groupUidRaw` and `ownerIdentity` correspond to the `groupIdentifier` received as a parameter.
+            // This means the contact is part of the group.
+            let contactGroups = Key.contactGroups.rawValue
+            let variableName = "$\(contactGroups)"
+            let groupUidRawPath = [variableName, PersistedContactGroup.Predicate.Key.groupUidRaw.rawValue].joined(separator: ".")
+            let ownerIdentityPath = [variableName, PersistedContactGroup.Predicate.Key.ownerIdentity.rawValue].joined(separator: ".")
+            let format = "SUBQUERY(\(contactGroups), \(variableName), \(groupUidRawPath) == %@ AND \(ownerIdentityPath) == %@).@count > 0"
+            let predicate = NSPredicate(format: format,
+                                        groupIdentifier.groupV1Identifier.groupUid.raw as NSData,
+                                        groupIdentifier.groupV1Identifier.groupOwner.getIdentity() as NSData)
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                predicate,
+                Self.withOwnedCryptoId(groupIdentifier.ownedCryptoId),
+            ])
+            
+        }
+        static func notInGroupV2WithIdentifier(_ groupIdentifier: ObvGroupV2Identifier) -> NSPredicate {
+            NSCompoundPredicate(notPredicateWithSubpredicate: inGroupV2WithIdentifier(groupIdentifier))
+        }
+        static func notInGroupV1WithIdentifier(_ groupIdentifier: ObvGroupV1Identifier) -> NSPredicate {
+            NSCompoundPredicate(notPredicateWithSubpredicate: inGroupV1WithIdentifier(groupIdentifier))
         }
         static func isOneToOneIs(_ value: Bool) -> NSPredicate {
             NSPredicate(Key.isOneToOne, is: value)
@@ -1550,6 +1684,9 @@ extension PersistedObvContactIdentity {
                 return NSPredicate(Key.capabilityOneToOneContacts, is: true)
             }
         }
+        static func withDiscussionStatus(_ status: PersistedDiscussion.Status) -> NSPredicate {
+            NSPredicate(Key.oneToOneDiscussionStatus, EqualToInt: status.rawValue)
+        }
         static func requiredCapabilities(_ capabilities: [ObvCapability]) -> NSPredicate {
             guard !capabilities.isEmpty else { return NSPredicate(value: true) }
             return NSCompoundPredicate(andPredicateWithSubpredicates: capabilities.map({ Self.requiredCapability($0) }))
@@ -1560,7 +1697,7 @@ extension PersistedObvContactIdentity {
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>) -> NSPredicate {
             NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
         }
-        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+        public static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(withObjectID: objectID)
         }
         static func withObjectID(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> NSPredicate {
@@ -1572,7 +1709,24 @@ extension PersistedObvContactIdentity {
         static func searchPredicate(_ searchedText: String) -> NSPredicate {
             NSPredicate(format: "%K contains[cd] %@", Predicate.Key.sortDisplayName.rawValue, searchedText)
         }
+        
+        public static func getSearchPredicate(_ searchText: String?) -> NSPredicate {
+            let predicate: NSPredicate
+            let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
+                predicate = PersistedObvContactIdentity.Predicate.searchPredicate(sanitizedSearchText)
+            } else {
+                predicate = NSPredicate(value: true)
+            }
+            return predicate
+        }
     }
+    
+    
+    private static let defaultSortDescriptors: [NSSortDescriptor] = [
+        NSSortDescriptor(key: Predicate.Key.sortInitial.rawValue, ascending: true),
+        NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true),
+    ]
     
     
     public static func get(cryptoId: ObvCryptoId, ownedIdentity: PersistedObvOwnedIdentity, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus) throws -> PersistedObvContactIdentity? {
@@ -1644,10 +1798,31 @@ extension PersistedObvContactIdentity {
     
     public static func get(persisted obvContactIdentity: ObvContactIdentifier, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.predicate = Predicate.correspondingToObvContactIdentity(obvContactIdentity)
         request.fetchLimit = 1
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.correspondingToObvContactIdentity(obvContactIdentity),
+            Predicate.forOneToOneStatus(oneToOneStatus),
+        ])
         return try context.fetch(request).first
     }
+    
+
+    public static func getFetchedResultsControllerForContactIdentifier(persisted obvContactIdentity: ObvContactIdentifier, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.correspondingToObvContactIdentity(obvContactIdentity),
+            Predicate.forOneToOneStatus(oneToOneStatus),
+        ])
+        fetchRequest.sortDescriptors = Self.defaultSortDescriptors
+        fetchRequest.fetchBatchSize = 1
+        fetchRequest.propertiesToFetch = []
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
+                                                                  managedObjectContext: context,
+                                                                  sectionNameKeyPath: nil,
+                                                                  cacheName: nil)
+        return fetchedResultsController
+    }
+    
     
     
     public static func getManagedObject(withPermanentID permanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
@@ -1660,7 +1835,7 @@ extension PersistedObvContactIdentity {
     
     public static func getAllContactOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) throws -> [PersistedObvContactIdentity] {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        request.sortDescriptors = Self.defaultSortDescriptors
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
             Predicate.forOneToOneStatus(oneToOneStatus),
@@ -1775,7 +1950,7 @@ extension PersistedObvContactIdentity {
 
 extension PersistedObvContactIdentity {
             
-    public static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, requiredCapabilities: [ObvCapability]?) -> NSPredicate {
+    public static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, requiredCapabilities: [ObvCapability]? = nil) -> NSPredicate {
         let predicateOnCapabilities: NSPredicate
         if let requiredCapabilities = requiredCapabilities {
             predicateOnCapabilities = Predicate.requiredCapabilities(requiredCapabilities)
@@ -1820,8 +1995,16 @@ extension PersistedObvContactIdentity {
     }
     
     
+    public static func getFetchRequest(predicate: NSPredicate) -> NSFetchRequest<PersistedObvContactIdentity> {
+        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.predicate = predicate
+        request.sortDescriptors = Self.defaultSortDescriptors
+        request.fetchBatchSize = 1_000
+        return request
+    }
+    
+    
     public static func getFetchRequestForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, predicate: NSPredicate, and andPredicate: NSPredicate? = nil, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus) -> NSFetchRequest<PersistedObvContactIdentity> {
-
         var predicates = [
             predicate,
             Predicate.forOneToOneStatus(oneToOneStatus),
@@ -1833,7 +2016,7 @@ extension PersistedObvContactIdentity {
 
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        request.sortDescriptors = Self.defaultSortDescriptors
         request.fetchBatchSize = 1_000
         return request
     }
@@ -1847,6 +2030,12 @@ extension PersistedObvContactIdentity {
 
     
     public static func getFetchedResultsControllerForGroupV2(groupIdentifier: ObvTypes.ObvGroupV2Identifier, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        let predicate = Predicate.inGroupV2WithIdentifier(groupIdentifier) // This also ensures we restrict to the correct owned identity
+        return getFetchedResultsController(predicate: predicate, whereOneToOneStatusIs: oneToOneStatus, within: context)
+    }
+
+    
+    public static func getFetchedResultsControllerForGroupV1(groupIdentifier: ObvTypes.ObvGroupV1Identifier, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
         let predicate = Predicate.inGroupWithIdentifier(groupIdentifier) // This also ensures we restrict to the correct owned identity
         return getFetchedResultsController(predicate: predicate, whereOneToOneStatusIs: oneToOneStatus, within: context)
     }
@@ -1854,7 +2043,7 @@ extension PersistedObvContactIdentity {
     
     public static func getFetchedResultsController(predicate: NSPredicate, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
         let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        fetchRequest.sortDescriptors = Self.defaultSortDescriptors
         fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             predicate,
             Predicate.forOneToOneStatus(oneToOneStatus),
@@ -1869,9 +2058,8 @@ extension PersistedObvContactIdentity {
     
     /// This method is used when displaying a list of contacts that can be added to a group.
     public static func getFetchedResultsControllerForAllReachableContactsOfOwnedIdentityButExcludingGroupMembers(groupIdentifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
-        //let fetchRequest: NSFetchRequest<NSManagedObjectID> = NSFetchRequest<NSManagedObjectID>(entityName: self.entityName)
         let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        fetchRequest.sortDescriptors = Self.defaultSortDescriptors
         fetchRequest.predicate = getPredicateForAllReachableContactsOfOwnedIdentityButExcludingGroupMembers(groupIdentifier: groupIdentifier, searchText: nil)
         fetchRequest.fetchBatchSize = 1_000
         fetchRequest.propertiesToFetch = []
@@ -1889,7 +2077,7 @@ extension PersistedObvContactIdentity {
         var andPredicateWithSubpredicates: [NSPredicate] = [
             Predicate.withOwnedCryptoId(groupIdentifier.ownedCryptoId),
             Predicate.atLeastOneDeviceAllowsThisContactToReceiveMessages,
-            Predicate.notInGroupWithIdentifier(groupIdentifier),
+            Predicate.notInGroupV2WithIdentifier(groupIdentifier),
         ]
         if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
             andPredicateWithSubpredicates += [
@@ -1901,10 +2089,45 @@ extension PersistedObvContactIdentity {
     }
 
     
+    public static func getPredicateForAllReachableContactsOfOwnedIdentityButExcludingGroupMembers(groupIdentifier: ObvGroupV1Identifier, searchText: String?) -> NSPredicate {
+        let predicate: NSPredicate
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var andPredicateWithSubpredicates: [NSPredicate] = [
+            Predicate.withOwnedCryptoId(groupIdentifier.ownedCryptoId),
+            Predicate.atLeastOneDeviceAllowsThisContactToReceiveMessages,
+            Predicate.notInGroupV1WithIdentifier(groupIdentifier),
+        ]
+        if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
+            andPredicateWithSubpredicates += [
+                Predicate.searchPredicate(sanitizedSearchText),
+            ]
+        }
+        predicate = NSCompoundPredicate(andPredicateWithSubpredicates: andPredicateWithSubpredicates)
+        return predicate
+    }
+
+    
+    public static func getFetchedResultsController(predicate: NSPredicate, fetchLimitOrFetchBatchSize: ObvFetchLimitOrBatchSize = .fetchBatchSize(1_000), within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.predicate = predicate
+        switch fetchLimitOrFetchBatchSize {
+        case .fetchBatchSize(let value):
+            request.fetchBatchSize = value
+        case .fetchLimit(let value):
+            request.fetchLimit = value
+        }
+        request.propertiesToFetch = []
+        request.sortDescriptors = Self.defaultSortDescriptors
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
     /// For now, this is only used when displaying all the contacts that the user can add to a group during the group creation.
     public static func getFetchedResultsControllerForAllReachableContactsOfOwnedIdentity(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
         let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        fetchRequest.sortDescriptors = Self.defaultSortDescriptors
         fetchRequest.predicate = getPredicateForAllReachableContactsOfOwnedIdentity(ownedCryptoId: ownedCryptoId, searchText: nil)
         fetchRequest.fetchBatchSize = 1_000
         fetchRequest.propertiesToFetch = []
@@ -1937,12 +2160,25 @@ extension PersistedObvContactIdentity {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
         request.predicate = Predicate.withObjectID(objectID: objectID)
         request.fetchLimit = 1
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        request.sortDescriptors = Self.defaultSortDescriptors
         return .init(fetchRequest: request,
                      managedObjectContext: context,
                      sectionNameKeyPath: nil,
                      cacheName: nil)
 
+    }
+    
+    
+    public static func atLeastOneDeviceAllowsThisContactToReceiveMessages(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> Bool {
+        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.correspondingToObvContactIdentity(contactIdentifier),
+            Predicate.atLeastOneDeviceAllowsThisContactToReceiveMessages,
+        ])
+        request.fetchLimit = 1
+        request.resultType = .managedObjectIDResultType
+        let items = try context.fetch(request)
+        return !items.isEmpty
     }
     
 }
@@ -2002,18 +2238,8 @@ extension PersistedObvContactIdentity {
                         
         } else {
             
-            if changedKeys.contains(Predicate.Key.isOneToOne.rawValue), let contactIdentifier = try? self.obvContactIdentifier {
-                ObvMessengerCoreDataNotification.contactOneToOneStatusChanged(contactIdentifier: contactIdentifier, isOneToOne: self.isOneToOne)
-                    .postOnDispatchQueue()
-            }
-          
             if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) {
                 ObvMessengerCoreDataNotification.persistedContactHasNewCustomDisplayName(contactCryptoId: cryptoId)
-                    .postOnDispatchQueue()
-            }
-            
-            if changedKeys.contains(Predicate.Key.rawStatus.rawValue), let ownedCryptoId = ownedIdentity?.cryptoId {
-                ObvMessengerCoreDataNotification.persistedContactHasNewStatus(contactCryptoId: cryptoId, ownedCryptoId: ownedCryptoId)
                     .postOnDispatchQueue()
             }
             
@@ -2221,7 +2447,7 @@ public extension NSFetchedResultsController<PersistedObvContactIdentity> {
 
 // MARK: - PersistedObvContactIdentity observers
 
-public protocol PersistedObvContactIdentityObserver: AnyObject {
+public protocol PersistedObvContactIdentityObserver: AnyObject, Sendable {
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ObvCryptoId) async
 }
 

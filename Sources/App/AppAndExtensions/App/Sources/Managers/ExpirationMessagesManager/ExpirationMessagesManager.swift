@@ -60,9 +60,7 @@ final class ExpirationMessagesManager {
     }
 
     
-    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
-
-        guard forTheFirstTime else { return }
+    func applicationWasInitializedButWasNeverOnScreen() async {
 
         let now = Date()
         

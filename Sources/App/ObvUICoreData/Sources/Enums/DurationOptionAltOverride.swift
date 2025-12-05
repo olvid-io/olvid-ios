@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 
 
-public enum DurationOptionAltOverride: Int, Identifiable, CustomStringConvertible, CaseIterable, Equatable {
+public enum DurationOptionAltOverride: Int, Identifiable, CustomStringConvertible, CaseIterable, Equatable, Sendable {
     
     case useAppDefault = -1
     case none = 0

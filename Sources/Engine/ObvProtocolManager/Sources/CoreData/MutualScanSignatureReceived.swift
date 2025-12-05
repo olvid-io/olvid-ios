@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ import ObvCrypto
 
 
 @objc(MutualScanSignatureReceived)
-final class MutualScanSignatureReceived: NSManagedObject, ObvManagedObject {
+final class MutualScanSignatureReceived: NSManagedObject {
     
     private static let entityName = "MutualScanSignatureReceived"
 
@@ -33,23 +33,15 @@ final class MutualScanSignatureReceived: NSManagedObject, ObvManagedObject {
     @NSManaged private var signature: Data
     @NSManaged private var rawOwnedIdentity: Data
 
-    // MARK: Variables
-
-    private var ownedCryptoIdentity: ObvCryptoIdentity {
-        get { ObvCryptoIdentity(from: rawOwnedIdentity)! }
-        set { rawOwnedIdentity = newValue.getIdentity() }
-    }
-
-    weak var obvContext: ObvContext?
-
     // MARK: - Initializer
 
-    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within obvContext: ObvContext) {
+    /// 2025-08-27: ok
+    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within context: NSManagedObjectContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: MutualScanSignatureReceived.entityName,
-                                                           in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+                                                           in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.signature = signature
-        self.ownedCryptoIdentity = ownedCryptoIdentity
+        self.rawOwnedIdentity = ownedCryptoIdentity.getIdentity()
     }
 
 }
@@ -59,10 +51,6 @@ final class MutualScanSignatureReceived: NSManagedObject, ObvManagedObject {
 
 extension MutualScanSignatureReceived {
     
-    @nonobjc class func fetchRequest() -> NSFetchRequest<MutualScanSignatureReceived> {
-        return NSFetchRequest<MutualScanSignatureReceived>(entityName: MutualScanSignatureReceived.entityName)
-    }
-
     private struct Predicate {
         enum Key: String {
             case signature = "signature"
@@ -76,27 +64,36 @@ extension MutualScanSignatureReceived {
         }
     }
     
-    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within obvContext: ObvContext) throws -> Bool {
+    
+    @nonobjc class func fetchRequest() -> NSFetchRequest<MutualScanSignatureReceived> {
+        return NSFetchRequest<MutualScanSignatureReceived>(entityName: MutualScanSignatureReceived.entityName)
+    }
+
+
+    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<MutualScanSignatureReceived> = MutualScanSignatureReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withSignature(signature),
             Predicate.withOwnedIdentity(ownedCryptoIdentity),
         ])
-        let count = try obvContext.count(for: request)
-        return count > 0
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item != nil
     }
+    
  
-    static func batchDeleteAllMutualScanSignatureReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func batchDeleteAllMutualScanSignatureReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: MutualScanSignatureReceived.entityName)
         fetchRequest.predicate = Predicate.withOwnedIdentity(ownedCryptoIdentity)
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }

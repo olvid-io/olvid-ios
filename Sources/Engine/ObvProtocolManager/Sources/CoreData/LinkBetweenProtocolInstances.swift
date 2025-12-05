@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,115 +19,163 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvEncoder
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
 
+
 @objc(LinkBetweenProtocolInstances)
-class LinkBetweenProtocolInstances: NSManagedObject, ObvManagedObject {
+final class LinkBetweenProtocolInstances: NSManagedObject {
 
     // MARK: Internal constants
     
     private static let entityName = "LinkBetweenProtocolInstances"
-    static let childProtocolInstanceUidKey = "childProtocolInstanceUid"
-    private static let expectedChildStateRawIdKey = "expectedChildStateRawId"
-    private static let parentProtocolInstanceKey = "parentProtocolInstance"
-    private static let parentProtocolInstanceOwnedCryptoIdentityKey = [parentProtocolInstanceKey, ProtocolInstance.Predicate.Key.ownedCryptoIdentity.rawValue].joined(separator: ".")
-    private static let childProtocolInstanceOwnedCryptoIdentityKey = parentProtocolInstanceOwnedCryptoIdentityKey
-    private static let parentProtocolInstanceUidKey = [parentProtocolInstanceKey, ProtocolInstance.Predicate.Key.uid.rawValue].joined(separator: ".")
     
     // MARK: Attributes
     
     // Both the child and parent protocol instances share the same owned identity
     
-    @NSManaged private(set) var childProtocolInstanceUid: UID
     @NSManaged private(set) var expectedChildStateRawId: Int
     @NSManaged private(set) var messageToSendRawId: Int // When the child reaches the expected state, a message with this raw id will be sent to the parent protocol
+    @NSManaged private var rawChildProtocolInstanceUid: Data? // Non-optional in the model
     
     // MARK: Relationships
     
-    private(set) var parentProtocolInstance: ProtocolInstance {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: LinkBetweenProtocolInstances.parentProtocolInstanceKey) as! ProtocolInstance
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: LinkBetweenProtocolInstances.parentProtocolInstanceKey)
-        }
-    }
+    @NSManaged private(set) var parentProtocolInstance: ProtocolInstance? // Non-optional in the model
     
     // MARK: Other variables
     
-    weak var obvContext: ObvContext?
-
     var protocolInstancesOwnedIdentity: ObvCryptoIdentity {
-        return parentProtocolInstance.ownedCryptoIdentity
+        get throws {
+            guard let parentProtocolInstance else { assertionFailure(); throw ObvError.unexpectedNilValue }
+            return try parentProtocolInstance.ownedCryptoIdentity
+        }
     }
     
-    var delegateManager: ObvProtocolDelegateManager? {
-        return parentProtocolInstance.delegateManager
+    var childProtocolInstanceUid: UID {
+        get throws {
+            guard let rawChildProtocolInstanceUid else { assertionFailure(); throw ObvError.unexpectedNilValue }
+            guard let uid = UID(uid: rawChildProtocolInstanceUid) else { assertionFailure(); throw ObvError.couldNotParseValue }
+            return uid
+        }
     }
     
     // MARK: - Initializer
     
+    /// 2025-08-27: ok
     convenience init?(parentProtocolInstance: ProtocolInstance, childProtocolInstanceUid: UID, expectedChildStateRawId: Int, messageToSendRawId: Int) {
-        guard let obvContext = parentProtocolInstance.obvContext else { return nil }
-        let entityDescription = NSEntityDescription.entity(forEntityName: LinkBetweenProtocolInstances.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.childProtocolInstanceUid = childProtocolInstanceUid
+        
+        guard let context = parentProtocolInstance.managedObjectContext else { return nil }
+        let entityDescription = NSEntityDescription.entity(forEntityName: LinkBetweenProtocolInstances.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        
         self.expectedChildStateRawId = expectedChildStateRawId
         self.messageToSendRawId = messageToSendRawId
+        self.rawChildProtocolInstanceUid = childProtocolInstanceUid.raw
+        
         self.parentProtocolInstance = parentProtocolInstance
+        
     }
 
+    enum ObvError: Error {
+        case unexpectedNilValue
+        case couldNotParseValue
+    }
+    
 }
 
 
 // MARK: - Convenience DB getters
 extension LinkBetweenProtocolInstances {
     
+    private struct Predicate {
+        enum Key: String {
+            // Attributes
+            case expectedChildStateRawId = "expectedChildStateRawId"
+            case messageToSendRawId = "messageToSendRawId"
+            case rawChildProtocolInstanceUid = "rawChildProtocolInstanceUid"
+            // Relationships
+            case parentProtocolInstance = "parentProtocolInstance"
+        }
+        static func withChildProtocolInstanceUid(_ childProtocolInstanceUid: UID) -> NSPredicate {
+            NSPredicate(Key.rawChildProtocolInstanceUid, EqualToData: childProtocolInstanceUid.raw)
+        }
+        static func withOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity) -> NSPredicate {
+            let rawKey: String = [
+                Key.parentProtocolInstance.rawValue,
+                ProtocolInstance.Predicate.Key.rawOwnedCryptoIdentity.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(rawKey, EqualToData: ownedIdentity.getIdentity())
+        }
+        static func withExpectedChildState(_ expectedChildState: ConcreteProtocolState) -> NSPredicate {
+            NSPredicate(Key.expectedChildStateRawId, EqualToInt: expectedChildState.rawId)
+        }
+        static func withParentProtocolInstanceUid(_ parentProtocolInstanceUid: UID) -> NSPredicate {
+            let rawKey: String = [
+                Key.parentProtocolInstance.rawValue,
+                ProtocolInstance.Predicate.Key.rawUID.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(rawKey, EqualToData: parentProtocolInstanceUid.raw)
+        }
+    }
+
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<LinkBetweenProtocolInstances> {
         return NSFetchRequest<LinkBetweenProtocolInstances>(entityName: LinkBetweenProtocolInstances.entityName)
     }
     
-    class func getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid childUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, reachesState childState: ConcreteProtocolState, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [GenericProtocolMessageToSend] {
+    
+    static func getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid childUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, reachesState childState: ConcreteProtocolState, within context: NSManagedObjectContext) throws -> [GenericProtocolMessageToSend] {
         let request: NSFetchRequest<LinkBetweenProtocolInstances> = LinkBetweenProtocolInstances.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %d",
-                                        childProtocolInstanceUidKey, childUid,
-                                        childProtocolInstanceOwnedCryptoIdentityKey, childOwnedCryptoIdentity,
-                                        expectedChildStateRawIdKey, childState.rawId)
-        guard let links = try? obvContext.fetch(request) else { return [GenericProtocolMessageToSend]() }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withChildProtocolInstanceUid(childUid),
+            Predicate.withOwnedIdentity(childOwnedCryptoIdentity),
+            Predicate.withExpectedChildState(childState),
+        ])
+        request.fetchBatchSize = 1_000
+        guard let links = try? context.fetch(request) else { return [GenericProtocolMessageToSend]() }
         let encodedInputs = try ChildToParentProtocolMessageInputs(childProtocolInstanceUid: childUid,
                                                                    childProtocolInstanceReachedState: childState).toListOfEncoded()
-        let messages: [GenericProtocolMessageToSend] = links.map { link in
-            return GenericProtocolMessageToSend(channelType: .local(ownedIdentity: link.parentProtocolInstance.ownedCryptoIdentity),
-                                                cryptoProtocolId: link.parentProtocolInstance.cryptoProtocolId,
-                                                protocolInstanceUid: link.parentProtocolInstance.uid,
-                                                protocolMessageRawId: link.messageToSendRawId,
-                                                encodedInputs: encodedInputs)
+        let messages: [GenericProtocolMessageToSend] = links.compactMap { link in
+            do {
+                guard let parentProtocolInstance = link.parentProtocolInstance else { return nil }
+                return GenericProtocolMessageToSend(channelType: .local(ownedIdentity: try parentProtocolInstance.ownedCryptoIdentity),
+                                                    cryptoProtocolId: try parentProtocolInstance.cryptoProtocolId,
+                                                    protocolInstanceUid: try parentProtocolInstance.uid,
+                                                    protocolMessageRawId: link.messageToSendRawId,
+                                                    encodedInputs: encodedInputs)
+            } catch {
+                assertionFailure()
+                return nil
+            }
         }
         return messages
     }
     
+    
     // Normaly, there should be only one parent protocol of a given protocol. But there might be multiple links, since the parent might require to be notified at various states of the child protocol.
-    static func getAllLinksForWhichTheChildProtocolHasUid(_ childUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [LinkBetweenProtocolInstances] {
+    static func getAllLinksForWhichTheChildProtocolHasUid(_ childUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> [LinkBetweenProtocolInstances] {
         let request: NSFetchRequest<LinkBetweenProtocolInstances> = LinkBetweenProtocolInstances.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        childProtocolInstanceUidKey, childUid,
-                                        childProtocolInstanceOwnedCryptoIdentityKey, childOwnedCryptoIdentity)
-        let links = try obvContext.fetch(request)
-        return links.map { $0.parentProtocolInstance.delegateManager = delegateManager; return $0 }
+        request.fetchBatchSize = 1_000
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withChildProtocolInstanceUid(childUid),
+            Predicate.withOwnedIdentity(childOwnedCryptoIdentity),
+        ])
+        let links = try context.fetch(request)
+        return links
     }
     
-    static func getAllLinksForWhichTheParentProtocolHasUid(_ parentUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [LinkBetweenProtocolInstances] {
+    
+    static func getAllLinksForWhichTheParentProtocolHasUid(_ parentUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> [LinkBetweenProtocolInstances] {
         let request: NSFetchRequest<LinkBetweenProtocolInstances> = LinkBetweenProtocolInstances.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        parentProtocolInstanceUidKey, parentUid,
-                                        parentProtocolInstanceOwnedCryptoIdentityKey, childOwnedCryptoIdentity)
-        let links = try obvContext.fetch(request)
-        return links.map { $0.parentProtocolInstance.delegateManager = delegateManager; return $0 }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withParentProtocolInstanceUid(parentUid),
+            Predicate.withOwnedIdentity(childOwnedCryptoIdentity),
+        ])
+        let links = try context.fetch(request)
+        return links
     }
+    
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,21 +21,18 @@ import Foundation
 import CoreData
 import ObvTypes
 import ObvMetaManager
-import OlvidUtils
 
 
 @objc(InboxAttachmentSession)
-final class InboxAttachmentSession: NSManagedObject, ObvManagedObject {
+final class InboxAttachmentSession: NSManagedObject {
     
     // MARK: Internal constants
     
     private static let entityName = "InboxAttachmentSession"
-    private static let rawIdentifierKey = "rawIdentifier"
-    private static let attachmentKey = "attachment"
 
     // MARK: Attributes
     
-    @NSManaged private var rawIdentifier: UUID
+    @NSManaged private var rawIdentifier: UUID // Primary key
     @NSManaged private(set) var timestamp: Date
 
     // MARK: Relationships
@@ -49,14 +46,12 @@ final class InboxAttachmentSession: NSManagedObject, ObvManagedObject {
     
     var sessionIdentifier: String { [InboxAttachmentSession.backgroundURLSessionIdentifierPrefix, rawIdentifier.uuidString].joined(separator: "_") }
 
-    weak var obvContext: ObvContext?
-    
     // Initializer
     
     convenience init?(attachment: InboxAttachment) {
-        guard let obvContext = attachment.obvContext else { return nil }
-        let entityDescription = NSEntityDescription.entity(forEntityName: InboxAttachmentSession.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        guard let context = attachment.managedObjectContext else { return nil }
+        let entityDescription = NSEntityDescription.entity(forEntityName: InboxAttachmentSession.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.rawIdentifier = UUID()
         self.timestamp = Date()
         self.attachment = attachment
@@ -79,34 +74,56 @@ final class InboxAttachmentSession: NSManagedObject, ObvManagedObject {
 
 extension InboxAttachmentSession {
     
+    private struct Predicate {
+        
+        private enum Key: String {
+            // Attributes
+            case rawIdentifier = "rawIdentifier"
+            case timestamp = "timestamp"
+            // Relationships
+            case attachment = "attachment"
+        }
+        
+        static func withRawIdentifier(_ rawIdentifier: UUID) -> NSPredicate {
+            NSPredicate(Key.rawIdentifier, EqualToUuid: rawIdentifier)
+        }
+        
+        static var withNoAttachment: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.attachment)
+        }
+        
+    }
+    
     @nonobjc static func fetchRequest() -> NSFetchRequest<InboxAttachmentSession> {
         return NSFetchRequest<InboxAttachmentSession>(entityName: InboxAttachmentSession.entityName)
     }
 
-    static func getWithSessionIdentifier(_ sessionIdentifier: String, within obvContext: ObvContext) throws -> InboxAttachmentSession? {
+    
+    static func getWithSessionIdentifier(_ sessionIdentifier: String, within context: NSManagedObjectContext) throws -> InboxAttachmentSession? {
         guard let rawIdentifier = parseSessionIdentifier(sessionIdentifier) else { return nil }
         let request: NSFetchRequest<InboxAttachmentSession> = InboxAttachmentSession.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", rawIdentifierKey, rawIdentifier as NSUUID)
+        request.predicate = Predicate.withRawIdentifier(rawIdentifier)
         request.fetchLimit = 1
-        return try obvContext.fetch(request).first
+        return try context.fetch(request).first
     }
+    
 
-    static func getAll(within obvContext: ObvContext) throws -> [InboxAttachmentSession] {
+    static func getAll(within context: NSManagedObjectContext) throws -> [InboxAttachmentSession] {
         let request: NSFetchRequest<InboxAttachmentSession> = InboxAttachmentSession.fetchRequest()
-        return try obvContext.fetch(request)
+        return try context.fetch(request)
     }
 
-    static func deleteAllOrphaned(within obvContext: ObvContext) throws {
+    static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: InboxAttachmentSession.entityName)
-        fetch.predicate = NSPredicate(format: "%K == NIL", attachmentKey)
+        fetch.predicate = Predicate.withNoAttachment
         let request = NSBatchDeleteRequest(fetchRequest: fetch)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }

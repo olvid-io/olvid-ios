@@ -47,7 +47,9 @@ struct GroupTypeSelectorView: View {
                     Button { withAnimation { selectedGroupTypeValue = groupTypeValue } } label: {
                         HStack(alignment: .firstTextBaseline) {
                             ObvRadioButtonView(value: groupTypeValue, selectedValue: $selectedGroupTypeValue)
+                                .accessibilitySortPriority(0)
                             GroupTypeViewCellHeader(model: .init(groupType: groupTypeValue, isSelected: selectedGroupTypeValue == groupTypeValue))
+                                .accessibilitySortPriority(1)
                         }
                         .padding()
                     }
@@ -123,7 +125,7 @@ struct GroupTypeSelectorView: View {
         
         var body: some View {
             HStack {
-                Image(systemIcon: systemIcon)
+                Image(systemIcon: systemIcon, isDecorative: true)
                     .font(.system(size: systemIconSize))
                     .tint(systemIconColor)
                     .foregroundStyle(systemIconColor)
@@ -133,6 +135,7 @@ struct GroupTypeSelectorView: View {
                             .foregroundStyle(backgroundColor)
                     )
                     .padding(.horizontal, 4)
+                
                 VStack(alignment: .leading) {
                     Text(text)
                         .padding(.horizontal, 4)
@@ -160,6 +163,7 @@ struct GroupTypeSelectorView: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
+            .accessibilityElement(children: .combine)
         }
     }
     

@@ -40,16 +40,23 @@ public struct ObvIdentityDetails: Equatable, Sendable {
 
     public static func == (lhs: ObvIdentityDetails, rhs: ObvIdentityDetails) -> Bool {
         guard lhs.coreDetails == rhs.coreDetails else { return false }
+        guard haveIdenticalPhotos(lhs: lhs, rhs: rhs) else { return false }
+        return true
+    }
+    
+    
+    private static func haveIdenticalPhotos(lhs: ObvIdentityDetails, rhs: ObvIdentityDetails) -> Bool {
         switch (lhs.photoURL?.path, rhs.photoURL?.path) {
-        case (.none, .none): break
+        case (.none, .none): return true
         case (.none, .some): return false
         case (.some, .none): return false
         case (.some(let path1), .some(let path2)):
-            guard FileManager.default.contentsEqual(atPath: path1, andPath: path2) else {
-                return false
+            if path1 == path2 {
+                return true
+            } else {
+                return FileManager.default.contentsEqual(atPath: path1, andPath: path2)
             }
         }
-        return true
     }
 
     
@@ -57,6 +64,31 @@ public struct ObvIdentityDetails: Equatable, Sendable {
         return coreDetails.getDisplayNameWithStyle(style)
     }
     
+}
+
+
+/// Helper extension allowing to compute the differences between the trusted and published details of a contact.
+/// Note that the engine automatically accepts changes made to the position or company.
+public extension ObvIdentityDetails {
+    
+    struct Differences: OptionSet, Sendable {
+        public let rawValue: Int
+        public static let firstName = Differences(rawValue: 1 << 0)
+        public static let lastName = Differences(rawValue: 1 << 1)
+        public static let photo = Differences(rawValue: 1 << 2)
+        public init(rawValue: Int) {
+            self.rawValue = rawValue
+        }
+    }
+
+    func differencesWith(_ other: Self) -> Differences {
+        var differences: Differences = []
+        if self.coreDetails.firstName != other.coreDetails.firstName { differences.insert(.firstName) }
+        if self.coreDetails.lastName != other.coreDetails.lastName { differences.insert(.lastName) }
+        if !Self.haveIdenticalPhotos(lhs: self, rhs: other) { differences.insert(.photo) }
+        return differences
+    }
+
 }
 
 

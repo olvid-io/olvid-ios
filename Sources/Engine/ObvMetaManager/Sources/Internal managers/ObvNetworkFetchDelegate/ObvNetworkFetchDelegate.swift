@@ -30,11 +30,11 @@ public protocol ObvNetworkFetchDelegate: ObvManager {
     func updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws
     
     func downloadMessages(for ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async
-    func allAttachmentsCanBeDownloadedForMessage(withId: ObvMessageIdentifier, within: ObvContext) throws -> Bool
-    func allAttachmentsHaveBeenDownloadedForMessage(withId: ObvMessageIdentifier, within: ObvContext) throws -> Bool
-    func attachment(withId: ObvAttachmentIdentifier, canBeDownloadedwithin: ObvContext) throws -> Bool
+    func allAttachmentsCanBeDownloadedForMessage(withId: ObvMessageIdentifier, within: NSManagedObjectContext) throws -> Bool
+    func allAttachmentsHaveBeenDownloadedForMessage(withId: ObvMessageIdentifier, within: NSManagedObjectContext) throws -> Bool
+    func attachment(withId: ObvAttachmentIdentifier, canBeDownloadedwithin context: NSManagedObjectContext) throws -> Bool
 
-    func getAttachment(withId attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) -> ObvNetworkFetchReceivedAttachment?
+    func getAttachment(withId attachmentId: ObvAttachmentIdentifier, within context: NSManagedObjectContext) -> ObvNetworkFetchReceivedAttachment?
     
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) async -> Bool
     func processCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier) async
@@ -51,22 +51,22 @@ public protocol ObvNetworkFetchDelegate: ObvManager {
 
     func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) async throws
     
-    func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (state: URLSessionTask.State, pingInterval: TimeInterval?)
+    func getWebSocketState(ownedIdentity: ObvCryptoIdentity, handler: @escaping @Sendable (Result<(URLSessionTask.State, TimeInterval?), Error>) -> Void) async
     func connectWebsockets(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws
     func disconnectWebsockets(flowId: FlowIdentifier) async
 
     func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvTurnCredentials
 
-    func refreshAPIPermissions(of ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements
+    func refreshAPIPermissions(of ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws
     func queryAPIKeyStatus(for identity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> APIKeyElements
-    func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> ObvRegisterApiKeyResult
+    func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws
     func queryFreeTrial(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Bool
-    func startFreeTrial(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements
-    func verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus]
+    func startFreeTrial(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws
+    func verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: ObvAppStoreReceipt, environment: ObvAppStoreEnvironment, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus]
     // func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)
     func queryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) async throws
 
-    func postServerQuery(_: ServerQuery, within: ObvContext)
+    func postServerQuery(_ serverQuery: ServerQuery, within context: NSManagedObjectContext)
 
     func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
     func deleteServerSessionsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws
@@ -78,4 +78,12 @@ public protocol ObvNetworkFetchDelegate: ObvManager {
     func getUserDataNow(cryptoId: ObvCryptoId, serverLabel: UID, flowId: FlowIdentifier) async throws -> EncryptedData?
 
     func getAPIKeyElementsDuringNewBackupRestore(cryptoId: ObvCryptoId, privateKeyForAuthentication: any PrivateKeyForAuthentication, flowId: FlowIdentifier) async throws -> APIKeyElements
+    
+    func getAsyncStreamOfEncryptedReceivedReturnReceipt() async -> AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt>
+    
+    func getAsyncStreamOfObvMessageOrObvOwnedMessages() async -> AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]>
+
+    func putMessageOnHold(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws
+    func fetchOnHoldMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws -> ObvMessageOrObvOwnedMessage?
+
 }

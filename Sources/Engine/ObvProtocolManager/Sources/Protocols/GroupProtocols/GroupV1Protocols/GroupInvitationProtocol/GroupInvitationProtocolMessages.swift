@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -71,11 +71,11 @@ extension GroupInvitationProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 3 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 3 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.contactIdentity = try message.encodedInputs[0].obvDecode()
             self.groupInformation = try message.encodedInputs[1].obvDecode()
-            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[2]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded members") }
+            guard let listOfEncodedMembers = [ObvEncoded](try message.encodedInputs[2]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded members") }
             self.membersAndPendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
             
         }
@@ -109,10 +109,10 @@ extension GroupInvitationProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
-            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded members") }
+            guard let listOfEncodedMembers = [ObvEncoded](try message.encodedInputs[1]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded members") }
             self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
             
         }
@@ -143,7 +143,7 @@ extension GroupInvitationProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Failed to obtain encoded dialog response") }
             invitationAccepted = try encodedUserDialogResponse.obvDecode()
             guard let userDialogUuid = message.userDialogUuid else { assertionFailure(); throw Self.makeError(message: "Could not fin user dialog UUID") }
@@ -177,8 +177,8 @@ extension GroupInvitationProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupUid = try message.encodedInputs[0].obvDecode()
             self.invitationAccepted = try message.encodedInputs[1].obvDecode()
         }
@@ -208,8 +208,8 @@ extension GroupInvitationProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.invitationAccepted = try message.encodedInputs[0].obvDecode()
         }
         
@@ -234,7 +234,7 @@ extension GroupInvitationProtocol {
         
         init(with message: ReceivedMessage) throws {
             // Never used
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {

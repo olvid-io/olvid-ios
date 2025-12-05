@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import Foundation
 import ObvEncoder
 
 
-public enum ObvReturnReceiptStatus: Int {
+public enum ObvReturnReceiptStatus: Int, Sendable {
     case delivered = 1
     case read = 2
 }

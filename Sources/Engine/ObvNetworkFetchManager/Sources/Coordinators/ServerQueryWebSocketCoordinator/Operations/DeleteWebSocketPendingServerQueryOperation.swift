@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,11 +26,9 @@ import OlvidUtils
 final class DeleteWebSocketPendingServerQueryOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
     
     private let pendingServerQueryObjectId: NSManagedObjectID
-    private let delegateManager: ObvNetworkFetchDelegateManager
 
-    init(pendingServerQueryObjectId: NSManagedObjectID, delegateManager: ObvNetworkFetchDelegateManager) {
+    init(pendingServerQueryObjectId: NSManagedObjectID) {
         self.pendingServerQueryObjectId = pendingServerQueryObjectId
-        self.delegateManager = delegateManager
         super.init()
     }
     
@@ -38,12 +36,12 @@ final class DeleteWebSocketPendingServerQueryOperation: ContextualOperationWithS
         
         do {
             
-            guard let pendingServerQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectId, delegateManager: delegateManager, within: obvContext) else {
+            guard let pendingServerQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectId, within: obvContext.context) else {
                 return
             }
 
-            pendingServerQuery.deletePendingServerQuery(within: obvContext)
-            
+            try pendingServerQuery.deletePendingServerQuery()
+
         } catch {
             return cancel(withReason: .coreDataError(error: error))
         }

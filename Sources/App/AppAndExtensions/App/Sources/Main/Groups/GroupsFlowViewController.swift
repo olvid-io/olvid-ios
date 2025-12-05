@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import UIKit
-import os.log
+import OSLog
 import ObvEngine
 import ObvTypes
 import ObvUI
@@ -26,79 +26,43 @@ import ObvUICoreData
 import ObvSettings
 import ObvDesignSystem
 import ObvAppCoreConstants
+import ObvUIGroupV1
 import ObvUIGroupV2
+import ObvSharedDataSources
+import ObvGroupsList
+import ObvProfilePictureBarButtonItem
+import ObvCells
+import ObvAppNavigation
 
 
-final class GroupsFlowViewController: UINavigationController, ObvFlowController {
+final class GroupsFlowViewController: ObvFlowController {
     
-    // Variables
-    
-    private(set) var currentOwnedCryptoId: ObvCryptoId
-    let delegatesStack = ObvFlowControllerDelegatesStack()
-    let obvEngine: ObvEngine
-    var floatingButton: UIButton? // Used on iOS 18+ only, set at the ObvFlowController level
-    private var floatingButtonAnimator: FloatingButtonAnimator?
-    let appDataSourceForObvUIGroupV2Router: AppDataSourceForObvUIGroupV2Router
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "GroupsFlowViewController")
+    private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: GroupsFlowViewController.self))
 
-    var observationTokens = [NSObjectProtocol]()
+    private var observationTokens = [NSObjectProtocol]()
 
-    static let errorDomain = "GroupsFlowViewController"
-    
-    /// This router allows to present the flow allowing to create a new group v2.
-    /// It is expected to be set only once.
-    /// The delegate methods are implemented in an extension of `ObvFlowController`.
-    private(set) lazy var routerForGroupCreation: ObvUIGroupV2Router = {
-        ObvUIGroupV2Router(mode: .creation(delegate: self),
-                           dataSource: appDataSourceForObvUIGroupV2Router)
-    }()
-    /// This router allows to push the flow allowing to edit a new group v2.
-    /// It is expected to be set only once.
-    /// The delegate methods are implemented in an extension of `ObvFlowController`.
-    private(set) lazy var routerForGroupEdition: ObvUIGroupV2Router = {
-        ObvUIGroupV2Router(mode: .edition(delegate: self),
-                           dataSource: appDataSourceForObvUIGroupV2Router)
-    }()
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, dataSources: ObvDataSources) {
+
+        super.init(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, dataSources: dataSources, doAddFloatingButton: false)
         
-    
-    // Constants
-    
-    let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: GroupsFlowViewController.self))
-
-    // Delegate
-    
-    weak var flowDelegate: ObvFlowControllerDelegate?
-
-    // MARK: - Factory
-    
-    init(ownedCryptoId: ObvCryptoId, appListOfGroupMembersViewDataSource: AppDataSourceForObvUIGroupV2Router, obvEngine: ObvEngine) {
+        let groupsListViewController = ObvGroupsListViewController(
+            currentOwnedCryptoId: ownedCryptoId,
+            dataSource: dataSources.groupsListViewDataSource,
+            groupCellViewDataSource: dataSources.groupCellViewDataSource,
+            profilePictureBarButtonItemViewDataSource: dataSources.profilePictureBarButtonItemViewDataSource,
+            avatarViewDataSource: dataSources.avatarViewDataSource,
+            ownedIdentityChooserViewDataSource: dataSources.ownedIdentityChooserViewDataSource,
+            navigation: self,
+            actions: self)
         
-        self.currentOwnedCryptoId = ownedCryptoId
-        self.obvEngine = obvEngine
-        self.appDataSourceForObvUIGroupV2Router = appListOfGroupMembersViewDataSource
+        self.setViewControllers([groupsListViewController], animated: false)
         
-        let allGroupsViewController = NewAllGroupsViewController(ownedCryptoId: ownedCryptoId)
-        super.init(rootViewController: allGroupsViewController)
-        
-        allGroupsViewController.delegate = self
-
-        self.delegate = delegatesStack
-
     }
     
     deinit {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
-
-    override var delegate: UINavigationControllerDelegate? {
-        get {
-            super.delegate
-        }
-        set {
-            guard newValue is ObvFlowControllerDelegatesStack else { assertionFailure(); return }
-            super.delegate = newValue
-        }
-    }
-
     
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
@@ -112,46 +76,38 @@ extension GroupsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        title = CommonString.Word.Groups
+        // Note: Do not set the title here.
+        // The title is managed by `ObvGroupsListView`, and explicitly setting it would override the tab bar title
+        // on iOS 17 and less.
         
         if #available(iOS 18, *) {
             // The tabbar is configured with iOS 18 APIs, we don't need to specify a tabBarItem
         } else {
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemName: "person.3", withConfiguration: symbolConfiguration)
-            tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+            let image = UIImage(systemIcon: .person3)
+            tabBarItem = UITabBarItem(title: CommonString.Word.Groups, image: image, tag: 2)
         }
-        
-        delegatesStack.addDelegate(OlvidUserActivitySingleton.shared)
 
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        navigationBar.standardAppearance = appearance
+        if #available(iOS 26, *) {
+            // We don't change the appearance under iOS 26
+        } else {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            navigationBar.standardAppearance = appearance
+        }
 
         self.view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
         
-        observeNotificationsImpactingTheNavigationStack()
+        //observeNotificationsImpactingTheNavigationStack()
         
         // This is required to activate the interactive pop gesture recognizer. Activating this interactive gesture also requires
         // to override gestureRecognizerShouldBegin(_:).
         // See ``https://stackoverflow.com/questions/18946302/uinavigationcontroller-interactive-pop-gesture-not-working``.
-        if #available(iOS 18, *) {
+        if #available(iOS 17, *) {
             interactivePopGestureRecognizer?.delegate = self
         }
 
     }
     
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        if #available(iOS 18, *) {
-            addFloatingButtonIfRequired()
-            let floatingButtonAnimator = FloatingButtonAnimator(floatingButton: floatingButton)
-            self.delegatesStack.addDelegate(floatingButtonAnimator)
-            self.floatingButtonAnimator = floatingButtonAnimator
-        }
-    }
-
 }
 
 
@@ -168,84 +124,79 @@ extension GroupsFlowViewController: UIGestureRecognizerDelegate {
 }
 
 
-// MARK: - Switching current owned identity
+// MARK: - Implementing ObvGroupsListViewActions
 
-extension GroupsFlowViewController {
+extension GroupsFlowViewController: ObvGroupsListViewActions {
     
-    @MainActor
-    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
-        popToRootViewController(animated: false)
-        self.currentOwnedCryptoId = newOwnedCryptoId
-        guard let newAllGroupsViewController = viewControllers.first as? NewAllGroupsViewController else { assertionFailure(); return }
-        await newAllGroupsViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+    func userWantsToCreateNewGroup(_ view: ObvGroupsList.ObvGroupsListView, ownedCryptoId: ObvTypes.ObvCryptoId) {
+        flowDelegate?.userWantsToCreateNewGroup(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+    
+    /// This method is called when the user changes the current profile from the profile switcher implemented in SwiftUI. We need to propagate this in the rest of the app.
+    func userDidSwitchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvTypes.ObvCryptoId) async {
+        ObvMessengerInternalNotification.userWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: newOwnedCryptoId)
+            .postOnDispatchQueue()
+    }
+
+    // The following method is implemented in ObvFlowController
+    // func userDidPressOnObvGroupCellView(_ view: ObvGroupCellView, groupIdentifier: ObvGroupCellViewModel.GroupIdentifier, expectedNavigation: ObvGroupCellView.ExpectedNavigation) throws {
+    
+    func userDidLongPressOnProfilePicture(_ view: ObvProfilePictureBarButtonItem.ObvProfilePictureBarButtonItemView) {
+        guard let flowDelegate else { assertionFailure(); return }
+        flowDelegate.showAlertForUnlockingHiddenOwnedIdentity(self)
+    }
+
+    
+    func userWantsToEditOwnedIdentity(_ view: ObvProfilePictureBarButtonItem.ObvProfilePictureBarButtonItemView, ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard currentOwnedCryptoId == ownedCryptoId else { assertionFailure(); return }
+        let deepLink = ObvDeepLink.myId(ownedCryptoId: ownedCryptoId)
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+            .postOnDispatchQueue()
+    }
+    
+    
+    func userWantsToAddNewProfile(_ view: ObvProfilePictureBarButtonItem.ObvProfilePictureBarButtonItemView) async {
+        ObvMessengerInternalNotification.userWantsToAddOwnedProfile
+            .postOnDispatchQueue()
+    }
+    
+    
+    func userWantsToNavigateToSettings(_ view: ObvGroupsList.ObvGroupsListView.MainMenu) {
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .settings)
+            .postOnDispatchQueue()
+    }
+    
+    
+    func userWantsToNavigateToStorageManagement(_ view: ObvGroupsList.ObvGroupsListView.MainMenu) {
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .storageManagementSettings)
+            .postOnDispatchQueue()
+    }
+
+    
+    func userTappedObvPlusButton() {
+        guard let flowDelegate else { assertionFailure(); return }
+        flowDelegate.userTappedObvPlusButton(self)
     }
     
 }
 
 
+// MARK: - Errors
 
-// MARK: - NewAllGroupsViewControllerDelegate
-
-extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
+extension GroupsFlowViewController {
     
-    func userDidSelect(_ contactGroup: PersistedContactGroup, within nav: UINavigationController?) {
-        guard let singleGroupVC = try? SingleGroupViewController(persistedContactGroup: contactGroup, obvEngine: obvEngine) else { return }
-        singleGroupVC.delegate = self
-        pushViewController(singleGroupVC, animated: true)
+    enum ObvError: Error {
+        case unexpectedGroupIdentifier
+        case couldNotFindDisplayedContactGroup
+        case couldNotFindConcreteGroup
     }
     
+}
 
-    func userDidSelect(_ group: PersistedGroupV2, within navigationController: UINavigationController?) {
-        guard let groupV2Identifier = try? group.obvGroupIdentifier else { assertionFailure(); return }
-        // The following method is implemented at the ObvFlowController level
-        self.userWantsToNavigateToSingleGroupView(groupIdentifier: groupV2Identifier, within: navigationController)
-    }
 
-    
-    func userWantsToAddContactGroup() {
-        assert(Thread.isMainThread)
-        let ownedCryptoId = self.currentOwnedCryptoId
-        let obvEngine = self.obvEngine
-        
-        if ObvMessengerConstants.developmentMode {
-            
-            let alert = UIAlertController(title: NSLocalizedString("CHOOSE_GROUP_TYPE_TITLE", comment: ""),
-                                          message: NSLocalizedString("CHOOSE_GROUP_TYPE_MESSAGE", comment: ""),
-                                          preferredStyleForTraitCollection: self.traitCollection)
-            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V1", comment: ""), style: .default, handler: { [weak self] (action) in
-                let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV1, obvEngine: obvEngine)
-                self?.present(groupCreationFlowVC, animated: true)
-            }))
-            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V2", comment: ""), style: .default, handler: { [weak self] (action) in
-                guard let self else { return }
-                routerForGroupCreation.presentInitialViewControllerForGroupCreation(ownedCryptoId: currentOwnedCryptoId,
-                                                                                    presentingViewController: self,
-                                                                                    creationMode: .fromScratch)
-            }))
-            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-            
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.present(alert, animated: true)
-            } else {
-                self.present(alert, animated: true)
-            }
+// MARK: - ObvGroupsListViewController implements CanScrollToTop
 
-        } else {
-            
-            // Starting with version 0.12.0, we only allow the creation of groups v2.
-            // The group creation flow was completely refactored in version 2.4
-            // 2025-04-21: the group creation flow was re-coded from scratch.
-            routerForGroupCreation.presentInitialViewControllerForGroupCreation(ownedCryptoId: currentOwnedCryptoId,
-                                                                                presentingViewController: self,
-                                                                                creationMode: .fromScratch)
-            
-        }
-    }
-        
-    
-    @objc
-    func dismissPresentedViewController() {
-        presentedViewController?.dismiss(animated: true)
-    }
-
+extension ObvGroupsListViewController: CanScrollToTop {
+    // Method already implemented in ObvGroupsListViewController
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvEncoder
 import ObvTypes
 import ObvCrypto
@@ -27,17 +27,18 @@ import ObvMetaManager
 import OlvidUtils
 
 @objc(OutboxMessage)
-final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+final class OutboxMessage: NSManagedObject, ObvErrorMaker {
     
     // MARK: Internal constants
     
     private static let entityName = "OutboxMessage"
     static let errorDomain = "OutboxMessage"
-    
+    static weak var delegateManager: ObvNetworkSendDelegateManager?
+
     // MARK: Attributes
     
     @NSManaged private(set) var cancelExternallyRequested: Bool
-    @NSManaged private(set) var encryptedContent: EncryptedData
+    @NSManaged private var rawEncryptedContent: Data? // Non-optional in the model
     @NSManaged private var rawEncryptedExtendedMessagePayload: Data?
     @NSManaged private(set) var isAppMessageWithUserContent: Bool
     @NSManaged private(set) var isVoipMessage: Bool
@@ -57,7 +58,7 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     private var unsortedAttachments: Set<OutboxAttachment> {
         get {
             let items = kvoSafePrimitiveValue(forKey: Predicate.Key.unsortedAttachments.rawValue) as! Set<OutboxAttachment>
-            return Set(items.map { $0.obvContext = self.obvContext; return $0 })
+            return Set(items)
         }
         set {
             kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.unsortedAttachments.rawValue)
@@ -80,6 +81,13 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
 
     // MARK: Other variables
+    
+    var encryptedContent: EncryptedData {
+        get throws(ObvError) {
+            guard let rawEncryptedContent else { assertionFailure(); throw .unexpectedNilValue }
+            return EncryptedData(data: rawEncryptedContent)
+        }
+    }
     
     /// Expected to be non-nil. We never allow setting this identifier to `nil`.
     private(set) var messageId: ObvMessageIdentifier? {
@@ -107,10 +115,9 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
     
     /// This method deletes `self`.
-    func deleteThisOutboxMessage(delegateManager: ObvNetworkSendDelegateManager) throws {
+    func deleteThisOutboxMessage() throws {
         guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not delete OuboxMessage as its context is nil") }
         self.messageIdWhenDeleted = self.messageId
-        self.delegateManager = delegateManager
         context.delete(self)
     }
     
@@ -124,32 +131,32 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         }
     }
     
-    weak var delegateManager: ObvNetworkSendDelegateManager?
-    weak var obvContext: ObvContext?
-    
     // MARK: - Initializer
     
-    convenience init?(messageId: ObvMessageIdentifier, serverURL: URL, encryptedContent: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?, isAppMessageWithUserContent: Bool, isVoipMessage: Bool, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) {
+    convenience init?(messageId: ObvMessageIdentifier, serverURL: URL, encryptedContent: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?, isAppMessageWithUserContent: Bool, isVoipMessage: Bool, within context: NSManagedObjectContext) {
         
         do {
-            guard try OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) == nil else { assertionFailure(); return nil }
+            guard try OutboxMessage.get(messageId: messageId, within: context) == nil else { assertionFailure(); return nil }
         } catch {
             assertionFailure()
             return nil
         }
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: OutboxMessage.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: OutboxMessage.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         
-        self.encryptedContent = encryptedContent
+        self.rawEncryptedContent = encryptedContent.raw
         self.encryptedExtendedMessagePayload = encryptedExtendedMessagePayload
         self.messageId = messageId
         self.serverURL = serverURL
         self.isAppMessageWithUserContent = isAppMessageWithUserContent
         self.isVoipMessage = isVoipMessage
         self.creationDate = Date()
-        self.delegateManager = delegateManager
         self.unsortedAttachments = Set<OutboxAttachment>()
+    }
+    
+    enum ObvError: Error {
+        case unexpectedNilValue
     }
 
 }
@@ -166,7 +173,7 @@ extension OutboxMessage {
         self.cancelExternallyRequested = true
     }
     
-    func setAcknowledged(withMessageUidFromServer messageUidFromServer: UID, nonceFromServer: Data, andTimeStampFromServer timestampFromServer: Date, log: OSLog) {
+    func setAcknowledged(withMessageUidFromServer messageUidFromServer: UID, nonceFromServer: Data, andTimeStampFromServer timestampFromServer: Date) {
         uploaded = true
         self.messageUidFromServer = messageUidFromServer
         self.nonceFromServer = nonceFromServer
@@ -204,7 +211,7 @@ extension OutboxMessage {
         
         enum Key: String {
             case cancelExternallyRequested = "cancelExternallyRequested"
-            case encryptedContent = "encryptedContent"
+            case rawEncryptedContent = "rawEncryptedContent"
             case rawEncryptedExtendedMessagePayload = "rawEncryptedExtendedMessagePayload"
             case isAppMessageWithUserContent = "isAppMessageWithUserContent"
             case isVoipMessage = "isVoipMessage"
@@ -242,6 +249,10 @@ extension OutboxMessage {
             NSPredicate(Key.serverURL, EqualToUrl: url)
         }
         
+        static var withNoAttachments: NSPredicate {
+            NSPredicate(withCount: 0, forKey: Predicate.Key.unsortedAttachments)
+        }
+        
     }
     
     
@@ -251,69 +262,83 @@ extension OutboxMessage {
         return NSFetchRequest<OutboxMessage>(entityName: OutboxMessage.entityName)
     }
 
-    static func get(messageId: ObvMessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> OutboxMessage? {
+    static func get(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws -> OutboxMessage? {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageId(messageId)
         request.fetchLimit = 1
-        let item = (try obvContext.fetch(request)).first
-        item?.delegateManager = delegateManager
+        let item = try context.fetch(request).first
         return item
     }
     
-    static func getAll(delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> [OutboxMessage] {
+    static func getAll(within context: NSManagedObjectContext) throws -> [OutboxMessage] {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.fetchBatchSize = 500
-        let items = try obvContext.fetch(request)
-        return items.map { $0.delegateManager = delegateManager; return $0 }
+        let items = try context.fetch(request)
+        return items
     }
     
-    static func getAllUploaded(delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> [OutboxMessage] {
+    static func getAllUploaded(within context: NSManagedObjectContext) throws -> [OutboxMessage] {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.fetchBatchSize = 500
         request.predicate = Predicate.uploaded(is: true)
-        let items = try obvContext.fetch(request)
-        return items.map { $0.delegateManager = delegateManager; return $0 }
+        let items = try context.fetch(request)
+        return items
     }
     
-    static func getAllMessagesToUploadWithoutAttachments(serverURL: URL, fetchLimit: Int, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> [OutboxMessage] {
+    static func getAllMessagesToUploadWithoutAttachments(serverURL: URL, fetchLimit: Int, maxNumberOfHeaders: Int, within context: NSManagedObjectContext) throws -> [OutboxMessage] {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.fetchLimit = fetchLimit
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.uploaded(is: false),
             Predicate.withServerURL(serverURL: serverURL),
+            Predicate.withNoAttachments,
         ])
-        let items = try obvContext.fetch(request)
-            .filter({ !$0.hasAttachments }) // Only keep messages without attachments
-        return items.map { $0.delegateManager = delegateManager; return $0 }
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.creationDate.rawValue, ascending: true)]
+        let items = try context.fetch(request)
+        guard !items.isEmpty else { return [] }
+        for item in items {
+            assert(!item.hasAttachments)
+        }
+        // If have at most `fetchLimit` items. We also want to limit the total number headers they represent.
+        var itemsToReturn: [OutboxMessage] = []
+        var currentNumberOfHeaders: Int = 0
+        for item in items {
+            guard currentNumberOfHeaders < max(1, maxNumberOfHeaders) else {
+                return itemsToReturn
+            }
+            itemsToReturn += [item]
+            currentNumberOfHeaders += item.headers.count
+        }
+        debugPrint("currentNumberOfHeaders: \(currentNumberOfHeaders)")
+        debugPrint("itemsToReturn.count: \(itemsToReturn.count)")
+        return itemsToReturn
     }
+    
 
-    static func getAllMessagesToUploadWithAttachments(delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> [OutboxMessage] {
+    static func getAllMessagesToUploadWithAttachments(within context: NSManagedObjectContext) throws -> [OutboxMessage] {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.fetchBatchSize = 500
         request.predicate = Predicate.uploaded(is: false)
-        let items = try obvContext.fetch(request)
+        let items = try context.fetch(request)
             .filter({ $0.hasAttachments }) // Only keep messages with attachments
-        return items.map { $0.delegateManager = delegateManager; return $0 }
+        return items
     }
 
-    static func delete(messageId: ObvMessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws {
+    static func delete(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageId(messageId)
-        guard let item = try obvContext.fetch(request).first else { return }
-        item.delegateManager = delegateManager
-        try item.deleteThisOutboxMessage(delegateManager: delegateManager)
+        guard let item = try context.fetch(request).first else { return }
+        try item.deleteThisOutboxMessage()
     }
     
-    static func pruneOldOutboxMessages(createdEarlierThan date: Date, delegateManager: ObvNetworkSendDelegateManager, log: OSLog, within obvContext: ObvContext) throws {
+    static func pruneOldOutboxMessages(createdEarlierThan date: Date, log: OSLog, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.predicate = Predicate.creationDateIsEarlierThan(date)
         request.fetchBatchSize = 500
-        let items = try obvContext.fetch(request)
+        let items = try context.fetch(request)
         for item in items {
-            item.obvContext = obvContext
-            item.delegateManager = delegateManager
             do {
-                try item.deleteThisOutboxMessage(delegateManager: delegateManager)
+                try item.deleteThisOutboxMessage()
             } catch {
                 os_log("Could not prune an old outbox message: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
@@ -322,24 +347,24 @@ extension OutboxMessage {
         }
     }
     
-    static func deleteAllForOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws {
+    static func deleteAllForOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
         request.fetchBatchSize = 500
         request.propertiesToFetch = []
-        let messages = try obvContext.fetch(request)
+        let messages = try context.fetch(request)
         try messages.forEach { message in
-            try message.deleteThisOutboxMessage(delegateManager: delegateManager)
+            try message.deleteThisOutboxMessage()
         }
     }
     
     /// Returns a set of all the server URLs corresponding to at least one message still to upload.
-    static func getAllServerURLsForMessagesToUpload(within obvContext: ObvContext) throws -> Set<URL> {
+    static func getAllServerURLsForMessagesToUpload(within context: NSManagedObjectContext) throws -> Set<URL> {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.fetchBatchSize = 500
         request.propertiesToFetch = [Predicate.Key.serverURL.rawValue]
         request.predicate = Predicate.uploaded(is: false)
-        let messages = try obvContext.fetch(request)
+        let messages = try context.fetch(request)
         let serverURLs = Set(messages.map(\.serverURL))
         return serverURLs
     }
@@ -356,7 +381,7 @@ extension OutboxMessage {
         guard let managedObjectContext else { assertionFailure(); return }
         guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
 
-        guard let delegateManager = delegateManager else {
+        guard let delegateManager = Self.delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: OutboxMessage.entityName)
             os_log("The Outbox Message Delegate is not set", log: log, type: .fault)
             assertionFailure()
@@ -367,7 +392,7 @@ extension OutboxMessage {
 
         let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: OutboxMessage.entityName)
 
-        guard let obvContext = self.obvContext else {
+        guard let context = self.managedObjectContext else {
             os_log("The obvContext is not set", log: log, type: .fault)
             assertionFailure()
             return
@@ -381,7 +406,7 @@ extension OutboxMessage {
 
         if let timestampFromServer = self.timestampFromServer {
             do {
-                _ = try DeletedOutboxMessage.getOrCreate(messageId: messageId, timestampFromServer: timestampFromServer, delegateManager: delegateManager, within: obvContext)
+                _ = try DeletedOutboxMessage.getOrCreate(messageId: messageId, timestampFromServer: timestampFromServer, within: context)
             } catch {
                 os_log("Could not get or create a DeletedOutboxMessage: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
@@ -393,7 +418,7 @@ extension OutboxMessage {
                 assertionFailure()
                 return
             }
-            ObvNetworkPostNotification.outboxMessageCouldNotBeSentToServer(messageId: messageId, flowId: obvContext.flowId)
+            ObvNetworkPostNotification.outboxMessageCouldNotBeSentToServer(messageId: messageId, flowId: FlowIdentifier())
                 .postOnBackgroundQueue(within: notificationDelegate)
         }
 
@@ -404,15 +429,17 @@ extension OutboxMessage {
 
         guard !isDeleted else { return }
         
-        guard let delegateManager = delegateManager else {
+        guard let delegateManager = Self.delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: OutboxMessage.entityName)
             os_log("The Outbox Message Delegate is not set", log: log, type: .fault)
+            assertionFailure()
             return
         }
 
-        if isInserted, let flowId = self.obvContext?.flowId, let messageId = self.messageId {
+        if isInserted, let messageId = self.messageId {
             let hasAttachments = self.hasAttachments
             let serverURL = self.serverURL
+            let flowId = FlowIdentifier()
             if hasAttachments {
                 DispatchQueue(label: "Queue for calling newOutboxMessage").async {
                     delegateManager.networkSendFlowDelegate.newOutboxMessageWithAttachments(messageId: messageId, flowId: flowId)

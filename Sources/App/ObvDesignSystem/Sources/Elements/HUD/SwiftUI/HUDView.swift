@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,14 +18,16 @@
  */
 
 import SwiftUI
+import ObvSystemIcon
 
 
 public struct HUDView: View {
     
-    public enum Category {
+    public enum Category: Equatable {
         case progress
         case checkmark
         case xmark
+        case icon(SystemIcon)
     }
     
     let category: Category
@@ -35,14 +37,7 @@ public struct HUDView: View {
     }
 
     public var body: some View {
-        switch category {
-        case .progress:
-            HUDInnerView(category: .progress)
-        case .checkmark:
-            HUDInnerView(category: .checkmark)
-        case .xmark:
-            HUDInnerView(category: .xmark)
-        }
+        HUDInnerView(category: category)
     }
     
 }
@@ -74,6 +69,10 @@ fileprivate struct HUDInnerView: View {
                 Image(systemIcon: .xmarkCircle)
                     .font(Font.system(size: 80))
                     .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
+            case .icon(let systemIcon):
+                Image(systemIcon: systemIcon)
+                    .font(Font.system(size: 80))
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
             }
         }
         .frame(width: width, height: height, alignment: .center)
@@ -84,9 +83,12 @@ fileprivate struct HUDInnerView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6, blendDuration: 0)) {
                 self.scale = 1.0
             }
-            if category == .checkmark {
+            switch category {
+            case .checkmark:
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
+            default:
+                break
             }
         })
         .onDisappear(perform: {

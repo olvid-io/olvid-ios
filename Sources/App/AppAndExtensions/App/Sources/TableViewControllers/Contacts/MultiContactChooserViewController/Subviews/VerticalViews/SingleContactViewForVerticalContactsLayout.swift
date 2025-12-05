@@ -24,6 +24,7 @@ import ObvUIObvCircledInitials
 import ObvUI
 import ObvTypes
 import ObvCircleAndTitlesView
+import ObvAccessibility
 
 
 /// Expected to be implemented by `PersistedUser` (and thus by `PersistedObvContactIdentity` and `PersistedGroupV2Member`)
@@ -34,6 +35,30 @@ protocol ManagedUserViewForVerticalUsersLayoutModelProtocol: Equatable, Hashable
 
 protocol SingleUserViewForVerticalUsersLayoutModelProtocol: ObservableObject, SpinnerViewForUserCellModelProtocol, UserTextViewModelProtocol, InitialCircleViewNewModelProtocol {
     var detailsStatus: UserCellViewTypes.UserDetailsStatus { get }
+}
+
+
+extension SingleUserViewForVerticalUsersLayoutModelProtocol {
+    
+    var accesibilityLabel: String {
+        customDisplayName ?? ((firstName ?? "") + " " + (lastName ?? ""))
+    }
+    
+    var accessibilityValue: String {
+        var value = ""
+        if let displayedCompany, let displayedPosition {
+            return value + displayedPosition + "@" + displayedCompany
+        } else if let displayedPosition {
+            value += displayedPosition
+        } else if let displayedCompany {
+            value += displayedCompany
+        }
+        return value
+    }
+    
+    var accessibilityHint: String {
+        "CONTACT"
+    }
 }
 
 
@@ -68,7 +93,30 @@ struct SingleUserViewForVerticalUsersLayout<Model: SingleUserViewForVerticalUser
     
 
     var body: some View {
+        InnerView(model: model, state: state)
+            .obvAccessibleComponent()
+            .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
+    }
+    
+}
+
+
+fileprivate struct InnerView<Model: SingleUserViewForVerticalUsersLayoutModelProtocol>: ObvAccessibilityProvidableView {
+    
+    @ObservedObject var model: Model
+    let state: SingleUserViewForVerticalUsersLayout<Model>.State
+    
+    var accessibilityAttributes: ObvAccessibility.ObvAccessibilityAttributes {
+        .init(label: model.accesibilityLabel,
+              value: model.accessibilityValue,
+              actions: nil,
+              hint: model.accessibilityHint,
+              traits: [.isButton])
+    }
+    
+    var body: some View {
         HStack {
+            
             HStack(alignment: .center, spacing: 16) {
                 InitialCircleViewNew(model: model, state: .circleDiameter(diameter: 60))
                 ContactTextView(model: model)
@@ -102,9 +150,7 @@ struct SingleUserViewForVerticalUsersLayout<Model: SingleUserViewForVerticalUser
             }
             
         }
-        .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
     }
-    
 }
 
 
@@ -137,7 +183,9 @@ fileprivate struct ContactTextView<Model: UserTextViewModelProtocol>: View {
 
 
 
+// MARK: - Previews
 
+#if DEBUG
 
 struct ContactCellView_Previews: PreviewProvider {
     
@@ -202,3 +250,6 @@ struct ContactCellView_Previews: PreviewProvider {
     }
     
 }
+
+
+#endif

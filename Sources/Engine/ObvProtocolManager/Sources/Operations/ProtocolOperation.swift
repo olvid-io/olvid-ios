@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvMetaManager
 import ObvOperation
@@ -133,7 +133,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
             
             // MARK: Getting the received message out of the ReceivedMessage database
             
-            guard let message = ReceivedMessage.get(messageId: _self.receivedMessageId, delegateManager: delegateManager, within: obvContext) else {
+            guard let message = try? ReceivedMessage.get(messageId: _self.receivedMessageId, within: obvContext.context) else {
                 os_log("Could not find a ReceivedMessage corresponding to the given Uid for owned identity %{public}@", log: _self.log, type: .error, _self.receivedMessageId.ownedCryptoIdentity.debugDescription)
                 _self.cancelAndFinish(forReason: .messageNotFoundInDatabase)
                 return
@@ -227,8 +227,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
             let messagesToSend = try LinkBetweenProtocolInstances.getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid: concreteCryptoProtocolInNewState.instanceUid,
                                                                                                                            andOwnedIdentity: concreteCryptoProtocolInNewState.ownedIdentity,
                                                                                                                            reachesState: concreteCryptoProtocolInNewState.currentState,
-                                                                                                                           delegateManager: delegateManager,
-                                                                                                                           within: obvContext)
+                                                                                                                           within: obvContext.context)
             for message in messagesToSend {
                 guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else { throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend") }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -241,27 +240,27 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
     /// When receiving a protocol message, we are in one of the following situations :
     /// - We can find an instance ProtocolInstance in database that matches both the protocol id and the protocolInstanceUid: we can construct and return a `ConcreteCryptoProtocol` based on this instance, with a current state set to the one that was saved in database.
     /// - We cannot find such an instance: We return a `ConcreteCryptoProtocol` with a current state set to `ConcreteProtocolInitialState`
-    private func getConcreteCryptoProtocol(given message: ReceivedMessage, prng: PRNGService, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> ConcreteCryptoProtocol? {
+    private func getConcreteCryptoProtocol(given message: ReceivedMessage, prng: PRNGService, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> ConcreteCryptoProtocol? {
         
-        let cryptoProtocolId = message.cryptoProtocolId
-        let protocolInstanceUid = message.protocolInstanceUid
-        let ownedIdentity = message.messageId.ownedCryptoIdentity
-        let messageId = message.messageId
+        let cryptoProtocolId = try message.cryptoProtocolId
+        let protocolInstanceUid = try message.protocolInstanceUid
+        let messageId = try message.messageId
+        let ownedIdentity = messageId.ownedCryptoIdentity
         
         os_log("Looking for a protocol instance with uid %@ and owned identity %@ for messageId %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription, messageId.debugDescription)
         
         
         let concreteCryptoProtocol: ConcreteCryptoProtocol?
         
-        if let protocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId,
-                                                       uid: protocolInstanceUid,
-                                                       ownedIdentity: ownedIdentity,
-                                                       delegateManager: delegateManager,
-                                                       within: obvContext) {
+        if let protocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId,
+                                                           uid: protocolInstanceUid,
+                                                           ownedIdentity: ownedIdentity,
+                                                           within: obvContext.context) {
             
-            os_log("Protocol instance with uid %@ and owned identity %@ for messageId %{public}@ was found: %@", log: log, type: .debug, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription, messageId.debugDescription, protocolInstance.cryptoProtocolId.debugDescription)
+            let cryptoProtocolIdDescription: String = (try? protocolInstance.cryptoProtocolId.debugDescription) ?? "<Could not parse crypto protocol Id>"
+            os_log("Protocol instance with uid %@ and owned identity %@ for messageId %{public}@ was found: %@", log: log, type: .debug, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription, messageId.debugDescription, cryptoProtocolIdDescription)
             
-            concreteCryptoProtocol = cryptoProtocolId.getConcreteCryptoProtocol(from: protocolInstance, prng: prng)
+            concreteCryptoProtocol = cryptoProtocolId.getConcreteCryptoProtocol(from: protocolInstance, prng: prng, delegateManager: delegateManager, within: obvContext)
             if concreteCryptoProtocol == nil {
                 assertionFailure()
             }
@@ -305,7 +304,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
             return nil
         }
 
-        guard let concreteCryptoProtocol = getConcreteCryptoProtocol(given: message, prng: prng, delegateManager: delegateManager, within: obvContext) else {
+        guard let concreteCryptoProtocol = try? getConcreteCryptoProtocol(given: message, prng: prng, delegateManager: delegateManager, within: obvContext) else {
             os_log("Could not construct a ConcreteCryptoProtocol given the ReceivedMessage", log: log, type: .info)
             cancelAndFinish(forReason: .couldNotReconstructConcreteCryptoProtocol)
             return nil
@@ -364,18 +363,13 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
     /// so, it updates this instance with the state of the concrete crypto protocol.
     private func saveStateOf(_ concreteCryptoProtocolInNewState: ConcreteCryptoProtocol, within obvContext: ObvContext) throws {
         
-        guard let delegateManager = delegateManager else {
-            os_log("The delegate manager is not set", log: log, type: .fault)
-            throw Self.makeError(message: "The delegate manager is not set")
-        }
-
         let cryptoProtocolId = type(of: concreteCryptoProtocolInNewState).id
         
-        guard let protocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId,
-                                                          uid: concreteCryptoProtocolInNewState.instanceUid,
-                                                          ownedIdentity: concreteCryptoProtocolInNewState.ownedIdentity,
-                                                          delegateManager: delegateManager,
-                                                          within: obvContext) else {
+        guard let protocolInstance = try ProtocolInstance.get(
+            cryptoProtocolId: cryptoProtocolId,
+            uid: concreteCryptoProtocolInNewState.instanceUid,
+            ownedIdentity: concreteCryptoProtocolInNewState.ownedIdentity,
+            within: obvContext.context) else {
             throw Self.makeError(message: "Could not get protocol instance")
         }
         
@@ -386,7 +380,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
     private func deleteRemainingReceivedMessagesRelatedTo(_ concreteCryptoProtocol: ConcreteCryptoProtocol, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) {
         
         do {
-            try ReceivedMessage.deleteAllAssociatedWithProtocolInstance(withUid: concreteCryptoProtocol.instanceUid, ownedIdentity: ownedIdentity, within: obvContext)
+            try ReceivedMessage.deleteAllAssociatedWithProtocolInstance(withUid: concreteCryptoProtocol.instanceUid, ownedIdentity: ownedIdentity, within: obvContext.context)
         } catch {
             os_log("Could not delete all the received messages associated to the protocol instance to abort", log: log, type: .error)
             return
@@ -396,9 +390,9 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
     
     private func deleteProtocolInstanceRelatedTo(_ concreteCryptoProtocol: ConcreteCryptoProtocol, within obvContext: ObvContext) {
         do {
-            try ProtocolInstance.delete(uid: concreteCryptoProtocol.instanceUid,
-                                        ownedCryptoIdentity: concreteCryptoProtocol.ownedIdentity,
-                                        within: obvContext)
+            try ProtocolInstance.deleteProtocolInstance(uid: concreteCryptoProtocol.instanceUid,
+                                                        ownedCryptoIdentity: concreteCryptoProtocol.ownedIdentity,
+                                                        within: obvContext.context)
         } catch {
             os_log("Could not delete a protocol instance that reached a final state", log: log, type: .error)
         }

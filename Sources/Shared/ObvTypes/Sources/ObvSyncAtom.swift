@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvEncoder
 import ObvCrypto
 
 
-public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible {
+public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Sendable {
 
     case contactNickname(contactCryptoId: ObvCryptoId, contactNickname: String?)
     case groupV1Nickname(groupOwner: ObvCryptoId, groupUid: UID, groupNickname: String?)
@@ -41,8 +41,12 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible {
     case trustGroupV2Details(groupIdentifier: Data, version: Int)
     case settingDefaultSendReadReceipts(sendReadReceipt: Bool)
     case settingAutoJoinGroups(category: AutoJoinGroupsCategory)
+    case bookmarkedMessage(messageIdentifier: Data, bookmarked: Bool)
+    case archivedDiscussions(discussionIdentifiers: [DiscussionIdentifier], archived: Bool)
+    case discussionsMute(discussionIdentifiers: [DiscussionIdentifier], muteNotification: MuteNotification)
+    case settingUnarchiveOnNotification(unarchiveOnNotification: Bool)
 
-    public enum AutoJoinGroupsCategory: String, ObvCodable {
+    public enum AutoJoinGroupsCategory: String, ObvCodable, Sendable {
         case everyone = "everyone"
         case contacts = "contacts"
         case nobody = "nobody"
@@ -117,7 +121,57 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible {
                 return nil
             }
         }
+    }
+    
+    /// This enum is used in certain `ObvSyncAtom`
+    public struct MuteNotification: Equatable, Hashable, ObvFailableCodable, Sendable {
         
+        private enum ObvCodingKeys: String, CaseIterable, CodingKey {
+            
+            case muted = "m"
+            case muteTimestamp = "t"
+            case exceptMentioned = "e"
+            
+            var key: Data { rawValue.data(using: .utf8)! }
+            
+        }
+        
+        public let muted: Bool
+        public let muteTimestamp: Date?
+        public let exceptMentioned: Bool
+        
+        public init(muted: Bool, muteTimestamp: Date?, exceptMentioned: Bool) {
+            self.muted = muted
+            self.muteTimestamp = muteTimestamp
+            self.exceptMentioned = exceptMentioned
+        }
+        
+        public func obvEncode() throws -> ObvEncoded {
+            var obvDict = [Data: ObvEncoded]()
+            
+            if let muteTimestamp {
+                try obvDict.obvEncode(muteTimestamp, forKey: ObvCodingKeys.muteTimestamp)
+            }
+            
+            try obvDict.obvEncode(muted, forKey: ObvCodingKeys.muted)
+            try obvDict.obvEncode(exceptMentioned, forKey: ObvCodingKeys.exceptMentioned)
+            return obvDict.obvEncode()
+        }
+        
+        public init?(_ obvEncoded: ObvEncoded) {
+            guard let obvDict = ObvDictionary(obvEncoded) else { assertionFailure(); return nil }
+            do {
+                let muted = try obvDict.obvDecode(Bool.self, forKey: ObvCodingKeys.muted)
+                let exceptMentioned = try obvDict.obvDecode(Bool.self, forKey: ObvCodingKeys.exceptMentioned)
+                let muteTimestamp = try obvDict.obvDecodeIfPresent(Date.self, forKey: ObvCodingKeys.muteTimestamp)
+                self.init(muted: muted,
+                          muteTimestamp: muteTimestamp,
+                          exceptMentioned: exceptMentioned)
+            } catch {
+                assertionFailure(error.localizedDescription)
+                return nil
+            }
+        }
     }
     
     public func obvEncode() -> ObvEncoded {
@@ -201,6 +255,20 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible {
             return [ObvSyncAtomRawValue.settingDefaultSendReadReceipts, sendReadReceipt].obvEncode()
         case .settingAutoJoinGroups(let category):
             return [ObvSyncAtomRawValue.settingAutoJoinGroups, category].obvEncode()
+        case .bookmarkedMessage(let messageIdentifier, let bookmarked):
+            return [ObvSyncAtomRawValue.bookmarkedMessage, messageIdentifier, bookmarked].obvEncode()
+        case .archivedDiscussions(let discussionIdentifiers, let archived):
+            let encodedDiscussionIdentifiers: [ObvEncoded] = discussionIdentifiers.map { $0.obvEncode() }
+            return [ObvSyncAtomRawValue.archiveDiscussions.obvEncode(), encodedDiscussionIdentifiers.obvEncode(), archived.obvEncode()].obvEncode()
+        case .discussionsMute(let discussionIdentifiers, let muteNotification):
+            let encodedDiscussionIdentifiers: [ObvEncoded] = discussionIdentifiers.map { $0.obvEncode() }
+            if let encodedMuteNotifications = try? muteNotification.obvEncode() {
+                return [ObvSyncAtomRawValue.discussionsMute.obvEncode(), encodedDiscussionIdentifiers.obvEncode(), encodedMuteNotifications].obvEncode()
+            } else {
+                return [ObvSyncAtomRawValue.discussionsMute.obvEncode(), encodedDiscussionIdentifiers.obvEncode()].obvEncode()
+            }
+        case .settingUnarchiveOnNotification(let unarchiveOnNotification):
+            return [ObvSyncAtomRawValue.settingUnarchiveOnNotification, unarchiveOnNotification].obvEncode()
         }
     }
     
@@ -399,6 +467,46 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible {
                     assertionFailure()
                     return nil
                 }
+            case .bookmarkedMessage:
+                switch remainingEncodedElements.count {
+                case 2:
+                    let (messageIdentifier, bookmarked): (Data, Bool) = try remainingEncodedElements.obvDecode()
+                    self = .bookmarkedMessage(messageIdentifier: messageIdentifier, bookmarked: bookmarked)
+                default:
+                    assertionFailure()
+                    return nil
+                }
+            case .archiveDiscussions:
+                switch remainingEncodedElements.count {
+                case 2:
+                    guard let encodedDiscussionIdentifiers = [ObvEncoded](remainingEncodedElements[0]) else { assertionFailure(); return nil }
+                    let discussionIdentifiers = encodedDiscussionIdentifiers.compactMap { DiscussionIdentifier($0) }
+                    guard let archived = Bool(remainingEncodedElements[1]) else { assertionFailure(); return nil }
+                    self = .archivedDiscussions(discussionIdentifiers: discussionIdentifiers, archived: archived)
+                default:
+                    assertionFailure()
+                    return nil
+                }
+            case .discussionsMute:
+                switch remainingEncodedElements.count {
+                case 2:
+                    guard let encodedDiscussionIdentifiers = [ObvEncoded](remainingEncodedElements[0]) else { assertionFailure(); return nil }
+                    let discussionIdentifiers = encodedDiscussionIdentifiers.compactMap { DiscussionIdentifier($0) }
+                    guard let muteNotification = MuteNotification(remainingEncodedElements[1]) else { assertionFailure(); return nil }
+                    self = .discussionsMute(discussionIdentifiers: discussionIdentifiers, muteNotification: muteNotification)
+                default:
+                    assertionFailure()
+                    return nil
+                }
+            case .settingUnarchiveOnNotification:
+                switch remainingEncodedElements.count {
+                case 1:
+                    let unarchived: Bool = try remainingEncodedElements.obvDecode()
+                    self = .settingUnarchiveOnNotification(unarchiveOnNotification: unarchived)
+                default:
+                    assertionFailure()
+                    return nil
+                }
             }
         } catch {
             assertionFailure()
@@ -427,7 +535,11 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible {
                 .groupV2ReadReceipt,
                 .settingDefaultSendReadReceipts,
                 .settingAutoJoinGroups,
-                .pinnedDiscussions:
+                .pinnedDiscussions,
+                .bookmarkedMessage,
+                .archivedDiscussions,
+                .discussionsMute,
+                .settingUnarchiveOnNotification:
             return .app
         case .trustContactDetails,
                 .trustGroupV1Details,
@@ -476,6 +588,14 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible {
             suffix = "settingDefaultSendReadReceipts"
         case .settingAutoJoinGroups:
             suffix = "settingAutoJoinGroups"
+        case .bookmarkedMessage:
+            suffix = "bookmarkedMessage"
+        case .archivedDiscussions:
+            suffix = "archivedDiscussions"
+        case .discussionsMute:
+            suffix = "discussionsMute"
+        case .settingUnarchiveOnNotification:
+            suffix = "settingUnarchiveOnNotification"
         }
         return [prefix, suffix].joined(separator: ".")
     }
@@ -503,6 +623,10 @@ private enum ObvSyncAtomRawValue: Int, CaseIterable, ObvCodable {
     case trustGroupV2Details = 14
     case settingDefaultSendReadReceipts = 15
     case settingAutoJoinGroups = 16
+    case bookmarkedMessage = 17
+    case archiveDiscussions = 18
+    case discussionsMute = 19
+    case settingUnarchiveOnNotification = 20
 
     init?(_ obvEncoded: ObvEncoder.ObvEncoded) {
         guard let rawValue: Int = try? obvEncoded.obvDecode() else { assertionFailure(); return nil }

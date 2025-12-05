@@ -175,7 +175,8 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
             assert(!op1.isCancelled)
         case .groupV1Nickname(groupOwner: let groupOwner, groupUid: let groupUid, groupNickname: let groupNickname):
             let groupIdentifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
-            let op1 = SetCustomNameOfJoinedGroupV1Operation(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, groupNameCustom: groupNickname, makeSyncAtomRequest: false, syncAtomRequestDelegate: nil)
+            let groupV1Identifier = ObvGroupV1Identifier(ownedCryptoId: ownedCryptoId, groupV1Identifier: groupIdentifier)
+            let op1 = SetCustomNameOfJoinedGroupV1Operation(groupV1Identifier: groupV1Identifier, groupNameCustom: groupNickname, customPhoto: nil, makeSyncAtomRequest: false, syncAtomRequestDelegate: nil)
             op1.main(obvContext: obvContext, viewContext: viewContext)
             assert(!op1.isCancelled)
         case .groupV2Nickname(groupIdentifier: let groupIdentifier, groupNickname: let groupNickname):
@@ -250,6 +251,72 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
         case .settingAutoJoinGroups(category: let category):
             let autoAccept = getAutoAcceptGroupInviteFromObvSyncAtomAutoJoinGroupsCategory(category: category)
             ObvMessengerSettings.ContactsAndGroups.setAutoAcceptGroupInviteFrom(to: autoAccept, changeMadeFromAnotherOwnedDevice: true)
+        case .bookmarkedMessage(_, _):
+            // Bookmarking message is not handled on iOS yet
+            break
+        case .archivedDiscussions(let discussionIdentifiers, let archived):
+            
+            // We are looping throught all discussions to archive/unarchive. We should do it in seperate operations instead though.
+            for discussionIdentifier in discussionIdentifiers {
+                let op1 = ArchiveDiscussionOperation(input: .discussionsIdentifier(ownedCryptoId: ownedCryptoId, discussionIdentifier: discussionIdentifier),
+                                                     action: archived ? .archive : .unarchive,
+                                                     makeSyncAtomRequest: false,
+                                                     syncAtomRequestDelegate: nil)
+                op1.main(obvContext: obvContext, viewContext: viewContext)
+                assert(!op1.isCancelled)
+            }
+        case .discussionsMute(let discussionIdentifiers, let muteNotification):
+            // We are looping throught all discussions to mute/unmute. We should do it in seperate operations instead though.
+            for discussionIdentifier in discussionIdentifiers {
+                let globalOptions = ObvMessengerSettings.Discussions.notificationOptions
+                let globalExceptMentionned = globalOptions.contains(.alwaysNotifyWhenMentionnedEvenInMutedDiscussion)
+                let mentionNotificationMode: DiscussionMentionNotificationMode
+                
+                if muteNotification.exceptMentioned == globalExceptMentionned {
+                    mentionNotificationMode = .globalDefault
+                } else {
+                    mentionNotificationMode = muteNotification.exceptMentioned ? .alwaysNotifyWhenMentionned : .neverNotifyWhenDiscussionIsMuted
+                }
+
+                let input: UpdateDiscussionLocalConfigurationOperation.Input
+                switch discussionIdentifier {
+                case .oneToOne(let contactCryptoId):
+                    let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+                    input = .discussionWithOneToOneContact(contactIdentifier: contactIdentifier)
+                case .groupV1(let groupIdentifier):
+                    input = .groupV1Discussion(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
+                case .groupV2(let groupIdentifier):
+                    input = .groupV2Discussion(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
+                }
+                
+                let op1 = UpdateDiscussionLocalConfigurationOperation(
+                    value: .mentionNotificationMode(mentionNotificationMode),
+                    input: input,
+                    makeSyncAtomRequest: false,
+                    syncAtomRequestDelegate: nil)
+                op1.main(obvContext: obvContext, viewContext: viewContext)
+                
+                assert(!op1.isCancelled)
+                
+                let configurationValue: PersistedDiscussionLocalConfigurationValue
+                if !muteNotification.muted {
+                    configurationValue = .muteNotificationsEndDate(nil)
+                } else {
+                    configurationValue = .muteNotificationsEndDate(muteNotification.muteTimestamp ?? Date.distantFuture)
+                }
+                
+                let op2 = UpdateDiscussionLocalConfigurationOperation(
+                    value: configurationValue,
+                    input: input,
+                    makeSyncAtomRequest: false,
+                    syncAtomRequestDelegate: nil)
+                op2.main(obvContext: obvContext, viewContext: viewContext)
+
+                
+                assert(!op2.isCancelled)
+            }
+        case .settingUnarchiveOnNotification(let unarchiveOnNotification):
+            ObvMessengerSettings.Discussions.setUnarchiveDiscussions(to: unarchiveOnNotification, changeMadeFromAnotherOwnedDevice: true)
         }
         
     }

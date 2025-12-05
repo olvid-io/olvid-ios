@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,8 +58,8 @@ extension DownloadIdentityPhotoChildProtocol {
         }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.contactIdentity = try message.encodedInputs[0].obvDecode()
             let encodedContactIdentityDetailsElements: Data = try message.encodedInputs[1].obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
@@ -87,15 +87,15 @@ extension DownloadIdentityPhotoChildProtocol {
         var encodedInputs: [ObvEncoded] { return [] }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
 
             if let photoFilenameToDelete = String(encodedElements[0]) {
 
                 // Legacy decoding (changed on 2022-08-05)
 
                 self.photoFilenameToDelete = photoFilenameToDelete
-                guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
+                guard let downloadedUserData = ReceivedMessage.delegateManager?.downloadedUserData else {
                     throw Self.makeError(message: "Could not get downloaded user data")
                 }
                 
@@ -117,7 +117,7 @@ extension DownloadIdentityPhotoChildProtocol {
                     self.photoFilenameToDelete = nil
                 case .downloaded(userDataFilename: let userDataFilename):
                     self.photoFilenameToDelete = userDataFilename
-                    guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
+                    guard let downloadedUserData = ReceivedMessage.delegateManager?.downloadedUserData else {
                         throw Self.makeError(message: "Could not get downloaded user data")
                     }
                     

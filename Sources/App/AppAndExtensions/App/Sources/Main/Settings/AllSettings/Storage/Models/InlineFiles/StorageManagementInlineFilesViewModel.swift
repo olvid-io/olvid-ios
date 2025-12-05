@@ -28,11 +28,17 @@ import ObvAppCoreConstants
 @Observable
 class StorageManagementInlineFilesViewModel: StorageManagementInlineFilesViewModelProtocol {
     
+    private let MAX_DISPLAYED_FILES: Int = 30
+    
     typealias StorageFileRepresentation = FyleMessageJoinWithStatus
     
     private(set) var storageFiles: [FyleMessageJoinWithStatus]
     
     private(set) var storageFilesMediaViewModels = [StorageManagementMediaCellViewModel]()
+    
+    var displayableStorageFiles: [FyleMessageJoinWithStatus] {
+        storageFiles.count < MAX_DISPLAYED_FILES ? storageFiles : Array(storageFiles[0..<MAX_DISPLAYED_FILES])
+    }
     
     let cacheManager: DiscussionCacheManager
     
@@ -47,6 +53,11 @@ class StorageManagementInlineFilesViewModel: StorageManagementInlineFilesViewMod
         self.storageFilesMediaViewModels = storageFiles.compactMap({ attachment in
             StorageManagementMediaCellViewModel(attachment: attachment, cacheManager: cacheManager)
         })
+    }
+    
+    @ViewBuilder
+    func cellForSizing() -> some View {
+        StorageManagementMediaCellView(model: EmptyStorageManagementMediaCellViewModel(), style: .small)
     }
     
     @ViewBuilder

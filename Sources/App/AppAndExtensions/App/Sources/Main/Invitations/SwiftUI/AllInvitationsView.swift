@@ -42,20 +42,16 @@ struct AllInvitationsView<Model: AllInvitationsViewModelProtocol>: View {
     @ObservedObject var model: Model
     
     var contentView: some View {
-        ZStack {
-            Color(AppTheme.shared.colorScheme.systemBackground)
-                .ignoresSafeArea(.all)
-            ScrollView {
-                VStack {
-                    ForEach(model.sortedInvitations, id: \.invitationUUID) { invitation in
-                        ObvCardView {
-                            InvitationView(actions: actions, model: invitation)
-                        }
-                        .padding(.bottom)
+        ScrollView {
+            VStack {
+                ForEach(model.sortedInvitations, id: \.invitationUUID) { invitation in
+                    ObvCardView {
+                        InvitationView(actions: actions, model: invitation)
                     }
+                    .padding(.bottom)
                 }
-                .padding()
             }
+            .padding()
         }
     }
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,7 +34,7 @@ struct PreKeyChannel: ObvNetworkChannel {
 
     private static let logCategory = "PreKeyChannel"
     
-    func wrapMessageKey(_ messageKey: any AuthenticatedEncryptionKey, randomizedWith prng: any PRNGService) -> ObvNetworkMessageToSend.Header? {
+    func wrapMessageKey(_ messageKey: any AuthenticatedEncryptionKey, isAppMessage: Bool, randomizedWith prng: any PRNGService) -> ObvNetworkMessageToSend.Header? {
         
         do {
             guard let wrappedMessageKey = try keyWrapper.wrap(messageKey,
@@ -87,17 +87,7 @@ struct PreKeyChannel: ObvNetworkChannel {
             
         case .unwrapSucceeded(let messageKey, let receptionChannelInfo):
             
-            let updateOrCheckGKMV2SupportOnMessageContentAvailable = { (messageContent: Data) in
-                let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
-                guard authEnc.verifyMessageKey(messageKey: messageKey, message: messageContent) else {
-                    assertionFailure()
-                    throw ObvError.messageKeyDoesNotSupportGKMV2AlthoughItShould
-                }
-            }
-            
-            return .unwrapSucceeded(messageKey: messageKey,
-                                    receptionChannelInfo: receptionChannelInfo,
-                                    updateOrCheckGKMV2SupportOnMessageContentAvailable: updateOrCheckGKMV2SupportOnMessageContentAvailable)
+            return .unwrapSucceeded(messageKey: messageKey, receptionChannelInfo: receptionChannelInfo)
 
         }
         
@@ -121,7 +111,6 @@ struct PreKeyChannel: ObvNetworkChannel {
     enum ObvError: Error {
         case noKeyWrapperForIdentityDelegate
         case keyWrapperForIdentityDelegateDidThrow(error: Error)
-        case messageKeyDoesNotSupportGKMV2AlthoughItShould
     }
     
 }

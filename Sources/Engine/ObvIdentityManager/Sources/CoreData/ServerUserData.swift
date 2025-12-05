@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvCrypto
 import ObvTypes
@@ -26,23 +26,21 @@ import ObvMetaManager
 import OlvidUtils
 
 
-
-
 @objc(ServerUserData)
-class ServerUserData: NSManagedObject, ObvManagedObject, ObvErrorMaker {
-
-    weak var obvContext: ObvContext?
+class ServerUserData: NSManagedObject, ObvErrorMaker {
 
     private static let entityName = "ServerUserData"
     public static let errorDomain = "ServerUserData"
+    
+    static weak var delegateManager: ObvIdentityDelegateManager?
 
-    static let rawOwnedIdentityKey = "rawOwnedIdentity"
-    static let rawLabelKey = "rawLabel"
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: ServerUserData.logSubsystem, category: "ServerUserData") }()
 
     // MARK: Attributes
 
-    @NSManaged private var rawLabel: Data
     @NSManaged private(set) var nextRefreshTimestamp: Date
+    @NSManaged private var rawLabel: Data
     @NSManaged private var rawOwnedIdentity: Data
 
     private(set) var ownedIdentity: ObvCryptoIdentity {
@@ -50,9 +48,9 @@ class ServerUserData: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         set { self.rawOwnedIdentity = newValue.getIdentity() }
     }
 
-    fileprivate convenience init(forEntityName entityName: String, ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(forEntityName entityName: String, ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
 
         self.ownedIdentity = ownedIdentity
         self.label = label
@@ -83,15 +81,20 @@ class ServerUserData: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
 
     fileprivate struct ServerUserDataPredicate {
+        enum Key: String {
+            case nextRefreshTimestamp = "nextRefreshTimestamp"
+            case rawLabel = "rawLabel"
+            case rawOwnedIdentity = "rawOwnedIdentity"
+        }
         static func withLabel(_ label: UID) -> NSPredicate {
-            NSPredicate(ServerUserData.rawLabelKey, EqualToData: label.raw)
+            NSPredicate(Key.rawLabel, EqualToData: label.raw)
         }
         static func forOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@", ServerUserData.rawOwnedIdentityKey, ownedIdentity.getIdentity() as NSData)
+            NSPredicate(Key.rawOwnedIdentity, EqualToData: ownedIdentity.getIdentity())
         }
     }
 
-    static func getAllServerUserDatas(for ownedIdentity: ObvCryptoIdentity, within context: ObvContext) throws -> Set<ServerUserData> {
+    static func getAllServerUserDatas(for ownedIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> Set<ServerUserData> {
         let request: NSFetchRequest<ServerUserData> = ServerUserData.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             ServerUserDataPredicate.forOwnedIdentity(ownedIdentity)
@@ -100,7 +103,7 @@ class ServerUserData: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         return Set(items)
     }
 
-    static func getServerUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, within context: ObvContext) throws -> ServerUserData? {
+    static func getServerUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, within context: NSManagedObjectContext) throws -> ServerUserData? {
         let request: NSFetchRequest<ServerUserData> = ServerUserData.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             ServerUserDataPredicate.withLabel(label),
@@ -125,7 +128,7 @@ class ServerUserData: NSManagedObject, ObvManagedObject, ObvErrorMaker {
             assertionFailure(); return nil
         }
     }
-
+    
 }
 
 @objc(IdentityServerUserData)
@@ -133,15 +136,19 @@ final class IdentityServerUserData: ServerUserData {
 
     private static let entityName = "IdentityServerUserData"
 
-    convenience init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, within obvContext: ObvContext) {
-        self.init(forEntityName: IdentityServerUserData.entityName, ownedIdentity: ownedIdentity, label: label, nextRefreshTimestamp: nextRefreshTimestamp, within: obvContext)
+    convenience init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, within context: NSManagedObjectContext) {
+        self.init(forEntityName: IdentityServerUserData.entityName,
+                  ownedIdentity: ownedIdentity,
+                  label: label,
+                  nextRefreshTimestamp: nextRefreshTimestamp,
+                  within: context)
     }
 
-    static func createForOwnedIdentityDetails(ownedIdentity: ObvCryptoIdentity, label: UID, within obvContext: ObvContext) -> ServerUserData {
+    static func createForOwnedIdentityDetails(ownedIdentity: ObvCryptoIdentity, label: UID, within context: NSManagedObjectContext) -> ServerUserData {
         return IdentityServerUserData(ownedIdentity: ownedIdentity,
                                       label: label,
-                                      nextRefreshTimestamp: Date() + ObvConstants.userDataRefreshInterval,
-                                      within: obvContext)
+                                      nextRefreshTimestamp: Date.now + ObvConstants.userDataRefreshInterval,
+                                      within: context)
     }
 
     fileprivate func toUserDataImpl() -> UserData? {
@@ -166,17 +173,21 @@ final class GroupServerUserData: ServerUserData {
         set { rawGroupUid = newValue.raw }
     }
 
-    convenience init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, groupUid: UID, within obvContext: ObvContext) {
-        self.init(forEntityName: GroupServerUserData.entityName, ownedIdentity: ownedIdentity, label: label, nextRefreshTimestamp: nextRefreshTimestamp, within: obvContext)
+    convenience init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, groupUid: UID, within context: NSManagedObjectContext) {
+        self.init(forEntityName: GroupServerUserData.entityName,
+                  ownedIdentity: ownedIdentity,
+                  label: label,
+                  nextRefreshTimestamp: nextRefreshTimestamp,
+                  within: context)
         self.groupUid = groupUid
     }
 
-    static func createForOwnedGroupDetails(ownedIdentity: ObvCryptoIdentity, label: UID, groupUid: UID, within obvContext: ObvContext) -> ServerUserData {
+    static func createForOwnedGroupDetails(ownedIdentity: ObvCryptoIdentity, label: UID, groupUid: UID, within context: NSManagedObjectContext) -> ServerUserData {
         return GroupServerUserData(ownedIdentity: ownedIdentity,
                                    label: label,
                                    nextRefreshTimestamp: Date() + ObvConstants.userDataRefreshInterval,
                                    groupUid: groupUid,
-                                   within: obvContext)
+                                   within: context)
     }
 
     fileprivate func toUserDataImpl() -> UserData? {
@@ -212,13 +223,17 @@ final class GroupV2ServerUserData: ServerUserData {
         }
     }
 
-    convenience init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, groupIdentifier: GroupV2.Identifier, within obvContext: ObvContext) {
-        self.init(forEntityName: GroupV2ServerUserData.entityName, ownedIdentity: ownedIdentity, label: label, nextRefreshTimestamp: nextRefreshTimestamp, within: obvContext)
+    convenience init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, groupIdentifier: GroupV2.Identifier, within context: NSManagedObjectContext) {
+        self.init(forEntityName: GroupV2ServerUserData.entityName,
+                  ownedIdentity: ownedIdentity,
+                  label: label,
+                  nextRefreshTimestamp: nextRefreshTimestamp,
+                  within: context)
         self.groupIdentifier = groupIdentifier
     }
 
-    static func getOrCreateIfRequiredForAdministratedGroupV2Details(ownedIdentity: ObvCryptoIdentity, label: UID, groupIdentifier: GroupV2.Identifier, nextRefreshTimestampOnCreation: Date? = nil, within obvContext: ObvContext) throws -> ServerUserData {
-        if let groupV2ServerUserData = try GroupV2ServerUserData.getGroupV2ServerUserData(ownedIdentity: ownedIdentity, label: label, groupIdentifier: groupIdentifier, within: obvContext) {
+    static func getOrCreateIfRequiredForAdministratedGroupV2Details(ownedIdentity: ObvCryptoIdentity, label: UID, groupIdentifier: GroupV2.Identifier, nextRefreshTimestampOnCreation: Date? = nil, within context: NSManagedObjectContext) throws -> ServerUserData {
+        if let groupV2ServerUserData = try GroupV2ServerUserData.getGroupV2ServerUserData(ownedIdentity: ownedIdentity, label: label, groupIdentifier: groupIdentifier, within: context) {
             return groupV2ServerUserData
         } else {
             let nextRefreshTimestamp: Date
@@ -231,7 +246,7 @@ final class GroupV2ServerUserData: ServerUserData {
                                          label: label,
                                          nextRefreshTimestamp: nextRefreshTimestamp,
                                          groupIdentifier: groupIdentifier,
-                                         within: obvContext)
+                                         within: context)
         }
     }
 
@@ -264,7 +279,7 @@ final class GroupV2ServerUserData: ServerUserData {
         }
     }
 
-    static func getGroupV2ServerUserData(ownedIdentity: ObvCryptoIdentity, label: UID, groupIdentifier: GroupV2.Identifier, within obvContext: ObvContext) throws -> ServerUserData? {
+    static func getGroupV2ServerUserData(ownedIdentity: ObvCryptoIdentity, label: UID, groupIdentifier: GroupV2.Identifier, within context: NSManagedObjectContext) throws -> ServerUserData? {
         let request: NSFetchRequest<ServerUserData> = ServerUserData.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             ServerUserDataPredicate.forOwnedIdentity(ownedIdentity),
@@ -272,7 +287,7 @@ final class GroupV2ServerUserData: ServerUserData {
             Predicate.withGroupV2Identifier(groupIdentifier),
         ])
         request.fetchLimit = 1
-        let items = try obvContext.fetch(request)
+        let items = try context.fetch(request)
         return items.first
     }
     

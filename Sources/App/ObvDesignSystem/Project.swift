@@ -7,7 +7,6 @@ let name = "ObvDesignSystem"
 
 // MARK: - Targets
 
-#warning("TODO: verifier que la technique avec developmentAssets marche bien. Mais le faire avec une autre target. Ici, ce n'est pas clair que ca marche")
 private let frameworkTarget = Target.makeFrameworkTarget(
     name: name,
     resources: [

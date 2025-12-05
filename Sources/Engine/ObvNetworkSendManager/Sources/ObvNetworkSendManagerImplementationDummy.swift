@@ -38,6 +38,8 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
         self.log = OSLog(subsystem: logSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
     }
 
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
+    
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     public static let errorDomain = "ObvNetworkSendManagerImplementationDummy"

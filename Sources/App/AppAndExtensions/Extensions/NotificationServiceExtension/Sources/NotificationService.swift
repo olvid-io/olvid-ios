@@ -308,6 +308,71 @@ final class NotificationService: UNNotificationServiceExtension {
                     Self.logger.info("We just persisted the ObvMessage in the user notification DB, we will schedule a local user notification.")
                 }
                 
+            case .addPollVoteOnSentMessage(content: _, sentMessageVotedTo: let sentMessageVotedTo, reactor: let reactor, userNotificationCategory: let userNotificationCategory):
+                
+                let existingNotifications = await UNUserNotificationCenter.current().deliveredNotifications()
+                    .filter({ $0.request.content.reactor == reactor })
+                    .filter({ $0.request.content.sentMessageReactedTo == sentMessageVotedTo })
+                
+                // We first remove any earlier reaction notification on the same message from the same creator
+                
+                let identifiersOfRequestsToRemove = existingNotifications
+                    .filter({
+                        guard let previousTimestamp = $0.request.content.uploadTimestampFromServer else { assertionFailure(); return false }
+                        return previousTimestamp < obvMessage.messageUploadTimestampFromServer
+                    })
+                    .map({ $0.request.identifier })
+                
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiersOfRequestsToRemove)
+                
+                for identifier in identifiersOfRequestsToRemove {
+                    let op1 = UpdateStatusOfPersistedUserNotificationOperation(requestIdentifier: identifier, newStatus: .removed)
+                    let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                    await Self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+                }
+                
+                // We make sure there isn't a shown notification that is more recent than the one we received.
+                // If it's the case, we don't go any further
+                
+                let noRecentExists = existingNotifications
+                    .filter({
+                        guard let previousTimestamp = $0.request.content.uploadTimestampFromServer else { assertionFailure(); return false }
+                        return previousTimestamp >= obvMessage.messageUploadTimestampFromServer
+                    })
+                    .isEmpty
+
+                guard noRecentExists else {
+                    notificationToShow = .silent
+                    return
+                }
+
+                // Make sure we are in charge of posting the notification by trying to create a PersistedUserNotification
+                
+                let op1 = CreatePersistedUserNotificationForReceivedPollVoteOperation(
+                    requestIdentifier: requestIdentifier,
+                    obvMessage: obvMessage,
+                    sentMessageVotedTo: sentMessageVotedTo,
+                    reactor: reactor,
+                    userNotificationCategory: userNotificationCategory,
+                    creator: .notificationExtension)
+                let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                await Self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+                
+                guard let result = op1.result else {
+                    Self.logger.error("Could not create PersistedUserNotification. We don't schedule any user notification.")
+                    await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+                    return
+                }
+                
+                switch result {
+                case .existed:
+                    Self.logger.info("We don't schedule any user notification as one already exists for this ObvMessage")
+                    await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+                    return
+                case .created:
+                    Self.logger.info("We just persisted the ObvMessage in the user notification DB, we will schedule a local user notification.")
+                }
+                
             case .removeReceivedMessages(content: _, messageAppIdentifiers: let messageAppIdentifiers):
                 
                 let requestIdentifiers = try await getRequestIdentifiersOfShownUserNotifications(messageAppIdentifiers: messageAppIdentifiers)
@@ -370,6 +435,29 @@ final class NotificationService: UNNotificationServiceExtension {
                 let existingNotifications = await UNUserNotificationCenter.current().deliveredNotifications()
                     .filter({ $0.request.content.reactor == reactor })
                     .filter({ $0.request.content.sentMessageReactedTo == sentMessageReactedTo })
+                
+                // We first remove any earlier reaction notification on the same message from the same creator
+                
+                let identifiersOfRequestsToRemove = existingNotifications
+                    .filter({
+                        guard let previousTimestamp = $0.request.content.uploadTimestampFromServer else { assertionFailure(); return false }
+                        return previousTimestamp < obvMessage.messageUploadTimestampFromServer
+                    })
+                    .map({ $0.request.identifier })
+                
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiersOfRequestsToRemove)
+                
+                for identifier in identifiersOfRequestsToRemove {
+                    let op1 = UpdateStatusOfPersistedUserNotificationOperation(requestIdentifier: identifier, newStatus: .removed)
+                    let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                    await Self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+                }
+                
+            case .removePollVoteOnSentMessage(content: _, sentMessageVotedTo: let sentMessageVotedTo, reactor: let reactor):
+                
+                let existingNotifications = await UNUserNotificationCenter.current().deliveredNotifications()
+                    .filter({ $0.request.content.reactor == reactor })
+                    .filter({ $0.request.content.sentMessageReactedTo == sentMessageVotedTo })
                 
                 // We first remove any earlier reaction notification on the same message from the same creator
                 

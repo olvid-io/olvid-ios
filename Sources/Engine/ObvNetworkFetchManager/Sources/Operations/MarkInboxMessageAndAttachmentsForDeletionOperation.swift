@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -47,11 +47,11 @@ final class MarkInboxMessageAndAttachmentsForDeletionOperation: ContextualOperat
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         do {
             
-            guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext) else {
+            guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext.context) else {
                 return
             }
             
-            try inboxMessage.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: attachmentToMarkForDeletion, within: obvContext)
+            try inboxMessage.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: attachmentToMarkForDeletion)
             
         } catch {
             assertionFailure()

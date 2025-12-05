@@ -34,13 +34,11 @@ final class RespondAndDeleteServerQueryOperation: ContextualOperationWithSpecifi
 
     private let objectIdOfPendingServerQuery: NSManagedObjectID
     private let prng: PRNGService
-    private let delegateManager: ObvNetworkFetchDelegateManager
     private let channelDelegate: ObvChannelDelegate
     
-    init(objectIdOfPendingServerQuery: NSManagedObjectID, prng: PRNGService, delegateManager: ObvNetworkFetchDelegateManager, channelDelegate: ObvChannelDelegate) {
+    init(objectIdOfPendingServerQuery: NSManagedObjectID, prng: PRNGService, channelDelegate: ObvChannelDelegate) {
         self.objectIdOfPendingServerQuery = objectIdOfPendingServerQuery
         self.prng = prng
-        self.delegateManager = delegateManager
         self.channelDelegate = channelDelegate
         super.init()
     }
@@ -49,7 +47,7 @@ final class RespondAndDeleteServerQueryOperation: ContextualOperationWithSpecifi
         
         do {
             
-            guard let serverQuery = try PendingServerQuery.get(objectId: objectIdOfPendingServerQuery, delegateManager: delegateManager, within: obvContext) else {
+            guard let serverQuery = try PendingServerQuery.get(objectId: objectIdOfPendingServerQuery, within: obvContext.context) else {
                 os_log("Could not find pending server query in database", log: Self.log, type: .error)
                 return
             }
@@ -132,7 +130,7 @@ final class RespondAndDeleteServerQueryOperation: ContextualOperationWithSpecifi
                 }
             }
 
-            serverQuery.deletePendingServerQuery(within: obvContext)
+            try serverQuery.deletePendingServerQuery()
             
         } catch {
             assertionFailure()

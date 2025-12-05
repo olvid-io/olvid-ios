@@ -18,15 +18,19 @@
  */
 
 import Foundation
+import OSLog
 import CoreData
 import MobileCoreServices
 import ObvTypes
 import UniformTypeIdentifiers
+import ObvSettings
+
 
 @objc(SentFyleMessageJoinWithStatus)
 public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     
     public static let entityName = "SentFyleMessageJoinWithStatus"
+    private static let logger = Logger(subsystem: ObvUICoreDataConstants.logSubsystem, category: "SentFyleMessageJoinWithStatus")
 
     // MARK: Properties
 
@@ -124,9 +128,17 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         
     }
     
-    public func markAsComplete() {
+
+    /// This method shall only be called when considering a message sent from the current device.
+    public func markAsFullyUploadedByCurrentDevice() {
+        guard sentMessage.isSentFromCurrentDevice else {
+            Self.logger.fault("Calling markAsFullyUploadedByCurrentDevice on a message sent from another owned device. This is a bug.")
+            assertionFailure("This method should only be called on attachments sent from the current device. This error should be investigated.")
+            return
+        }
         tryToSetStatusTo(.complete)
     }
+    
     
     // Non-nil iff the message was sent from another owned device
     public var messageIdentifierFromEngine: Data? {
@@ -374,6 +386,34 @@ extension SentFyleMessageJoinWithStatus {
         return try context.fetch(request).first
     }
     
+    /// Returns a dictionary where each key is the objectID of a `PersistedDiscussion` having at least one `FyleMessageJoinWithStatus`, and the value is the sum of total byte count of those fyles..
+    /// Note that if a discussion has no relevant attachment, it does *not* appear in the returned dictionary.
+    ///
+    public static func getAllDiscussionsWithSentFyleMessageJoinWithStatusDownloadedTotalByteCount(for ownedCryptoId: ObvCryptoId) -> NSFetchRequest<any NSFetchRequestResult> {
+        
+        let expressionDescription = NSExpressionDescription()
+        expressionDescription.name = "sumOfTotalByteCount"
+        expressionDescription.expression = NSExpression(forFunction: "sum:", arguments: [NSExpression(forKeyPath: "totalByteCount")])
+        expressionDescription.expressionResultType = .integer64AttributeType
+
+        let sentDiscussionPredicate = [Predicate.Key.sentMessage.rawValue,
+                                       PersistedMessage.Predicate.Key.discussion.rawValue].joined(separator: ".")
+        
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        request.resultType = .dictionaryResultType
+        request.propertiesToFetch = [expressionDescription, sentDiscussionPredicate]
+        request.includesPendingChanges = true
+        request.sortDescriptors = [NSSortDescriptor(key: FyleMessageJoinWithStatus.Predicate.Key.index.rawValue, ascending: true)]
+        request.propertiesToGroupBy = [sentDiscussionPredicate]
+        let subPredicates = [
+            FyleMessageJoinWithStatus.Predicate.forStatus(SentFyleMessageJoinWithStatus.FyleStatus.complete.rawValue),
+            FyleMessageJoinWithStatus.Predicate.forSentOwnedCryptoId(ownedCryptoId),
+            FyleMessageJoinWithStatus.Predicate.isWiped(is: false)
+        ]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subPredicates)
+        
+        return request
+    }
     
     static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = SentFyleMessageJoinWithStatus.fetchRequest()

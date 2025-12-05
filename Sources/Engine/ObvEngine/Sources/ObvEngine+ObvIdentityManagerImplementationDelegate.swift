@@ -57,5 +57,26 @@ extension ObvEngine: ObvIdentityManagerImplementationDelegate {
         Task { await engineCoordinator.anOwnedIdentityWasDeleted(deletedOwnedCryptoId: deletedOwnedCryptoId) }
         notifyAppThatOwnedIdentityWasDeleted()
     }
+
+    
+    public func aPersistedTrustOriginWasInserted(_ identityManagerImplementation: ObvIdentityManagerImplementation, trustOrigin: ObvTrustOrigin) async {
+        ObvEngineNotificationNew.aPersistedTrustOriginWasInserted(trustOrigin: trustOrigin)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+    
+    
+    public func createdContactIdentity(_ identityManagerImplementation: ObvIdentityManagerImplementation, contactIdentity: ObvContactIdentity) async {
+        
+        ObvEngineNotificationNew.createdOrUpdatedContactIdentity(obvContactIdentity: contactIdentity)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+        
+        await engineCoordinator.processContactIdentityIsNowTrusted(contactIdentity: contactIdentity.cryptoId.cryptoIdentity, ownedIdentity: contactIdentity.ownedCryptoId.cryptoIdentity, flowId: FlowIdentifier())
+
+    }
+    
+    public func updatedContactIdentity(_ identityManagerImplementation: ObvIdentityManagerImplementation, contactIdentity: ObvContactIdentity) async {
+        ObvEngineNotificationNew.createdOrUpdatedContactIdentity(obvContactIdentity: contactIdentity)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
     
 }

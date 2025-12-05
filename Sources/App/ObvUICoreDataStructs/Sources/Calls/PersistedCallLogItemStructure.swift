@@ -20,7 +20,7 @@
 import Foundation
 
 
-public struct PersistedCallLogItemStructure {
+public struct PersistedCallLogItemStructure: Sendable {
     
     public let callUUID: UUID
     public let direction: Direction
@@ -29,14 +29,14 @@ public struct PersistedCallLogItemStructure {
     public let callReportKind: CallReportKind
     public let initialOtherParticipantsCount: Int
 
-    public enum Direction {
+    public enum Direction: Sendable {
         case incoming
         case outgoing
     }
     
     
     /// Although `PersistedCallLogItem` has many other `CallReportKinds`, we restrict to certain kinds as we do not report the other ones for now.
-    public enum CallReportKind: CaseIterable {
+    public enum CallReportKind: CaseIterable, Sendable {
         // Outgoing
         case rejectedOutgoingCall
         case acceptedOutgoingCall

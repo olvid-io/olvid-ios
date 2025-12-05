@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,31 +24,28 @@ import ObvCrypto
 import ObvMetaManager
 import OlvidUtils
 
+
 @objc(MessageHeader)
-final class MessageHeader: NSManagedObject, ObvManagedObject {
+final class MessageHeader: NSManagedObject {
 
     // MARK: Internal constants
     
     private static let entityName = "MessageHeader"
-    static private let messageKey = "message"
-    static let toCryptoIdentityKey = "toCryptoIdentity"
     
     // MARK: Attributes
     
-    @NSManaged private(set) var deviceUid: UID
+    @NSManaged private var rawDeviceUid: Data? // Non-optional in the model, raw value of an UID
     @NSManaged private var rawMessageIdOwnedIdentity: Data // Required to enforce core data constraints
     @NSManaged private var rawMessageIdUid: Data // Required to enforce core data constraints
-    @NSManaged private(set) var toCryptoIdentity: ObvCryptoIdentity
-    @NSManaged private(set) var wrappedKey: EncryptedData
+    @NSManaged private var rawToCryptoIdentity: Data? // Non-optional in the model
+    @NSManaged private var rawWrappedKey: Data? // Non-optional in the model, data of an EncryptedData
     
     // MARK: Relationships
     
     // Should never be nil, it should be cascade deleted if the message is deleted.
     private var message: OutboxMessage? {
         get {
-            let value = kvoSafePrimitiveValue(forKey: MessageHeader.messageKey) as? OutboxMessage
-            value?.delegateManager = delegateManager
-            value?.obvContext = self.obvContext
+            let value = kvoSafePrimitiveValue(forKey: Predicate.Key.message.rawValue) as? OutboxMessage
             return value
         }
         set {
@@ -56,62 +53,103 @@ final class MessageHeader: NSManagedObject, ObvManagedObject {
                 assertionFailure()
                 return
             }
-            if delegateManager == nil {
-                delegateManager = newValue.delegateManager
-            }
             self.messageId = messageId
-            kvoSafeSetPrimitiveValue(newValue, forKey: MessageHeader.messageKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.message.rawValue)
         }
     }
     
     // MARK: Other variables
+    
+    var deviceUid: UID {
+        get throws(ObvError) {
+            guard let rawDeviceUid else { assertionFailure(); throw .unexpectedNilValue }
+            guard let deviceUid = UID(uid: rawDeviceUid) else { assertionFailure(); throw .couldNotParseValue }
+            return deviceUid
+        }
+    }
+    
+    var wrappedKey: EncryptedData {
+        get throws(ObvError) {
+            guard let rawWrappedKey else { assertionFailure(); throw .unexpectedNilValue }
+            return EncryptedData(data: rawWrappedKey)
+        }
+    }
+    
+    var toCryptoIdentity: ObvCryptoIdentity {
+        get throws(ObvError) {
+            guard let rawToCryptoIdentity else { assertionFailure(); throw .unexpectedNilValue }
+            guard let toCryptoIdentity = ObvCryptoIdentity(from: rawToCryptoIdentity) else { assertionFailure(); throw .couldNotParseValue }
+            return toCryptoIdentity
+        }
+    }
     
     private(set) var messageId: ObvMessageIdentifier {
         get { return ObvMessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
         set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
     }
 
-    weak var delegateManager: ObvNetworkSendDelegateManager?
-    weak var obvContext: ObvContext?
-    
     // MARK: - Initializer
     
-    convenience init?(message: OutboxMessage, toCryptoIdentity: ObvCryptoIdentity, deviceUid: UID, wrappedKey: EncryptedData) {
+    convenience init(message: OutboxMessage, toCryptoIdentity: ObvCryptoIdentity, deviceUid: UID, wrappedKey: EncryptedData) throws(ObvError) {
         
-        guard let obvContext = message.obvContext else { return nil }
+        guard let context = message.managedObjectContext else { assertionFailure(); throw .noContext }
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: MessageHeader.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: MessageHeader.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
 
         guard let messageId = message.messageId else {
             assertionFailure()
-            return nil
+            throw .noMessageId
         }
         
-        self.toCryptoIdentity = toCryptoIdentity
-        self.deviceUid = deviceUid
-        self.wrappedKey = wrappedKey
+        self.rawToCryptoIdentity = toCryptoIdentity.getIdentity()
+        self.rawDeviceUid = deviceUid.raw
+        self.rawWrappedKey = wrappedKey.raw
         
         self.message = message
         self.messageId = messageId
     }
 
+    enum ObvError: Error {
+        case unexpectedNilValue
+        case couldNotParseValue
+        case noMessageId
+        case noContext
+    }
+    
 }
 
 
 extension MessageHeader {
     
-    static func deleteAllOrphanedHeaders(within obvContext: ObvContext) throws {
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case rawDeviceUid = "rawDeviceUid"
+            case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUid = "rawMessageIdUid"
+            case rawToCryptoIdentity = "rawToCryptoIdentity"
+            case rawWrappedKey = "rawWrappedKey"
+            // Relationships
+            case message = "message"
+        }
+        static var withoutMessage: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.message)
+        }
+    }
+    
+    
+    static func deleteAllOrphanedHeaders(within context: NSManagedObjectContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: MessageHeader.entityName)
-        fetchRequest.predicate = NSPredicate(format: "%K == NIL", messageKey)
+        fetchRequest.predicate = Predicate.withoutMessage
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }

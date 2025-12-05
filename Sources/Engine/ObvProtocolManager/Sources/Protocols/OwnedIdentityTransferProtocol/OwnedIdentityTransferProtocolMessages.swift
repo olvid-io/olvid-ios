@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -103,7 +103,7 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }
@@ -143,12 +143,13 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 4 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.currentDeviceName = try message.encodedInputs[0].obvDecode()
-            self.transferSessionNumber = try message.encodedInputs[1].obvDecode()
-            self.encryptionPrivateKey = try PrivateKeyForPublicKeyEncryptionDecoder.obvDecodeOrThrow(message.encodedInputs[2])
-            self.macKey = try MACKeyDecoder.obvDecodeOrThrow(message.encodedInputs[3])
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 4 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.currentDeviceName = try encodedInputs[0].obvDecode()
+            self.transferSessionNumber = try encodedInputs[1].obvDecode()
+            self.encryptionPrivateKey = try PrivateKeyForPublicKeyEncryptionDecoder.obvDecodeOrThrow(encodedInputs[2])
+            self.macKey = try MACKeyDecoder.obvDecodeOrThrow(encodedInputs[3])
         }
 
         enum ObvError: Error {
@@ -189,15 +190,16 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            if message.encodedInputs.count == 2 {
-                self.enteredSAS = try message.encodedInputs[0].obvDecode()
-                self.isTransferRestricted = try message.encodedInputs[1].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            if encodedInputs.count == 2 {
+                self.enteredSAS = try encodedInputs[0].obvDecode()
+                self.isTransferRestricted = try encodedInputs[1].obvDecode()
                 self.deviceUIDToKeepActive = nil
-            } else if message.encodedInputs.count == 3 {
-                self.enteredSAS = try message.encodedInputs[0].obvDecode()
-                self.isTransferRestricted = try message.encodedInputs[1].obvDecode()
-                self.deviceUIDToKeepActive = try message.encodedInputs[2].obvDecode()
+            } else if encodedInputs.count == 3 {
+                self.enteredSAS = try encodedInputs[0].obvDecode()
+                self.isTransferRestricted = try encodedInputs[1].obvDecode()
+                self.deviceUIDToKeepActive = try encodedInputs[2].obvDecode()
             } else {
                 throw ObvError.unexpectedNumberOfEncodedElements
             }
@@ -232,9 +234,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.result = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.result = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {
@@ -266,9 +269,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.result = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.result = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {
@@ -300,9 +304,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.result = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.result = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {
@@ -334,9 +339,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.result = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.result = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {
@@ -368,9 +374,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.result = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.result = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {
@@ -402,9 +409,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.result = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.result = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {
@@ -436,9 +444,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.result = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.result = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {
@@ -466,7 +475,7 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }
@@ -490,7 +499,7 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message (never called as we don't expect an answer to this server query)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }
@@ -514,7 +523,7 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message (never called as we don't expect an answer to this server query)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }
@@ -545,9 +554,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message (never called as we don't expect an answer to this server query)
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.result = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.result = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {
@@ -584,9 +594,10 @@ extension OwnedIdentityTransferProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
-            self.proof = try message.encodedInputs[0].obvDecode()
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 1 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedElements }
+            self.proof = try encodedInputs[0].obvDecode()
         }
 
         enum ObvError: Error {

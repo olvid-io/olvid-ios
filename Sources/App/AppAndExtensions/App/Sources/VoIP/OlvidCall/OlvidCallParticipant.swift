@@ -22,6 +22,7 @@ import SwiftUI
 import os.log
 import WebRTC
 import ObvTypes
+import ObvAppTypes
 import ObvUICoreData
 import ObvAppCoreConstants
 import ObvCrypto
@@ -161,7 +162,7 @@ final class OlvidCallParticipant: ObservableObject {
         let usedDisplayName: String
         let isOneToOne: Bool
         if let persistedContact = try PersistedObvContactIdentity.get(contactCryptoId: remoteCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
-            knownOrUnknown = .known(contactObjectID: persistedContact.typedObjectID, contactIdentifier: try persistedContact.contactIdentifier, contactDeviceUID: nil)
+            knownOrUnknown = .known(contactObjectID: persistedContact.typedObjectID, contactIdentifier: try persistedContact.obvContactIdentifier, contactDeviceUID: nil)
             usedDisplayName = persistedContact.customOrNormalDisplayName
             isOneToOne = persistedContact.isOneToOne
         } else {
@@ -209,8 +210,8 @@ final class OlvidCallParticipant: ObservableObject {
             do {
                 guard let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .oneToOne, within: context),
                       let oneToOneDiscussion = contact.oneToOneDiscussion else { return }
-                let discussionPermanentID = oneToOneDiscussion.discussionPermanentID
-                let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionPermanentID)
+                guard let discussionIdentifier = oneToOneDiscussion.discussionIdentifier else { assertionFailure(); return }
+                let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
                 ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                     .postOnDispatchQueue()
             } catch {

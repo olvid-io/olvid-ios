@@ -26,19 +26,20 @@ import ObvUICoreData
 import os.log
 
 
+/// **Note:** for now, the custom photo is simply discarded.
 final class SetCustomNameOfJoinedGroupV1Operation: ContextualOperationWithSpecificReasonForCancel<SetCustomNameOfJoinedGroupV1Operation.ReasonForCancel>, @unchecked Sendable {
     
-    private let ownedCryptoId: ObvCryptoId
-    private let groupIdentifier: GroupV1Identifier
+    private let groupV1Identifier: ObvGroupV1Identifier
     private let groupNameCustom: String?
+    private let customPhoto: UIImage?
     
     private let makeSyncAtomRequest: Bool
     private weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
 
-    init(ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV1Identifier, groupNameCustom: String?, makeSyncAtomRequest: Bool, syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?) {
-        self.ownedCryptoId = ownedCryptoId
-        self.groupIdentifier = groupIdentifier
+    init(groupV1Identifier: ObvGroupV1Identifier, groupNameCustom: String?, customPhoto: UIImage?, makeSyncAtomRequest: Bool, syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?) {
+        self.groupV1Identifier = groupV1Identifier
         self.groupNameCustom = groupNameCustom
+        self.customPhoto = customPhoto
         self.syncAtomRequestDelegate = syncAtomRequestDelegate
         self.makeSyncAtomRequest = makeSyncAtomRequest
         super.init()
@@ -48,18 +49,18 @@ final class SetCustomNameOfJoinedGroupV1Operation: ContextualOperationWithSpecif
         
         do {
             
-            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
+            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: groupV1Identifier.ownedCryptoId, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindOwnedIdentity)
             }
-            let customDisplayNameWasUpdated = try ownedIdentity.setCustomNameOfJoinedGroupV1(groupIdentifier: groupIdentifier, to: groupNameCustom)
+            let customDisplayNameWasUpdated = try ownedIdentity.setCustomNameOfJoinedGroupV1(groupIdentifier: groupV1Identifier.groupV1Identifier, to: groupNameCustom)
             
             // If the custom display name was updated, we propagate the change to our other owned devices
             
             if makeSyncAtomRequest && customDisplayNameWasUpdated {
                 assert(self.syncAtomRequestDelegate != nil)
                 if let syncAtomRequestDelegate = self.syncAtomRequestDelegate {
-                    let ownedCryptoId = self.ownedCryptoId
-                    let syncAtom = ObvSyncAtom.groupV1Nickname(groupOwner: groupIdentifier.groupOwner, groupUid: groupIdentifier.groupUid, groupNickname: groupNameCustom)
+                    let ownedCryptoId = self.groupV1Identifier.ownedCryptoId
+                    let syncAtom = ObvSyncAtom.groupV1Nickname(groupOwner: groupV1Identifier.groupV1Identifier.groupOwner, groupUid: groupV1Identifier.groupV1Identifier.groupUid, groupNickname: groupNameCustom)
                     try? obvContext.addContextDidSaveCompletionHandler { error in
                         guard error == nil else { return }
                         Task.detached {

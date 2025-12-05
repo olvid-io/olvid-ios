@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,11 +18,11 @@
  */
 
 import Foundation
-import ObvEncoder
+@preconcurrency import ObvEncoder
 import ObvCrypto
 
 
-public struct ObvDialog: ObvFailableCodable, Equatable {
+public struct ObvDialog: ObvFailableCodable, Equatable, Sendable {
     
     // Allow to store the encodedElements
     public let uuid: UUID
@@ -215,7 +215,7 @@ public struct ObvDialog: ObvFailableCodable, Equatable {
 // MARK: ObvDialog Category
 extension ObvDialog {
     
-    public enum Category: ObvFailableCodable, CustomStringConvertible, Equatable {
+    public enum Category: ObvFailableCodable, CustomStringConvertible, Equatable, Sendable {
         
         case inviteSent(contactIdentity: ObvURLIdentity) // Used within the protocol allowing establish trust
         case acceptInvite(contactIdentity: ObvGenericIdentity) // Used within the protocol allowing establish trust

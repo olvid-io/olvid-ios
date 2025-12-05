@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 
 
-public struct PersistedCallLogContactStructure {
+public struct PersistedCallLogContactStructure: Sendable {
     
     public let isCaller: Bool
     public let contactIdentity: PersistedObvContactIdentityStructure

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import OlvidUtils
-import os.log
+import OSLog
 import ObvTypes
 import ObvMetaManager
 import ObvCrypto
@@ -142,20 +142,21 @@ extension OneToOneContactInvitationProtocol {
             // Create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne. This makes it possible to accept immediately in case
             // We receive an invitation from Bob (which typically happens when Bob sends an invitation at the exact same moment as we do or without seeing Alice's invitation).
             
-            guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            guard let thisProtocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, within: obvContext.context) else {
                 os_log("Could not retrive this protocol instance", log: log, type: .fault)
                 assertionFailure()
                 return CancelledState()
             }
 
-            guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
-                                                                             contactCryptoIdentity: contactIdentity,
-                                                                             messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
-                                                                             protocolInstance: thisProtocolInstance,
-                                                                             delegateManager: delegateManager)
-                else {
-                    os_log("Could not create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
-                    return CancelledState()
+            do {
+                _ = try ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
+                                                                           contactCryptoIdentity: contactIdentity,
+                                                                           messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
+                                                                           protocolInstance: thisProtocolInstance)
+            } catch {
+                os_log("Could not create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
+                assertionFailure()
+                return CancelledState()
             }
             
             // Propagate the invitation to the other owned devices of Alice
@@ -243,10 +244,13 @@ extension OneToOneContactInvitationProtocol {
             // We automatically accept it and do the work to make sure the other protocol instance (the one started when Bob sent his invitation) does finish.
             
             do {
-                let waitingInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, delegateManager: delegateManager, within: obvContext)
-                let appropriateWaitingInstances = waitingInstances
+                let waitingInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(
+                    ownedCryptoIdentity: ownedIdentity,
+                    contactCryptoIdentity: contactIdentity,
+                    within: obvContext.context)
+                let appropriateWaitingInstances = try waitingInstances
                     .compactMap({ $0.protocolInstance })
-                    .filter({ $0.cryptoProtocolId == self.cryptoProtocolId })
+                    .filter({ try $0.cryptoProtocolId == self.cryptoProtocolId })
                     .filter({ $0.currentStateRawId == StateId.invitationSent.rawValue })
                 guard appropriateWaitingInstances.isEmpty else {
                  
@@ -300,20 +304,22 @@ extension OneToOneContactInvitationProtocol {
             // If Bob decides to send an invitation to Alice (e.g., because he did not see Alice's invitation), we want to properly finish
             // This protocol. To do so, we create the appropriate instance in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database.
             
-            guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            guard let thisProtocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, within: obvContext.context) else {
                 os_log("Could not retrive this protocol instance", log: log, type: .fault)
                 assertionFailure()
                 return CancelledState()
             }
 
-            guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
-                                                                             contactCryptoIdentity: contactIdentity,
-                                                                             messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
-                                                                             protocolInstance: thisProtocolInstance,
-                                                                             delegateManager: delegateManager)
-                else {
-                    os_log("Could not create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
-                    return CancelledState()
+            do {
+                _ = try ProtocolInstanceWaitingForContactUpgradeToOneToOne(
+                    ownedCryptoIdentity: ownedIdentity,
+                    contactCryptoIdentity: contactIdentity,
+                    messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
+                    protocolInstance: thisProtocolInstance)
+            } catch {
+                os_log("Could not create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
+                assertionFailure()
+                return CancelledState()
             }
 
             // Finish this step
@@ -351,7 +357,7 @@ extension OneToOneContactInvitationProtocol {
             
             // If Alice is not a contact anymore (because she was deleted in the meantime), we simply removes Bob's dialog and end this protocol instance.
             
-            guard try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
+            guard try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context) else {
                 
                 let dialogType = ObvChannelDialogToSendType.delete
                 let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
@@ -518,7 +524,7 @@ extension OneToOneContactInvitationProtocol {
             
             // If Bob is not a contact anymore (because he was deleted in the meantime), we simply removes Alice's dialog and end this protocol instance.
             
-            guard try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
+            guard try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context) else {
                 
                 let dialogType = ObvChannelDialogToSendType.delete
                 let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
@@ -783,7 +789,7 @@ extension OneToOneContactInvitationProtocol {
             
             // Make sure the contact identity received is indeed part of our contacts (normally, it should be, but hey...)
             
-            guard try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
+            guard try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context) else {
                 os_log("Since the contact identity received is not a local contact, we do not display a dialog since it could not be aborted.", log: log, type: .error)
                 return FinishedState()
             }
@@ -806,20 +812,22 @@ extension OneToOneContactInvitationProtocol {
             // Create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne. This makes it possible to accept immediately in case
             // We receive an invitation from Bob (which typically happens when Bob sends an invitation at the exact same moment as we do or without seeing Alice's invitation).
             
-            guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            guard let thisProtocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, within: obvContext.context) else {
                 os_log("Could not retrive this protocol instance", log: log, type: .fault)
                 assertionFailure()
                 return CancelledState()
             }
 
-            guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
-                                                                             contactCryptoIdentity: contactIdentity,
-                                                                             messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
-                                                                             protocolInstance: thisProtocolInstance,
-                                                                             delegateManager: delegateManager)
-                else {
-                    os_log("Could not create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
-                    return CancelledState()
+            do {
+                _ = try ProtocolInstanceWaitingForContactUpgradeToOneToOne(
+                    ownedCryptoIdentity: ownedIdentity,
+                    contactCryptoIdentity: contactIdentity,
+                    messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
+                    protocolInstance: thisProtocolInstance)
+            } catch {
+                os_log("Could not create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
+                assertionFailure()
+                return CancelledState()
             }
             
             // Finish this step, we wait from Bob answer.
@@ -1109,10 +1117,10 @@ extension OneToOneContactInvitationProtocol {
                 // This will eventually trigger the message allowing the other protocol to properly finish.
                 
                 do {
-                    let waitingInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, delegateManager: delegateManager, within: obvContext)
-                    let appropriateWaitingInstances = waitingInstances
+                    let waitingInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, within: obvContext.context)
+                    let appropriateWaitingInstances = try waitingInstances
                         .compactMap({ $0.protocolInstance })
-                        .filter({ $0.cryptoProtocolId == self.cryptoProtocolId })
+                        .filter({ try $0.cryptoProtocolId == self.cryptoProtocolId })
                         .filter({ $0.currentStateRawId == StateId.invitationSent.rawValue })
                     guard appropriateWaitingInstances.isEmpty else {
                      

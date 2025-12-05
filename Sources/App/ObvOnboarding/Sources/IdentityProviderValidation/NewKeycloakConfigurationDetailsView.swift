@@ -20,6 +20,7 @@
 import SwiftUI
 import ObvTypes
 import ObvUI
+import ObvDesignSystem
 
 
 struct NewKeycloakConfigurationDetailsView: View {

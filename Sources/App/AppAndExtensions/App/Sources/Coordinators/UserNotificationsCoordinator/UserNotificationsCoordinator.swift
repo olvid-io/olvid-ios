@@ -37,7 +37,7 @@ import ObvCommunicationInteractor
 /// This coordinator schedules local user notifications, and remove both local and remote user notifications from the notification center as needed.
 /// Additionally, it acts as a ``UNUserNotificationCenterDelegate``, making it responsible for handling user interactions with user notifications and
 /// determining whether to display specific notifications when the app is running in the foreground.
-final class UserNotificationsCoordinator: NSObject {
+final class UserNotificationsCoordinator: NSObject, @unchecked Sendable {
 
     static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: UserNotificationsCoordinator.self))
     static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: UserNotificationsCoordinator.self))
@@ -219,23 +219,23 @@ extension UserNotificationsCoordinator {
     private func listenToNotifications() {
         
         observationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeNewMessagesReceived(within: NotificationCenter.default) { [weak self] messages in
-                Task { [weak self] in
-                    for message in messages {
-                        switch message {
-                        case .obvMessage(let obvMessage):
-                            await self?.processNewMessageReceivedNotification(obvMessage: obvMessage)
-                        case .obvOwnedMessage:
-                            return
-                        }
-                    }
-                }
-            },
             ObvMessengerInternalNotification.observePostUserNotificationAsAnotherCallParticipantStartedCamera { otherParticipantNames in
                 Task { [weak self] in await self?.processPostUserNotificationAsAnotherCallParticipantStartedCamera(otherParticipantNames: otherParticipantNames) }
             },
         ])
         
+    }
+
+    
+    func processNewMessagesReceivedNotification(messages: [ObvMessageOrObvOwnedMessage]) async {
+        for message in messages {
+            switch message {
+            case .obvMessage(let obvMessage):
+                await processNewMessageReceivedNotification(obvMessage: obvMessage)
+            case .obvOwnedMessage:
+                return
+            }
+        }
     }
 
 }
@@ -723,6 +723,70 @@ extension UserNotificationsCoordinator {
                     
                     content = _content
                     
+                case .addPollVoteOnSentMessage(content: let _content, sentMessageVotedTo: let sentMessageVotedTo, reactor: let reactor, userNotificationCategory: let userNotificationCategory):
+                    
+                    let existingNotifications = await UNUserNotificationCenter.current().deliveredNotifications()
+                        .filter({ $0.request.content.reactor == reactor })
+                        .filter({ $0.request.content.sentMessageReactedTo == sentMessageVotedTo })
+                    
+                    // We first remove any earlier reaction notification on the same message from the same creator
+                    
+                    let identifiersOfRequestsToRemove = existingNotifications
+                        .filter({
+                            guard let previousTimestamp = $0.request.content.uploadTimestampFromServer else { assertionFailure(); return false }
+                            return previousTimestamp < obvMessage.messageUploadTimestampFromServer
+                        })
+                        .map({ $0.request.identifier })
+                    
+                    UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiersOfRequestsToRemove)
+                    
+                    for identifier in identifiersOfRequestsToRemove {
+                        let op1 = UpdateStatusOfPersistedUserNotificationOperation(requestIdentifier: identifier, newStatus: .removed)
+                        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                        await notificationsCoordinatorQueue.addAndAwaitOperation(composedOp)
+                    }
+                    
+                    // We make sure there isn't a shown notification that is more recent than the one we received.
+                    // If it's the case, we don't go any further
+                    
+                    let noRecentExists = existingNotifications
+                        .filter({
+                            guard let previousTimestamp = $0.request.content.uploadTimestampFromServer else { assertionFailure(); return false }
+                            return previousTimestamp >= obvMessage.messageUploadTimestampFromServer
+                        })
+                        .isEmpty
+
+                    guard noRecentExists else {
+                        return
+                    }
+                    
+                    // Then we add a notification for the new reaction
+
+                    let op1 = CreatePersistedUserNotificationForReceivedPollVoteOperation(
+                        requestIdentifier: requestIdentifier,
+                        obvMessage: obvMessage,
+                        sentMessageVotedTo: sentMessageVotedTo,
+                        reactor: reactor,
+                        userNotificationCategory: userNotificationCategory,
+                        creator: .mainApp)
+                    let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                    await notificationsCoordinatorQueue.addAndAwaitOperation(composedOp)
+                    
+                    guard let result = op1.result else {
+                        Self.logger.error("Could not create the PersistedUserNotification. We don't schedule any user notification.")
+                        return
+                    }
+                    
+                    switch result {
+                    case .existed:
+                        Self.logger.info("We don't schedule any user notification as one already exists for this ObvMessage")
+                        return
+                    case .created:
+                        Self.logger.info("We just persisted the ObvMessage in the user notification DB, we will schedule a local user notification.")
+                    }
+                    
+                    content = _content
+                    
                 case .removeReceivedMessages(content: _, messageAppIdentifiers: _),
                         .removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: _, obvDiscussionIdentifier: _):
                     
@@ -774,6 +838,30 @@ extension UserNotificationsCoordinator {
                     
                     content = _content
 
+                case .removePollVoteOnSentMessage(content: let _content, sentMessageVotedTo: let sentMessageVotedTo, reactor: let reactor):
+                    
+                    let existingNotifications = await UNUserNotificationCenter.current().deliveredNotifications()
+                        .filter({ $0.request.content.reactor == reactor })
+                        .filter({ $0.request.content.sentMessageReactedTo == sentMessageVotedTo })
+                    
+                    // We remove any earlier reaction notification on the same message from the same creator
+                    
+                    let identifiersOfRequestsToRemove = existingNotifications
+                        .filter({
+                            guard let previousTimestamp = $0.request.content.uploadTimestampFromServer else { assertionFailure(); return false }
+                            return previousTimestamp < obvMessage.messageUploadTimestampFromServer
+                        })
+                        .map({ $0.request.identifier })
+                    
+                    UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiersOfRequestsToRemove)
+                    
+                    for identifier in identifiersOfRequestsToRemove {
+                        let op1 = UpdateStatusOfPersistedUserNotificationOperation(requestIdentifier: identifier, newStatus: .removed)
+                        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                        await notificationsCoordinatorQueue.addAndAwaitOperation(composedOp)
+                    }
+                    
+                    content = _content
                 }
                 
             }
@@ -856,7 +944,7 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
             
             // If the user is in the invitation tab, don't show the notification. Otherwise, show it
             
-            if OlvidUserActivitySingleton.shared.currentUserActivity?.selectedTab == .invitations {
+            if OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow == .invitations {
                 return []
             } else {
                 return [.badge, .banner, .sound, .list]
@@ -879,7 +967,7 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
             if ObvAppCoreConstants.targetEnvironmentIsMacCatalyst{
                 // This creteria does not apply on macOS
             } else {
-                if OlvidUserActivitySingleton.shared.currentUserActivity?.selectedTab == .latestDiscussions &&
+                if OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow == .latestDiscussions &&
                     OlvidUserActivitySingleton.shared.currentUserActivity?.currentDiscussion == nil {
                     return []
                 }
@@ -900,7 +988,7 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
             
             return [.badge, .banner, .sound, .list]
             
-        case .newReaction:
+        case .newReaction, .pollVote:
             
             guard let discussionIdentifier = notification.request.content.discussionIdentifier else {
                 assertionFailure()
@@ -945,7 +1033,7 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
             
             Self.logger.info("🥏 Call to userNotificationCenter didReceive withCompletionHandler")
             
-            _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
+            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
             
             // Process the response depending on the notification category
             
@@ -965,7 +1053,8 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
             case .newMessage,
                     .newMessageWithLimitedVisibility,
                     .newMessageWithHiddenContent,
-                    .newReaction:
+                    .newReaction,
+                    .pollVote:
                 
                 try await processUNNotificationResponseForNewMessageUserNotificationCategory(response: response)
                 
@@ -984,14 +1073,12 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
             case .rejectedIncomingCallBecauseOfDeniedRecordPermission:
                 
                 let deepLink = ObvDeepLink.requestRecordPermission
-                _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
                 ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                     .postOnDispatchQueue()
                 
             case .postUserNotificationAsAnotherCallParticipantStartedCamera:
                 
                 let deepLink = ObvDeepLink.olvidCallView
-                _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
                 ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                     .postOnDispatchQueue()
                 
@@ -1002,7 +1089,6 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
                     return
                 }
                 let deepLink = ObvDeepLink.invitations(ownedCryptoId: obvContactIdentifier.ownedCryptoId)
-                _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
                 ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                     .postOnDispatchQueue()
 
@@ -1214,16 +1300,7 @@ extension UserNotificationsCoordinator {
             
         case UNNotificationDefaultActionIdentifier:
             
-            // Navigate to the discussion
-            guard let discussionPermanentID = await getPersistedDiscussionObjectPermanentID(discussionId: discussionIdentifier) else {
-                Self.logger.fault("Could not determine the one2one discussion we have with the caller")
-                assertionFailure()
-                return
-            }
-            
-            let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: callerIdentifier.ownedCryptoId, objectPermanentID: discussionPermanentID)
-            
-            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
+            let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
             
             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                 .postOnDispatchQueue()
@@ -1362,8 +1439,6 @@ extension UserNotificationsCoordinator {
             
             let deepLink = ObvDeepLink.invitations(ownedCryptoId: ownedCryptoId)
             
-            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-            
             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                 .postOnDispatchQueue()
 
@@ -1411,8 +1486,6 @@ extension UserNotificationsCoordinator {
             // Navigate to the message
             
             let deepLink = ObvDeepLink.message(messageAppIdentifier)
-            
-            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
             
             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                 .postOnDispatchQueue()

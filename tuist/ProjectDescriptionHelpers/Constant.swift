@@ -3,11 +3,16 @@ import ProjectDescription
 
 public struct Constant {
     
-    public static let devTeam = "VMDQ4PU27W"
+    public static let devTeam = ""
     
-    public static let destinations: ProjectDescription.Destinations = [.iPhone, .iPad, .macCatalyst]
     
-    public static let deploymentTargets: ProjectDescription.DeploymentTargets = .iOS("15.5")
+    /// As of 2025-06-27, the `.macCatalyst` specification has been removed.
+    /// Previously, Tuist defaulted the Mac Catalyst interface to "Scaled to Match iPad."
+    /// However, this default has been changed to "Optimize for Mac" in Tuist version 4.38.1, which currently yields suboptimal results.
+    /// We observed that setting `SUPPORTS_MACCATALYST` to `true` in the settings achieves the desired behavior.
+    public static let destinations: ProjectDescription.Destinations = [.iPhone, .iPad]
+    
+    public static let deploymentTargets: ProjectDescription.DeploymentTargets = .iOS("16.0")
     
     static let organizationName = "Olvid"
     
@@ -16,7 +21,12 @@ public struct Constant {
     public static let availableRegions = [
         "Base",
         developmentRegion,
-        "fr"
+        "fr",
+        "es",
+        "it",
+        "de",
+        //"zh-Hans",
+        //"pt"
     ]
             
     public static let appCategory = "public.app-category.social-networking"
@@ -26,7 +36,7 @@ public struct Constant {
     public static func olvidBundleDisplayName(for appType: OlvidAppType) -> String {
         switch appType {
         case .development:
-            return "Olvid_dev"
+            return "Olvid"
         case .production:
             return "Olvid"
         }

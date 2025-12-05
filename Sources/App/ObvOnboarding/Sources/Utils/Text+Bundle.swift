@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,7 @@ import ObvSystemIcon
 extension Text {
     
     init(_ key: LocalizedStringKey, comment: StaticString? = nil) {
-        self.init(key, tableName: "Localizable", bundle: Bundle(for: ObvOnboardingResources.self), comment: comment ?? "Within ObvOnboarding")
+        self.init(key, tableName: "Localizable", bundle: ObvOnboardingResources.bundle, comment: comment ?? "Within ObvOnboarding")
     }
     
 }
@@ -34,7 +34,7 @@ extension Text {
 extension Color {
     
     static let blue01: Color = Color("Blue01", bundle: Bundle(for: ObvOnboardingResources.self))
-    static let textFieldBackgroundColor: Color = Color("TextFieldBackgroundColor", bundle: Bundle(for: ObvOnboardingResources.self))
+    static let textFieldBackgroundColor: Color = Color("TextFieldBackgroundColor", bundle: ObvOnboardingResources.bundle)
     
 }
 
@@ -58,7 +58,7 @@ extension String {
     }
     
     init(localizedInThisBundle: LocalizationValue) {
-        self.init(localized: localizedInThisBundle, table: "Localizable", bundle: Bundle(for: ObvOnboardingResources.self))
+        self.init(localized: localizedInThisBundle, table: "Localizable", bundle: ObvOnboardingResources.bundle)
     }
     
 }

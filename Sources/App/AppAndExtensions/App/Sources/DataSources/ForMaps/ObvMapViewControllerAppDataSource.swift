@@ -27,12 +27,6 @@ import ObvTypes
 
 
 @available(iOS 17.0, *)
-protocol ObvMapViewControllerAppDataSourceDelegate: AnyObject {
-    func fetchAvatar(_ vc: ObvMapViewControllerAppDataSource, photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
-}
-
-
-@available(iOS 17.0, *)
 @MainActor
 final class ObvMapViewControllerAppDataSource {
     
@@ -42,19 +36,16 @@ final class ObvMapViewControllerAppDataSource {
     }
     
     private let streamManagerKind: StreamManagerKind
-    private weak var delegate: ObvMapViewControllerAppDataSourceDelegate?
     
-    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, delegate: ObvMapViewControllerAppDataSourceDelegate) throws {
-        let streamManager = try ObvMapViewModelStreamManagerForGivenMessage(messageObjectID: messageObjectID)
+    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, viewContext: NSManagedObjectContext) throws {
+        let streamManager = try ObvMapViewModelStreamManagerForGivenMessage(messageObjectID: messageObjectID, viewContext: viewContext)
         self.streamManagerKind = .forGivenMessage(streamManager)
-        self.delegate = delegate
     }
      
     
-    init(ownedCryptoId: ObvCryptoId, delegate: ObvMapViewControllerAppDataSourceDelegate) {
-        let streamManager = ObvMapViewModelStreamManagerForGivenOwnedCryptoIdentity(ownedCryptoId: ownedCryptoId)
+    init(ownedCryptoId: ObvCryptoId, viewContext: NSManagedObjectContext) {
+        let streamManager = ObvMapViewModelStreamManagerForGivenOwnedCryptoIdentity(ownedCryptoId: ownedCryptoId, viewContext: viewContext)
         self.streamManagerKind = .forGivenOwnedCryptoId(streamManager)
-        self.delegate = delegate
     }
     
 }
@@ -74,11 +65,6 @@ extension ObvMapViewControllerAppDataSource: ObvMapViewControllerDataSource {
         }
     }
     
-    func fetchAvatar(_ vc: ObvLocation.ObvMapViewController, photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
-        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNotSet }
-        return try await delegate.fetchAvatar(self, photoURL: photoURL, avatarSize: avatarSize)
-    }
-
 }
 
 
@@ -106,10 +92,11 @@ extension ObvMapViewControllerAppDataSource {
         private var continuation: AsyncStream<ObvLocation.ObvMapViewModel>.Continuation?
 
         @MainActor
-        init(ownedCryptoId: ObvCryptoId) {
+        init(ownedCryptoId: ObvCryptoId, viewContext: NSManagedObjectContext) {
+            assert(viewContext.concurrencyType == .mainQueueConcurrencyType)
             self.ownedCryptoId = ownedCryptoId
-            self.frcForCurrentOwnedDevice = PersistedObvOwnedDevice.getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext)
-            self.frcForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice = PersistedLocationContinuous.getFetchedResultsControllerForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice(ownedCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext)
+            self.frcForCurrentOwnedDevice = PersistedObvOwnedDevice.getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ownedCryptoId, within: viewContext)
+            self.frcForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice = PersistedLocationContinuous.getFetchedResultsControllerForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice(ownedCryptoId: ownedCryptoId, within: viewContext)
         }
         
         
@@ -198,8 +185,9 @@ extension ObvMapViewControllerAppDataSource {
         private var continuation: AsyncStream<ObvLocation.ObvMapViewModel>.Continuation?
 
         @MainActor
-        init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) throws {
-            guard let message = try PersistedMessage.get(with: messageObjectID, within: ObvStack.shared.viewContext) else {
+        init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, viewContext: NSManagedObjectContext) throws {
+            assert(viewContext.concurrencyType == .mainQueueConcurrencyType)
+            guard let message = try PersistedMessage.get(with: messageObjectID, within: viewContext) else {
                 assertionFailure()
                 throw ObvError.messageNotFound
             }
@@ -212,7 +200,7 @@ extension ObvMapViewControllerAppDataSource {
                 throw ObvError.ownedCryptoIdNotFound
             }
             self.frcForPersistedLocationContinuous = try PersistedLocationContinuous.getFetchedResultsControllerForContinuousLocations(in: discussion)
-            self.frcForCurrentOwnedDevice = PersistedObvOwnedDevice.getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext)
+            self.frcForCurrentOwnedDevice = PersistedObvOwnedDevice.getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ownedCryptoId, within: viewContext)
             super.init()
         }
         

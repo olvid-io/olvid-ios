@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
@@ -32,6 +32,7 @@ actor DownloadAttachmentChunksCoordinator {
     private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     private static let logCategory = "DownloadAttachmentChunksCoordinator"
     private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+    private static var logger = Logger(subsystem: defaultLogSubsystem, category: logCategory)
 
     // We only use the `downloadAttachment` counter
     private var failedAttemptsCounterManager = FailedAttemptsCounterManager()
@@ -63,7 +64,7 @@ actor DownloadAttachmentChunksCoordinator {
 
     init(logPrefix: String) {
         let logSubsystem = "\(logPrefix).\(Self.defaultLogSubsystem)"
-        Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
+        Self.logger = Logger(subsystem: logSubsystem, category: Self.logCategory)
     }
 
     
@@ -78,16 +79,27 @@ actor DownloadAttachmentChunksCoordinator {
 
 extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate {
     
-    /// 2023-12 ok
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) async -> Bool {
         return backgroundURLSessionIdentifier.isBackgroundURLSessionIdentifierForDownloadingAttachment()
     }
     
     
-    /// 2023-12 ok
     func resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: InboxAttachmentDownloadKind, flowId: FlowIdentifier) async throws {
         
-        os_log("📄 Call to resumeDownloadOfAttachmentsNotAlreadyDownloading with downloadKind: %{public}@", log: Self.log, type: .debug, downloadKind.debugDescription)
+        Self.logger.debug("📄 Call to resumeDownloadOfAttachmentsNotAlreadyDownloading with downloadKind: \(downloadKind.debugDescription, privacy: .public)")
+        
+        // If the download is requested by the user (i.e., by the app), reset the failed attempts counter
+        
+        switch downloadKind {
+        case .allDownloadableAttachmentsWithoutSession:
+            break
+        case .allDownloadableAttachmentsWithoutSessionForMessage(messageId: _):
+            break
+        case .specificDownloadableAttachmentsWithoutSession(attachmentId: let attachmentId, resumeRequestedByApp: let resumeRequestedByApp):
+            if resumeRequestedByApp {
+                failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
+            }
+        }
         
         // Make sure the attachment have signed URLs
         
@@ -100,10 +112,10 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
     }
     
     
-    /// Called, e.g., when the user deletes a message. Since she might do so while an attachment is downloading, this is called to make sure the download is properly cancelled
+    /// Called, e.g., when the user deletes a message. Since she might do so while an attachment is downloading, this is called to make sure the download is properly cancelled.
     func cancelDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
         
-        os_log("📄[%{public}@] Call to cancelDownloadOfAttachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+        Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Call to cancelDownloadOfAttachment")
 
         // If there is no download task in progress, there is nothing to do
         
@@ -135,7 +147,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             try await cancelDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
             return
         case .backgroundDownloadPaused(urlSession: let urlSession):
-            os_log("📄[%{public}@] Cancelling the url session associated to the attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+            Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Cancelling the url session associated to the attachment")
             urlSession.invalidateAndCancel()
             downloadAttachmentTask.removeValue(forKey: attachmentId)
             return
@@ -146,16 +158,16 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
     
     func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
         
-        os_log("📄[%{public}@] Call to pauseDownloadOfAttachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+        Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Call to pauseDownloadOfAttachment")
         
         guard let delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             throw ObvError.theDelegateManagerIsNotSet
         }
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The notification delegate is not set")
             assertionFailure()
             throw ObvError.theNotificationDelegateIsNotSet
         }
@@ -163,13 +175,14 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
         // Make sure there is a download task to pause.
         
         guard let currentDownloadTask = downloadAttachmentTask[attachmentId] else {
-            assertionFailure("No download task to pause. Why did we call this method?")
             let op1 = ChangeAttachmentStatusToPausedOperation(attachmentId: attachmentId)
             do {
                 try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
             } catch {
                 assertionFailure()
             }
+            ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasPaused(attachmentId: attachmentId, flowId: flowId)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             return
         }
         
@@ -183,12 +196,12 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             try await pauseDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
             return
         case .pausingBackgroundDownload(task: let task, urlSession: _):
-            os_log("📄[%{public}@] Awaiting an existing pause task", log: Self.log, type: .debug, attachmentId.debugDescription)
+            Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Awaiting an existing pause task")
             try await task.value
             try await pauseDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
             return
         case .backgroundDownloadPaused(urlSession: _):
-            os_log("📄[%{public}@] The attachment download is already paused", log: Self.log, type: .debug, attachmentId.debugDescription)
+            Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] The attachment download is already paused")
             return
         case .backgroundDownloadInProgress(urlSession: let urlSession):
             // The background download is ongoing, we can pause it
@@ -228,11 +241,11 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
         }
     }
 
-    /// 2023-12 ok
+
     func processCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier sessionIdentifier: String, withinFlowId flowId: FlowIdentifier) async {
         
         guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             DispatchQueue.main.async { handler() }
             assertionFailure()
             return
@@ -278,7 +291,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
     func cleanExistingOutboxAttachmentSessions(flowId: FlowIdentifier) async throws {
         
         guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             throw ObvError.theDelegateManagerIsNotSet
         }
@@ -320,7 +333,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
     func appCouldNotFindFileOfDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
         
         guard let delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             throw ObvError.theDelegateManagerIsNotSet
         }
@@ -415,10 +428,10 @@ extension DownloadAttachmentChunksCoordinator {
     /// 2023-12 ok
     private func downloadAndSaveAllMissingSignedURLs(flowId: FlowIdentifier) async throws {
         
-        os_log("📄 Call to downloadAndSaveAllMissingSignedURLs", log: Self.log, type: .debug)
+        Self.logger.debug("📄 Call to downloadAndSaveAllMissingSignedURLs")
 
         guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             throw ObvError.theDelegateManagerIsNotSet
         }
@@ -432,7 +445,7 @@ extension DownloadAttachmentChunksCoordinator {
         }
 
         let attachmentsWithMissingSignedURL = op1.attachmentsWithMissingSignedURL
-        os_log("📄 %d attachments with missing signed URL", log: Self.log, type: .debug, attachmentsWithMissingSignedURL.count)
+        Self.logger.debug("📄 \(attachmentsWithMissingSignedURL.count) attachments with missing signed URL")
         guard !attachmentsWithMissingSignedURL.isEmpty else { return }
         
         // If we reach this point, we have signed URLs to download
@@ -444,7 +457,7 @@ extension DownloadAttachmentChunksCoordinator {
                 if let cached = missingSignedURLsDownloadTasks[attachmentId] {
                     switch cached {
                     case .inProgress(task: let task):
-                        os_log("📄[%{public}@] Awaiting existing task for downloading missing signed URLs for attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+                        Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Awaiting existing task for downloading missing signed URLs for attachment")
                         _ = try await task.value
                         continue
                     }
@@ -452,7 +465,7 @@ extension DownloadAttachmentChunksCoordinator {
                 
                 let task: Task<TaskForDownloadingAndSavingSignedURLsResult, Error> = createTaskForDownloadingAndSavingSignedURLs(attachmentId: attachmentId, expectedChunkCount: expectedChunkCount, delegateManager: delegateManager, flowId: flowId)
                 
-                os_log("📄[%{public}@] Awaiting just created task for downloading missing signed URLs for attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+                Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Awaiting just created task for downloading missing signed URLs for attachment")
 
                 let result: DownloadAttachmentChunksCoordinator.TaskForDownloadingAndSavingSignedURLsResult
                 
@@ -492,22 +505,22 @@ extension DownloadAttachmentChunksCoordinator {
     /// 2023-12 ok
     private func resumeDownloadOfAttachmentsHavingSignedURLs(kind: InboxAttachmentDownloadKind, flowId: FlowIdentifier) async throws {
         
-        os_log("📄 Call to resumeDownloadOfAttachmentsHavingSignedURLs", log: Self.log, type: .debug)
+        Self.logger.debug("📄 Call to resumeDownloadOfAttachmentsHavingSignedURLs")
 
         guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             throw ObvError.theDelegateManagerIsNotSet
         }
         
         guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The identity delegate is not set")
             assertionFailure()
             throw ObvError.theIdentityDelegateIsNotSet
         }
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The notification delegate is not set")
             assertionFailure()
             throw ObvError.theNotificationDelegateIsNotSet
         }
@@ -526,15 +539,15 @@ extension DownloadAttachmentChunksCoordinator {
 
         let chunksToDownloadForAttachment = op1.chunksToDownloadForAttachment
         guard !chunksToDownloadForAttachment.isEmpty else {
-            os_log("📄 No chunk to download", log: Self.log, type: .debug)
+            Self.logger.debug("📄 No chunk to download")
             return
         }
         
-        // If we reach this point, we attachments to download
+        // If we reach this point, we have attachment chunks to download
 
         for (attachmentId, values) in chunksToDownloadForAttachment {
             
-            os_log("📄[%{public}@] There are %d chunks to download for attachment", log: Self.log, type: .debug, attachmentId.debugDescription, values.chunkNumbersAndSignedURLs.count)
+            Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] There are \(values.chunkNumbersAndSignedURLs.count) chunks to download for attachment")
 
             do {
                 
@@ -546,9 +559,9 @@ extension DownloadAttachmentChunksCoordinator {
                         // Wait until the download is paused before resuming it
                         try await task.value
                         try await resumeDownloadOfAttachmentsHavingSignedURLs(kind: kind, flowId: flowId)
-                        return
+                        continue
                     case .resumingBackgroundDownload(task: let task):
-                        os_log("📄[%{public}@] Awaiting an existing resumingBackgroundDownload task for attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+                        Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Awaiting an existing resumingBackgroundDownload task for attachment")
                         try await task.value
                         continue
                     case .backgroundDownloadInProgress:
@@ -572,7 +585,7 @@ extension DownloadAttachmentChunksCoordinator {
                 
                 let task: Task<Void, Error> = createTaskForResumingDownloadOfAttachmentWithSignedURLs(kind: kindOfResumeToPerform)
 
-                os_log("📄[%{public}@] Awaiting just created resumingBackgroundDownload task for attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+                Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Awaiting just created resumingBackgroundDownload task for attachment")
 
                 do {
                     downloadAttachmentTask[attachmentId] = .resumingBackgroundDownload(task: task)
@@ -583,14 +596,14 @@ extension DownloadAttachmentChunksCoordinator {
                     throw error
                 }
                 
-                os_log("📄 Download of attachment %{public}@ is in progress", log: Self.log, type: .debug, attachmentId.debugDescription)
+                Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Download of attachment is in progress")
 
                 ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasResumed(attachmentId: attachmentId, flowId: flowId)
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
                 
             } catch {
                 
-                os_log("📄[%{public}@] Removing the downloadAttachmentTask for attachment as an error occured: %{public}@", log: Self.log, type: .debug, attachmentId.debugDescription, error.localizedDescription)
+                Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Removing the downloadAttachmentTask for attachment as an error occured: \(error.localizedDescription, privacy: .public)")
 
                 assertionFailure()
                 // In production, continue with the next attachment
@@ -653,7 +666,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         let flowId = downloadAttachmentChunksSessionDelegate.flowId
         
         guard let delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             downloadAttachmentTask.removeValue(forKey: attachmentId)
             return
@@ -674,7 +687,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
             // Note that, if the attachment is downloaded, the network fetch flow delegate was already notified about it.
             guard !op1.attachmentIsDownloaded else {
                 downloadAttachmentTask.removeValue(forKey: attachmentId)
-                os_log("📄[%{public}@] Removing the downloadAttachmentTask as the attachment is downloaded", log: Self.log, type: .debug, attachmentId.debugDescription)
+                Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)] Removing the downloadAttachmentTask as the attachment is downloaded")
                 return
             }
             
@@ -692,6 +705,21 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
             
             switch error {
                 
+            case .failedToDecryptChunkOrWriteToFile:
+                
+                Self.logger.fault("📄[\(attachmentId.debugDescription, privacy: .public)] A downloaded chunk could not be decrypted or written to a file. We cancel the download.")
+                
+                do {
+                    try await cancelDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+                } catch {
+                    Self.logger.fault("📄[\(attachmentId.debugDescription, privacy: .public)] Could not cancel the download of the attachment: \(error)")
+                    return
+                }
+                
+                Self.logger.info("📄[\(attachmentId.debugDescription, privacy: .public)] Since a chunk could not be decrypted or written to a file, we did cancel the download.")
+                
+                return
+                
             case .couldNotRecoverAttachmentIdFromTask,
                  .couldNotRetrieveAnHTTPResponse,
                  .sessionInvalidationError,
@@ -699,11 +727,10 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
                  .atLeastOneChunkIsNotYetAvailableOnServer,
                  .couldNotOpenEncryptedChunkFile,
                  .markChunkAsWrittenToAttachmentFileOperationFailed,
-                 .failedToDecryptChunkOrWriteToFile,
                  .unsupportedHTTPErrorStatusCode:
                 
                 let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
-                os_log("Will retry the call to resumeDownloadOfAttachmentsNotAlreadyDownloading in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
+                Self.logger.error("Will retry the call to resumeDownloadOfAttachmentsNotAlreadyDownloading in \(Double(delay) / 1000.0, privacy: .public) seconds")
                 await retryManager.waitForDelay(milliseconds: delay)
 
                 downloadAttachmentTask.removeValue(forKey: attachmentId)
@@ -749,12 +776,10 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         let attachmentId = downloadAttachmentChunksSessionDelegate.attachmentId
         let flowId = downloadAttachmentChunksSessionDelegate.flowId
         
-        os_log("📄[%{public}@][%d] Attachment chunk did progress %d/%d", log: Self.log, type: .debug, attachmentId.debugDescription, chunkProgress.chunkNumber, chunkProgress.totalBytesWritten, chunkProgress.totalBytesExpectedToWrite)
-
-        failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
+        Self.logger.debug("📄[\(attachmentId.debugDescription, privacy: .public)][\(chunkProgress.chunkNumber)] Attachment chunk did progress \(chunkProgress.totalBytesWritten)/\(chunkProgress.totalBytesExpectedToWrite)")
 
         guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             return
         }
@@ -811,7 +836,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         // We also immediately notify the network fetch flow delegate (so as to notify the app)
         
         guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             return
         }

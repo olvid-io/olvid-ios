@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,39 +21,42 @@ import Foundation
 import CoreData
 import ObvTypes
 import ObvMetaManager
-import OlvidUtils
 
 @objc(CachedWellKnown)
-final class CachedWellKnown: NSManagedObject, ObvManagedObject {
-
+final class CachedWellKnown: NSManagedObject {
+    
     // MARK: Internal constants
-
+    
     private static let entityName = "CachedWellKnown"
-    static let serverKey = "serverURL"
-
+    
     // MARK: Attributes
-
-    @NSManaged private(set) var serverURL: URL
-    @NSManaged private(set) var wellKnownData: Data /// bytes sent by the server
+    
+    @NSManaged private(set) var serverURL: URL // Primary key
+    @NSManaged private(set) var wellKnownData: Data // bytes sent by the server
     @NSManaged private(set) var downloadTimestamp: Date
-
+    
     var wellKnownJSON: WellKnownJSON? {
         return try? WellKnownJSON.decode(wellKnownData)
     }
     
-    weak var obvContext: ObvContext?
-
     // MARK: - Initializer
-
-    convenience init?(serverURL: URL, wellKnownData: Data, downloadTimestamp: Date, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: CachedWellKnown.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    
+    private convenience init?(serverURL: URL, wellKnownData: Data, downloadTimestamp: Date, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: CachedWellKnown.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.serverURL = serverURL
         self.wellKnownData = wellKnownData
         self.downloadTimestamp = downloadTimestamp
         guard self.wellKnownJSON != nil else { return nil }
     }
-
+    
+    
+    static func createCachedWellKnown(serverURL: URL, wellKnownData: Data, downloadTimestamp: Date, within context: NSManagedObjectContext) -> Self? {
+        let newCachedWellKnown = Self.init(serverURL: serverURL, wellKnownData: wellKnownData, downloadTimestamp: downloadTimestamp, within: context)
+        return newCachedWellKnown
+    }
+    
+    
     func deleteCachedWellKnown() throws {
         guard let managedObjectContext else {
             throw ObvError.contextIsNil
@@ -62,8 +65,29 @@ final class CachedWellKnown: NSManagedObject, ObvManagedObject {
     }
     
     func update(with wellKnownData: Data) {
-        self.downloadTimestamp = Date()
+        self.downloadTimestamp = Date.now
         self.wellKnownData = wellKnownData
+    }
+    
+}
+    
+// MARK: - Queries
+
+extension CachedWellKnown {
+    
+    private struct Predicate {
+        
+        enum Key: String {
+            // Attributes
+            case serverURL = "serverURL"
+            case wellKnownData = "wellKnownData"
+            case downloadTimestamp = "downloadTimestamp"
+        }
+        
+        static func withServerURL(_ serverURL: URL) -> NSPredicate {
+            NSPredicate(Key.serverURL, EqualToUrl: serverURL)
+        }
+        
     }
 
     @nonobjc class func fetchRequest() -> NSFetchRequest<CachedWellKnown> {
@@ -71,25 +95,28 @@ final class CachedWellKnown: NSManagedObject, ObvManagedObject {
     }
 
 
-    static func getAllCachedWellKnown(within context: ObvContext) throws -> [CachedWellKnown] {
+    static func getAllCachedWellKnown(within context: NSManagedObjectContext) throws -> [CachedWellKnown] {
         let request: NSFetchRequest<CachedWellKnown> = CachedWellKnown.fetchRequest()
         request.fetchBatchSize = 10
         return try context.fetch(request)
     }
 
-    private struct Predicate {
-        static func withURL(_ serverURL: URL) -> NSPredicate {
-            NSPredicate(format: "%K == %@", CachedWellKnown.serverKey, serverURL as CVarArg)
-        }
-    }
 
-    static func getCachedWellKnown(for server: URL, within context: ObvContext) throws -> CachedWellKnown? {
+    static func getCachedWellKnown(for server: URL, within context: NSManagedObjectContext) throws -> CachedWellKnown? {
         let request: NSFetchRequest<CachedWellKnown> = CachedWellKnown.fetchRequest()
-        request.predicate = Predicate.withURL(server)
+        request.predicate = Predicate.withServerURL(server)
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
 
+    
+}
+
+
+// MARK: - Errors
+
+extension CachedWellKnown {
+    
     enum ObvError: Error {
         case contextIsNil
     }

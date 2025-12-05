@@ -24,11 +24,11 @@ import SwiftUI
 @available(iOS 17.0, *)
 protocol StorageManagementViewModelProtocol: StorageManagerRouterAwarenessProtocol {
     
-    var files: [FyleMessageJoinWithStatus] { get }
+//    var files: [FyleMessageJoinWithStatus] { get }
     
     var largestFilesLocalizedThreshold: String { get }
     
-    var filesPerDiscussions: [PersistedDiscussion: [FyleMessageJoinWithStatus]] { get }
+    var sizesPerDiscussions: [PersistedDiscussion: Int64] { get }
     
     var discussionsSorted: [PersistedDiscussion] { get }
     

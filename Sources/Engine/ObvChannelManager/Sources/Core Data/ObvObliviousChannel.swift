@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvTypes
 import ObvEncoder
@@ -28,293 +28,280 @@ import OlvidUtils
 
 
 @objc(ObvObliviousChannel)
-final class ObvObliviousChannel: NSManagedObject, ObvManagedObject {
+final class ObvObliviousChannel: NSManagedObject {
     
     // MARK: Internal constants
     
     private static let entityName = "ObvObliviousChannel"
-    static let currentDeviceUidKey = "currentDeviceUid"
-    static let remoteCryptoIdentityKey = "remoteCryptoIdentity"
-    static let remoteDeviceUidKey = "remoteDeviceUid"
-    private static let isConfirmedKey = "isConfirmed"
-    private static let provisionsKey = "provisions"
-    
-    private static let errorDomain = "ObvObliviousChannel"
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
+    private static let logger = Logger(subsystem: "io.olvid.channel", category: "ObvObliviousChannel")
+    weak static var delegateManager: ObvChannelDelegateManager?
 
-    private static let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: ObvObliviousChannel.entityName)
-    private static let logger = Logger(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: ObvObliviousChannel.entityName)
-
-    // MARK: General Attributes and Properties
+    // MARK: General Properties
     
-    @NSManaged private(set) var currentDeviceUid: UID                   // Part of primary key
-    @NSManaged private(set) var remoteCryptoIdentity: ObvCryptoIdentity // Part of primary key (may be an owned identity)
-    @NSManaged private(set) var remoteDeviceUid: UID                    // Part of primary key
-    @NSManaged private var rawFullRatchetingCountForGKMV2Support: NSNumber? // nil on creation, non-nil as soon as a messageKey shows support for GKMV2
-    @NSManaged private var rawSelfRatchetingCountForGKMV2Support: NSNumber? // nil on creation, non-nil as soon as a messageKey shows support for GKMV2
-    
-    private(set) var isConfirmed: Bool {
-        get {
-            return kvoSafePrimitiveValue(forKey: ObvObliviousChannel.isConfirmedKey) as! Bool
-        }
-        set {
-            if newValue != isConfirmed {
-                kvoSafeSetPrimitiveValue(newValue, forKey: ObvObliviousChannel.isConfirmedKey)
-                notificationRelatedChanges.insert(.isConfirmed)
-            }
-        }
-    }
+    @NSManaged private var rawCurrentDeviceUID: Data?                   // Part of primary key, non-nil in the model
+    @NSManaged private var rawRemoteCryptoId: Data? // Part of primary key (may be an owned identity), non-nil in the model
+    @NSManaged private var rawRemoteDeviceUID: Data?                    // Part of primary key, non-nil in the model
+    @NSManaged private(set) var isConfirmed: Bool
     
     // MARK: Properties related to sending keys and ratcheting
     
     // Used to determine which prng to use (to generate the next seed, the send encryption key, and the crypto key id) as well as which authenticated encryption algorithm to use
     @NSManaged private(set) var cryptoSuiteVersion: Int // Always 0, for now. Cannot be higher than the crypto suite version of the current device
     
-    @NSManaged private var seedForNextSendKey: Seed
+    @NSManaged private var rawSeedForNextSendKey: Data? // Non-nil in the model
     @NSManaged private var numberOfEncryptedMessages: Int
     @NSManaged private var numberOfEncryptedMessagesAtTheTimeOfTheLastFullRatchet: Int
-    @NSManaged private var numberOfDecryptedMessagesSinceLastFullRatchetSentMessage: Int
-    @NSManaged private var numberOfEncryptedMessagesSinceLastFullRatchetSentMessage: Int
     @NSManaged private var timestampOfLastFullRatchet: Date
-    @NSManaged private var timestampOfLastFullRatchetSentMessage: Date
-    @NSManaged private var aFullRatchetOfTheSendSeedIsInProgress: Bool
+    @NSManaged private var timestampOfLastFullRatchetRequest: Date // Date when `aFullRatchetOfTheSendSeedWasRequestedAndMayBeInProgress` was last set to true.
+    @NSManaged private var aFullRatchetOfTheSendSeedWasRequestedAndMayBeInProgress: Bool // If true, a notification was sent to the protocol manager to start a full ratchet. Was aFullRatchetOfTheSendSeedIsInProgress.
+    
+    // MARK: Properties relating to receiving and provisioning
+    
+    @NSManaged private var fullRatchetingCountOfLastProvision: Int
+
+    // MARK: Relationships relating to receiving and provisioning
+    
+    @NSManaged private(set) var provisions: Set<Provision>
     
     // MARK: Computed properties
+    
+    private var seedForNextSendKey: Seed {
+        get throws(ObvError) {
+            guard let rawSeedForNextSendKey else { assertionFailure(); throw .unexpectedNilValue }
+            guard let seed = Seed(with: rawSeedForNextSendKey) else { assertionFailure(); throw .unexpectedNilValue }
+            return seed
+        }
+    }
+    
+    
+    var currentDeviceUID: UID {
+        get throws(ObvError) {
+            guard let rawCurrentDeviceUID else { assertionFailure(); throw .unexpectedNilValue }
+            guard let uid = UID(uid: rawCurrentDeviceUID) else { assertionFailure(); throw .unexpectedNilValue }
+            return uid
+        }
+    }
+    
+    
+    var remoteDeviceUID: UID {
+        get throws(ObvError) {
+            guard let rawRemoteDeviceUID else { assertionFailure(); throw .unexpectedNilValue }
+            guard let uid = UID(uid: rawRemoteDeviceUID) else { assertionFailure(); throw .unexpectedNilValue }
+            return uid
+        }
+    }
+    
+    
+    private var remoteCryptoId: ObvCryptoId {
+        get throws {
+            guard let rawRemoteCryptoId else { assertionFailure(); throw ObvError.unexpectedNilValue }
+            return try ObvCryptoId(identity: rawRemoteCryptoId)
+        }
+    }
+    
     
     private var numberOfEncryptedMessagesSinceLastFullRatchet: Int {
         return numberOfEncryptedMessages - numberOfEncryptedMessagesAtTheTimeOfTheLastFullRatchet
     }
     
+    
     /// Used by the manager to easily implement the full ratchet strategy. If this method returns True, the manager is expected to reset any ongoing full ratchet protocol.
     private var requiresFullRatchet: Bool {
-        
-        let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: "ObvObliviousChannel")
-        
-        os_log("Evaluating if a full ratchet of the send seed is required...", log: log, type: .info)
-        
-        if aFullRatchetOfTheSendSeedIsInProgress {
+                
+        Self.logger.info("Evaluating if a full ratchet of the send seed is required...")
+                
+        if aFullRatchetOfTheSendSeedWasRequestedAndMayBeInProgress {
 
-            os_log("A full ratchet of the send seed is in progress...", log: log, type: .info)
-            
-            // 1. If we received too many messages since the last full ratchet protocol message that we sent, it means that the other end of the channel will probably never send an answer to our last protocol message. In that case, we decide to start the full ratchet protocol all over again.
-            guard numberOfDecryptedMessagesSinceLastFullRatchetSentMessage < ObvConstants.thresholdNumberOfDecryptedMessagesSinceLastFullRatchetSentMessage else {
-                os_log("Full ratchet required because of the number of decrypted messages since the last full ratchet sent message: %d >= %d", log: log, type: .info, numberOfDecryptedMessagesSinceLastFullRatchetSentMessage, ObvConstants.thresholdNumberOfDecryptedMessagesSinceLastFullRatchetSentMessage)
+            Self.logger.info("A full ratchet of the send seed was requested...")
+                        
+            // If too much time passed since the time we requested a full ratchet of the send seed, we decide to start the protocol all over again.
+            let timeIntervalSinceTimestampOfLastFullRatchetRequest: TimeInterval = Date.now.timeIntervalSince(timestampOfLastFullRatchetRequest)
+            guard timeIntervalSinceTimestampOfLastFullRatchetRequest < ObvConstants.thresholdTimeIntervalSinceLastFullRatchetRequest else {
+                Self.logger.info("Full ratchet required because of too much time elapsed since the last last full ratchet sent message")
                 return true
             }
-            os_log("[1/3] No need for a full ratchet because of the number of decrypted messages since the last full ratchet sent message: %d < %d", log: log, type: .info, numberOfDecryptedMessagesSinceLastFullRatchetSentMessage, ObvConstants.thresholdNumberOfDecryptedMessagesSinceLastFullRatchetSentMessage)
-
-            // 2. If too much time passed since the time we sent a message related to the full ratcheting protocol in progress, we decide to start the protocol all over again.
-            guard Date().timeIntervalSince(timestampOfLastFullRatchetSentMessage) < ObvConstants.thresholdTimeIntervalSinceLastFullRatchetSentMessage else {
-                os_log("Full ratchet required because of too much time passed since the last last full ratchet sent message", log: log, type: .info)
-                return true
-            }
-            os_log("[2/3] No full ratchet required because of the time passed since the last last full ratchet sent message", log: log, type: .info)
-
-            // 3. If the number of messages sent since the last sent message related to the full ratcheting protocol is larger than the reprovisioning threshold, we must restart the protocol since the recipient could end up not being able to decrypt an old message arriving after the end of the full ratcheting.
-            guard numberOfEncryptedMessagesSinceLastFullRatchetSentMessage < ObvConstants.reprovisioningThreshold else {
-                os_log("Full ratchet required because of the number of encrypted messages since the last full ratchet sent message: %d >= %d", log: log, type: .info, numberOfEncryptedMessagesSinceLastFullRatchetSentMessage, ObvConstants.reprovisioningThreshold)
-                return true
-            }
-            os_log("[3/3] No full ratchet required because of the number of encrypted messages since the last full ratchet sent message: %d < %d", log: log, type: .info, numberOfEncryptedMessagesSinceLastFullRatchetSentMessage, ObvConstants.reprovisioningThreshold)
+            Self.logger.info("No full ratchet required because of the time elapsed since the last last full ratchet sent message. Remaining time: \(ObvConstants.thresholdTimeIntervalSinceLastFullRatchetRequest - timeIntervalSinceTimestampOfLastFullRatchetRequest) seconds.")
 
         } else {
             
-            os_log("No full ratchet of the send seed in progress...", log: log, type: .info)
+            Self.logger.info("No full ratchet of the send seed was requested...")
 
             // 1. If the number of encrypted messages since the last successfull full ratchet is too high, we must start a new full ratchet
             guard numberOfEncryptedMessagesSinceLastFullRatchet < ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet else {
-                os_log("Full ratchet required for the send seed: %d >= %d", log: log, type: .info, numberOfEncryptedMessagesSinceLastFullRatchet, ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet)
+                Self.logger.info("Full ratchet required for the send seed: \(self.numberOfEncryptedMessagesSinceLastFullRatchet) >= \(ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet)")
                 return true
             }
-            os_log("[1/2] No need to perform a full ratchet of the send seed: %d < %d", log: log, type: .info, numberOfEncryptedMessagesSinceLastFullRatchet, ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet)
+            Self.logger.info("[1/2] No need to perform a full ratchet of the send seed: \(self.numberOfEncryptedMessagesSinceLastFullRatchet) < \(ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet)")
             
             // 2. If the elapsed time since the last successfull full ratchet is too high, we must start a new full ratchet
-            guard Date().timeIntervalSince(timestampOfLastFullRatchet) < ObvConstants.fullRatchetTimeIntervalValidity else {
-                os_log("Full ratchet required because of too much time passed since the last full ratchet", log: log, type: .info)
+            let timeIntervalSinceLastFullRatchet: TimeInterval = Date.now.timeIntervalSince(timestampOfLastFullRatchet)
+            guard timeIntervalSinceLastFullRatchet < ObvConstants.fullRatchetTimeIntervalValidity else {
+                Self.logger.info("Full ratchet required because of too much time passed since the last full ratchet")
                 return true
             }
-            os_log("[2/2] No need to perform a full ratchet because of the time passed since the last full ratchet", log: log, type: .info)
+            Self.logger.info("[2/2] No need to perform a full ratchet because of the time passed since the last full ratchet. Next full ratchet in \(ObvConstants.fullRatchetTimeIntervalValidity - timeIntervalSinceLastFullRatchet) seconds maximum.")
             
         }
         
-        os_log("No need for full ratchet of the send seed.", log: log, type: .info)
+        Self.logger.info("No need for full ratchet of the send seed.")
 
         return false
     }
     
-    
-    
-    // The following method *must* be called whenever a full ratchet protocol message is sent
-    func aMessageConcerningTheFullRatchetOfTheSendSeedWasSent() {
-        aFullRatchetOfTheSendSeedIsInProgress = true
-        numberOfDecryptedMessagesSinceLastFullRatchetSentMessage = 0
-        numberOfEncryptedMessagesSinceLastFullRatchetSentMessage = 0
-        timestampOfLastFullRatchetSentMessage = Date()
-    }
-    
-    
-    private var fullRatchetingCountForGkmv2Support: Int? {
-        get {
-            rawFullRatchetingCountForGKMV2Support?.intValue
-        }
-        set {
-            guard let newValue else { assertionFailure(); return } // Never allow a reset to nil
-            rawFullRatchetingCountForGKMV2Support = NSNumber(integerLiteral: newValue)
-        }
-    }
 
-    
-    private var selfRatchetingCountForGkmv2Support: Int? {
-        get {
-            rawSelfRatchetingCountForGKMV2Support?.intValue
-        }
-        set {
-            guard let newValue else { assertionFailure(); return } // Never allow a reset to nil
-            rawSelfRatchetingCountForGKMV2Support = NSNumber(integerLiteral: newValue)
-        }
-    }
+    /// Shall only be set to `true` from `func doRequestFullRatchetOfTheSendSeedOnSave()`
+    private var requestFullRatchetOfTheSendSeedOnSave = false
 
-
-    // MARK: Relationships
-    
-    // MARK: Properties related to receiving and provisioning
-    
-    private(set) var provisions: Set<Provision> {
-        get {
-            let items = kvoSafePrimitiveValue(forKey: ObvObliviousChannel.provisionsKey) as! Set<Provision>
-            return Set(items.map { $0.obvContext = self.obvContext; return $0 })
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: ObvObliviousChannel.provisionsKey)
-        }
+    private func doRequestFullRatchetOfTheSendSeedOnSave() {
+        requestFullRatchetOfTheSendSeedOnSave = true
+        aFullRatchetOfTheSendSeedWasRequestedAndMayBeInProgress = true
+        timestampOfLastFullRatchetRequest = Date.now
     }
-    
-    @NSManaged private var fullRatchetingCountOfLastProvision: Int
-    
-    // MARK: Other variables
-    
-    weak var obvContext: ObvContext?
-    weak static var delegateManager: ObvChannelDelegateManager!
-    
+            
     // MARK: - Initializer
     
     /// We do *not* check whether the `currentDeviceUid`, `remoteCryptoIdentity`, nor the `remoteDeviceUid` exist within the identity delegate. This is done at the manager implementation level, i.e., within the `createObliviousChannelBetween` method of `ObvChannelManagerImplementation`
-    convenience init?(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, seed: Seed, cryptoSuiteVersion: Int, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ObvObliviousChannel.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.currentDeviceUid = currentDeviceUid
-        self.remoteCryptoIdentity = remoteCryptoIdentity
-        self.remoteDeviceUid = remoteDeviceUid
+    convenience init(currentDeviceUID: UID, remoteCryptoId: ObvCryptoId, remoteDeviceUID: UID, seed: Seed, cryptoSuiteVersion: Int, within context: NSManagedObjectContext) throws {
+        
+        let entityDescription = NSEntityDescription.entity(forEntityName: ObvObliviousChannel.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        
+        self.rawCurrentDeviceUID = currentDeviceUID.raw
+        self.rawRemoteCryptoId = remoteCryptoId.getIdentity()
+        self.rawRemoteDeviceUID = remoteDeviceUID.raw
         self.cryptoSuiteVersion = cryptoSuiteVersion
-        let now = Date()
+        let now = Date.now
         self.timestampOfLastFullRatchet = now
-        self.timestampOfLastFullRatchetSentMessage = now
-        self.rawFullRatchetingCountForGKMV2Support = nil
-        self.rawSelfRatchetingCountForGKMV2Support = nil
+        self.timestampOfLastFullRatchetRequest = now
+        self.aFullRatchetOfTheSendSeedWasRequestedAndMayBeInProgress = false
         
         // Using the seed, we derive the seedForNextSendKey and compute the first provision (which contains the seedForNextProvisionedReceiveKey).
-        guard let sendSeed = seed.diversify(with: currentDeviceUid, withCryptoSuite: cryptoSuiteVersion) else { assertionFailure(); return nil }
-        self.seedForNextSendKey = sendSeed
-        guard let recvSeed = seed.diversify(with: remoteDeviceUid, withCryptoSuite: cryptoSuiteVersion) else { assertionFailure(); return nil }
+        guard let sendSeed = seed.diversify(with: currentDeviceUID, withCryptoSuite: cryptoSuiteVersion) else { assertionFailure(); throw ObvError.couldNotDiversifySeed }
+        self.rawSeedForNextSendKey = sendSeed.raw
         
+        guard let recvSeed = seed.diversify(with: remoteDeviceUID, withCryptoSuite: cryptoSuiteVersion) else { assertionFailure(); throw ObvError.couldNotDiversifySeed }
         self.provisions = Set<Provision>()
-        guard let provision = Provision(fullRatchetingCount: 0,
-                                        obliviousChannel: self,
-                                        seedForNextProvisionedReceiveKey: recvSeed) else { assertionFailure(); return nil }
+        let provision = try Provision(fullRatchetingCount: 0,
+                                      obliviousChannel: self,
+                                      seedForNextProvisionedReceiveKey: recvSeed)
         self.provisions.insert(provision)
+        
     }
     
 
     // MARK: - Updating the send seed and creating a new provision
     
     func updateSendSeed(with seed: Seed) throws {
-        guard let sendSeed = seed.diversify(with: currentDeviceUid, withCryptoSuite: cryptoSuiteVersion) else {
-            throw Self.makeError(message: "Could not diversify seed (1)")
+        guard let sendSeed = try seed.diversify(with: currentDeviceUID, withCryptoSuite: cryptoSuiteVersion) else {
+            throw ObvError.couldNotDiversifySeed
         }
-        seedForNextSendKey = sendSeed
+        self.rawSeedForNextSendKey = sendSeed.raw
         numberOfEncryptedMessagesAtTheTimeOfTheLastFullRatchet = numberOfEncryptedMessages
-        timestampOfLastFullRatchet = Date()
-        aFullRatchetOfTheSendSeedIsInProgress = false
+        timestampOfLastFullRatchet = Date.now
+        aFullRatchetOfTheSendSeedWasRequestedAndMayBeInProgress = false
     }
     
 
     func createNewProvision(with seed: Seed) throws {
-        guard let recvSeed = seed.diversify(with: remoteDeviceUid, withCryptoSuite: cryptoSuiteVersion) else {
-            throw Self.makeError(message: "Could not diversify seed (2)")
+        guard let recvSeed = try seed.diversify(with: remoteDeviceUID, withCryptoSuite: cryptoSuiteVersion) else {
+            throw ObvError.couldNotDiversifySeed
         }
         fullRatchetingCountOfLastProvision += 1
-        guard let provision = Provision(fullRatchetingCount: fullRatchetingCountOfLastProvision,
-                                        obliviousChannel: self,
-                                        seedForNextProvisionedReceiveKey: recvSeed) else {
-            throw Self.makeError(message: "Could create Provision")
-        }
+        let provision = try Provision(fullRatchetingCount: fullRatchetingCountOfLastProvision,
+                                      obliviousChannel: self,
+                                      seedForNextProvisionedReceiveKey: recvSeed)
         self.provisions.insert(provision)
     }
     
-    // MARK: Cleaning old provisions
+    // MARK: Deleting old provisions
     
     /// This method delete all the expired key material (regardless of the channel) before deleting all empty provisions.
-    class func clean(within obvContext: ObvContext) throws {
-        let now = Date()
-        try KeyMaterial.deleteAllExpired(before: now, within: obvContext)
-        try Provision.deleteAllEmpty(within: obvContext)
+    static func deleteExpiredKeyMaterialAndEmptyProvisions(within context: NSManagedObjectContext) throws {
+        try KeyMaterial.deleteAllExpired(before: Date.now, within: context)
+        try Provision.deleteAllEmpty(within: context)
+    }
+    
+    
+    private func deleteObvObliviousChannel() throws {
+        guard let context = self.managedObjectContext else {
+            assertionFailure()
+            throw ObvError.noContext
+        }
+        context.delete(self)
     }
     
     // MARK: Encryption/Wrapping method and helpers
     
-    func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header? {
-        guard let (keyId, channelKey) = selfRatchet() else { assertionFailure(); return nil }
-        os_log("🔑 Wrapping message key with key id (%{public}@)", log: Self.log, type: .info, keyId.raw.hexString())
-        guard let wrappedMessageKey = ObvObliviousChannel.wrap(messageKey, and: keyId, with: channelKey, randomizedWith: prng) else {
+    func wrapMessageKey(_ messageKey: any AuthenticatedEncryptionKey, isAppMessage: Bool, randomizedWith prng: any PRNGService) -> ObvNetworkMessageToSend.Header? {
+        do {
+            // Wrap the message key
+            let header = try self.wrapMessageKeyIntern(messageKey, randomizedWith: prng)
+            // In case we are wrapping the key of an application message, evaluate if a full ratchet of the send seed is required.
+            // If this is the case, a notification will be sent to the protocol manager after saving this oblivious channel.
+            if isAppMessage && self.requiresFullRatchet {
+                doRequestFullRatchetOfTheSendSeedOnSave()
+            }
+            // Return the header
+            return header
+        } catch {
             assertionFailure()
             return nil
         }
-        let header = ObvNetworkMessageToSend.Header(toIdentity: remoteCryptoIdentity, deviceUid: remoteDeviceUid, wrappedMessageKey: wrappedMessageKey)
+    }
+
+
+    private func wrapMessageKeyIntern(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) throws -> ObvNetworkMessageToSend.Header {
+        let (keyId, channelKey) = try selfRatchet()
+        Self.logger.info("🔑 Wrapping message key with key id (\(keyId.raw.hexString(), privacy: .public)")
+        let wrappedMessageKey = try ObvObliviousChannel.wrap(messageKey, and: keyId, with: channelKey, randomizedWith: prng)
+        let header = try ObvNetworkMessageToSend.Header(
+            toIdentity: remoteCryptoId.cryptoIdentity,
+            deviceUid: remoteDeviceUID,
+            wrappedMessageKey: wrappedMessageKey)
         numberOfEncryptedMessages += 1
-        numberOfEncryptedMessagesSinceLastFullRatchetSentMessage += 1        
         return header
     }
     
-    private static func wrap(_ messageKey: AuthenticatedEncryptionKey, and keyId: CryptoKeyId, with channelKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> EncryptedData? {
+    
+    private static func wrap(_ messageKey: AuthenticatedEncryptionKey, and keyId: CryptoKeyId, with channelKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) throws -> EncryptedData {
         let authEnc = channelKey.algorithmImplementationByteId.algorithmImplementation
-        guard let encryptedMessageKey = try? authEnc.encrypt(messageKey.obvEncode().rawData, with: channelKey, and: prng) else {
-            assertionFailure()
-            return nil
-        }
+        let encryptedMessageKey = try authEnc.encrypt(messageKey.obvEncode().rawData, with: channelKey, and: prng)
         let wrappedMessageKey = keyId.concat(with: encryptedMessageKey)
         return wrappedMessageKey
     }
 
     
     // MARK: Decryption/Unwrapping method and helpers
+    
+    static func unwrapMessageKey(wrappedKey: ObvCrypto.EncryptedData, toOwnedIdentity: ObvCrypto.ObvCryptoIdentity, delegateManager: ObvChannelDelegateManager, within obvContext: OlvidUtils.ObvContext) throws -> UnwrapMessageKeyResult {
 
-    static func unwrapMessageKey(wrappedKey: EncryptedData, toOwnedIdentity: ObvCryptoIdentity, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> UnwrapMessageKeyResult {
-
-        let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: ObvObliviousChannel.entityName)
-
-        guard let identityDelegate = ObvObliviousChannel.delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
+        let context = obvContext.context
+        
+        guard let identityDelegate = delegateManager.identityDelegate else {
+            Self.logger.fault("The identity delegate is not set")
             assertionFailure()
             throw ObvError.identityDelegateIsNil
         }
 
-        let deviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(toOwnedIdentity, within: obvContext)
+        let deviceUID = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(toOwnedIdentity, within: obvContext)
         
         guard let (encryptedMessageKey, keyId) = CryptoKeyId.parse(wrappedKey) else { return .couldNotUnwrap }
-        let provisionedKeys = try KeyMaterial.getAll(cryptoKeyId: keyId, currentDeviceUid: deviceUid, within: obvContext)
+        let provisionedKeys = try KeyMaterial.getAll(cryptoKeyId: keyId, currentDeviceUID: deviceUID, within: context)
+
         // Given the keyId of the received message, we might have several candidate for the decryption key (i.e., several provisioned received keys). We try them one by one until one successfully decrypts the message
         
-        os_log("🔑 Number of potential provisioned keys for this key id (%{public}@): %d", log: log, type: .info, keyId.raw.hexString(), provisionedKeys.count)
+        Self.logger.info("🔑 Number of potential provisioned keys for this key id (\(keyId.raw.hexString(), privacy: .public): \(provisionedKeys.count)")
         
         for provisionedKey in provisionedKeys {
             
-            let provision = provisionedKey.provision
-            let obliviousChannel = provision.obliviousChannel
-            let authEnc = provisionedKey.key.algorithmImplementationByteId.algorithmImplementation
+            guard let provision = provisionedKey.provision else {
+                assertionFailure()
+                throw ObvError.unexpectedNilValue
+            }
+            guard let obliviousChannel = provision.obliviousChannel else {
+                throw ObvError.unexpectedNilValue
+            }
+            let authEnc = try provisionedKey.key.algorithmImplementationByteId.algorithmImplementation
             
             if let rawEncodedMessageKey = try? authEnc.decrypt(encryptedMessageKey, with: provisionedKey.key) {
                 
@@ -323,91 +310,49 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject {
                 
                 let fullRatchetingCount = provision.fullRatchetingCount
                 let selfRatchetingCount = provisionedKey.selfRatchetingCount
-                os_log("🤖 Received a message on ratchet generation %d - %d", log: log, type: .info, fullRatchetingCount, selfRatchetingCount)
+                Self.logger.info("🤖 Received a message on ratchet generation \(fullRatchetingCount) - \(selfRatchetingCount)")
                 
                 // We set the expiration timestamp of older keys
                 try provisionedKey.setExpirationTimestampOfOlderButNotYetExpiringProvisionedReceiveKeys()
                 
-                // If a full ratcheting is currently in place for refreshing the send key and send key id, we increment the number of decrypted messages since the last full ratchet sent message counter
-                if obliviousChannel.aFullRatchetOfTheSendSeedIsInProgress {
-                    obliviousChannel.numberOfDecryptedMessagesSinceLastFullRatchetSentMessage += 1
-                }
-
                 // We self-ratchet the provision which is about to "lose" a key
-                try provisionedKey.provision.selfRatchetIfRequired()
+                guard let provisionedKeyProvision = provisionedKey.provision else {
+                    assertionFailure()
+                    throw ObvError.unexpectedNilValue
+                }
+                try provisionedKeyProvision.selfRatchetIfRequired()
 
                 // The provisioned key we just used to decrypt the message will never be used again, so we delete it
-                os_log("Since we used it to decrypt, we delete the provisioned key with selft ratcheting count %d", log: log, type: .debug, provisionedKey.selfRatchetingCount)
-                obvContext.delete(provisionedKey)
+                Self.logger.debug("Since we used it to decrypt, we delete the provisioned key with selft ratcheting count \(provisionedKey.selfRatchetingCount)")
+                try provisionedKey.deleteKeyMaterial()
                 
                 // If successfully decrypted, so we can mark the channel as 'confirmed'
                 obliviousChannel.confirm()
                 
-                let updateOrCheckGKMV2SupportOnMessageContentAvailable = { [weak obliviousChannel] (messageContent: Data) in
-                    guard let obliviousChannel else { assertionFailure(); return }
-                    guard let context = obliviousChannel.managedObjectContext else { assertionFailure(); return }
-                    try context.performAndWait {
-                        try obliviousChannel.updateOrCheckGKMV2Support(messageKey: messageKey, messageContent: messageContent, fullRatchetingCount: fullRatchetingCount, selfRatchetingCount: selfRatchetingCount)
-                    }
-                }
-                
-                return .unwrapSucceeded(messageKey: messageKey,
-                                        receptionChannelInfo: obliviousChannel.type,
-                                        updateOrCheckGKMV2SupportOnMessageContentAvailable: updateOrCheckGKMV2SupportOnMessageContentAvailable)
+                return .unwrapSucceeded(
+                    messageKey: messageKey,
+                    receptionChannelInfo: try obliviousChannel.type)
                 
             }
+            
         }
         
-        os_log("Could not unwrap using an Oblivious Channel", log: log, type: .debug)
+        Self.logger.debug("Could not unwrap using an Oblivious Channel")
         return .couldNotUnwrap
+        
     }
         
     
-    // MARK: GKMV2
-    
-    /// Each time a message is decrypted with an Oblivious channel, this method is called to evaluate the channel support for GKMV2.
-    ///
-    /// If the channel already indicates that it supports GKMV2, this method ensures that the received message key although supports GKMV2. If not, it throws.
-    /// If the channel does not already support GKMV2, this method checks whether the message key allows to
-    /// deduce that the remote device now supports GKMV2. If this is the case, this methods sets `fullRatchetingCountForGKMV2Support` and
-    /// `selfRatchetingCountForGKMV2Support`.
-    private func updateOrCheckGKMV2Support(messageKey: AuthenticatedEncryptionKey, messageContent: Data, fullRatchetingCount: Int, selfRatchetingCount: Int) throws {
-
-        let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
-
-        if let fullRatchetingCountForGkmv2Support, let selfRatchetingCountForGkmv2Support {
-
-            if fullRatchetingCount > fullRatchetingCountForGkmv2Support || (fullRatchetingCount == fullRatchetingCountForGkmv2Support && selfRatchetingCount > selfRatchetingCountForGkmv2Support) {
-                assert((messageContent.count & 0x1FF) == 0) // We expect the content to be a multiple of 512
-                if !authEnc.verifyMessageKey(messageKey: messageKey, message: messageContent) {
-                    assertionFailure()
-                    throw ObvError.messageKeyDoesNotSupportGKMV2AlthoughItShould
-                }
-            }
-            
-        } else {
-            
-            if authEnc.verifyMessageKey(messageKey: messageKey, message: messageContent) {
-                self.fullRatchetingCountForGkmv2Support = fullRatchetingCount
-                self.selfRatchetingCountForGkmv2Support = selfRatchetingCount
-            }
-            
-        }
-    }
-    
-
     // MARK: Ratcheting
     
     /// This method self ratchets the send seed and returns a send crypto key id and authenticated encryption key.
     ///
     /// - Parameter cryptoSuiteVersion: The version of the ObvCrypto suite to use for the prng and for the authenticated encryption.
-    private func selfRatchet() -> (CryptoKeyId, AuthenticatedEncryptionKey)? {
-        guard let obvContext = self.obvContext else { return nil }
-        guard let mergePolicy = obvContext.mergePolicy as? NSMergePolicy else { return nil }
-        guard mergePolicy.isEqual(NSErrorMergePolicy) else { return nil }
-        guard let (ratchetedSeed, keyId, key) = KeyMaterial.selfRatchet(seed: seedForNextSendKey,
-                                                                        usingCryptoSuiteVersion: cryptoSuiteVersion) else { return nil }
-        seedForNextSendKey = ratchetedSeed
+    private func selfRatchet() throws -> (CryptoKeyId, AuthenticatedEncryptionKey) {
+        let (ratchetedSeed, keyId, key) = try KeyMaterial.selfRatchet(
+            seed: seedForNextSendKey,
+            usingCryptoSuiteVersion: cryptoSuiteVersion)
+        self.rawSeedForNextSendKey = ratchetedSeed.raw
         return (keyId, key)
     }
 
@@ -420,7 +365,7 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject {
     
     // MARK: Tracking changes relevant for the notifications
     
-    private var notificationRelatedChanges: NotificationRelatedChanges = []
+    private var changedKeys = Set<String>()
 
 }
 
@@ -428,10 +373,14 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject {
 extension ObvObliviousChannel {
     
     enum ObvError: Error {
-        case messageKeyDoesNotSupportGKMV2AlthoughItShould
         case keyWrapperForIdentityDelegateIsNotSet
         case cryptoIdentityIsNotOwned
         case identityDelegateIsNil
+        case unexpectedNilValue
+        case couldNotDiversifySeed
+        case couldNotCreateProvision
+        case noContext
+        case couldNotCastFetchedResult
     }
     
 }
@@ -441,149 +390,190 @@ extension ObvObliviousChannel {
     
     struct Predicate {
         enum Key: String {
-            case currentDeviceUid = "currentDeviceUid"
-            case remoteCryptoIdentity = "remoteCryptoIdentity"
-            case remoteDeviceUid = "remoteDeviceUid"
+            // Attributes
+            case aFullRatchetOfTheSendSeedWasRequestedAndMayBeInProgress = "aFullRatchetOfTheSendSeedWasRequestedAndMayBeInProgress" // Bool
+            case cryptoSuiteVersion = "cryptoSuiteVersion"
+            case fullRatchetingCountOfLastProvision = "fullRatchetingCountOfLastProvision"
             case isConfirmed = "isConfirmed"
+            case numberOfEncryptedMessages = "numberOfEncryptedMessages"
+            case numberOfEncryptedMessagesAtTheTimeOfTheLastFullRatchet = "numberOfEncryptedMessagesAtTheTimeOfTheLastFullRatchet"
+            case rawCurrentDeviceUID = "rawCurrentDeviceUID"
+            case rawRemoteCryptoId = "rawRemoteCryptoId"
+            case rawRemoteDeviceUID = "rawRemoteDeviceUID"
+            case rawSeedForNextSendKey = "rawSeedForNextSendKey"
+            case timestampOfLastFullRatchet = "timestampOfLastFullRatchet"
+            case timestampOfLastFullRatchetSentMessage = "timestampOfLastFullRatchetSentMessage"
+            // Relationships
+            case provisions = "provisions"
         }
-        static func withCurrentDeviceUid(_ currentDeviceUid: UID) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.currentDeviceUid.rawValue, currentDeviceUid)
+        static func withCurrentDeviceUID(_ currentDeviceUID: UID) -> NSPredicate {
+            NSPredicate(Key.rawCurrentDeviceUID, EqualToData: currentDeviceUID.raw)
         }
-        static func withRemoteCryptoIdentity(_ remoteCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.remoteCryptoIdentity.rawValue, remoteCryptoIdentity)
+        static func withRemoteCryptoId(_ remoteCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.rawRemoteCryptoId, EqualToData: remoteCryptoId.getIdentity())
         }
-        static func withRemoteDeviceUid(_ remoteDeviceUid: UID) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.remoteDeviceUid.rawValue, remoteDeviceUid)
+        static func withRemoteDeviceUID(_ remoteDeviceUID: UID) -> NSPredicate {
+            NSPredicate(Key.rawRemoteDeviceUID, EqualToData: remoteDeviceUID.raw)
         }
-        static func withRemoteDeviceUid(in remoteDeviceUids: [UID]) -> NSPredicate {
-            NSPredicate(format: "%K IN %@", Key.remoteDeviceUid.rawValue, remoteDeviceUids)
+        static func withRemoteDeviceUID(in remoteDeviceUIDs: [UID]) -> NSPredicate {
+            NSPredicate(format: "%K IN %@", Key.rawRemoteDeviceUID.rawValue, remoteDeviceUIDs.map(\.raw))
         }
         static func whereIsConfirmed(is isConfirmed: Bool) -> NSPredicate {
             NSPredicate(Key.isConfirmed, is: isConfirmed)
         }
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            NSPredicate(withObjectID: objectID)
+        }
     }
     
-    @nonobjc class func fetchRequest() -> NSFetchRequest<ObvObliviousChannel> {
-        return NSFetchRequest<ObvObliviousChannel>(entityName: ObvObliviousChannel.entityName)
+    
+    @nonobjc private static func fetchRequest() -> NSFetchRequest<ObvObliviousChannel> {
+        return NSFetchRequest<ObvObliviousChannel>(entityName: Self.entityName)
     }
 
     
-    /// This method returns an ObvObliviousChannel if one is found.
-    static func get(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, necessarilyConfirmed: Bool, within obvContext: ObvContext) throws -> ObvObliviousChannel? {
+    @nonobjc private static func dictionaryFetchRequest() -> NSFetchRequest<NSDictionary> {
+        return NSFetchRequest<NSDictionary>(entityName: Self.entityName)
+    }
+
+    
+    /// This method returns an `ObvObliviousChannel` if one is found.
+    static func get(currentDeviceUID: UID, remoteCryptoId: ObvCryptoId, remoteDeviceUID: UID, necessarilyConfirmed: Bool, within context: NSManagedObjectContext) throws -> ObvObliviousChannel? {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         var allPredicates: [NSPredicate] = [
-            Predicate.withCurrentDeviceUid(currentDeviceUid),
-            Predicate.withRemoteCryptoIdentity(remoteCryptoIdentity),
-            Predicate.withRemoteDeviceUid(remoteDeviceUid)
+            Predicate.withCurrentDeviceUID(currentDeviceUID),
+            Predicate.withRemoteCryptoId(remoteCryptoId),
+            Predicate.withRemoteDeviceUID(remoteDeviceUID),
         ]
         if necessarilyConfirmed {
             allPredicates.append(Predicate.whereIsConfirmed(is: true))
         }
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: allPredicates)
         request.fetchLimit = 1
-        let item = (try obvContext.fetch(request)).first
-        item?.obvContext = obvContext
-        return item
+        return try context.fetch(request).first
     }
     
     
-    static func get(objectID: NSManagedObjectID, within obvContext: ObvContext) throws -> ObvObliviousChannel? {
+    static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> ObvObliviousChannel? {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
-        request.predicate = NSPredicate(format: "self == %@", objectID)
+        request.predicate = Predicate.withObjectID(objectID)
         request.fetchLimit = 1
-        let item = (try obvContext.fetch(request)).first
-        item?.obvContext = obvContext
-        return item
+        return try context.fetch(request).first
     }
 
     
-    /// This method returns an array of ObvObliviousChannels.
-    static func get(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUids: [UID], necessarilyConfirmed: Bool, within obvContext: ObvContext) throws -> [ObvObliviousChannel] {
+    /// This method returns an array of `ObvObliviousChannels`.
+    static func get(currentDeviceUID: UID, remoteCryptoId: ObvCryptoId, remoteDeviceUIDs: [UID], necessarilyConfirmed: Bool, within context: NSManagedObjectContext) throws -> [ObvObliviousChannel] {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
-        
         var allPredicates: [NSPredicate] = [
-            Predicate.withCurrentDeviceUid(currentDeviceUid),
-            Predicate.withRemoteCryptoIdentity(remoteCryptoIdentity),
-            Predicate.withRemoteDeviceUid(in: remoteDeviceUids),
+            Predicate.withCurrentDeviceUID(currentDeviceUID),
+            Predicate.withRemoteCryptoId(remoteCryptoId),
+            Predicate.withRemoteDeviceUID(in: remoteDeviceUIDs),
         ]
         if necessarilyConfirmed {
             allPredicates.append(Predicate.whereIsConfirmed(is: true))
         }
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: allPredicates)
-        request.fetchLimit = remoteDeviceUids.count
-        let items = try obvContext.fetch(request)
-        return items.map { $0.obvContext = obvContext; return $0 }
+        request.fetchLimit = remoteDeviceUIDs.count
+        return try context.fetch(request)
     }
     
     
-    /// This method returns an array of ObvObliviousChannels.
-    static func getAllConfirmedChannels(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [ObvObliviousChannel] {
+    /// This method returns an array of `ObvObliviousChannels`.
+    static func getAllConfirmedChannels(currentDeviceUID: UID, remoteCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [ObvObliviousChannel] {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withCurrentDeviceUid(currentDeviceUid),
-            Predicate.withRemoteCryptoIdentity(remoteCryptoIdentity),
+            Predicate.withCurrentDeviceUID(currentDeviceUID),
+            Predicate.withRemoteCryptoId(remoteCryptoId),
             Predicate.whereIsConfirmed(is: true),
         ])
         request.fetchBatchSize = 1_000
-        let items = try obvContext.fetch(request)
-        return items.map { $0.obvContext = obvContext; return $0 }
+        return try context.fetch(request)
     }
     
     
-    static func getAll(within obvContext: ObvContext) throws -> Set<ObvObliviousChannel> {
+    static func getAll(within context: NSManagedObjectContext) throws -> Set<ObvObliviousChannel> {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         request.fetchBatchSize = 1_000
-        return Set(try obvContext.fetch(request))
+        return Set(try context.fetch(request))
     }
 
     
-    static func delete(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func delete(currentDeviceUID: UID, remoteCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withCurrentDeviceUid(currentDeviceUid),
-            Predicate.withRemoteCryptoIdentity(remoteCryptoIdentity),
+            Predicate.withCurrentDeviceUID(currentDeviceUID),
+            Predicate.withRemoteCryptoId(remoteCryptoId),
         ])
-        let channels = try obvContext.fetch(request)
+        request.propertiesToFetch = []
+        let channels = try context.fetch(request)
         for channel in channels {
-            channel.obvContext = obvContext
-            obvContext.delete(channel)
+            try channel.deleteObvObliviousChannel()
         }
     }
     
     
-    static func delete(currentDeviceUid: UID, remoteDeviceUid: UID, remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func delete(currentDeviceUID: UID, remoteDeviceUID: UID, remoteCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withCurrentDeviceUid(currentDeviceUid),
-            Predicate.withRemoteDeviceUid(remoteDeviceUid),
-            Predicate.withRemoteCryptoIdentity(remoteIdentity),
+            Predicate.withCurrentDeviceUID(currentDeviceUID),
+            Predicate.withRemoteDeviceUID(remoteDeviceUID),
+            Predicate.withRemoteCryptoId(remoteCryptoId),
         ])
-        let channels = try obvContext.fetch(request)
+        let channels = try context.fetch(request)
         for channel in channels {
-            channel.obvContext = obvContext
-            obvContext.delete(channel)
+            try channel.deleteObvObliviousChannel()
         }
     }
 
     
-    static func getAllKnownRemoteDeviceUids(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
-        let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
-        let items = try obvContext.fetch(request)
-        _ = items.map { $0.obvContext = obvContext }
-        let values = Set(items.map { ObliviousChannelIdentifier(currentDeviceUid: $0.currentDeviceUid, remoteCryptoIdentity: $0.remoteCryptoIdentity, remoteDeviceUid: $0.remoteDeviceUid) })
-        return values
+    static func getAllObliviousChannelIdentifiers(within context: NSManagedObjectContext) throws -> Set<ObliviousChannelIdentifier> {
+        let request: NSFetchRequest<NSDictionary> = Self.dictionaryFetchRequest()
+        request.resultType = .dictionaryResultType
+        request.propertiesToFetch = [
+            Self.Predicate.Key.rawCurrentDeviceUID.rawValue,
+            Self.Predicate.Key.rawRemoteCryptoId.rawValue,
+            Self.Predicate.Key.rawRemoteDeviceUID.rawValue,
+        ]
+        request.includesPendingChanges = true
+        guard let results = try context.fetch(request) as? [[String: Data]] else { assertionFailure(); throw ObvError.couldNotCastFetchedResult }
+        let valuesToReturn: [ObliviousChannelIdentifier] = try results.map { dict in
+            // Extract values from dict
+            guard let rawCurrentDeviceUID = dict[Self.Predicate.Key.rawCurrentDeviceUID.rawValue] else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            guard let rawRemoteCryptoId = dict[Self.Predicate.Key.rawRemoteCryptoId.rawValue] else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            guard let rawRemoteDeviceUID = dict[Self.Predicate.Key.rawRemoteDeviceUID.rawValue] else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            // Cast extracted values
+            guard let currentDeviceUID = UID(uid: rawCurrentDeviceUID) else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            let remoteCryptoId = try ObvCryptoId(identity: rawRemoteCryptoId)
+            guard let remoteDeviceUID = UID(uid: rawRemoteDeviceUID) else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            // Return the expected type
+            return ObliviousChannelIdentifier(
+                currentDeviceUid: currentDeviceUID,
+                remoteCryptoIdentity: remoteCryptoId.cryptoIdentity,
+                remoteDeviceUid: remoteDeviceUID)
+        }
+        return Set(valuesToReturn)
     }
+
     
-    
-    static func deleteAllObliviousChannelsForCurrentDeviceUid(_ currentDeviceUid: UID, within obvContext: ObvContext) throws {
+    static func deleteAllObliviousChannelsForCurrentDeviceUID(_ currentDeviceUID: UID, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         request.fetchBatchSize = 500
-        request.predicate = Predicate.withCurrentDeviceUid(currentDeviceUid)
+        request.predicate = Predicate.withCurrentDeviceUID(currentDeviceUID)
         request.propertiesToFetch = []
-        let channels = try obvContext.fetch(request)
+        let channels = try context.fetch(request)
         for channel in channels {
-            channel.obvContext = obvContext
-            obvContext.delete(channel)
+            try channel.deleteObvObliviousChannel()
         }
     }
 
@@ -596,21 +586,25 @@ extension ObvObliviousChannel {
 extension ObvObliviousChannel: ObvNetworkChannel {
     
     var type: ObvProtocolReceptionChannelInfo {
-        return .obliviousChannel(remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: remoteDeviceUid)
+        get throws {
+            return try .obliviousChannel(
+                remoteCryptoIdentity: remoteCryptoId.cryptoIdentity,
+                remoteDeviceUid: remoteDeviceUID)
+        }
     }
     
     
     static func acceptableChannelsForPosting(_ message: ObvChannelMessageToSend, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvChannel] {
-        
+                
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvObliviousChannel.entityName)
-        
+
         guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
-            throw ObvObliviousChannel.makeError(message: "The identity delegate is not set")
+            Self.logger.fault("The identity delegate is not set")
+            throw ObvError.identityDelegateIsNil
         }
         
         guard let keyWrapper = delegateManager.keyWrapperForIdentityDelegate else {
-            os_log("The keyWrapperForIdentityDelegate is not set", log: log, type: .fault)
+            Self.logger.fault("The keyWrapperForIdentityDelegate is not set")
             throw ObvError.keyWrapperForIdentityDelegateIsNotSet
         }
         
@@ -619,8 +613,8 @@ extension ObvObliviousChannel: ObvNetworkChannel {
         do {
             let ownedCryptoId = message.channelType.fromOwnedIdentity
             guard try identityDelegate.isOwned(ownedCryptoId, within: obvContext) else {
-                os_log("The source identity of an Oblivious channel must be owned", log: log, type: .fault)
-                throw ObvObliviousChannel.makeError(message: "The source identity of an Oblivious channel must be owned")
+                Self.logger.fault("The source identity of an Oblivious channel must be owned")
+                throw ObvError.cryptoIdentityIsNotOwned
             }
         }
         
@@ -647,26 +641,16 @@ extension ObvObliviousChannel: ObvNetworkChannel {
             
             // Determine the appropriate channels
             
-            acceptableChannels = try getAllAcceptableChannels(ownedCryptoId: ownedCryptoId,
-                                                              remoteCryptoId: remoteCryptoId,
-                                                              remoteDeviceUids: appropriateRemoteDeviceUids,
-                                                              necessarilyConfirmed: necessarilyConfirmed,
-                                                              usePreKeyIfRequired: usePreKeyIfRequired,
-                                                              identityDelegate: identityDelegate,
-                                                              keyWrapper: keyWrapper,
-                                                              within: obvContext)
-                                    
-            // In the special case we are sending a protocol message that is part of a full ratchet protocol of the send seed, we must notify the channel
-            
-            if message.messageType == .ProtocolMessage, let protocolMessage = message as? ObvChannelProtocolMessageToSend {
-                let obliviousChannels = acceptableChannels.compactMap { $0 as? ObvObliviousChannel }
-                if protocolMessage.partOfFullRatchetProtocolOfTheSendSeed {
-                    for obliviousChannel in obliviousChannels {
-                        obliviousChannel.aMessageConcerningTheFullRatchetOfTheSendSeedWasSent()
-                    }
-                }
-            }
-                        
+            acceptableChannels = try getAllAcceptableChannels(
+                ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedCryptoId),
+                remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteCryptoId),
+                remoteDeviceUIDs: appropriateRemoteDeviceUids,
+                necessarilyConfirmed: necessarilyConfirmed,
+                usePreKeyIfRequired: usePreKeyIfRequired,
+                identityDelegate: identityDelegate,
+                keyWrapper: keyWrapper,
+                within: obvContext)
+
         case .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: let contactCryptoIds, fromOwnedIdentity: let ownedCryptoId, withUserContent: _, contactDeviceIdentifiersToExclude: let contactDeviceIdentifiersToExclude):
             
             let acceptableChannelsWithContacts = try getAcceptableConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(
@@ -712,9 +696,9 @@ extension ObvObliviousChannel: ObvNetworkChannel {
         case .confirmedObliviousChannelOrPreKeyChannelWithContactDevice(contactDevice: let contactDevice) :
 
             let acceptableChannelWithContact = try getAllAcceptableChannels(
-                ownedCryptoId: contactDevice.ownedCryptoId.cryptoIdentity,
-                remoteCryptoId: contactDevice.contactCryptoId.cryptoIdentity,
-                remoteDeviceUids: Set([contactDevice.deviceUID]),
+                ownedCryptoId: contactDevice.ownedCryptoId,
+                remoteCryptoId: contactDevice.contactCryptoId,
+                remoteDeviceUIDs: Set([contactDevice.deviceUID]),
                 necessarilyConfirmed: true,
                 usePreKeyIfRequired: true,
                 identityDelegate: identityDelegate,
@@ -730,7 +714,7 @@ extension ObvObliviousChannel: ObvNetworkChannel {
              .local,
              .userInterface,
              .serverQuery:
-            os_log("Wrong message channel type", log: log, type: .fault)
+            Self.logger.fault("Wrong message channel type")
             assertionFailure()
             acceptableChannels = []
         }
@@ -776,9 +760,9 @@ extension ObvObliviousChannel: ObvNetworkChannel {
         
         guard !contactDeviceUids.isEmpty else { return [] }
         
-        return try getAllAcceptableChannels(ownedCryptoId: ownedCryptoId,
-                                            remoteCryptoId: contactCryptoId,
-                                            remoteDeviceUids: contactDeviceUids,
+        return try getAllAcceptableChannels(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedCryptoId),
+                                            remoteCryptoId: ObvCryptoId(cryptoIdentity: contactCryptoId),
+                                            remoteDeviceUIDs: contactDeviceUids,
                                             necessarilyConfirmed: true,
                                             usePreKeyIfRequired: true,
                                             identityDelegate: identityDelegate,
@@ -793,9 +777,9 @@ extension ObvObliviousChannel: ObvNetworkChannel {
                 
         let otherOwnedDeviceUIDs = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedCryptoId, within: obvContext)
         
-        return try getAllAcceptableChannels(ownedCryptoId: ownedCryptoId,
-                                            remoteCryptoId: ownedCryptoId,
-                                            remoteDeviceUids: otherOwnedDeviceUIDs,
+        return try getAllAcceptableChannels(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedCryptoId),
+                                            remoteCryptoId: ObvCryptoId(cryptoIdentity: ownedCryptoId),
+                                            remoteDeviceUIDs: otherOwnedDeviceUIDs,
                                             necessarilyConfirmed: true,
                                             usePreKeyIfRequired: true,
                                             identityDelegate: identityDelegate,
@@ -806,27 +790,30 @@ extension ObvObliviousChannel: ObvNetworkChannel {
 
     
     /// Helper method useds by all other methods in order to determine acceptable channels (pure ``ObvObliviousChannel`` as well as ``PreKeyChannel`` if possible).
-    private static func getAllAcceptableChannels(ownedCryptoId: ObvCryptoIdentity, remoteCryptoId: ObvCryptoIdentity, remoteDeviceUids: Set<UID>, necessarilyConfirmed: Bool, usePreKeyIfRequired: Bool, identityDelegate: ObvIdentityDelegate, keyWrapper: any ObvKeyWrapperForIdentityDelegate, within obvContext: ObvContext) throws -> [ObvChannel] {
+    private static func getAllAcceptableChannels(ownedCryptoId: ObvCryptoId, remoteCryptoId: ObvCryptoId, remoteDeviceUIDs: Set<UID>, necessarilyConfirmed: Bool, usePreKeyIfRequired: Bool, identityDelegate: ObvIdentityDelegate, keyWrapper: any ObvKeyWrapperForIdentityDelegate, within obvContext: ObvContext) throws -> [ObvChannel] {
         
-        guard try identityDelegate.isOwned(ownedCryptoId, within: obvContext) else {
+        guard try identityDelegate.isOwned(ownedCryptoId.cryptoIdentity, within: obvContext) else {
             throw ObvError.cryptoIdentityIsNotOwned
         }
 
-        let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedCryptoId, within: obvContext)
+        let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedCryptoId.cryptoIdentity, within: obvContext)
         
         // Determine all the appropriate available Oblivious channels
         
         let obliviousChannels: [ObvObliviousChannel]
         
         do {
-            let channels = try ObvObliviousChannel.get(currentDeviceUid: currentDeviceUid,
-                                                       remoteCryptoIdentity: remoteCryptoId,
-                                                       remoteDeviceUids: Array(remoteDeviceUids),
-                                                       necessarilyConfirmed: necessarilyConfirmed,
-                                                       within: obvContext)
+            let channels = try ObvObliviousChannel.get(
+                currentDeviceUID: currentDeviceUid,
+                remoteCryptoId: remoteCryptoId,
+                remoteDeviceUIDs: Array(remoteDeviceUIDs),
+                necessarilyConfirmed: necessarilyConfirmed,
+                within: obvContext.context)
             
-            let acceptableChannels = channels.filter { $0.cryptoSuiteVersion >= ObvCryptoSuite.sharedInstance.minAcceptableVersion }
-            obliviousChannels = acceptableChannels.map { $0.obvContext = obvContext; return $0 }
+            let acceptableChannels = channels.filter {
+                $0.cryptoSuiteVersion >= ObvCryptoSuite.sharedInstance.minAcceptableVersion
+            }
+            obliviousChannels = acceptableChannels
         }
         
         // If we are not allowed to use pre-keys, we return the oblivious channels
@@ -837,7 +824,7 @@ extension ObvObliviousChannel: ObvNetworkChannel {
         
         // If we have an oblivious channel with each device, we are done
         
-        let devicesWithoutChannel = Set(remoteDeviceUids).subtracting(Set(obliviousChannels.map(\.remoteDeviceUid)))
+        let devicesWithoutChannel = Set(remoteDeviceUIDs).subtracting(Set( try obliviousChannels.map({ try $0.remoteDeviceUID })))
 
         guard !devicesWithoutChannel.isEmpty else {
             return obliviousChannels
@@ -849,13 +836,16 @@ extension ObvObliviousChannel: ObvNetworkChannel {
         
         do {
 
-            let devicesWithPrekeys = try identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ownedCryptoId, remoteCryptoId: remoteCryptoId, within: obvContext)
+            let devicesWithPrekeys = try identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(
+                ownedCryptoId: ownedCryptoId.cryptoIdentity,
+                remoteCryptoId: remoteCryptoId.cryptoIdentity,
+                within: obvContext)
             let devicesForPreKeys = devicesWithoutChannel.intersection(devicesWithPrekeys)
             preKeyChannels = devicesForPreKeys.map { remoteDeviceUID in
                 PreKeyChannel(keyWrapper: keyWrapper,
                               remoteDeviceUID: remoteDeviceUID,
-                              remoteCryptoId: remoteCryptoId,
-                              ownedIdentity: ownedCryptoId,
+                              remoteCryptoId: remoteCryptoId.cryptoIdentity,
+                              ownedIdentity: ownedCryptoId.cryptoIdentity,
                               obvContext: obvContext)
             }
 
@@ -877,66 +867,88 @@ extension ObvObliviousChannel: ObvNetworkChannel {
 
 extension ObvObliviousChannel {
     
-    private struct NotificationRelatedChanges: OptionSet {
-        let rawValue: UInt8
-        static let isConfirmed = NotificationRelatedChanges(rawValue: 1 << 0)
+
+    public override func willSave() {
+        super.willSave()
+        changedKeys = Set<String>(self.changedValues().keys)
     }
 
-    
     override func didSave() {
         super.didSave()
         
         defer {
-            notificationRelatedChanges = [] // Ensure the notifications are set only once
+            changedKeys.removeAll()
+            requestFullRatchetOfTheSendSeedOnSave = false
         }
         
         if isDeleted {
             //assertionFailure("This assertion shall be deleted. We are just trying to understand when a channel can be deleted")
         }
         
-        let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: ObvObliviousChannel.entityName)
-        
-        guard let notificationDelegate = ObvObliviousChannel.delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+        guard let delegateManager = Self.delegateManager else {
+            Self.logger.fault("The delegate manager is nil")
+            assertionFailure()
+            return
+        }
+                
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            Self.logger.fault("The notification delegate is not set")
+            assertionFailure()
             return
         }
         
-        if self.requiresFullRatchet {
-            if let fullRatchetProtocolStarterDelegate = ObvObliviousChannel.delegateManager.fullRatchetProtocolStarterDelegate {
-                let currentDeviceUid = self.currentDeviceUid
-                let remoteDeviceUid = self.remoteDeviceUid
-                let remoteCryptoIdentity = self.remoteCryptoIdentity
-                DispatchQueue(label: "Queue for starting a full ratchet of the current (send) Oblivious channel").async {
-                    do {
-                        try fullRatchetProtocolStarterDelegate.startFullRatchetProtocolForObliviousChannelBetween(currentDeviceUid: currentDeviceUid,
-                                                                                                                  andRemoteDeviceUid: remoteDeviceUid,
-                                                                                                                  ofRemoteIdentity: remoteCryptoIdentity)
-                    } catch {
-                        os_log("Could not start full ratchet protocol", log: log, type: .fault)
-                        assertionFailure()
+        if requestFullRatchetOfTheSendSeedOnSave {
+            if let fullRatchetProtocolStarterDelegate = delegateManager.fullRatchetProtocolStarterDelegate {
+                do {
+                    let currentDeviceUid = try self.currentDeviceUID
+                    let remoteDeviceUid = try self.remoteDeviceUID
+                    let remoteCryptoIdentity = try self.remoteCryptoId.cryptoIdentity
+                    DispatchQueue(label: "Queue for starting a full ratchet of the current (send) Oblivious channel").async {
+                        do {
+                            Self.logger.info("Sending a request to start a full ratchet protocol")
+                            try fullRatchetProtocolStarterDelegate.startFullRatchetProtocolForObliviousChannelBetween(
+                                currentDeviceUid: currentDeviceUid,
+                                andRemoteDeviceUid: remoteDeviceUid,
+                                ofRemoteIdentity: remoteCryptoIdentity)
+                        } catch {
+                            Self.logger.fault("Could not start full ratchet protocol: \(error)")
+                            assertionFailure()
+                        }
                     }
+                } catch {
+                    Self.logger.fault("Could not start full ratchet protocol: \(error)")
                 }
             } else {
-                os_log("The Oblivious Channel Full Ratchet Protocol Starter Delegate is not set", log: log, type: .fault)
+                Self.logger.fault("The Oblivious Channel Full Ratchet Protocol Starter Delegate is not set")
                 assertionFailure()
             }
         }
         
-        if self.isConfirmed && notificationRelatedChanges.contains(.isConfirmed) {
+        if self.isConfirmed && changedKeys.contains(Predicate.Key.isConfirmed.rawValue) {
             
-            os_log("Posting a NewConfirmedObliviousChannel notification", log: log, type: .debug)
-            ObvChannelNotification.newConfirmedObliviousChannel(currentDeviceUid: currentDeviceUid,
-                                                                remoteCryptoIdentity: remoteCryptoIdentity,
-                                                                remoteDeviceUid: remoteDeviceUid)
-            .postOnBackgroundQueue(within: notificationDelegate)
+            Self.logger.debug("Posting a newConfirmedObliviousChannel notification")
+            do {
+                try ObvChannelNotification.newConfirmedObliviousChannel(
+                    currentDeviceUid: currentDeviceUID,
+                    remoteCryptoIdentity: remoteCryptoId.cryptoIdentity,
+                    remoteDeviceUid: remoteDeviceUID)
+                .postOnBackgroundQueue(within: notificationDelegate)
+            } catch {
+                Self.logger.error("Could not post a newConfirmedObliviousChannel notification: \(error)")
+            }
 
         } else if isDeleted && self.isConfirmed {
             
-            os_log("Posting a DeletedConfirmedObliviousChannel notification", log: log, type: .debug)
-            ObvChannelNotification.deletedConfirmedObliviousChannel(currentDeviceUid: currentDeviceUid,
-                                                                    remoteCryptoIdentity: remoteCryptoIdentity,
-                                                                    remoteDeviceUid: remoteDeviceUid)
-            .postOnBackgroundQueue(within: notificationDelegate)
+            Self.logger.debug("Posting a deletedConfirmedObliviousChannel notification")
+            do {
+                try ObvChannelNotification.deletedConfirmedObliviousChannel(
+                    currentDeviceUid: currentDeviceUID,
+                    remoteCryptoIdentity: remoteCryptoId.cryptoIdentity,
+                    remoteDeviceUid: remoteDeviceUID)
+                .postOnBackgroundQueue(within: notificationDelegate)
+            } catch {
+                Self.logger.error("Could not post a deletedConfirmedObliviousChannel notification: \(error)")
+            }
 
         }
         

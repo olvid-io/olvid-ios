@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,6 +39,15 @@ public struct ObvContactDeviceIdentifier: Hashable, Sendable {
 
     public init(contactIdentifier: ObvContactIdentifier, deviceUID: UID) {
         self.init(ownedCryptoId: contactIdentifier.ownedCryptoId, contactCryptoId: contactIdentifier.contactCryptoId, deviceUID: deviceUID)
+    }
+    
+}
+
+
+extension ObvContactDeviceIdentifier: Identifiable {
+    
+    public var id: Data {
+        ownedCryptoId.getIdentity() + contactCryptoId.getIdentity() + deviceUID.raw
     }
     
 }

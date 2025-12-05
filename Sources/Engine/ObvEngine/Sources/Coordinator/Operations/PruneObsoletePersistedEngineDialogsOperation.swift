@@ -34,8 +34,8 @@ final class PruneObsoletePersistedEngineDialogsOperation: ContextualOperationWit
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         do {
-            let dialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext)
-            let dialogsToDelete = dialogs.filter({ $0.dialogIsObsolete })
+            let dialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext.context)
+            let dialogsToDelete = try dialogs.filter({ try $0.dialogIsObsolete })
             guard !dialogsToDelete.isEmpty else { return }
             try dialogsToDelete.forEach {
                 try $0.delete()

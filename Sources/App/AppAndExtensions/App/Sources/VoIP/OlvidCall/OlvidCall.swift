@@ -380,13 +380,8 @@ extension OlvidCall {
         
     }
     
-    
-    func callViewDidDisappear() async {
-        await stopVideoCamera()
-    }
-    
-    
-    func callViewDidAppear() async {
+
+    func startVideoCameraIfAppropriate() async {
         os_log("☎️ callViewDidDisappear", log: Self.log, type: .info)
         try? await Task.sleep(milliseconds: 500) // Required to make things work when entering foreground
         guard userWantsToStreamSelfVideo else { return }
@@ -517,7 +512,20 @@ extension OlvidCall {
     private func reactToAppLifecycleNotifications() {
         NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
             .sink { [weak self] _ in
-                Task { [weak self] in await self?.stopVideoCamera() }
+                #if targetEnvironment(macCatalyst)
+                    // Do not stop the camera
+                #else
+                    Task { [weak self] in await self?.stopVideoCamera() }
+                #endif
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                #if targetEnvironment(macCatalyst)
+                    // Do not stop the camera
+                #else
+                    Task { [weak self] in await self?.startVideoCameraIfAppropriate() }
+                #endif
             }
             .store(in: &cancellables)
     }

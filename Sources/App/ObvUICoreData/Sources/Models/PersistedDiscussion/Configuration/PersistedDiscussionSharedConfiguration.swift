@@ -83,7 +83,7 @@ public final class PersistedDiscussionSharedConfiguration: NSManagedObject {
     
     // MARK: - Observers
     
-    private static var observersHolder = ObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
     
     public static func addObvObserver(_ newObserver: PersistedDiscussionSharedConfigurationObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -178,7 +178,7 @@ extension PersistedDiscussionSharedConfiguration {
 
 
     /// Exclusively called from ``PersistedDiscussion.mergeReceivedDiscussionSharedConfiguration(_:)``. Shall not be called from elsewhere.
-    func mergePersistedDiscussionSharedConfiguration(with remoteConfig: PersistedDiscussion.SharedConfiguration) throws -> (sharedSettingHadToBeUpdated: Bool, weShouldSendBackOurSharedSettings: Bool) {
+    func mergePersistedDiscussionSharedConfiguration(with remoteConfig: PersistedDiscussion.SharedConfiguration) -> (sharedSettingHadToBeUpdated: Bool, weShouldSendBackOurSharedSettings: Bool) {
                 
         let weShouldSendBackOurSharedSettingsIfAllowedTo: Bool
         let sharedSettingHadToBeUpdated: Bool
@@ -418,7 +418,7 @@ extension PersistedDiscussionSharedConfiguration {
                 changedKeys.contains(Predicate.Key.readOnce.rawValue) {
                 if let ownedCryptoId = self.discussion?.ownedIdentity?.cryptoId {
                     Task {
-                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionSharedConfigurationChanged(ownedCryptoId: ownedCryptoId)
+                        await PersistedDiscussionSharedConfiguration.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionSharedConfigurationChanged(ownedCryptoId: ownedCryptoId)
                     }
                 } else {
                     assertionFailure()
@@ -492,7 +492,7 @@ struct PersistedDiscussionSharedConfigurationSyncSnapshotItem: Codable, Hashable
 
 // MARK: - PersistedDiscussionSharedConfiguration observers
 
-public protocol PersistedDiscussionSharedConfigurationObserver: AnyObject {
+public protocol PersistedDiscussionSharedConfigurationObserver: AnyObject, Sendable {
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionSharedConfigurationChanged(ownedCryptoId: ObvCryptoId) async
 }
 

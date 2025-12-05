@@ -53,7 +53,11 @@ public extension NSPredicate {
     }
 
     convenience init<T: RawRepresentable>(_ key: T, LessThanInt int: Int) where T.RawValue == String {
-        self.init(format: "%K < %d", key.rawValue, int)
+        self.init(key.rawValue, LessThanInt: int)
+    }
+
+    convenience init(_ rawKey: String, LessThanInt int: Int) {
+        self.init(format: "%K < %d", rawKey, int)
     }
 
     convenience init<T: RawRepresentable>(_ key: T, LessOrEqualThanInt int: Int) where T.RawValue == String {
@@ -207,6 +211,10 @@ public extension NSPredicate {
     
     convenience init<T: RawRepresentable>(withStrictlyMoreThanOneCountForKey key: T) where T.RawValue == String {
         self.init(format: "%K.@count > 1", key.rawValue)
+    }
+
+    convenience init<T: RawRepresentable>(withCount count: Int, forKey key: T) where T.RawValue == String {
+        self.init(format: "%K.@count == %d", key.rawValue, count)
     }
 
     convenience init<T: RawRepresentable>(containsText text: String, forKey key: T) where T.RawValue == String {

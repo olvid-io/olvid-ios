@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 import ObvCrypto
 import ObvEncoder
@@ -34,47 +34,45 @@ final class ContactGroupDetailsLatest: ContactGroupDetails {
     
     private static let entityName = "ContactGroupDetailsLatest"
     private static let errorDomain = String(describing: ContactGroupDetailsLatest.self)
-    private static let contactGroupOwnedKey = "contactGroupOwned"
     
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: ContactGroupDetailsLatest.logSubsystem, category: "ContactGroupDetailsLatest") }()
+
     // MARK: Relationships
     
-    private(set) var contactGroupOwned: ContactGroupOwned {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: ContactGroupDetailsLatest.contactGroupOwnedKey) as! ContactGroupOwned
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: ContactGroupDetailsLatest.contactGroupOwnedKey)
-        }
-    }
+    @NSManaged private(set) var contactGroupOwned: ContactGroupOwned
     
     // MARK: - Initializer
     
-    convenience init(contactGroupOwned: ContactGroupOwned, groupDetailsElementsWithPhoto: GroupDetailsElementsWithPhoto, delegateManager: ObvIdentityDelegateManager) throws {
+    convenience init(contactGroupOwned: ContactGroupOwned, groupDetailsElementsWithPhoto: GroupDetailsElementsWithPhoto) throws {
         
-        guard let obvContext = contactGroupOwned.obvContext else {
+        guard let context = contactGroupOwned.managedObjectContext else {
             throw ObvIdentityManagerError.contextIsNil
         }
         
         try self.init(groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                      delegateManager: delegateManager,
                       forEntityName: ContactGroupDetailsLatest.entityName,
-                      within: obvContext)
+                      within: context)
 
         self.contactGroupOwned = contactGroupOwned
 
     }
 
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    convenience init(backupItem: ContactGroupDetailsBackupItem, within obvContext: ObvContext) {
-        self.init(backupItem: backupItem, forEntityName: ContactGroupDetailsLatest.entityName, within: obvContext)
+    convenience init(backupItem: ContactGroupDetailsBackupItem, within context: NSManagedObjectContext) {
+        self.init(backupItem: backupItem, forEntityName: ContactGroupDetailsLatest.entityName, within: context)
     }
 
     
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
-    convenience init(snapshotNode: ContactGroupDetailsSyncSnapshotNode, within obvContext: ObvContext) {
-        self.init(snapshotNode: snapshotNode, forEntityName: ContactGroupDetailsLatest.entityName, within: obvContext)
+    convenience init(snapshotNode: ContactGroupDetailsSyncSnapshotNode, within context: NSManagedObjectContext) {
+        self.init(snapshotNode: snapshotNode, forEntityName: ContactGroupDetailsLatest.entityName, within: context)
     }
 
+    struct Predicate {
+        enum Key: String {
+            case contactGroupOwned = "contactGroupOwned"
+        }
+    }
+    
 }

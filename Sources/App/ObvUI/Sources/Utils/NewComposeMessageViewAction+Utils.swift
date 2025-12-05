@@ -41,6 +41,8 @@ public extension NewComposeMessageViewSortableAction {
             return .person2Circle
         case .shareLocation:
             return .locationCircle
+        case .createPoll:
+            return .chartBarYaxis
         }
     }
 

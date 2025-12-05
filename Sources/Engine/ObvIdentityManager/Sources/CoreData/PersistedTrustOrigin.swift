@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,59 +18,116 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvCrypto
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
 import ObvEncoder
+import ObvTypes
 
 
 @objc(PersistedTrustOrigin)
-final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
+final class PersistedTrustOrigin: NSManagedObject {
     
     // MARK: Internal constants
     
     private static let entityName = "PersistedTrustOrigin"
-    private static let contactKey = "contact"
     
+    static weak var delegateManager: ObvIdentityDelegateManager?
+    
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: PersistedTrustOrigin.logSubsystem, category: "PersistedTrustOrigin") }()
+
     // MARK: Attributes
 
     @NSManaged private var identityServer: URL?
-    @NSManaged private var mediatorOrGroupOwnerCryptoIdentity: ObvCryptoIdentity?
     @NSManaged private var mediatorOrGroupOwnerTrustLevelMajor: NSNumber?
+    @NSManaged private var rawMediatorOrGroupOwnerCryptoIdentity: Data?
     @NSManaged private var rawObvGroupV2Identifier: Data?
     @NSManaged private(set) var timestamp: Date
     @NSManaged private var trustTypeRaw: Int
     
     // MARK: Relationships
     
-    private(set) var contact: ContactIdentity {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: PersistedTrustOrigin.contactKey) as! ContactIdentity
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: PersistedTrustOrigin.contactKey)
-        }
-    }
+    @NSManaged private(set) var contact: ContactIdentity? // Non-optional in the model
     
     // MARK: Other variables
     
-    private var delegateManager: ObvIdentityDelegateManager?
-    weak var obvContext: ObvContext?
+    var mediatorOrGroupOwnerCryptoIdentity: ObvCryptoIdentity? {
+        guard let rawMediatorOrGroupOwnerCryptoIdentity else { return nil }
+        guard let cryptoIdentity = ObvCryptoIdentity(from: rawMediatorOrGroupOwnerCryptoIdentity) else { assertionFailure(); return nil }
+        return cryptoIdentity
+    }
     
+    var mediatorOrGroupOwnerCryptoId: ObvCryptoId? {
+        guard let mediatorOrGroupOwnerCryptoIdentity else { return nil }
+        let cryptoId = ObvCryptoId(cryptoIdentity: mediatorOrGroupOwnerCryptoIdentity)
+        return cryptoId
+    }
+    
+    var groupIdentifier: ObvGroupV2.Identifier? {
+        guard let rawObvGroupV2Identifier else { return nil }
+        guard let encoded = ObvEncoded(withRawData: rawObvGroupV2Identifier) else { assertionFailure(); return nil }
+        guard let identifier = ObvGroupV2.Identifier(encoded) else { assertionFailure(); return nil }
+        return identifier
+    }
+    
+    var obvTrustOrigin: ObvTrustOrigin {
+        get throws {
+            guard let contactIdentifier = contact?.contactIdentifier else {
+                assertionFailure()
+                throw ObvIdentityManagerError.cannotDetermineContactIdentifier
+            }
+            for raw in TrustTypeRaw.allCases {
+                guard self.trustTypeRaw == raw.rawValue else { continue }
+                switch raw {
+                case .direct:
+                    return .direct(contactIdentifier: contactIdentifier, timestamp: timestamp)
+                case .group:
+                    guard let groupOwner = self.mediatorOrGroupOwnerCryptoId else {
+                        throw ObvIdentityManagerError.couldNotDetermineMediatorOrGroupOwned
+                    }
+                    return .group(contactIdentifier: contactIdentifier, timestamp: timestamp, groupOwner: groupOwner)
+                case .introduction:
+                    guard let mediator = self.mediatorOrGroupOwnerCryptoId else {
+                        throw ObvIdentityManagerError.couldNotDetermineMediatorOrGroupOwned
+                    }
+                    return .introduction(contactIdentifier: contactIdentifier, timestamp: timestamp, mediator: mediator)
+                case .keycloak:
+                    guard let identityServer else {
+                        throw ObvIdentityManagerError.identityServerIsNil
+                    }
+                    return .keycloak(contactIdentifier: contactIdentifier, timestamp: timestamp, keycloakServer: identityServer)
+                case .serverGroupV2:
+                    guard let groupIdentifier else {
+                        throw ObvIdentityManagerError.cannotDetermineGroupIdentifier
+                    }
+                    return .serverGroupV2(contactIdentifier: contactIdentifier, timestamp: timestamp, groupIdentifier: groupIdentifier)
+                }
+            }
+            throw ObvIdentityManagerError.cannotDetermineObvTrustOrigin
+        }
+    }
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvObserver(_ newObserver: PersistedTrustOriginObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
     // MARK: - Initializer
     
     // Must be called from ContactIdentity and from nowhere else
-    convenience init?(trustOrigin: TrustOrigin, contact: ContactIdentity, delegateManager: ObvIdentityDelegateManager) {
+    convenience init?(trustOrigin: TrustOrigin, contact: ContactIdentity) {
         
-        guard let obvContext = contact.obvContext else { return nil }
+        guard let context = contact.managedObjectContext else { assertionFailure(); return nil }
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedTrustOrigin.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedTrustOrigin.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         
         guard let ownedIdentity = contact.ownedIdentity else {
             assertionFailure("Could not find owned identity associated to the contact")
@@ -81,7 +138,7 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
         self.timestamp = trustOrigin.timestamp
         switch trustOrigin {
         case .direct:
-            self.mediatorOrGroupOwnerCryptoIdentity = nil
+            self.rawMediatorOrGroupOwnerCryptoIdentity = nil
             self.mediatorOrGroupOwnerTrustLevelMajor = nil
             self.identityServer = nil
             self.rawObvGroupV2Identifier = nil
@@ -89,9 +146,8 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
              .introduction(timestamp: _, mediator: let cryptoIdentity):
             guard let mediatorOrGroupOwner = try? ContactIdentity.get(contactIdentity: cryptoIdentity,
                                                                       ownedIdentity: ownedIdentity.cryptoIdentity,
-                                                                      delegateManager: delegateManager,
-                                                                      within: obvContext) else { return nil }
-            self.mediatorOrGroupOwnerCryptoIdentity = cryptoIdentity
+                                                                      within: context) else { return nil }
+            self.rawMediatorOrGroupOwnerCryptoIdentity = cryptoIdentity.getIdentity()
             self.mediatorOrGroupOwnerTrustLevelMajor = NSNumber(value: mediatorOrGroupOwner.trustLevel.major)
             self.identityServer = nil
             self.rawObvGroupV2Identifier = nil
@@ -104,8 +160,6 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
         
         self.contact = contact
         
-        self.delegateManager = delegateManager
-        
         // Sanity checks
         guard self.trustOrigin != nil else { assertionFailure(); return nil }
         guard self.trustLevel != nil else { assertionFailure(); return nil }
@@ -113,11 +167,11 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
     }
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(backupItem: PersistedTrustOriginBackupItem, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedTrustOrigin.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(backupItem: PersistedTrustOriginBackupItem, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedTrustOrigin.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.identityServer = backupItem.identityServer
-        self.mediatorOrGroupOwnerCryptoIdentity = backupItem.mediatorOrGroupOwnerCryptoIdentity
+        self.rawMediatorOrGroupOwnerCryptoIdentity = backupItem.mediatorOrGroupOwnerCryptoIdentity?.getIdentity()
         self.mediatorOrGroupOwnerTrustLevelMajor = backupItem.mediatorOrGroupOwnerTrustLevelMajor
         self.timestamp = backupItem.timestamp
         self.trustTypeRaw = backupItem.trustTypeRaw
@@ -126,17 +180,83 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
     
     
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(snapshotItem: PersistedTrustOriginSyncSnapshotItem, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedTrustOrigin.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(snapshotItem: PersistedTrustOriginSyncSnapshotItem, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedTrustOrigin.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.identityServer = snapshotItem.identityServer
-        self.mediatorOrGroupOwnerCryptoIdentity = snapshotItem.mediatorOrGroupOwnerCryptoIdentity
+        self.rawMediatorOrGroupOwnerCryptoIdentity = snapshotItem.mediatorOrGroupOwnerCryptoIdentity?.getIdentity()
         self.mediatorOrGroupOwnerTrustLevelMajor = snapshotItem.mediatorOrGroupOwnerTrustLevelMajor
         self.timestamp = snapshotItem.timestamp
         self.trustTypeRaw = snapshotItem.trustTypeRaw
         self.rawObvGroupV2Identifier = snapshotItem.rawObvGroupV2Identifier
     }
 
+    
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case identityServer = "identityServer"
+            case mediatorOrGroupOwnerTrustLevelMajor = "mediatorOrGroupOwnerTrustLevelMajor"
+            case rawMediatorOrGroupOwnerCryptoIdentity = "rawMediatorOrGroupOwnerCryptoIdentity"
+            case rawObvGroupV2Identifier = "rawObvGroupV2Identifier"
+            case timestamp = "timestamp"
+            case trustTypeRaw = "trustTypeRaw"
+            // Relationships
+            case contact = "contact"
+        }
+        static var withNonNilContact: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.contact)
+        }
+        static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            let key: String = [Key.contact.rawValue, ContactIdentity.Predicate.Key.ownedIdentityIdentity.rawValue].joined(separator: ".")
+            return NSPredicate(key, EqualToData: ownedCryptoId.getIdentity())
+        }
+        static func withContactCryptoId(_ contactCryptoId: ObvCryptoId) -> NSPredicate {
+            let key: String = [Key.contact.rawValue, ContactIdentity.Predicate.Key.rawIdentity.rawValue].joined(separator: ".")
+            return NSPredicate(key, EqualToData: contactCryptoId.getIdentity())
+        }
+        fileprivate static func withContactIdentifier(_ contactIdentifier: ObvContactIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withNonNilContact,
+                withOwnedCryptoId(contactIdentifier.ownedCryptoId),
+                withContactCryptoId(contactIdentifier.contactCryptoId),
+            ])
+        }
+    }
+    
+    @nonobjc class func fetchRequest() -> NSFetchRequest<PersistedTrustOrigin> {
+        return NSFetchRequest<PersistedTrustOrigin>(entityName: PersistedTrustOrigin.entityName)
+    }
+
+    static func getFetchedResultsController(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedTrustOrigin> {
+        
+        let request: NSFetchRequest<PersistedTrustOrigin> = PersistedTrustOrigin.fetchRequest()
+        request.predicate = Self.Predicate.withContactIdentifier(contactIdentifier)
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestamp.rawValue, ascending: false)]
+        request.fetchBatchSize = 1_000
+        let frc = NSFetchedResultsController(
+            fetchRequest: request,
+            managedObjectContext: context,
+            sectionNameKeyPath: nil,
+            cacheName: nil)
+        return frc
+    }
+    
+    
+    static func getEarliestDate(in context: NSManagedObjectContext) throws -> Date? {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+        request.resultType = .dictionaryResultType
+        request.propertiesToFetch = [Predicate.Key.timestamp.rawValue]
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestamp.rawValue, ascending: true)]
+        request.fetchLimit = 1
+        guard let results = try context.fetch(request) as? [[String: Date]] else { assertionFailure(); throw ObvIdentityManagerError.couldNotCastFetchedResult }
+        let timestamps = try results.map { dict in
+            guard let timestamp = dict[Predicate.Key.timestamp.rawValue] else { assertionFailure(); throw ObvIdentityManagerError.couldNotCastFetchedResult }
+            return timestamp
+        }
+        return timestamps.first
+    }
+    
 }
 
 
@@ -194,17 +314,48 @@ extension PersistedTrustOrigin {
 }
 
 
+// MARK: - Notifications on save
+
+extension PersistedTrustOrigin {
+    
+    override func didSave() {
+        super.didSave()
+        
+        if self.isInserted {
+            do {
+                let obvTrustOrigin = try self.obvTrustOrigin
+                Task {
+                    await Self.observersHolder.aPersistedTrustOriginWasInserted(trustOrigin: obvTrustOrigin)
+                }
+            } catch {
+                assertionFailure()
+            }
+        }
+        
+    }
+    
+}
+
+
 // MARK: - Private TrustOrigin extension
+
+private enum TrustTypeRaw: Int, CaseIterable {
+    case direct = 0
+    case group = 1
+    case introduction = 2
+    case keycloak = 3
+    case serverGroupV2 = 4
+}
 
 private extension TrustOrigin {
     
     var trustTypeRaw: Int {
         switch self {
-        case .direct: return 0
-        case .group: return 1
-        case .introduction: return 2
-        case .keycloak: return 3
-        case .serverGroupV2: return 4
+        case .direct: return TrustTypeRaw.direct.rawValue
+        case .group: return TrustTypeRaw.group.rawValue
+        case .introduction: return TrustTypeRaw.introduction.rawValue
+        case .keycloak: return TrustTypeRaw.keycloak.rawValue
+        case .serverGroupV2: return TrustTypeRaw.serverGroupV2.rawValue
         }
     }
     
@@ -308,12 +459,12 @@ struct PersistedTrustOriginBackupItem: Codable, Hashable {
         self.rawObvGroupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .rawObvGroupV2Identifier)
     }
  
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-        let persistedTrustOrigin = PersistedTrustOrigin(backupItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout BackupItemObjectAssociations) throws {
+        let persistedTrustOrigin = PersistedTrustOrigin(backupItem: self, within: context)
         try associations.associate(persistedTrustOrigin, to: self)
     }
     
-    func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
 }
@@ -403,19 +554,54 @@ struct PersistedTrustOriginSyncSnapshotItem: Codable, Hashable, Identifiable {
     }
  
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
-        let persistedTrustOrigin = PersistedTrustOrigin(snapshotItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let persistedTrustOrigin = PersistedTrustOrigin(snapshotItem: self, within: context)
         try associations.associate(persistedTrustOrigin, to: self)
     }
     
     
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
     
     
     enum ObvError: Error {
         case couldNotParseIdentity
+    }
+    
+}
+
+
+// MARK: - PersistedTrustOrigin observers
+
+protocol PersistedTrustOriginObserver: AnyObject {
+    func aPersistedTrustOriginWasInserted(trustOrigin: ObvTypes.ObvTrustOrigin) async
+}
+
+
+private actor ObserversHolder: PersistedTrustOriginObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PersistedTrustOriginObserver?
+        init(value: PersistedTrustOriginObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: PersistedTrustOriginObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing PersistedTrustOriginObserver
+
+    func aPersistedTrustOriginWasInserted(trustOrigin: ObvTypes.ObvTrustOrigin) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedTrustOriginWasInserted(trustOrigin: trustOrigin) }
+            }
+        }
     }
     
 }

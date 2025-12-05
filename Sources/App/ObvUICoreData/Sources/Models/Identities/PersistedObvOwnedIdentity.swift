@@ -30,6 +30,7 @@ import ObvEncoder
 import Contacts
 import ObvAppTypes
 import ObvUICoreDataStructs
+import ObvAppCoreConstants
 
 
 @objc(PersistedObvOwnedIdentity)
@@ -109,6 +110,38 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
         customDisplayName ?? fullDisplayName
     }
 
+    public var customOrNormalDisplayName: String {
+        return customDisplayName ?? mediumOriginalName
+    }
+    
+    public var customOrShortDisplayName: String {
+        return customDisplayName ?? shortOriginalName
+    }
+    
+    public var shortOriginalName: String {
+        guard let personNameComponents else { assertionFailure(); return fullDisplayName }
+        let formatter = PersonNameComponentsFormatter()
+        formatter.style = .short
+        return formatter.string(from: personNameComponents)
+    }
+
+    var mediumOriginalName: String {
+        guard let personNameComponents else { assertionFailure(); return fullDisplayName }
+        let formatter = PersonNameComponentsFormatter()
+        formatter.style = .medium
+        return formatter.string(from: personNameComponents)
+    }
+    
+    public var personNameComponents: PersonNameComponents? {
+        var pnc = identityCoreDetails.personNameComponents
+        pnc.nickname = customDisplayName
+        return pnc
+    }
+    
+    public var ownedCryptoId: ObvTypes.ObvCryptoId {
+        self.cryptoId
+    }
+
     private var changedKeys = Set<String>()
 
     public private(set) var apiKeyStatus: APIKeyStatus {
@@ -122,6 +155,10 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
                     let anotherProfileHasValiAPIKey = (try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context).first(where: { $0.rawAPIKeyStatus == APIKeyStatus.valid.rawValue })) != nil
                     if anotherProfileHasValiAPIKey {
                         return .anotherOwnedIdentityHasValidAPIKey
+                    }
+                    let anotherProfileHasFreeTrial = (try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context).first(where: { $0.rawAPIKeyStatus == APIKeyStatus.freeTrial.rawValue })) != nil
+                    if anotherProfileHasFreeTrial {
+                        return .freeTrial
                     }
                 }
                 return localStatus
@@ -137,10 +174,16 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
             return APIPermissions(rawValue: rawAPIPermissions)
         }
         set {
+            if oldRawAPIPermissions == nil {
+                oldRawAPIPermissions = self.rawAPIPermissions
+            }
             rawAPIPermissions = newValue.rawValue
         }
     }
     
+    /// When updating the `APIPermissions` of an owned identity, we save the original old value
+    /// so as to make it possible to include it in the notification.
+    private var oldRawAPIPermissions: Int?
     
     /// If this owned identity has the canCall permission, this method returns her crypto Id. Otherwise, it looks for another owned identity allowed to emit a call. If one is found, this methods returns her owned identity.
     /// If no owned identity has the canCall permission, this method returns `nil`.
@@ -181,7 +224,7 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     public var apiKeyElements: APIKeyElements {
         return APIKeyElements(
             status: apiKeyStatus,
-            permissions: apiPermissions,
+            permissions: effectiveAPIPermissions,
             expirationDate: apiKeyExpirationDate)
     }
     
@@ -217,6 +260,17 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
         return badgeCountForDiscussionsTab + badgeCountForInvitationsTab
     }
     
+    public var role: String? {
+        if let company = identityCoreDetails.company, let position = identityCoreDetails.position {
+            return position + " @ " + company
+        } else if let position = identityCoreDetails.position {
+            return position
+        } else if let company = identityCoreDetails.company {
+            return company
+        }
+        
+        return nil
+    }
     
     public var asCNContact: CNContact {
         let contact = CNMutableContact()
@@ -348,7 +402,7 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     
     // MARK: - Observers
     
-    private static var observersHolder = ObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
     
     public static func addObvObserver(_ newObserver: PersistedObvOwnedIdentityObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -384,7 +438,7 @@ extension PersistedObvOwnedIdentity {
     }
     
     
-    var allCapabilitites: Set<ObvCapability> {
+    public var allCapabilitites: Set<ObvCapability> {
         var capabilitites = Set<ObvCapability>()
         for capability in ObvCapability.allCases {
             switch capability {
@@ -529,7 +583,7 @@ extension PersistedObvOwnedIdentity {
 extension PersistedObvOwnedIdentity {
     
     public func hideProfileWithPassword(_ password: String) throws {
-        guard password.count >= ObvUICoreDataConstants.minimumLengthOfPasswordForHiddenProfiles else {
+        guard password.count >= ObvAppCoreConstants.minimumLengthOfPasswordForHiddenProfiles else {
             throw ObvUICoreDataError.passwordIsTooShortToHideProfile
         }
         guard try !anotherPasswordIfAPrefixOfThisPassword(password: password) else {
@@ -558,7 +612,7 @@ extension PersistedObvOwnedIdentity {
         let allHiddenOwnedIdentities = try Self.getAllHiddenOwnedIdentities(within: context)
         for hiddenOwnedIdentity in allHiddenOwnedIdentities {
             guard let hiddenProfileSalt = hiddenOwnedIdentity.hiddenProfileSalt, let hiddenProfileHash = hiddenOwnedIdentity.hiddenProfileHash else { assertionFailure(); continue }
-            for length in ObvUICoreDataConstants.minimumLengthOfPasswordForHiddenProfiles...password.count {
+            for length in ObvAppCoreConstants.minimumLengthOfPasswordForHiddenProfiles...password.count {
                 let prefix = String(password.prefix(length))
                 let hashObtained = try Self.computehiddenProfileHash(prefix, salt: hiddenProfileSalt)
                 if hashObtained == hiddenProfileHash {
@@ -583,7 +637,7 @@ extension PersistedObvOwnedIdentity {
     
     
     public static func passwordCanUnlockSomeHiddenOwnedIdentity(password: String, within context: NSManagedObjectContext) throws -> Bool {
-        guard password.count >= ObvUICoreDataConstants.minimumLengthOfPasswordForHiddenProfiles else { return false }
+        guard password.count >= ObvAppCoreConstants.minimumLengthOfPasswordForHiddenProfiles else { return false }
         let hiddenOwnedIdentities = try Self.getAllHiddenOwnedIdentities(within: context)
         for hiddenOwnedIdentity in hiddenOwnedIdentities {
             if try hiddenOwnedIdentity.isUnlockedUsingPassword(password) {
@@ -662,7 +716,7 @@ extension PersistedObvOwnedIdentity {
             
             switch locationJSON.type {
             case .SEND:
-                let locationOneShotSent = try PersistedLocationOneShotSent(locationData: locationJSON.locationData, within: context)
+                let locationOneShotSent = PersistedLocationOneShotSent(locationData: locationJSON.locationData, within: context)
                 sentLocation = .oneShot(location: locationOneShotSent.typedObjectID)
             case .SHARING, .END_SHARING:
                 guard let ownDevice = try self.devices.first(where: { try $0.deviceUID == obvOwnedMessage.deviceUID }) else {
@@ -826,7 +880,11 @@ extension PersistedObvOwnedIdentity {
         case .groupV2(groupV2Identifier: let groupV2Identifier):
             
             guard let group = try PersistedGroupV2.get(ownIdentity: self, appGroupIdentifier: groupV2Identifier) else {
-                throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: groupV2Identifier)
+                guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2Identifier) else {
+                    throw ObvUICoreDataError.couldNotParseGroupIdentifier
+                }
+                let obvGroupIdentifier = ObvGroupV2Identifier(ownedCryptoId: self.cryptoId, identifier: identifier)
+                throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: obvGroupIdentifier)
             }
                         
             return .v2(group: group)
@@ -1234,7 +1292,7 @@ extension PersistedObvOwnedIdentity {
                         // If the group was not found, it might be the case the the owned identity requested the deletion of a "locked" group discussion.
                         // In that case, the group does not exist anymore, but there might be an old locked discussion on this device that was this (now deleted) group's discussion.
                         // We want to delete this old locked discussion.
-                        try PersistedGroupV2Discussion.deleteLockedPersistedGroupV2Discussion(ownedIdentity: self, groupIdentifier: groupIdentifier)
+                        try PersistedGroupV2Discussion.deleteLockedPersistedGroupV2Discussion(ownedIdentity: self, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
                     case .couldNotFindGroupV1InDatabase(groupIdentifier: let groupIdentifier):
                         // See the above comment for group v2
                         try PersistedGroupDiscussion.deleteLockedPersistedGroupV1Discussion(ownedIdentity: self, groupV1Identifier: groupIdentifier)
@@ -1462,6 +1520,94 @@ extension PersistedObvOwnedIdentity {
 
     }
     
+    // MARK: - Process poll vote requests
+    
+    /// Called when the owned identity requested to set (or update) a poll vote on a message from the current device.
+    public func processSetOrUpdatePollVoteOnMessageLocalRequestFromThisOwnedIdentity(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>,
+                                                                                     pollCandidateUUID: UUID,
+                                                                                     voted: Bool,
+                                                                                     version: Int) throws -> PersistedMessage? {
+        
+        guard let context = self.managedObjectContext else {
+            throw ObvUICoreDataError.noContext
+        }
+        
+        guard let message = try PersistedMessage.get(with: messageObjectID, within: context) else {
+            throw ObvUICoreDataError.couldNotFindPersistedMessage
+        }
+        
+        guard let discussion = message.discussion else {
+            throw ObvUICoreDataError.couldNotFindDiscussion
+        }
+        
+        switch try discussion.kind {
+            
+        case .oneToOne:
+            
+            guard let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion else {
+                assertionFailure()
+                throw ObvUICoreDataError.couldNotFindDiscussion
+            }
+
+            try oneToOneDiscussion.processSetOrUpdatePollVoteOnMessageLocalRequest(from: self, for: message, pollCandidateUUID: pollCandidateUUID, voted: voted, version: version)
+            
+        case .groupV1(withContactGroup: let group):
+            
+            guard let group else {
+                throw ObvUICoreDataError.couldNotDetemineGroupV1
+            }
+
+            try group.processSetOrUpdatePollVoteOnMessageLocalRequest(from: self, for: message, pollCandidateUUID: pollCandidateUUID, voted: voted, version: version)
+
+        case .groupV2(withGroup: let group):
+            
+            guard let group else {
+                throw ObvUICoreDataError.couldNotDetemineGroupV2
+            }
+            
+            try group.processSetOrUpdatePollVoteOnMessageLocalRequest(from: self, for: message, pollCandidateUUID: pollCandidateUUID, voted: voted, version: version)
+
+        }
+
+        return message
+
+        
+    }
+
+    
+    public func processSetOrUpdatePollVoteOnMessageRequestFromThisOwnedIdentity(pollVoteJSON: PollVoteJSON, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        if let oneToOneIdentifier = pollVoteJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            let updatedMessage = try oneToneDiscussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            return updatedMessage
+            
+        } else if let groupIdentifier = pollVoteJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+                
+                let updatedMessage = try group.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                return updatedMessage
+
+            case .v2(group: let group):
+                
+                let updatedMessage = try group.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                return updatedMessage
+
+            }
+            
+        } else {
+            
+            throw ObvUICoreDataError.couldNotFindDiscussion
+
+        }
+
+    }
     
     // MARK: - Process screen capture detections
 
@@ -1616,13 +1762,35 @@ extension PersistedObvOwnedIdentity {
         }
 
         guard let oneToOneDiscussion = contactA.oneToOneDiscussion else {
-            throw ObvUICoreDataError.couldNotDetermineTheOneToOneDiscussion
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
         try oneToOneDiscussion.oneToOneContactWasIntroducedTo(otherContact: contactB)
         
     }
 
+}
+
+// MARK: - Sending a poll
+
+extension PersistedObvOwnedIdentity {
+    public func createPersistedPollToSend(discussionIdentifier: ObvDiscussionIdentifier, poll: ObvPoll) throws -> MessageSentPermanentID {
+        
+        guard let context = self.managedObjectContext else {
+            assertionFailure()
+            throw ObvUICoreDataError.noContext
+        }
+        
+        let discussion = try getPersistedDiscussion(withDiscussionIdenditifer: discussionIdentifier)
+
+        let persistedPoll = try PersistedPoll(obvPoll: poll, within: context)
+
+        let message = try PersistedMessageSent.createPersistedMessageSentForPoll(discussion: discussion,
+                                                                                 poll: persistedPoll)
+        
+        return try message.objectPermanentID
+
+    }
 }
 
 // MARK: - Sending a location
@@ -1638,7 +1806,7 @@ extension PersistedObvOwnedIdentity {
         
         let discussion = try getPersistedDiscussion(withDiscussionIdenditifer: discussionIdentifier)
 
-        let persistedLocationOneShotSent = try PersistedLocationOneShotSent(locationData: locationData, within: context)
+        let persistedLocationOneShotSent = PersistedLocationOneShotSent(locationData: locationData, within: context)
 
         let message = try PersistedMessageSent.createPersistedMessageSentForSharingLocation(discussion: discussion,
                                                                                             location: .oneShot(location: persistedLocationOneShotSent.typedObjectID))
@@ -1815,22 +1983,6 @@ extension PersistedObvOwnedIdentity {
         
     }
     
-    
-    public func userHasSeenPublishedDetailsOfContactGroupJoined(with groupIdentifier: ObvGroupV1Identifier) throws {
-        
-        guard groupIdentifier.ownedCryptoId == self.cryptoId else {
-            assertionFailure()
-            throw ObvUICoreDataError.unexpectedOwnedCryptoId
-        }
-        
-        if let groupJoined = try PersistedContactGroup.getContactGroup(groupIdentifier: groupIdentifier.groupV1Identifier, ownedIdentity: self) as? PersistedContactGroupJoined {
-            groupJoined.setStatus(to: .seenPublishedDetails)
-        } else {
-            assertionFailure()
-        }
-        
-    }
-
 }
 
 
@@ -1876,7 +2028,12 @@ extension PersistedObvOwnedIdentity {
     public func setCustomNameOfGroupV2(groupIdentifier: Data, to newGroupNameCustom: String?) throws -> Bool {
         
         guard let group = try PersistedGroupV2.get(ownIdentity: self, appGroupIdentifier: groupIdentifier) else {
-            throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+            guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupIdentifier) else {
+                assertionFailure()
+                throw ObvUICoreDataError.couldNotParseGroupIdentifier
+            }
+            let obvGroupIdentifier = ObvGroupV2Identifier(ownedCryptoId: self.cryptoId, identifier: identifier)
+            throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: obvGroupIdentifier)
         }
         
         let groupNameCustomHadToBeUpdated = try group.updateCustomNameWith(with: newGroupNameCustom)
@@ -1894,7 +2051,12 @@ extension PersistedObvOwnedIdentity {
         }
         
         guard let group = try PersistedGroupV2.get(ownIdentity: self, appGroupIdentifier: groupIdentifier) else {
-            throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+            guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupIdentifier) else {
+                assertionFailure()
+                throw ObvUICoreDataError.couldNotParseGroupIdentifier
+            }
+            let obvGroupIdentifier = ObvGroupV2Identifier(ownedCryptoId: self.cryptoId, identifier: identifier)
+            throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: obvGroupIdentifier)
         }
 
         try group.updateCustomPhotoWithPhoto(newPhoto, within: obvContext)
@@ -1906,7 +2068,12 @@ extension PersistedObvOwnedIdentity {
     public func setPersonalNoteOnGroupV2(groupIdentifier: Data, newText: String?) throws -> Bool {
         
         guard let group = try PersistedGroupV2.get(ownIdentity: self, appGroupIdentifier: groupIdentifier) else {
-            throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+            guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupIdentifier) else {
+                assertionFailure()
+                throw ObvUICoreDataError.couldNotParseGroupIdentifier
+            }
+            let obvGroupIdentifier = ObvGroupV2Identifier(ownedCryptoId: self.cryptoId, identifier: identifier)
+            throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: obvGroupIdentifier)
         }
 
         let noteHadToBeUpdatedInDatabase = group.setNote(to: newText)
@@ -1942,7 +2109,7 @@ extension PersistedObvOwnedIdentity {
             assertionFailure()
             throw ObvUICoreDataError.noContext
         }
-        guard self.cryptoId == obvContactIdentityWithinEngine.ownedIdentity.cryptoId else {
+        guard self.cryptoId == obvContactIdentityWithinEngine.ownedCryptoId else {
             assertionFailure()
             throw ObvUICoreDataError.unexpectedOwnedCryptoId
         }
@@ -2074,7 +2241,7 @@ extension PersistedObvOwnedIdentity {
     public func userWantsToReadReceivedMessageWithLimitedVisibility(discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier, dateWhenMessageWasRead: Date, requestedOnAnotherOwnedDevice: Bool) throws -> InfoAboutWipedOrDeletedPersistedMessage? {
         
         guard let discussion = try PersistedDiscussion.getPersistedDiscussion(ownedIdentity: self, discussionId: discussionId) else {
-            throw ObvUICoreDataError.couldNotFindDiscussionWithId(discussionId: discussionId)
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
         return try discussion.userWantsToReadReceivedMessageWithLimitedVisibility(messageId: messageId, dateWhenMessageWasRead: dateWhenMessageWasRead, requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
@@ -2129,7 +2296,7 @@ extension PersistedObvOwnedIdentity {
     public func markAllMessagesAsNotNew(discussionId: DiscussionIdentifier, serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?, dateWhenMessageTurnedNotNew: Date) throws -> (maxTimestampOfModifiedMessages: Date, receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>])? {
         
         guard let discussion = try PersistedDiscussion.getPersistedDiscussion(ownedIdentity: self, discussionId: discussionId) else {
-            throw ObvUICoreDataError.couldNotFindDiscussionWithId(discussionId: discussionId)
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
         let result = try discussion.markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
@@ -2143,7 +2310,7 @@ extension PersistedObvOwnedIdentity {
     public func markAllMessagesAsNotNew(discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier], dateWhenMessageTurnedNotNew: Date, requestedOnAnotherOwnedDevice: Bool) throws -> Date? {
         
         guard let discussion = try PersistedDiscussion.getPersistedDiscussion(ownedIdentity: self, discussionId: discussionId) else {
-            throw ObvUICoreDataError.couldNotFindDiscussionWithId(discussionId: discussionId)
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         let lastReadMessageServerTimestamp = try discussion.markAllMessagesAsNotNew(messageIds: messageIds,
@@ -2158,7 +2325,7 @@ extension PersistedObvOwnedIdentity {
     public func getDiscussionReadJSON(discussionId: DiscussionIdentifier, lastReadMessageServerTimestamp: Date) throws -> DiscussionReadJSON {
 
         guard let discussion = try PersistedDiscussion.getPersistedDiscussion(ownedIdentity: self, discussionId: discussionId) else {
-            throw ObvUICoreDataError.couldNotFindDiscussionWithId(discussionId: discussionId)
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         switch try discussion.kind {
@@ -2365,6 +2532,18 @@ extension PersistedObvOwnedIdentity {
         return NSFetchRequest<PersistedObvOwnedIdentity>(entityName: self.entityName)
     }
 
+    public static func getFullDisplayNameAndIsKeycloakManaged(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> (fullDisplayName: String, isKeycloakManaged: Bool) {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.isKeycloakManaged.rawValue, Predicate.Key.fullDisplayName.rawValue]
+        let item = try context.fetch(request).first
+        guard let item else {
+            assertionFailure()
+            throw ObvUICoreDataError.ownedIdentityIsNil
+        }
+        return (item.fullDisplayName, item.isKeycloakManaged)
+    }
     
     public static func deleteOwnedIdentity(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
         guard let ownedIdentity = try get(cryptoId: ownedCryptoId, within: context) else { return }
@@ -2408,13 +2587,21 @@ extension PersistedObvOwnedIdentity {
     
     public static func getAll(within context: NSManagedObjectContext) throws -> [PersistedObvOwnedIdentity] {
         let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.sortDescriptors = Self.defaultSortDescriptors
         return try context.fetch(request)
     }
     
+    public static func countAll(within context: NSManagedObjectContext) throws -> Int {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.resultType = .countResultType
+        let count = try context.count(for: request)
+        return count
+    }
     
     public static func getAllActive(within context: NSManagedObjectContext) throws -> [PersistedObvOwnedIdentity] {
         let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
         request.predicate = Predicate.whereIsActiveIs(true)
+        request.sortDescriptors = Self.defaultSortDescriptors
         return try context.fetch(request)
     }
 
@@ -2440,14 +2627,10 @@ extension PersistedObvOwnedIdentity {
         return try context.fetch(request).first
     }
     
-    
     public static func getAllNonHiddenOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedObvOwnedIdentity] {
         let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
         request.predicate = Predicate.isHidden(false)
-        request.sortDescriptors = [
-            NSSortDescriptor(key: Predicate.Key.customDisplayName.rawValue, ascending: true),
-            NSSortDescriptor(key: Predicate.Key.fullDisplayName.rawValue, ascending: true),
-        ]
+        request.sortDescriptors = Self.defaultSortDescriptors
         return try context.fetch(request)
     }
 
@@ -2455,6 +2638,7 @@ extension PersistedObvOwnedIdentity {
     public static func getAllHiddenOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedObvOwnedIdentity] {
         let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
         request.predicate = Predicate.isHidden(true)
+        request.sortDescriptors = Self.defaultSortDescriptors
         return try context.fetch(request)
     }
 
@@ -2527,11 +2711,56 @@ extension PersistedObvOwnedIdentity {
         let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
         request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
         request.fetchLimit = 1
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.fullDisplayName.rawValue, ascending: true)]
+        request.sortDescriptors = Self.defaultSortDescriptors
         return .init(fetchRequest: request,
                      managedObjectContext: context,
                      sectionNameKeyPath: nil,
                      cacheName: nil)
+    }
+
+    
+    public static func getFetchedResultsController(objectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvOwnedIdentity> {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.predicate = Predicate.persistedObvOwnedIdentity(withObjectID: objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
+    
+    public static func getFetchedResultsControllerForAllOwnedIdentities(within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvOwnedIdentity> {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.sortDescriptors = Self.defaultSortDescriptors
+        request.fetchBatchSize = 20
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+    
+    
+    /// Default sort descriptors for fetching lists of `PersistedObvOwnedIdentity`.
+    ///
+    /// Use this array of `NSSortDescriptor` when fetching or displaying lists of `PersistedObvOwnedIdentity` objects
+    /// to ensure consistent ordering across the app.
+    private static let defaultSortDescriptors: [NSSortDescriptor] = [
+        NSSortDescriptor(key: Predicate.Key.customDisplayName.rawValue, ascending: true),
+        NSSortDescriptor(key: Predicate.Key.fullDisplayName.rawValue, ascending: true),
+    ]
+    
+    
+    /// Returns the union of all permissions granted across all user profiles.
+    ///
+    /// This combined set of permissions is used to evaluate whether an **Olvid+ tip** should be displayed.
+    public static func getBestAPIPermissionsAcrossAllOwnedIdentities(within context: NSManagedObjectContext) throws -> APIPermissions {
+        let ownedIdentities = try Self.getAllActive(within: context)
+        let apiPermissions: APIPermissions = ownedIdentities.reduce([]) { partialResult, ownedIdentity in
+            partialResult.union(ownedIdentity.apiPermissions)
+        }
+        return apiPermissions
     }
     
 }
@@ -2554,6 +2783,7 @@ extension PersistedObvOwnedIdentity {
         defer {
             changedKeys.removeAll()
             isInsertedWhileRestoringSyncSnapshot = false
+            oldRawAPIPermissions = nil
         }
         
         guard !isInsertedWhileRestoringSyncSnapshot else {
@@ -2566,7 +2796,7 @@ extension PersistedObvOwnedIdentity {
         if isInserted {
             let ownedCryptoId = self.cryptoId
             let isActive = self.isActive
-            Task { await Self.observersHolder.newPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId, isActive: isActive) }
+            Task { await PersistedObvOwnedIdentity.observersHolder.newPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId, isActive: isActive) }
         }
         
         if !isDeleted {
@@ -2600,7 +2830,7 @@ extension PersistedObvOwnedIdentity {
                 do {
                     let ownedCryptoId = self.cryptoId
                     let isHidden = self.isHidden
-                    Task { await Self.observersHolder.aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ownedCryptoId, isHidden: isHidden) }
+                    Task { await PersistedObvOwnedIdentity.observersHolder.aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ownedCryptoId, isHidden: isHidden) }
                 }
             }
             
@@ -2609,10 +2839,21 @@ extension PersistedObvOwnedIdentity {
                     .postOnDispatchQueue()
             }
             
+            if changedKeys.contains(Predicate.Key.rawAPIPermissions.rawValue) {
+                if let oldRawAPIPermissions {
+                    let oldAPIPermissions = APIPermissions(rawValue: oldRawAPIPermissions)
+                    let newAPIPermissions = APIPermissions(rawValue: self.rawAPIPermissions)
+                    let ownedCryptoId = self.ownedCryptoId
+                    Task { await PersistedObvOwnedIdentity.observersHolder.theAPIPermissionsOfOwnedIdentityDidChange(ownedCryptoId: ownedCryptoId, oldAPIPermissions: oldAPIPermissions, newAPIPermissions: newAPIPermissions) }
+                } else {
+                    assertionFailure()
+                }
+            }
+            
         } else {
             
             if let ownedCryptoIdOnDeletion {
-                Task { await Self.observersHolder.aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ownedCryptoIdOnDeletion) }
+                Task { await PersistedObvOwnedIdentity.observersHolder.aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ownedCryptoIdOnDeletion) }
             } else {
                 assertionFailure("It seems this owned identity was not deleted by calling the delete() method.")
             }
@@ -2631,7 +2872,7 @@ extension PersistedObvOwnedIdentity {
             previousBackedUpDeviceSnapShotIsObsolete = false
         }
         if previousBackedUpDeviceSnapShotIsObsolete {
-            Task { await Self.observersHolder.previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() }
+            Task { await PersistedObvOwnedIdentity.observersHolder.previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() }
         }
 
         // Potentially notify that the previous backed up profile snapshot is obsolete.
@@ -2652,7 +2893,7 @@ extension PersistedObvOwnedIdentity {
                 changedKeys.contains(Predicate.Key.contactGroupsV2.rawValue) {
                 let ownedCryptoId = self.cryptoId
                 Task {
-                    await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ownedCryptoId)
+                    await PersistedObvOwnedIdentity.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ownedCryptoId)
                 }
             }
         }
@@ -2998,12 +3239,13 @@ private extension Data {
 
 // MARK: - PersistedObvOwnedIdentity observers
 
-public protocol PersistedObvOwnedIdentityObserver: AnyObject {
+public protocol PersistedObvOwnedIdentityObserver: AnyObject, Sendable {
     func aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ObvCryptoId, isHidden: Bool) async
     func previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() async
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ObvCryptoId) async
     func newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) async
     func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async
+    func theAPIPermissionsOfOwnedIdentityDidChange(ownedCryptoId: ObvCryptoId, oldAPIPermissions: APIPermissions, newAPIPermissions: APIPermissions) async
 }
 
 public extension PersistedObvOwnedIdentityObserver {
@@ -3012,6 +3254,7 @@ public extension PersistedObvOwnedIdentityObserver {
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ObvCryptoId) async {}
     func newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) async {}
     func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {}
+    func theAPIPermissionsOfOwnedIdentityDidChange(ownedCryptoId: ObvCryptoId, oldAPIPermissions: APIPermissions, newAPIPermissions: APIPermissions) async {}
 }
 
 
@@ -3068,6 +3311,14 @@ private actor ObserversHolder: PersistedObvOwnedIdentityObserver {
         await withTaskGroup(of: Void.self) { taskGroup in
             for observer in observers.compactMap(\.value) {
                 taskGroup.addTask { await observer.aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+    
+    func theAPIPermissionsOfOwnedIdentityDidChange(ownedCryptoId: ObvCryptoId, oldAPIPermissions: APIPermissions, newAPIPermissions: APIPermissions) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.theAPIPermissionsOfOwnedIdentityDidChange(ownedCryptoId: ownedCryptoId, oldAPIPermissions: oldAPIPermissions, newAPIPermissions: newAPIPermissions) }
             }
         }
     }

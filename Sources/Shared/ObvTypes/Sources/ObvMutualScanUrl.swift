@@ -22,7 +22,7 @@ import ObvCrypto
 import ObvEncoder
 
 
-public struct ObvMutualScanUrl {
+public struct ObvMutualScanUrl: Equatable, Hashable, Sendable {
     
     static let scheme = "https"
     static let host = "invitation.olvid.io"

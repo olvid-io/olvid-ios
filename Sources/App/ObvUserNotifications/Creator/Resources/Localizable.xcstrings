@@ -1,248 +1,157 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "%@_INVITES_YOU_TO_ONE_TO_ONE_DISCUSSION" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ invites you to have a private discussion. If you accept, this user will be added to your contacts."
+  "sourceLanguage": "en",
+  "strings": {
+    "%@_INVITES_YOU_TO_ONE_TO_ONE_DISCUSSION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ lädt dich zu einem privaten Gespräch ein. Wenn du annimmst, wird dieser Benutzer zu deinen Kontakten hinzugefügt."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ vous invite à discuter en privé. Si vous acceptez, cet utilisateur sera ajouté à vos contacts."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ invites you to have a private discussion. If you accept, this user will be added to your contacts."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ te invita a tener una conversación privada. Si aceptas, este usuario se agregará a tus contactos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ vous invite à discuter en privé. Si vous acceptez, cet utilisateur sera ajouté à vos contacts."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ti invita ad una conversazione privata. Se accetti, questo utente verrà aggiunto ai tuoi contatti."
           }
         }
       }
     },
-    "%lld_ATTACHMENTS" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld attachment"
+    "%lld_ATTACHMENTS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Anhang"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld attachments"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Anhänge"
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "No attachment"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kein Anhang"
                 }
               }
             }
           }
         },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld pièce jointe"
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld attachment"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld pièces jointes"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld attachments"
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Aucune pièce jointe"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "A_PARTICIPANT_STARTED_THEIR_CAMERA" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Video call started"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel vidéo en cours"
-          }
-        }
-      }
-    },
-    "BUTTON_TITLE_SEND" : {
-      "comment" : "Button title shown when composing a message from the notification center",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Envoyer"
-          }
-        }
-      }
-    },
-    "EDITED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edited"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Édité"
-          }
-        }
-      }
-    },
-    "EPHEMERAL_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ephemeral message"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Message éphémère"
-          }
-        }
-      }
-    },
-    "EXCHANGE_YOUR_CODES_WITH_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exchange your codes with %@."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Échangez vos codes avec %@."
-          }
-        }
-      }
-    },
-    "I would like to introduce you to %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "I would like to introduce you to %@."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "J’aimerais vous présenter à %@."
-          }
-        }
-      }
-    },
-    "Invitation to join a group" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invitation to join a group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invitation à rejoindre un groupe"
-          }
-        }
-      }
-    },
-    "MISSED_CALL_WHILE_IN_DO_NOT_DISTURB_MODE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Missed call while the “Do Not Disturb” mode was turned on"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel manqué pendant que vous étiez en mode « Ne pas déranger »"
-          }
-        }
-      }
-    },
-    "MISSED_CALLED_WITH_%lld_OTHER_PARTICIPANTS" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Missed group call with one other participant"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Missed group call with %lld other participants"
-                }
-              },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Missed call"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No attachment"
                 }
               }
             }
           }
         },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Appel de groupe manqué avec un participant supplémentaire"
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld archivo adjunto"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Appel de groupe manqué avec %lld participants supplémentaires"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld archivos adjuntos"
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Appel manqué"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sin archivos adjuntos"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pièce jointe"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pièces jointes"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aucune pièce jointe"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld allegato"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld allegati"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nessun allegato"
                 }
               }
             }
@@ -250,429 +159,1294 @@
         }
       }
     },
-    "Mutual trust confirmed!" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New contact!"
+    "A_PARTICIPANT_STARTED_THEIR_CAMERA": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videoanruf gestartet"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouveau contact !"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video call started"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada de video iniciada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel vidéo en cours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videochiamata avviata"
           }
         }
       }
     },
-    "New invitation" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New invitation"
+    "BUTTON_TITLE_SEND": {
+      "comment": "Button title shown when composing a message from the notification center",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senden"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouvelle invitation"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invia"
           }
         }
       }
     },
-    "New Invitation!" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New Invitation!"
+    "EDITED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bearbeitet"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouvelle Invitation !"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Édité"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modificato"
           }
         }
       }
     },
-    "New message" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New message"
+    "EPHEMERAL_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vergängliche Nachricht"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouveau message"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ephemeral message"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensaje efímero"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message éphémère"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messaggio effimero"
           }
         }
       }
     },
-    "NOTIFICATION_ACTION_TITLE_ACCEPT" : {
-      "comment" : "Title of the accept action",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accept"
+    "EXCHANGE_YOUR_CODES_WITH_%@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tauschen Sie Ihre Codes mit %@ aus."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accepter"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exchange your codes with %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intercambia tus códigos con %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échangez vos codes avec %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scambia i tuoi codici con %@."
           }
         }
       }
     },
-    "NOTIFICATION_ACTION_TITLE_CALL_BACK" : {
-      "comment" : "Title of the call back action",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Call back"
+    "I would like to introduce you to %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich möchte Ihnen %@ vorstellen."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rappeler"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I would like to introduce you to %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Me gustaría presentarte a %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "J’aimerais vous présenter à %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorrei presentarvi %@."
           }
         }
       }
     },
-    "NOTIFICATION_ACTION_TITLE_DECLINE" : {
-      "comment" : "Title of the decline action",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Decline"
+    "Invitation to join a group": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladung, einer Gruppe beizutreten"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Décliner"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitation to join a group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitación a unirte a un grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitation à rejoindre un groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invito ad unirsi a un gruppo"
           }
         }
       }
     },
-    "NOTIFICATION_ACTION_TITLE_MARK_AS_READ" : {
-      "comment" : "Title of the mark as read action",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark as read"
+    "MISSED_CALLED_WITH_%lld_OTHER_PARTICIPANTS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Verpasster Gruppenanruf mit einer anderen Person"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Verpasster Gruppenanruf mit %lld anderen Teilnehmern"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Verpasster Anruf"
+                }
+              }
+            }
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Marquer comme lu"
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Missed group call with one other participant"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Missed group call with %lld other participants"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Missed call"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Llamada grupal perdida con otra persona"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Llamada grupal perdida con %lld participantes más"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Llamada perdida"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Appel de groupe manqué avec un participant supplémentaire"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Appel de groupe manqué avec %lld participants supplémentaires"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Appel manqué"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Chiamata di gruppo persa con un altro partecipante"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Chiamata di gruppo persa con %lld altri partecipanti"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Chiamata persa"
+                }
+              }
+            }
           }
         }
       }
     },
-    "NOTIFICATION_ACTION_TITLE_MUTE" : {
-      "comment" : "Title of the mute action",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mute discussion for one hour"
+    "MISSED_CALL_WHILE_IN_DO_NOT_DISTURB_MODE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf verpasst, während der Modus “Nicht stören” aktiviert war"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Désactiver les notifications pendant une heure"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed call while the “Do Not Disturb” mode was turned on"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada perdida mientras el modo “No molestar” estaba activado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel manqué pendant que vous étiez en mode « Ne pas déranger »"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata persa mentre era attiva la modalità “Non disturbare”"
           }
         }
       }
     },
-    "NOTIFICATION_ACTION_TITLE_REPLY_TO" : {
-      "comment" : "Title of the reply to action",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reply"
+    "Mutual trust confirmed!": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuer Kontakt!"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Répondre"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New contact!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Nuevo contacto!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau contact !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuovo contatto!"
           }
         }
       }
     },
-    "NOTIFICATION_ACTION_TITLE_SEND_MESSAGE" : {
-      "comment" : "Title of the send message action",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send message"
+    "NOTIFICATION_ACTION_TITLE_ACCEPT": {
+      "comment": "Title of the accept action",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akzeptieren"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Envoyer un message"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accetta"
           }
         }
       }
     },
-    "Olvid requires your attention" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid requires your attention."
+    "NOTIFICATION_ACTION_TITLE_CALL_BACK": {
+      "comment": "Title of the call back action",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rückruf"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid requiert votre attention."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call back"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamar de vuelta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rappeler"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Richiama"
           }
         }
       }
     },
-    "ONE_MORE_STEP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "One last step!"
+    "NOTIFICATION_ACTION_TITLE_DECLINE": {
+      "comment": "Title of the decline action",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ablehnen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plus qu'une étape !"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decline"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechazar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décliner"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rifiuta"
           }
         }
       }
     },
-    "REACTED_WITH_%@_TO_ONE_OF_YOUR_SENT_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reacted %1$@ to one of your messages."
+    "NOTIFICATION_ACTION_TITLE_MARK_AS_READ": {
+      "comment": "Title of the mark as read action",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als gelesen markieren"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A réagi %1$@ à l’un de vos messages."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as read"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar como leído"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marquer comme lu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segna come letta"
           }
         }
       }
     },
-    "REACTED_WITH_%@_TO_SENT_MESSAGE_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reacted %1$@ to: %2$@"
+    "NOTIFICATION_ACTION_TITLE_MUTE": {
+      "comment": "Title of the mute action",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diskussion für eine Stunde stummschalten"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A réagi %1$@ à : %2$@"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mute discussion for one hour"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silenciar la conversación por una hora"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactiver les notifications pendant une heure"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silenzia la discussione per un'ora"
           }
         }
       }
     },
-    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED_NOTIFICATION_BODY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The incoming call was rejected because Olvid was not allowed to access the Microphone. To never miss a call again, please go to Settings and grant Olvid access to the microphone."
+    "NOTIFICATION_ACTION_TITLE_REPLY_TO": {
+      "comment": "Title of the reply to action",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antworten"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour recevoir des appels, vous devez autoriser Olvid à accéder au micro. Pour ne plus rater d'appel, allez dans les Réglages et autorisez l'accès au micro pour Olvid."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responder"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondre"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rispondi"
           }
         }
       }
     },
-    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_UNDETERMINED_NOTIFICATION_BODY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To received a call, you need to allow Olvid to access the microphone. Please tap on this notification to allow Olvid to access the microphone."
+    "NOTIFICATION_ACTION_TITLE_SEND_MESSAGE": {
+      "comment": "Title of the send message action",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachricht senden"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour recevoir des appels, vous devez autoriser Olvid à accéder au micro. Cliquez sur la notification et autorisez l'accès au micro."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send message"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar mensaje"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer un message"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invia messaggio"
           }
         }
       }
     },
-    "SHARED_A_PLACE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "shared a place"
+    "New Invitation!": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Einladung!"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "a partagé un lieu"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Invitation!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Nueva Invitación!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle Invitation !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuovo invito!"
           }
         }
       }
     },
-    "STARTED_SHARING_LOCATION" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "started sharing location"
+    "New invitation": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Einladung"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "partage désormais sa position"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New invitation"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva invitación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle invitation"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuovo invito"
           }
         }
       }
     },
-    "STOPPED_SHARING_LOCATION" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "stopped sharing location"
+    "New message": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Nachricht"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ne partage plus sa position"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New message"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensaje nuevo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau message"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuovo messaggio"
           }
         }
       }
     },
-    "Tap to see the invitation" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap to see the invitation."
+    "ONE_MORE_STEP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch ein letzter Schritt!"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appuyez pour voir l'invitation."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One last step!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Un último paso!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus qu'une étape !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un ultimo passaggio!"
           }
         }
       }
     },
-    "Tap to see the message" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap to see the message."
+    "Olvid requires your attention": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid benötigt Ihre Aufmerksamkeit."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appuyez pour voir le message."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid requires your attention."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid requiere tu atención."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid requiert votre attention."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid richiede la tua attenzione."
           }
         }
       }
     },
-    "TAP_HERE_TO_SEE_THE_PARTICIPANT_VIDEO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "👉 Tap to view the participant's video"
+    "REACTED_WITH_%@_TO_ONE_OF_YOUR_SENT_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hat auf eine deiner Nachrichten mit %1$@ reagiert."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "👉 Touchez pour voir la vidéo du participant"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reacted %1$@ to one of your messages."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reaccionó %1$@ a uno de tus mensajes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A réagi %1$@ à l’un de vos messages."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ha reagito a uno dei tuoi messaggi con %1$@."
           }
         }
       }
     },
-    "You are invited to join a group created by %@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are invited to join a group created by %@."
+    "REACTED_WITH_%@_TO_SENT_MESSAGE_%@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hat auf %1$@ reagiert mit: %2$@"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous êtes invité à rejoindre un groupe créé par %@."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reacted %1$@ to: %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reaccionó a: %2$@ con %1$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A réagi %1$@ à : %2$@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ha reagito a %1$@ con: %2$@"
           }
         }
       }
     },
-    "You now appear in %@'s contacts list. A secure channel is being established. When this is done, you will be able to exchange confidential messages and more!" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ is now part of your contacts."
+    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED_NOTIFICATION_BODY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der eingehende Anruf wurde abgelehnt, da Olvid nicht auf das Mikrofon zugreifen durfte. Um zukünftige Anrufe nicht mehr zu verpassen, gehen Sie bitte zu den Einstellungen und erteilen Sie Olvid Zugriff auf das Mikrofon."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ fait maintenant partie de vos contacts."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The incoming call was rejected because Olvid was not allowed to access the Microphone. To never miss a call again, please go to Settings and grant Olvid access to the microphone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La llamada entrante fue rechazada porque Olvid no tenía permiso para acceder al micrófono. Para no perder ninguna llamada más, ve a Ajustes y concede a Olvid acceso al micrófono."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour recevoir des appels, vous devez autoriser Olvid à accéder au micro. Pour ne plus rater d'appel, allez dans les Réglages et autorisez l'accès au micro pour Olvid."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La chiamata in arrivo è stata rifiutata perché Olvid non aveva il permesso di accedere al Microfono. Per non perdere mai più una chiamata, vai su Impostazioni e concedi a Olvid l'accesso al microfono."
           }
         }
       }
     },
-    "You receive a new invitation from %@. You can accept or silently discard it." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ would like to discuss with you."
+    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_UNDETERMINED_NOTIFICATION_BODY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um einen Anruf entgegenzunehmen, muss Olvid Zugriff auf das Mikrofon haben. Bitte tippen Sie auf diese Benachrichtigung, um Olvid den Zugriff auf das Mikrofon zu gewähren."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ aimerait discuter avec vous."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To received a call, you need to allow Olvid to access the microphone. Please tap on this notification to allow Olvid to access the microphone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para recibir una llamada, debes permitir que Olvid acceda al micrófono. Pulsa en esta notificación para permitir que Olvid acceda al micrófono."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour recevoir des appels, vous devez autoriser Olvid à accéder au micro. Cliquez sur la notification et autorisez l'accès au micro."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per ricevere una chiamata, devi permettere a Olvid di accedere al microfono. Tocca questa notifica per consentire a Olvid di accedere al microfono."
+          }
+        }
+      }
+    },
+    "SHARED_A_PLACE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hat einen Ort geteilt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "shared a place"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "compartió un lugar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a partagé un lieu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ha condiviso un luogo"
+          }
+        }
+      }
+    },
+    "STARTED_SHARING_LOCATION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standortfreigabe gestartet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "started sharing location"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "empezó a compartir ubicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "partage désormais sa position"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ha iniziato a condividere la posizione"
+          }
+        }
+      }
+    },
+    "STOPPED_SHARING_LOCATION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standortfreigabe beendet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stopped sharing location"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dejó de compartir ubicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ne partage plus sa position"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ha smesso di condividere la posizione"
+          }
+        }
+      }
+    },
+    "TAP_HERE_TO_SEE_THE_PARTICIPANT_VIDEO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "👆 Tippen, um das Video des Teilnehmers anzusehen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "👉 Tap to view the participant's video"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "👆 Toca para ver el video del participante"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "👉 Touchez pour voir la vidéo du participant"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "📸 Tocca per vedere il video del partecipante"
+          }
+        }
+      }
+    },
+    "Tap to see the invitation": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie, um die Einladung anzuzeigen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to see the invitation."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para ver la invitación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appuyez pour voir l'invitation."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca per vedere l'invito."
+          }
+        }
+      }
+    },
+    "Tap to see the message": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen, um die Nachricht anzuzeigen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to see the message."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para ver el mensaje."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appuyez pour voir le message."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca per vedere il messaggio."
+          }
+        }
+      }
+    },
+    "You are invited to join a group created by %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie wurden eingeladen, einer Gruppe beizutreten, die von %@ erstellt wurde."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are invited to join a group created by %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has sido invitado a unirte a un grupo creado por %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous êtes invité à rejoindre un groupe créé par %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sei stato invitato a partecipare a un gruppo creato da %@."
+          }
+        }
+      }
+    },
+    "You now appear in %@'s contacts list. A secure channel is being established. When this is done, you will be able to exchange confidential messages and more!": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist jetzt Teil deiner Kontakte."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is now part of your contacts."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ahora es parte de tus contactos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ fait maintenant partie de vos contacts."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ è ora tra i tuoi contatti."
+          }
+        }
+      }
+    },
+    "You receive a new invitation from %@. You can accept or silently discard it.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ möchte mit Ihnen sprechen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ would like to discuss with you."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ querría hablar contigo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ aimerait discuter avec vous."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ vorrebbe parlare con te."
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

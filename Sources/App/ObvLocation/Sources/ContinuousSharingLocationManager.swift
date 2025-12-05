@@ -27,7 +27,7 @@ import ObvAppCoreConstants
 
 @MainActor
 public protocol ContinuousSharingLocationManagerDataSource: AnyObject, Sendable {
-    func getAsyncSequenceOfContinuousSharingLocationManagerModel() throws -> (streamUUID: UUID, stream: AsyncStream<ContinuousSharingLocationManagerModel>)
+    func getAsyncSequenceOfContinuousSharingLocationManagerModel() async throws -> (streamUUID: UUID, stream: AsyncStream<ContinuousSharingLocationManagerModel>)
 }
 
 public struct ContinuousSharingLocationManagerModel: Sendable, Equatable {

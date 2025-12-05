@@ -22,7 +22,7 @@ import ObvCrypto
 import ObvEncoder
 
 
-public struct ObvContactIdentifier: Hashable, Sendable {
+public struct ObvContactIdentifier: Hashable, Sendable, Equatable {
     
     public let contactCryptoId: ObvCryptoId
     public let ownedCryptoId: ObvCryptoId
@@ -34,13 +34,20 @@ public struct ObvContactIdentifier: Hashable, Sendable {
     }
     
     public init(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        assert(contactCryptoId != ownedCryptoId)
+//        assert(contactCryptoId != ownedCryptoId)
         self.contactCryptoId = contactCryptoId
         self.ownedCryptoId = ownedCryptoId
     }
 
 }
 
+extension ObvContactIdentifier: Identifiable {
+    
+    public var id: Data {
+        self.contactCryptoId.getIdentity()
+    }
+    
+}
 
 // MARK: - Implementing ObvCodable, used by LosslessStringConvertible
 

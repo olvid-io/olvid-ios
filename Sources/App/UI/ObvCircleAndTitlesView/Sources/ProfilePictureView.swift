@@ -23,6 +23,7 @@ import ObvDesignSystem
 
 
 /// Legacy view. Use InitialCircleViewNew instead.
+/// 2025-11-05: Not that clear we shouldn't use this view instead of `InitialCircleViewNew`
 public struct ProfilePictureView: View {
 
     public struct Model {
@@ -86,14 +87,16 @@ public struct ProfilePictureView: View {
                     .frame(width: model.circleDiameter, height: model.circleDiameter)
             }
         }
-        .overlay(Image(systemName: "checkmark.shield.fill")
-            .font(.system(size: (model.circleDiameter) / 4))
-            .foregroundColor(model.content.showGreenShield ? Color(AppTheme.shared.colorScheme.green) : .clear),
+        .overlay(Image(systemIcon: .checkmarkShieldFill)
+                    .font(.system(size: (model.circleDiameter) / 4))
+                    .foregroundColor(model.content.showGreenShield ? Color(AppTheme.shared.colorScheme.green) : .clear)
+                    .accessibilityHidden(!model.content.showGreenShield),
                  alignment: .topTrailing
         )
         .overlay(Image(systemIcon: .exclamationmarkShieldFill)
             .font(.system(size: (model.circleDiameter) / 2))
-            .foregroundColor(model.content.showRedShield ? .red : .clear),
+            .foregroundColor(model.content.showRedShield ? .red : .clear)
+            .accessibilityHidden(!model.content.showRedShield),
                  alignment: .center
         )
         

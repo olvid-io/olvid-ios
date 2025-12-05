@@ -218,28 +218,28 @@ extension String {
 
 // Creating a subclass of ValueTransformer for EncryptedData, making it easy to use EncryptedData within Core Data
 
-public class EncryptedDataTransformer: ValueTransformer {
-    
-    override public class func transformedValueClass() -> AnyClass {
-        return EncryptedData.self
-    }
-    
-    override public class func allowsReverseTransformation() -> Bool {
-        return true
-    }
-    
-    override public func transformedValue(_ value: Any?) -> Any? {
-        guard let encryptedData = value as? EncryptedData else { return nil }
-        return encryptedData._data
-    }
-    
-    override public func reverseTransformedValue(_ value: Any?) -> Any? {
-        guard let data = value as? Data else { return nil }
-        return EncryptedData(data: data)
-    }
-    
-}
-
-public extension NSValueTransformerName {
-    static let encryptedDataTransformerName = NSValueTransformerName(rawValue: "EncryptedDataTransformer")
-}
+//public class EncryptedDataTransformer: ValueTransformer {
+//    
+//    override public class func transformedValueClass() -> AnyClass {
+//        return EncryptedData.self
+//    }
+//    
+//    override public class func allowsReverseTransformation() -> Bool {
+//        return true
+//    }
+//    
+//    override public func transformedValue(_ value: Any?) -> Any? {
+//        guard let encryptedData = value as? EncryptedData else { return nil }
+//        return encryptedData._data
+//    }
+//    
+//    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+//        guard let data = value as? Data else { return nil }
+//        return EncryptedData(data: data)
+//    }
+//    
+//}
+//
+//public extension NSValueTransformerName {
+//    static let encryptedDataTransformerName = NSValueTransformerName(rawValue: "EncryptedDataTransformer")
+//}

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,11 +25,9 @@ import ObvMetaManager
 
 final class DeletePendingServerQueryOfNonExistingOwnedIdentitiesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
     
-    private let delegateManager: ObvNetworkFetchDelegateManager
     private let identityDelegate: ObvIdentityDelegate
     
-    init(delegateManager: ObvNetworkFetchDelegateManager, identityDelegate: ObvIdentityDelegate) {
-        self.delegateManager = delegateManager
+    init(identityDelegate: ObvIdentityDelegate) {
         self.identityDelegate = identityDelegate
         super.init()
     }
@@ -41,17 +39,16 @@ final class DeletePendingServerQueryOfNonExistingOwnedIdentitiesOperation: Conte
             let existingOwnedIdentities = try identityDelegate.getOwnedIdentities(restrictToActive: false, within: obvContext)
             let serverQueries = try PendingServerQuery.getAllServerQuery(
                 isWebSocket: .any,
-                delegateManager: delegateManager,
-                within: obvContext)
+                within: obvContext.context)
             for serverQuery in serverQueries {
                 guard !serverQuery.isDeleted else { continue }
                 if let ownedCryptoIdentity = try? serverQuery.ownedIdentity {
                     if !existingOwnedIdentities.contains(ownedCryptoIdentity) {
-                        serverQuery.deletePendingServerQuery(within: obvContext)
+                        try serverQuery.deletePendingServerQuery()
                     }
                 } else {
                     assertionFailure()
-                    serverQuery.deletePendingServerQuery(within: obvContext)
+                    try serverQuery.deletePendingServerQuery()
                 }
             }
             

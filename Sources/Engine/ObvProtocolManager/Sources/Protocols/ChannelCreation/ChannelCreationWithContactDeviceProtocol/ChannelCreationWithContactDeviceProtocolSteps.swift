@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -100,7 +100,7 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             // Check that the contact identity is trusted by the owned identity running this protocol, i.e., check that the contact identity is part of the owned identity's contacts
             
-            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true else {
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] The contact identity is not yet trusted", log: log, type: .error)
                 return CancelledState()
             }
@@ -114,9 +114,9 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] Cleaning any ongoing instances of the ChannelCreationWithContactDeviceProtocol", log: log, type: .debug)
             do {
-                if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
+                if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context) {
                     os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] There exists a ChannelCreationWithContactDeviceProtocolInstance to clean", log: log, type: .debug)
-                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
+                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context) {
                         os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] The ChannelCreationWithContactDeviceProtocolInstance to clean has uid %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription)
                         let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
                         os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] Executing the block allowing to abort the protocol with instance uid %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription)
@@ -157,7 +157,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             let signature: Data
             do {
                 let challengeType = ChallengeType.channelCreation(firstDeviceUid: contactDeviceUid, secondDeviceUid: currentDeviceUid, firstIdentity: contactIdentity, secondIdentity: ownedIdentity)
-                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
+                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext.context) else {
                     os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] Could not solve challenge", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -231,7 +231,7 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             // Make sure the contact identity is trusted (i.e., is part of the ContactIdentity database of the owned identity)
             
-            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true else {
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingOrEphemeralKeyStep] The contact identity is not yet trusted", log: log, type: .debug)
                 return CancelledState()
             }
@@ -262,7 +262,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             do {
                 guard !(try ChannelCreationPingSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity,
                                                                         signature: signature,
-                                                                        within: obvContext)) else {
+                                                                        within: obvContext.context)) else {
                     os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingOrEphemeralKeyStep] The signature received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -273,7 +273,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             guard ChannelCreationPingSignatureReceived(ownedCryptoIdentity: ownedIdentity,
                                                        signature: signature,
-                                                       within: obvContext) != nil else {
+                                                       within: obvContext.context) != nil else {
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingOrEphemeralKeyStep] We could not insert a new ChannelCreationPingSignatureReceived entry", log: log, type: .fault)
                 return CancelledState()
             }
@@ -281,8 +281,8 @@ extension ChannelCreationWithContactDeviceProtocol {
             // Clean any ongoing instance of this protocol
             
             do {
-                if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
-                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
+                if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context) {
+                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context) {
                         let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
                         abortProtocolBlock()
                     }
@@ -318,7 +318,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             let ownSignature: Data
             do {
                 let challengeType = ChallengeType.channelCreation(firstDeviceUid: contactDeviceUid, secondDeviceUid: currentDeviceUid, firstIdentity: contactIdentity, secondIdentity: ownedIdentity)
-                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
+                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext.context) else {
                     os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingOrEphemeralKeyStep] Could not solve challenge (1)", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -368,7 +368,11 @@ extension ChannelCreationWithContactDeviceProtocol {
                 
                 // Create a new ChannelCreationWithContactDeviceProtocolInstance entry in database
                 
-                _ = ChannelCreationWithContactDeviceProtocolInstance(protocolInstanceUid: protocolInstanceUid, ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, delegateManager: delegateManager, within: obvContext)
+                _ = ChannelCreationWithContactDeviceProtocolInstance(protocolInstanceUid: protocolInstanceUid,
+                                                                     ownedIdentity: ownedIdentity,
+                                                                     contactIdentity: contactIdentity,
+                                                                     contactDeviceUid: contactDeviceUid,
+                                                                     within: obvContext.context)
                 
                 // Generate an ephemeral pair of encryption keys
                 
@@ -434,7 +438,7 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             // Make sure the contact identity is trusted (i.e., is part of the ContactIdentity database of the owned identity)
             
-            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true else {
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendEphemeralKeyAndK1Step] The contact identity is not yet trusted", log: log, type: .debug)
                 return CancelledState()
             }
@@ -465,7 +469,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             do {
                 guard !(try ChannelCreationPingSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity,
                                                                         signature: signature,
-                                                                        within: obvContext)) else {
+                                                                        within: obvContext.context)) else {
                     os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendEphemeralKeyAndK1Step] The signature received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
                     assertionFailure()
                     return CancelledState()
@@ -479,10 +483,10 @@ extension ChannelCreationWithContactDeviceProtocol {
             // Check whether there already is an instance of this protocol running. If this is the case, abort it, terminate this protocol, and restart it with a fresh ping.
             
             do {
-                if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
+                if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context) {
                     os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendEphemeralKeyAndK1Step] A previous ChannelCreationWithContactDeviceProtocolInstance exists. We abort it", log: log, type: .info)
                     
-                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
+                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context) {
                         let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
                         abortProtocolBlock()
                     }
@@ -505,8 +509,7 @@ extension ChannelCreationWithContactDeviceProtocol {
                                                                  ownedIdentity: ownedIdentity,
                                                                  contactIdentity: contactIdentity,
                                                                  contactDeviceUid: contactDeviceUid,
-                                                                 delegateManager: delegateManager,
-                                                                 within: obvContext)
+                                                                 within: obvContext.context)
             
             // Generate an ephemeral pair of encryption keys
             
@@ -619,7 +622,7 @@ extension ChannelCreationWithContactDeviceProtocol {
                                                                                     andTheRemoteDeviceWithUid: contactDeviceUid,
                                                                                     ofRemoteIdentity: contactIdentity,
                                                                                     within: obvContext)
-                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
+                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context)
                 
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,RecoverK1AndSendK2AndCreateChannelStep] Restarting channel creation", log: log, type: .info, contactIdentity.debugDescription)
                 
@@ -744,7 +747,7 @@ extension ChannelCreationWithContactDeviceProtocol {
                                                                                     ofRemoteIdentity: contactIdentity,
                                                                                     within: obvContext)
                 
-                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
+                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context)
                 
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,RecoverK2CreateChannelAndSendAckStep] Restarting channel creation", log: log, type: .info, contactIdentity.debugDescription)
 
@@ -877,7 +880,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             // Delete the ChannelCreationProtocolInstance
             
             do {
-                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
+                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context)
             } catch {
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,ConfirmChannelAndSendAckStep] Could not delete the ChannelCreationWithContactDeviceProtocolInstance", log: log, type: .fault)
                 return CancelledState()
@@ -1039,7 +1042,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             // Delete the ChannelCreationProtocolInstance
             
             do {
-                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
+                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext.context)
             } catch {
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,ConfirmChannelStep] Could not delete the ChannelCreationWithContactDeviceProtocolInstance", log: log, type: .fault)
                 return CancelledState()

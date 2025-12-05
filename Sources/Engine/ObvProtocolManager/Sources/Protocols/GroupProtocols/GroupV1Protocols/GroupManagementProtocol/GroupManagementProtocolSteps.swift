@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvTypes
 import ObvMetaManager
 import ObvCrypto
@@ -620,7 +620,7 @@ extension GroupManagementProtocol {
             let groupMembers: Set<CryptoIdentityWithCoreDetails> = Set(try groupStructure.groupMembers.map { (cryptoIdentity) in
                 let allContactDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(cryptoIdentity,
                                                                                                  ofOwnedIdentity: ownedIdentity,
-                                                                                                 within: obvContext)
+                                                                                                 within: obvContext.context)
                 let details = allContactDetails.publishedIdentityDetails ?? allContactDetails.trustedIdentityDetails
                 return CryptoIdentityWithCoreDetails(cryptoIdentity: cryptoIdentity, coreDetails: details.coreDetails)
                 })
@@ -1158,7 +1158,7 @@ extension GroupManagementProtocol {
             var groupMembersWithCoreDetails: Set<CryptoIdentityWithCoreDetails>
             do {
                 groupMembersWithCoreDetails = Set(try groupStructure.groupMembers.map { (contactIdentity) in
-                    let allDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    let allDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext.context)
                     let details = allDetails.publishedIdentityDetails ?? allDetails.trustedIdentityDetails
                     return CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: details.coreDetails)
                     })
@@ -1305,7 +1305,7 @@ extension GroupManagementProtocol {
             let groupMembersWithCoreDetails: Set<CryptoIdentityWithCoreDetails>
             do {
                 groupMembersWithCoreDetails = Set(try groupStructure.groupMembers.map { (contactIdentity) in
-                    let allDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    let allDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext.context)
                     let details = allDetails.publishedIdentityDetails ?? allDetails.trustedIdentityDetails
                     return CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: details.coreDetails)
                     })
@@ -1419,7 +1419,7 @@ extension GroupManagementProtocol {
             let groupMembersWithCoreDetails: Set<CryptoIdentityWithCoreDetails>
             do {
                 groupMembersWithCoreDetails = Set(try groupStructure.groupMembers.map { (contactIdentity) in
-                    let allDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    let allDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext.context)
                     let details = allDetails.publishedIdentityDetails ?? allDetails.trustedIdentityDetails
                     return CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: details.coreDetails)
                     })
@@ -1882,7 +1882,7 @@ extension ProtocolStep {
         var groupMembersWithCoreDetails: Set<CryptoIdentityWithCoreDetails>
         do {
             groupMembersWithCoreDetails = Set(try groupStructure.groupMembers.map { (contactIdentity) in
-                let allDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactIdentity, ofOwnedIdentity: step.ownedIdentity, within: obvContext)
+                let allDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactIdentity, ofOwnedIdentity: step.ownedIdentity, within: obvContext.context)
                 let details = allDetails.publishedIdentityDetails ?? allDetails.trustedIdentityDetails
                 return CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: details.coreDetails)
             })

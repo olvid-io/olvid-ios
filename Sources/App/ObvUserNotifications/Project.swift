@@ -15,6 +15,7 @@ private let obvUserNotificationsDatabase = Target.makeFrameworkTarget(
         .target(name: "ObvUserNotificationsTypes"),
         .Olvid.Engine.obvCrypto,
         .Olvid.Shared.obvTypes,
+        .Olvid.Shared.obvCoreDataStack,
         .Olvid.App.obvAppTypes,
     ],
     coreDataModels: [

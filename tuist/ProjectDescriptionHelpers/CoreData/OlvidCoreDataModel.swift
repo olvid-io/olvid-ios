@@ -3,6 +3,7 @@ import ProjectDescription
 public enum OlvidCoreDataModel {
     
     case app
+    case appInbox
     case engine
     case userNotification
     case backup
@@ -16,6 +17,8 @@ public enum OlvidCoreDataModel {
             path = Path.olvidPath("ObvDatabaseManager/Sources/ObvEngine.xcdatamodeld", in: .engine)
         case .userNotification:
             path = Path.olvidPath("ObvUserNotifications/Database/Sources/ObvUserNotificationsDataModel.xcdatamodeld", in: .app)
+        case .appInbox:
+            path = Path.olvidPath("ObvAppInbox/Database/Sources/ObvAppInboxDataModel.xcdatamodeld", in: .app)
         case .backup:
             path = Path.olvidPath("ObvBackupManagerNew/Sources/CoreData/ObvBackupManagerModel.xcdatamodeld", in: .engine)
         }

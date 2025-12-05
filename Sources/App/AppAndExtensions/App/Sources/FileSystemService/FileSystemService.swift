@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import OlvidUtils
 import ObvUICoreData
 import ObvSettings
@@ -27,7 +27,7 @@ import ObvAppCoreConstants
 
 final class FileSystemService {
     
-    private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: FileSystemService.self))
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: FileSystemService.self))
     private var notificationTokens = [NSObjectProtocol]()
     private let internalQueue = OperationQueue.createSerialQueue(name: "FileSystemService internal Queue")
 
@@ -53,6 +53,7 @@ final class FileSystemService {
 extension FileSystemService {
     
     func createAllDirectoriesIfRequired() {
+        
         for containerURL in ObvUICoreDataConstants.ContainerURL.allCases {
             let url = containerURL.url
             var title = containerURL.title
@@ -61,34 +62,49 @@ extension FileSystemService {
             }
             // Creating the directory if required
             if FileManager.default.fileExists(atPath: url.path) {
-                os_log("Path %{public}@ exists for ContainerURL: %{public}@", log: log, type: .debug, url.path, title)
+                Self.logger.debug("Path \(url.path, privacy: .public) exists for ContainerURL: \(title, privacy: .public)")
             } else {
-                os_log("Path %{public}@ does not exist for ContainerURL: %{public}@", log: log, type: .debug, url.path, title)
+                Self.logger.debug("Path \(url.path, privacy: .public) does not exist for ContainerURL: \(title, privacy: .public)")
                 try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-                os_log("Path %{public}@ was created for ContainerURL: %{public}@", log: log, type: .debug, url.path, title)
-            }
-            // Preventing iCloud backup
-            do {
-                var mutableURL = url
-                var resourceValues = URLResourceValues()
-                resourceValues.isExcludedFromBackup = true
-                try mutableURL.setResourceValues(resourceValues)
-            } catch let error as NSError {
-                fatalError("Error excluding \(url.deletingLastPathComponent()) from backup \(error.localizedDescription)")
+                Self.logger.debug("Path \(url.path, privacy: .public) was created for ContainerURL: \(title, privacy: .public)")
             }
         }
+        
+        // Preventing iCloud backup by excluding all directories (but not regular files) found in the securityApplicationGroupURL
+        
+        Self.logger.info("Excluding the directories of the securityApplicationGroupURL from backup...")
+        
+        do {
+            let urlsInSecurityApplicationGroupURL: [URL] = try FileManager.default.contentsOfDirectory(at: ObvUICoreDataConstants.ContainerURL.securityApplicationGroupURL, includingPropertiesForKeys: [.isDirectoryKey])
+            for urlToExclude in urlsInSecurityApplicationGroupURL {
+                do {
+                    let isDirectory = try urlToExclude.resourceValues(forKeys: [.isDirectoryKey]).isDirectory ?? true
+                    if isDirectory {
+                        try urlToExclude.excludeFromBackup()
+                    }
+                } catch {
+                    Self.logger.fault("Could not exclude from backup this specific URL of the securityApplicationGroupURL \(urlToExclude.path, privacy: .public): \(error, privacy: .public)")
+                    assertionFailure()
+                }
+            }
+            Self.logger.info("Did exclude the directories of the securityApplicationGroupURL from backup")
+        } catch {
+            Self.logger.fault("Could not exclude from backup content of the securityApplicationGroupURL: \(error, privacy: .public)")
+            assertionFailure()
+        }
+            
     }
     
     
     private func emptyTrashNow() {
         
-        os_log("Emptying Trash...", log: log, type: .info)
+        Self.logger.info("Emptying Trash...")
         
         let urls: [URL]
         do {
             urls = try FileManager.default.contentsOfDirectory(at: ObvUICoreDataConstants.ContainerURL.forTrash.url, includingPropertiesForKeys: nil)
         } catch {
-            os_log("Could not get content of trash directory: %{public}@", log: log, type: .fault, error.localizedDescription)
+            Self.logger.fault("Could not get content of trash directory: \(error.localizedDescription, privacy: .public)")
             assertionFailure()
             return
         }
@@ -97,13 +113,13 @@ extension FileSystemService {
             do {
                 try FileManager.default.removeItem(at: url)
             } catch {
-                os_log("Failed to delete a trashed file: %{public}@", log: log, type: .fault, error.localizedDescription)
+                Self.logger.fault("Failed to delete a trashed file: \(error.localizedDescription, privacy: .public)")
                 assertionFailure()
                 // In production, continue anyway
             }
         }
 
-        os_log("Trash was emptied", log: log, type: .info)
+        Self.logger.info("Trash was emptied")
 
     }
     

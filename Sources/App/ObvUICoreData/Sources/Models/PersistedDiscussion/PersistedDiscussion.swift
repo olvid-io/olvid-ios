@@ -57,7 +57,7 @@ public class PersistedDiscussion: NSManagedObject {
     @NSManaged private var rawStatus: Int
     @NSManaged private(set) var senderThreadIdentifier: UUID // Of the owned identity, on this device (it is different for the same owned identity on her other owned devices)
     @NSManaged private var serverTimestampOfLastRemoteDeletion: Date? // When a remote discussion delete request comes from a remote (owned or contact) device, we keep the request's server timestamp
-    @NSManaged public private(set) var timestampOfLastMessage: Date
+    @NSManaged public private(set) var sortDate: Date? // Nil when the discussion was deleted by the user. Otherwise, corresponds to the last message date, or to the date when the draft was edited.
     @NSManaged public private(set) var title: String
     
 
@@ -116,7 +116,7 @@ public class PersistedDiscussion: NSManagedObject {
         }
     }
     
-    public enum Status: Int {
+    public enum Status: Int, Sendable {
         case preDiscussion = 0
         case active = 1
         case locked = 2
@@ -329,6 +329,10 @@ public class PersistedDiscussion: NSManagedObject {
         }
         
         self.messages.removeAll()
+        if self.sortDate != nil {
+            self.sortDate = nil // Prevents the discussion from being listed in the list or recent discussions, as `sortDate == nil` means "deleted"
+        }
+        
     }
 
     
@@ -353,7 +357,7 @@ public class PersistedDiscussion: NSManagedObject {
         self.pinnedSectionKeyPath = PinnedSectionKeyPathValue.unpinned.rawValue
         self.onChangeFlag = 0
         self.senderThreadIdentifier = UUID()
-        self.timestampOfLastMessage = Date()
+        self.sortDate = .now
         self.title = title
         self.status = status
         self.aNewReceivedMessageDoesMentionOwnedIdentity = false
@@ -400,15 +404,19 @@ public class PersistedDiscussion: NSManagedObject {
     }
     
     
-    func resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(_ date: Date) {
-        if self.timestampOfLastMessage < date {
-            self.timestampOfLastMessage = date
+    func resetSortDateIfCurrentValueIsEarlierThan(_ date: Date) {
+        if let sortDate {
+            if sortDate < date {
+                self.sortDate = date
+            }
+        } else {
+            self.sortDate = date
         }
     }
     
     // MARK: Performing deletions
         
-    func deletePersistedDiscussion() throws {
+    func deletePersistedDiscussionFromDatabase() throws {
         guard let context = managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         self.discussionIdentifierOnDeletion = try self.discussionIdentifier
         context.delete(self)
@@ -491,7 +499,7 @@ public class PersistedDiscussion: NSManagedObject {
     
     // MARK: - Observers
     
-    private static var observersHolder = ObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
     
     public static func addObvObserver(_ newObserver: PersistedDiscussionObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -522,7 +530,7 @@ public class PersistedDiscussion: NSManagedObject {
             
         case .active:
             
-            let (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettingsIfAllowedTo) = try self.sharedConfiguration.mergePersistedDiscussionSharedConfiguration(with: remoteSharedConfiguration)
+            let (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettingsIfAllowedTo) = self.sharedConfiguration.mergePersistedDiscussionSharedConfiguration(with: remoteSharedConfiguration)
             return (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettingsIfAllowedTo)
             
         }
@@ -625,11 +633,17 @@ public class PersistedDiscussion: NSManagedObject {
             case .oneToOne, .groupV1:
                 return []
             case .groupV2(withGroup: let group):
-                guard let group, let requester = group.otherMembers.first(where: { $0.identity == requesterCryptoId.getIdentity() }) else {
-                    assertionFailure()
-                    return []
+                guard let group else {
+                    throw ObvUICoreDataError.groupV2IsNil
+                }
+                let groupIdentifier = ObvGroupIdentifier.groupV2(try group.obvGroupIdentifier)
+                guard let requester = group.otherMembers.first(where: { $0.identity == requesterCryptoId.getIdentity() }) else {
+                    throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                        groupIdentifier: groupIdentifier,
+                        contactCryptoId: requesterCryptoId)
                 }
                 guard requester.isAllowedToRemoteDeleteAnything else {
+                    // We don't throw as this would prevent the deletion of any kind of message (see processWipeMessageRequest(of...)
                     return []
                 }
                 // If we reach this point, the contact is allowed to wipe a sent message in this discussion
@@ -699,9 +713,14 @@ public class PersistedDiscussion: NSManagedObject {
             case .oneToOne, .groupV1:
                 requesterIsAllowedToRemoteDeleteAnythingOnThisDevice = false
             case .groupV2(withGroup: let group):
-                guard let group, let requester = group.otherMembers.first(where: { $0.identity == requesterCryptoId.getIdentity() }) else {
-                    assertionFailure()
-                    return []
+                guard let group else {
+                    throw ObvUICoreDataError.groupV2IsNil
+                }
+                guard let requester = group.otherMembers.first(where: { $0.identity == requesterCryptoId.getIdentity() }) else {
+                    let groupIdentifier = ObvGroupIdentifier.groupV2(try group.obvGroupIdentifier)
+                    throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                        groupIdentifier: groupIdentifier,
+                        contactCryptoId: requesterCryptoId)
                 }
                 requesterIsAllowedToRemoteDeleteAnythingOnThisDevice = requester.isAllowedToRemoteDeleteAnything
             }
@@ -768,12 +787,11 @@ public class PersistedDiscussion: NSManagedObject {
         case .active:
             
             self.removeAllMessages(messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            try self.archive()
             
         case .locked:
             
             self.removeAllMessages(messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            try self.deletePersistedDiscussion()
+            try self.deletePersistedDiscussionFromDatabase()
 
         }
         
@@ -842,17 +860,17 @@ public class PersistedDiscussion: NSManagedObject {
 
         self.removeAllMessages(messageUploadTimestampFromServer: nil)
 
-        do {
-            try self.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: true, messageTimestamp: Date())
-        } catch {
-            assertionFailure(error.localizedDescription)
-        }
-
+//        do {
+//            try self.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: true, messageTimestamp: Date())
+//        } catch {
+//            assertionFailure(error.localizedDescription)
+//        }
+//
         switch self.status {
         case .active, .preDiscussion:
-            try self.archive()
+            break
         case .locked:
-            try self.deletePersistedDiscussion()
+            try self.deletePersistedDiscussionFromDatabase()
         }
         
     }
@@ -1195,7 +1213,7 @@ public class PersistedDiscussion: NSManagedObject {
     }
 
     
-    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage? {
+    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage {
         
         switch self.status {
             
@@ -1231,13 +1249,7 @@ public class PersistedDiscussion: NSManagedObject {
 
             } else {
                 
-                _ = try RemoteRequestSavedForLater.createSetOrUpdateReactionRequest(
-                    requesterCryptoId: contact.cryptoId,
-                    reactionJSON: reactionJSON,
-                    serverTimestamp: messageUploadTimestampFromServer,
-                    discussion: self)
-                
-                return nil
+                throw ObvUICoreDataError.couldNotFindPersistedMessage
                 
             }
                         
@@ -1246,7 +1258,7 @@ public class PersistedDiscussion: NSManagedObject {
     }
     
     
-    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage {
         
         guard self.ownedIdentity == ownedIdentity else {
             throw ObvUICoreDataError.unexpectedOwnedIdentity
@@ -1286,20 +1298,153 @@ public class PersistedDiscussion: NSManagedObject {
 
             } else {
                 
-                _ = try RemoteRequestSavedForLater.createSetOrUpdateReactionRequest(
-                    requesterCryptoId: ownedIdentity.cryptoId,
-                    reactionJSON: reactionJSON,
-                    serverTimestamp: messageUploadTimestampFromServer,
-                    discussion: self)
-                
-                return nil
-                
+                throw ObvUICoreDataError.couldNotFindPersistedMessage
+
             }
                         
         }
 
     }
     
+    // MARK: - Process Poll Vote requests
+
+    func processSetOrUpdatePollVoteOnMessageLocalRequest(from ownedIdentity: PersistedObvOwnedIdentity,
+                                                         for message: PersistedMessage,
+                                                         pollCandidateUUID: UUID,
+                                                         voted: Bool,
+                                                         version: Int) throws {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvUICoreDataError.unexpectedOwnedIdentity
+        }
+        
+        guard message.discussion == self else {
+            throw ObvUICoreDataError.unexpectedDiscussionForMessage
+        }
+
+        switch self.status {
+            
+        case .locked:
+                
+            throw ObvUICoreDataError.aMessageCannotBeUpdatedInLockedDiscussion
+
+        case .preDiscussion:
+            
+            throw ObvUICoreDataError.aMessageCannotBeUpdatedInPrediscussion
+
+        case .active:
+            
+            try message.setPollVoteFromOwnedIdentity(for: pollCandidateUUID, voted: voted, version: version, messageUploadTimestampFromServer: nil)
+            
+        }
+
+    }
+
+    
+    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage {
+        
+        switch self.status {
+            
+        case .locked:
+            
+            throw ObvUICoreDataError.aMessageCannotBeUpdatedInLockedDiscussion
+            
+        case .preDiscussion:
+            
+            throw ObvUICoreDataError.aMessageCannotBeUpdatedInPrediscussion
+            
+        case .active:
+            
+            let messageToEdit = pollVoteJSON.messageReference
+            
+            if let message = try PersistedMessageReceived.get(senderSequenceNumber: messageToEdit.senderSequenceNumber,
+                                                              senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
+                                                              contactIdentity: messageToEdit.senderIdentifier,
+                                                              discussion: self) {
+                
+                try message.setPollVoteFromContact(contact,
+                                                   for: pollVoteJSON.pollCandidateUuid,
+                                                   voted: pollVoteJSON.voted,
+                                                   version: pollVoteJSON.version,
+                                                   messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                
+                return message
+                
+            } else if let message = try PersistedMessageSent.get(senderSequenceNumber: messageToEdit.senderSequenceNumber,
+                                                                 senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
+                                                                 ownedIdentity: messageToEdit.senderIdentifier,
+                                                                 discussion: self) {
+                
+                try message.setPollVoteFromContact(contact,
+                                                   for: pollVoteJSON.pollCandidateUuid,
+                                                   voted: pollVoteJSON.voted,
+                                                   version: pollVoteJSON.version,
+                                                   messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                
+                return message
+                
+            } else {
+                
+                throw ObvUICoreDataError.couldNotFindPersistedMessage
+                                
+            }
+        }
+    }
+    
+    
+    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvUICoreDataError.unexpectedOwnedIdentity
+        }
+
+        switch self.status {
+            
+        case .locked:
+                
+            throw ObvUICoreDataError.aMessageCannotBeUpdatedInLockedDiscussion
+
+        case .preDiscussion:
+            
+            throw ObvUICoreDataError.aMessageCannotBeUpdatedInPrediscussion
+
+        case .active:
+
+            let messageToEdit = pollVoteJSON.messageReference
+
+            if let message = try PersistedMessageReceived.get(senderSequenceNumber: messageToEdit.senderSequenceNumber,
+                                                              senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
+                                                              contactIdentity: messageToEdit.senderIdentifier,
+                                                              discussion: self) {
+                
+                try message.setPollVoteFromOwnedIdentity(for: pollVoteJSON.pollCandidateUuid,
+                                                         voted: pollVoteJSON.voted,
+                                                         version: pollVoteJSON.version,
+                                                         messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                
+                return message
+                
+            } else if let message = try PersistedMessageSent.get(senderSequenceNumber: messageToEdit.senderSequenceNumber,
+                                                                 senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
+                                                                 ownedIdentity: messageToEdit.senderIdentifier,
+                                                                 discussion: self) {
+                
+                try message.setPollVoteFromOwnedIdentity(for: pollVoteJSON.pollCandidateUuid,
+                                                         voted: pollVoteJSON.voted,
+                                                         version: pollVoteJSON.version,
+                                                         messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+                return message
+
+            } else {
+                
+                throw ObvUICoreDataError.couldNotFindPersistedMessage
+                
+            }
+                        
+        }
+
+    }
     
     // MARK: - Process screen capture detections
 
@@ -1976,17 +2121,53 @@ public extension PersistedDiscussion {
 
 extension PersistedDiscussion {
     
+    public func canUnarchiveAutomatically(with message: PersistedMessage) -> Bool {
+        guard let receivedMessage = message as? PersistedMessageReceived else { return false }
+        
+        if receivedMessage.contactIdentity?.ownedIdentity?.isHidden ?? false {
+            return false
+        }
+        
+        guard ObvMessengerSettings.Discussions.unarchiveDiscussions else { /// If global settings is set to disable automatic unarchiving, we cannot unarchive
+            return false
+        }
+        
+        guard localConfiguration.hasValidMuteNotificationsEndDate else { /// If discussion is not locally mute, we can unarchive
+            return ObvMessengerSettings.Discussions.unarchiveDiscussions
+        }
+        
+        let globalDiscussionNotificationOptions = ObvMessengerSettings.Discussions.notificationOptions
+
+        /// if discussion is muted, we still can unarchive is settings is set to me notified on mention.
+        switch localConfiguration.mentionNotificationMode {
+
+        case .alwaysNotifyWhenMentionned,
+                .globalDefault where globalDiscussionNotificationOptions.contains(.alwaysNotifyWhenMentionnedEvenInMutedDiscussion):
+
+            let ownedCryptoId = self.ownedIdentity?.cryptoId
+            
+            let messageMentionsContainOwnedIdentity = receivedMessage.mentions.compactMap { try? $0.mentionnedCryptoId }.contains(ownedCryptoId)
+            let messageDoesReplyToMessageThatMentionsOwnedIdentity = (try? receivedMessage.messageRepliedTo?.mentions.map({ try $0.mentionnedCryptoId }).contains(ownedCryptoId)) ?? false
+            let messageDoesReplyToSentMessage = (receivedMessage.messageRepliedTo is PersistedMessageSent)
+
+            let doesMentionOwnedIdentityValue = messageMentionsContainOwnedIdentity || messageDoesReplyToMessageThatMentionsOwnedIdentity || messageDoesReplyToSentMessage
+            
+            return doesMentionOwnedIdentityValue
+            
+        case .globalDefault,
+                .neverNotifyWhenDiscussionIsMuted:
+            return false
+        }
+        
+    }
+    
     public func unarchive() {
         guard isArchived else { return }
+        
         isArchived = false
         // Since we unarchive the discussion, it will be shown in the list of recent discussions.
         // We want to make sure is contains the end-to-end encryption system message, as well as other informative messages.
-        try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: true, messageTimestamp: Date())
-    }
-    
-    public func unarchiveAndUpdateTimestampOfLastMessage() {
-        unarchive()
-        resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(Date())
+        try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: true, messageTimestamp: .now)
     }
     
     public func archive() throws {
@@ -1994,7 +2175,7 @@ extension PersistedDiscussion {
         guard !isArchived else { return }
         isArchived = true
 
-        _ = try markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: nil, dateWhenMessageTurnedNotNew: .now)
+//        _ = try markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: nil, dateWhenMessageTurnedNotNew: .now)
         
         self.pinnedIndex = nil
 
@@ -2247,7 +2428,7 @@ extension PersistedDiscussion {
             case pinnedSectionKeyPath = "pinnedSectionKeyPath"
             case rawStatus = "rawStatus"
             case senderThreadIdentifier = "senderThreadIdentifier"
-            case timestampOfLastMessage = "timestampOfLastMessage"
+            case sortDate = "sortDate"
             case title = "title"
             // Relationships
             case draft = "draft"
@@ -2306,6 +2487,16 @@ extension PersistedDiscussion {
         static func isArchived(is bool: Bool) -> NSPredicate {
             NSPredicate(Key.isArchived, is: bool)
         }
+        static func isDeletedByUser(bool: Bool) -> NSPredicate {
+            if bool {
+                NSPredicate(withNilValueForKey: Key.sortDate)
+            } else {
+                NSPredicate(withNonNilValueForKey: Key.sortDate)
+            }
+        }
+        static var withNilSortDate: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.sortDate)
+        }
         static var isUnmuted: NSPredicate {
             NSCompoundPredicate(orPredicateWithSubpredicates: [
                 NSPredicate(withNilValueForRawKey: Key.muteNotificationsEndDate),
@@ -2331,10 +2522,83 @@ extension PersistedDiscussion {
                 .init(withNilValueForRawKey: rawKey),
             ])
         }
+        static var withAtLeastOneNewMessage: NSPredicate {
+            NSPredicate(Key.numberOfNewMessages, LargerThanInt: 0)
+        }
+        static var withAtLeastOneMessage: NSPredicate {
+            NSPredicate(withStrictlyPositiveCountForKey: Key.messages)
+        }
     }
     
+    
+    public static func getSearchPredicate(_ searchText: String?) -> NSPredicate {
+        let predicate: NSPredicate
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
+            let searchTerms = sanitizedSearchText.split(separator: " ").map({ String($0) })
+            let searchTermsPredicates = searchTerms.map({ Predicate.withNormalizedSearchKey(contains: $0) })
+            predicate = NSCompoundPredicate(andPredicateWithSubpredicates: searchTermsPredicates)
+        } else {
+            predicate = NSPredicate(value: true)
+        }
+        return predicate
+    }
+    
+        
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedDiscussion> {
         return NSFetchRequest<PersistedDiscussion>(entityName: PersistedDiscussion.entityName)
+    }
+    
+    @nonobjc private static func dictionaryFetchRequest() -> NSFetchRequest<NSDictionary> {
+        return NSFetchRequest<NSDictionary>(entityName: Self.entityName)
+    }
+
+    
+    /// Identifies discussions affected by a rare bug in early versions of v3.10.
+    /// In these versions, some `PersistedDiscussion` instances incorrectly have a `nil` `sortDate`
+    /// despite containing a non-empty array of `messages`.
+    /// - Returns: The identifiers of the affected discussions.
+    public static func getIdsOfDiscussionsWithMessagesButWithNoSortDate(within context: NSManagedObjectContext) throws -> [TypeSafeManagedObjectID<PersistedDiscussion>] {
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withNilSortDate,
+            Predicate.withAtLeastOneMessage,
+        ])
+        request.fetchBatchSize = 100
+        let discussions = try context.fetch(request)
+        
+        var identifiersToReturn = [TypeSafeManagedObjectID<PersistedDiscussion>]()
+        for discussion in discussions {
+            do {
+                let mostRecentTimestampOfMessagesSent = try PersistedMessageSent.getMostRecentTimestampOfMessagesSent(in: discussion)
+                let mostRecentTimestampOfMessagesReceived = try PersistedMessageReceived.getMostRecentTimestampOfMessagesReceived(in: discussion)
+                let mostRecentTimestamp = Date.obvMax(date1: mostRecentTimestampOfMessagesSent, date2: mostRecentTimestampOfMessagesReceived)
+                guard mostRecentTimestamp != nil else { continue }
+                identifiersToReturn.append(discussion.typedObjectID)
+            } catch {
+                Self.logger.fault("Error: \(error)") // Continue anyway
+                assertionFailure()
+            }
+        }
+        return identifiersToReturn
+    }
+    
+    
+    public static func resetSortDateToMostRecentMessageTimestampIfRequired(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) throws {
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.persistedDiscussion(withObjectID: discussionObjectID.objectID),
+            Predicate.withNilSortDate,
+            Predicate.withAtLeastOneMessage,
+        ])
+        request.fetchLimit = 1
+        guard let discussion = try context.fetch(request).first else { return }
+        let mostRecentTimestampOfMessagesSent = try PersistedMessageSent.getMostRecentTimestampOfMessagesSent(in: discussion)
+        let mostRecentTimestampOfMessagesReceived = try PersistedMessageReceived.getMostRecentTimestampOfMessagesReceived(in: discussion)
+        let mostRecentTimestamp = Date.obvMax(date1: mostRecentTimestampOfMessagesSent, date2: mostRecentTimestampOfMessagesReceived)
+        if let mostRecentTimestamp, discussion.sortDate == nil {
+            discussion.resetSortDateIfCurrentValueIsEarlierThan(mostRecentTimestamp)
+        }
     }
     
     
@@ -2350,9 +2614,9 @@ extension PersistedDiscussion {
     }
 
     
-    public static func getAllSortedByTimestampOfLastMessageForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedDiscussion] {
+    public static func getAllSortedBySortDateForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedDiscussion] {
         let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestampOfLastMessage.rawValue, ascending: false)]
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)]
         return try context.fetch(request)
     }
     
@@ -2392,7 +2656,7 @@ extension PersistedDiscussion {
         let emptyLockedDiscussions = try context.fetch(request)
         for discussion in emptyLockedDiscussions {
             do {
-                try discussion.deletePersistedDiscussion()
+                try discussion.deletePersistedDiscussionFromDatabase()
             } catch {
                 os_log("One of the empty locked discussion could not be deleted", log: log, type: .fault)
                 assertionFailure()
@@ -2482,6 +2746,21 @@ extension PersistedDiscussion {
     }
 
     
+    static func getPersistedDiscussionObjectID(discussionIdentifier: ObvDiscussionIdentifier, within context: NSManagedObjectContext) throws -> TypeSafeManagedObjectID<PersistedDiscussion>? {
+        switch discussionIdentifier {
+        case .oneToOne(let id):
+            let objectID = try PersistedOneToOneDiscussion.getPersistedDiscussionOneToOneObjectID(contactId: id, within: context)
+            return objectID?.downcast
+        case .groupV1(let id):
+            let objectID = try PersistedGroupDiscussion.getPersistedDiscussionGroupV1ObjectID(groupId: id, within: context)
+            return objectID?.downcast
+        case .groupV2(let id):
+            let objectID = try PersistedGroupV2Discussion.getPersistedDiscussionGroupV2ObjectID(groupId: id, within: context)
+            return objectID?.downcast
+        }
+    }
+
+    
     public static func getIdentifiersOfActiveDiscussionsWithDefaultPerformInteractionDonation(within context: NSManagedObjectContext) throws -> [ObvDiscussionIdentifier] {
         let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -2495,6 +2774,27 @@ extension PersistedDiscussion {
         return discussionIdentifiers
     }
         
+    
+    public static func getObvDiscussionIdentifier(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) throws -> ObvDiscussionIdentifier? {
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.predicate = Predicate.persistedDiscussion(withObjectID: discussionObjectID.objectID)
+        request.fetchLimit = 1
+        let item = try context.fetch(request).first
+        return try item?.discussionIdentifier
+    }
+    
+    
+    public static func isPersistedDiscussionExisting(discussionIdentifier: ObvDiscussionIdentifier, within context: NSManagedObjectContext) throws -> Bool {
+        switch discussionIdentifier {
+        case .oneToOne(let id):
+            return try PersistedOneToOneDiscussion.isPersistedOneToOneDiscussionExisting(contactId: id, within: context)
+        case .groupV1(let id):
+            return try PersistedGroupDiscussion.isPersistedGroupDiscussionExisting(groupId: id, within: context)
+        case .groupV2(let id):
+            return try PersistedGroupV2Discussion.isPersistedGroupV2DiscussionExisting(groupId: id, within: context)
+        }
+    }
+    
 }
 
 
@@ -2555,24 +2855,83 @@ extension PersistedDiscussion {
     }
 
     
+    /// This is used by the datasource of the "home page", showing a list of recent, not deleted, not archived, discussions.
+    public static func getPredicateForUnarchivedNotDeletedDiscussionsForOwnedIdentity(ownedCryptoId: ObvCryptoId) -> NSPredicate {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+            Predicate.isArchived(is: false),
+            Predicate.isDeletedByUser(bool: false),
+        ])
+        return predicate
+    }
+    
+    
+    /// This is used by the datasource of the view showing a list of recent, not deleted, archived, discussions.
+    public static func getPredicateForArchivedNotDeletedDiscussionsForOwnedIdentity(ownedCryptoId: ObvCryptoId) -> NSPredicate {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+            Predicate.isArchived(is: true),
+            Predicate.isDeletedByUser(bool: false),
+        ])
+        return predicate
+    }
+
+
+    /// This is used by the datasource of the "home page", showing a list of recent, potentially deleted, potentially archived, discussions. This predicate is used while the user is performing a search.
+    public static func getPredicateForAllDiscussionsForOwnedIdentity(ownedCryptoId: ObvCryptoId) -> NSPredicate {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+        ])
+        return predicate
+    }
+
+    
+    /// This is used by the datasource of the view showing a list of archived discussions.
+    public static func getPredicateForAllArchivedDiscussionsForOwnedIdentity(ownedCryptoId: ObvCryptoId) -> NSPredicate {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+            Predicate.isArchived(is: true),
+        ])
+        return predicate
+    }
+
+    
+    /// This is used by the datasource of the "home page", showing a list of recent discussions. This is used both when the user is not performing a search, and when she is.
+    public static func getFetchedResultsControllerWithPinnedDiscussionsSplitIntoSections(predicate: NSPredicate, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDiscussion> {
+        let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        fetchRequest.predicate = predicate
+        fetchRequest.sortDescriptors = [
+            NSSortDescriptor(key: Predicate.Key.pinnedSectionKeyPath.rawValue, ascending: false),
+            NSSortDescriptor(key: Predicate.Key.rawPinnedIndex.rawValue, ascending: true),
+            NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)
+        ]
+        let sectionNameKeyPath = Predicate.Key.pinnedSectionKeyPath.rawValue
+        fetchRequest.relationshipKeyPathsForPrefetching = [
+            Predicate.Key.illustrativeMessage.rawValue,
+            Predicate.Key.localConfiguration.rawValue,
+        ]
+        return NSFetchedResultsController<PersistedDiscussion>(fetchRequest: fetchRequest,
+                                                               managedObjectContext: context,
+                                                               sectionNameKeyPath: sectionNameKeyPath,
+                                                               cacheName: nil)
+    }
+    
+    
     /// Returns a `NSFetchRequest` for the non-archived discussions of the owned identity, sorted by the timestamp of the last message of each discussion.
     public static func getFetchRequestForNonArchivedRecentDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId, splitPinnedDiscussionsIntoSections: Bool) -> FetchRequestControllerModel<PersistedDiscussion> {
         let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withOwnCryptoId(ownedCryptoId),
-            Predicate.isArchived(is: false),
-        ])
+        fetchRequest.predicate = getPredicateForUnarchivedNotDeletedDiscussionsForOwnedIdentity(ownedCryptoId: ownedCryptoId)
         
         let sectionNameKeyPath: String?
         if splitPinnedDiscussionsIntoSections {
             fetchRequest.sortDescriptors = [
                 NSSortDescriptor(key: Predicate.Key.pinnedSectionKeyPath.rawValue, ascending: false),
                 NSSortDescriptor(key: Predicate.Key.rawPinnedIndex.rawValue, ascending: true),
-                NSSortDescriptor(key: Predicate.Key.timestampOfLastMessage.rawValue, ascending: false)
+                NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)
             ]
             sectionNameKeyPath = Predicate.Key.pinnedSectionKeyPath.rawValue
         } else {
-            fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestampOfLastMessage.rawValue, ascending: false)]
+            fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)]
             sectionNameKeyPath = nil
         }
         
@@ -2582,7 +2941,62 @@ extension PersistedDiscussion {
         ]
         return FetchRequestControllerModel(fetchRequest: fetchRequest, sectionNameKeyPath: sectionNameKeyPath)
     }
+    
+    
+    public static func getFetchRequestForArchivedDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
+        let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+            Predicate.isArchived(is: true),
+        ])
+        
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)]
+        
+        fetchRequest.relationshipKeyPathsForPrefetching = [
+            Predicate.Key.illustrativeMessage.rawValue,
+            Predicate.Key.localConfiguration.rawValue,
+        ]
+        
+        return fetchRequest
+    }
 
+    /// Returns a `NSFetchRequest` for the archived discussions of the owned identity, sorted by the timestamp of the last message of each discussion.
+    public static func getFetchRequestControllerModelForArchivedDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> FetchRequestControllerModel<PersistedDiscussion> {
+        let fetchRequest: NSFetchRequest<PersistedDiscussion> = getFetchRequestForArchivedDiscussionsForOwnedIdentity(with: ownedCryptoId)
+        return FetchRequestControllerModel(fetchRequest: fetchRequest, sectionNameKeyPath: nil)
+    }
+    
+    
+    public static func getFetchedResultsControllerForArchivedDiscussionsForOwnedIdentity(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDiscussion> {
+        let model = getFetchRequestControllerModelForArchivedDiscussionsForOwnedIdentity(with: ownedCryptoId)
+        let frc = NSFetchedResultsController(fetchRequest: model.fetchRequest,
+                                             managedObjectContext: context,
+                                             sectionNameKeyPath: nil,
+                                             cacheName: nil)
+        return frc
+    }
+    
+    
+    public static func getFetchRequestForArchivedDiscussionsWithNewMessagesForOwnedIdentity(ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
+        let fetchRequest: NSFetchRequest<PersistedDiscussion> = getFetchRequestForArchivedDiscussionsForOwnedIdentity(with: ownedCryptoId)
+        let newPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            fetchRequest.predicate ?? NSPredicate(value: true),
+            Predicate.withAtLeastOneNewMessage,
+        ])
+        fetchRequest.predicate = newPredicate
+        return fetchRequest
+    }
+    
+    
+    public static func getFetchedResultsControllerForArchivedDiscussionsWithNewMessagesForOwnedIdentity(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDiscussion> {
+        let fetchRequest = getFetchRequestForArchivedDiscussionsWithNewMessagesForOwnedIdentity(ownedCryptoId: ownedCryptoId)
+        let frc = NSFetchedResultsController(fetchRequest: fetchRequest,
+                                             managedObjectContext: context,
+                                             sectionNameKeyPath: nil,
+                                             cacheName: nil)
+        return frc
+    }
+    
 
     /// Returns a `NSFetchRequest` for the non-empty and active discussions of the owned identity, sorted by the timestamp of the last message of each discussion.
     public static func getFetchRequestForAllActiveRecentDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> FetchRequestControllerModel<PersistedDiscussion> {
@@ -2594,7 +3008,7 @@ extension PersistedDiscussion {
             Predicate.withStatus(.active)
         ])
 
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestampOfLastMessage.rawValue, ascending: false)]
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)]
 
         return FetchRequestControllerModel(fetchRequest: fetchRequest, sectionNameKeyPath: nil)
     }
@@ -2609,18 +3023,15 @@ extension PersistedDiscussion {
             subPredicates.append(Predicate.withStatus(.active))
         }
         
-        if let searchTerm {
-            let searchTerms = searchTerm.trimmingWhitespacesAndNewlines().split(separator: " ").map({ String($0) })
-            let searchTermsPredicates = searchTerms.map({ Predicate.withNormalizedSearchKey(contains: $0) })
-            let searchTermsPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: searchTermsPredicates)
-            subPredicates.append(searchTermsPredicate)
-        }
+        let searchTermsPredicate = self.getSearchPredicate(searchTerm)
+        subPredicates.append(searchTermsPredicate)
+
         fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subPredicates)
         
         fetchRequest.sortDescriptors = [
             NSSortDescriptor(key: Predicate.Key.pinnedSectionKeyPath.rawValue, ascending: false),
             NSSortDescriptor(key: Predicate.Key.rawPinnedIndex.rawValue, ascending: true),
-            NSSortDescriptor(key: Predicate.Key.timestampOfLastMessage.rawValue, ascending: false)
+            NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)
         ]
         let sectionNameKeyPath = Predicate.Key.pinnedSectionKeyPath.rawValue
         
@@ -2649,6 +3060,17 @@ extension PersistedDiscussion {
         return try context.fetch(request)
     }
 
+
+    public static func getFetchedResultsController(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDiscussion> {
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.predicate = Predicate.persistedDiscussion(withObjectID: objectID.objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
 
 }
 
@@ -2709,7 +3131,7 @@ extension PersistedDiscussion {
             do {
                 let discussionIdentifier = try self.discussionIdentifier
                 let status = self.status
-                Task { await Self.observersHolder.aPersistedDiscussionStatusChanged(discussionIdentifier: discussionIdentifier, status: status) }
+                Task { await PersistedDiscussion.observersHolder.aPersistedDiscussionStatusChanged(discussionIdentifier: discussionIdentifier, status: status) }
             } catch {
                 Self.logger.error("Could not compute discussion identifier: \(error)")
                 assertionFailure()
@@ -2722,7 +3144,7 @@ extension PersistedDiscussion {
             do {
                 let discussionIdentifier = try self.discussionIdentifier
                 let isArchived = self.isArchived
-                Task { await Self.observersHolder.aPersistedDiscussionIsArchivedChanged(discussionIdentifier: discussionIdentifier, isArchived: isArchived) }
+                Task { await PersistedDiscussion.observersHolder.aPersistedDiscussionIsArchivedChanged(discussionIdentifier: discussionIdentifier, isArchived: isArchived) }
             } catch {
                 Self.logger.error("Could not compute discussion identifier: \(error)")
                 assertionFailure()
@@ -2736,7 +3158,7 @@ extension PersistedDiscussion {
         
         if isDeleted {
             if let discussionIdentifier = self.discussionIdentifierOnDeletion {
-                Task { await Self.observersHolder.aPersistedDiscussionWasDeleted(discussionIdentifier: discussionIdentifier) }
+                Task { await PersistedDiscussion.observersHolder.aPersistedDiscussionWasDeleted(discussionIdentifier: discussionIdentifier) }
             } else {
                 // This happens when the owned identity is deleted
                 assert(self.ownedIdentity == nil, "Since this discussion was deleted, but owned identity still exists, discussionIdentifierOnDeletion should be non-nil") // In production, continue
@@ -2746,10 +3168,7 @@ extension PersistedDiscussion {
         if isInserted || (changedKeys.contains(Predicate.Key.rawStatus.rawValue) && self.status == .active) {
             do {
                 let discussionIdentifier = try self.discussionIdentifier
-                Task { await Self.observersHolder.aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: discussionIdentifier) }
-                // We also send the legacy notification, for legacy situations...
-                ObvMessengerCoreDataNotification.persistedDiscussionWasInsertedOrReactivated(ownedCryptoId: discussionIdentifier.ownedCryptoId, discussionIdentifier: discussionIdentifier.toDiscussionIdentifier())
-                    .postOnDispatchQueue()
+                Task { await PersistedDiscussion.observersHolder.aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: discussionIdentifier) }
             } catch {
                 assertionFailure(error.localizedDescription)
                 // Continue anyway
@@ -2760,7 +3179,7 @@ extension PersistedDiscussion {
             do {
                 let discussionIdentifier = try self.discussionIdentifier
                 let localDateWhenDiscussionRead = self.localDateWhenDiscussionRead
-                Task { await Self.observersHolder.aPersistedDiscussionWasRead(discussionIdentifier: discussionIdentifier, localDateWhenDiscussionRead: localDateWhenDiscussionRead) }
+                Task { await PersistedDiscussion.observersHolder.aPersistedDiscussionWasRead(discussionIdentifier: discussionIdentifier, localDateWhenDiscussionRead: localDateWhenDiscussionRead) }
             } catch {
                 Self.logger.error("Could not compute discussion identifier: \(error)")
                 assertionFailure()
@@ -2777,7 +3196,7 @@ extension PersistedDiscussion {
                 changedKeys.contains(Predicate.Key.sharedConfiguration.rawValue) {
                 if let ownedCryptoId = self.ownedIdentity?.cryptoId {
                     Task {
-                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ownedCryptoId)
+                        await PersistedDiscussion.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ownedCryptoId)
                     }
                 } else {
                     assertionFailure()
@@ -2906,7 +3325,7 @@ struct PersistedDiscussionConfigurationSyncSnapshotNode: ObvSyncSnapshotNode {
 
 // MARK: - PersistedDiscussion observers
 
-public protocol PersistedDiscussionObserver: AnyObject {
+public protocol PersistedDiscussionObserver: AnyObject, Sendable {
     func aPersistedDiscussionStatusChanged(discussionIdentifier: ObvDiscussionIdentifier, status: PersistedDiscussion.Status) async
     func aPersistedDiscussionIsArchivedChanged(discussionIdentifier: ObvDiscussionIdentifier, isArchived: Bool) async
     func aPersistedDiscussionWasDeleted(discussionIdentifier: ObvDiscussionIdentifier) async

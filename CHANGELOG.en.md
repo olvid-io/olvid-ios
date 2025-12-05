@@ -1,5 +1,71 @@
 # Changelog
 
+## [4.0.3 (944)] - 2025-12-01
+
+- Olvid+ now offers new subscription plans, allowing you to share your subscription with family and stay securely connected together.
+- Refreshed app design for a more modern and intuitive experience.
+- Smoother performance, especially when launching Olvid with a large message history to sync.
+- Background push notifications are no longer required to use Olvid.
+- Resolved a memory issue related to new audio messages.
+- Fixed an issue that sometimes prevented deleted messages from being removed from your contacts' devices.
+- Fixed a bug that occasionally prevented voice messages from playing through the speaker.
+- Fixed an issue that sometimes prevented voice messages from being sent.
+
+## [4.0.2 (930)] - 2025-10-22
+
+- Polls in Chats: Now create polls in any discussion and let everyone share their opinion in just a tap!
+- Completely redesigned contact experience: Tap the new floating "+" button (on every tab) to add contacts instantly—via QR scan, invitation link, or from a list of suggested users (including Olvid users from shared groups).
+- One-click invites: Easily connect with users from your shared groups.
+- Redesigned voice message cells with interactive waveforms and playback speed controls (1x, 1.5x, 2x) for a richer audio experience.
+- Improved onboarding design.
+- Resolved an issue that could prevent secure calls from being properly established, improving call reliability.
+- Improved the reliability of user notification delivery.
+- Optimized startup operations in Olvid for faster and more efficient app launch.
+- Olvid is now available in German.
+
+## [4.0.1 (916)] - 2025-09-29
+
+- Olvid is now available in Spanish and Italian.
+- Completely redesigned the group list.
+- Resolved an animation issue when entering discussions on iOS 16.
+- Fixes a crash on macOS 26 occuring when hiding a profile.
+- Fixed an issue where messages with only attachments (no text) occasionally failed to sync across your devices.
+- Improved the design and readability of discussion titles in Liquid Glass.
+- In multi-device setups, accepting new group information on one device didn't always sync to other linked devices, occasionally requiring re-acceptance. This issue has been fixed.
+- Other usability and design improvements
+
+## [4.0 (907)] - 2025-09-20
+
+- We are ready for iOS26, iPadOS26, and macOS26.
+- Redesigned navigation on iPad and macOS.
+- We've enhanced the message reception process to ensure smoother and more consistent performance.
+- You can now share entire directories with Olvid! Simply select a folder, and it will be automatically zipped and attached.
+- Enhanced result sharing, especially for articles.
+- Fixed a rare issue where some discussions might not appear in your recent discussions list.
+- Fixed an issue where attachments sent from your other devices might fail to download.
+- Fixed inconsistent profile ordering between the profile selection view and the fast-switching gesture.
+- Various improvements and bug fixes to keep things running smoothly.
+- We're working on the #1 feature request. Stay tuned!
+
+## [3.9 (891)] - 2025-07-03
+
+- Introducing the new storage management module! Optimize your disk space in a snap by reviewing and easily deleting unwanted large files. More space, better performance, pure joy!
+- Enhanced multi-device functionality: Users can now check the status of messages sent from any device across all their devices.
+- We have completely redesigned the "recent discussions" tab and introduced a new method for archiving your discussions.
+- Implemented various enhancements to the new group flow to increase usability.
+- Improved the accessibility of group flows.
+- Updated the panel displaying reactions to messages.
+- Navigating through the app during a video call will no longer interrupt your own video stream.
+- Ensured system stability during long migrations to prevent shutdowns and maintain continuity.
+- Fixes a graphical issue impacting the invitations tab.
+- Fixes an issue with the badge computation of the invitation tab.
+- Addressed a problem that occasionally prevented users from cloning a group.
+- Addressed an issue sometimes preventing the proper upload of messages.
+- Fixed a bug where copying a new link to the clipboard could leave the previously copied link still present.
+- Fixed an issue where the button for recording a voice message could disappear under certain circumstances.
+- Resolved an issue where the settings to hide specific group messages were not functioning correctly, ensuring that message filtering now works as intended.
+- Implemented minor graphical improvements.
+
 ## [3.8 (873)] - 2025-05-21
 
 - We've redesigned the group creation and editing experience from the ground up to make it more intuitive, efficient, and user-friendly.

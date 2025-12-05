@@ -27,7 +27,7 @@ extension PersistedMessage {
     
     public func toAbstractStructure() throws -> PersistedMessageAbstractStructure {
         guard let discussion else {
-            throw ObvUICoreDataError.discussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         let discussionKind = try discussion.toStructureKind()
         let repliedToMessage = try messageRepliedTo?.toRepliedToMessageStructure()

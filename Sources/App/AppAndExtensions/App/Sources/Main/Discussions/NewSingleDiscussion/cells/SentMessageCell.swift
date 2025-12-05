@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import UIKit
 import UniformTypeIdentifiers
 import LinkPresentation
 import CoreData
-import os.log
+import OSLog
 import ObvUI
 import ObvUICoreData
 import ObvSettings
@@ -42,8 +42,11 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
     weak var shortcutMenuDelegate: CellMessageShortcutMenuDelegate?
     weak var cellReconfigurator: CellReconfigurator?
     weak var textBubbleDelegate: TextBubbleDelegate?
+    weak var audioWaveFormViewDelegate: AudioWaveFormViewDelegate?
     weak var locationViewDelegate: LocationViewDelegate?
+    weak var pollViewDelegate: MessagePollViewDelegate?
     weak var replyToDelegate: CellReplyToDelegate?
+    weak var sentMessageInfosHostingViewControllerDelegate: SentMessageInfosHostingViewControllerDelegate?
 
     // Mark: Hovering View for Mac Catalyst
     private var hoveringView: UIView?
@@ -79,7 +82,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         return newLayoutAttributes
     }
 
-    func updateWith(message: PersistedMessageSent, searchedTextToHighlight: String?, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate?, shortcutMenuDelegate: CellMessageShortcutMenuDelegate?, replyToDelegate: CellReplyToDelegate, locationViewDelegate: LocationViewDelegate?) {
+    func updateWith(message: PersistedMessageSent, searchedTextToHighlight: String?, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate?, audioWaveFormViewDelegate: AudioWaveFormViewDelegate?, shortcutMenuDelegate: CellMessageShortcutMenuDelegate?, replyToDelegate: CellReplyToDelegate, locationViewDelegate: LocationViewDelegate?, sentMessageInfosHostingViewControllerDelegate: SentMessageInfosHostingViewControllerDelegate?, pollViewDelegate: MessagePollViewDelegate?) {
         assert(cacheDelegate != nil)
         self.message = message
         self.indexPath = indexPath
@@ -88,10 +91,13 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         self.cacheDelegate = cacheDelegate
         self.cellReconfigurator = cellReconfigurator
         self.textBubbleDelegate = textBubbleDelegate
+        self.audioWaveFormViewDelegate = audioWaveFormViewDelegate
         self.searchedTextToHighlight = searchedTextToHighlight
         self.shortcutMenuDelegate = shortcutMenuDelegate
         self.locationViewDelegate = locationViewDelegate
         self.replyToDelegate = replyToDelegate
+        self.pollViewDelegate = pollViewDelegate
+        self.sentMessageInfosHostingViewControllerDelegate = sentMessageInfosHostingViewControllerDelegate
     }
     
     
@@ -212,6 +218,20 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             content.locationViewConfiguration = nil
         }
         
+        if let poll = message.poll {
+            let candidateConfigurations: [MessagePollView.CandidateConfiguration] = poll.candidates
+                .compactMap { candidate in
+                    guard let candidateUUID = candidate.uuid else { return nil }
+                    return MessagePollView.CandidateConfiguration(
+                        UUID: candidateUUID,
+                        votes: candidate.votes.compactMap(\.voted))
+                }
+            let pollViewConfiguration = MessagePollView.Configuration(messageObjectID: message.typedObjectID.downcast, candidateVotes: candidateConfigurations)
+            content.pollViewConfiguration = pollViewConfiguration
+        } else {
+            content.pollViewConfiguration = nil
+        }
+        
         // Configure link-preview type of attachments
         
         var otherAttachments = message.fyleMessageJoinWithStatusesOfOtherTypes
@@ -286,6 +306,22 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             content.wipedViewConfiguration = nil
             content.singlePreviewConfiguration = nil
             content.singlePDFViewConfiguration = nil
+            content.pollViewConfiguration = nil
+            
+        } else if message.isPoll && content.pollViewConfiguration != nil {
+            
+            content.textBubbleConfiguration = nil
+            content.singlePreviewConfiguration = nil
+            content.replyToBubbleViewConfiguration = nil
+            content.singleImageViewConfiguration = nil
+            content.singleGifViewConfiguration = nil
+            content.multipleImagesViewConfiguration = []
+            content.multipleAttachmentsViewConfiguration = []
+            content.audioPlayerConfiguration = nil
+            content.wipedViewConfiguration = nil
+            content.singlePreviewConfiguration = nil
+            content.singlePDFViewConfiguration = nil
+            content.locationViewConfiguration = nil
             
         } else {
             content.textBubbleConfiguration = nil
@@ -324,7 +360,9 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
     private func registerDelegate() {
         guard let contentView = self.contentView as? SentMessageCellContentView else { assertionFailure(); return }
         contentView.textBubble.delegate = textBubbleDelegate
+        contentView.audioPlayerView.delegate = audioWaveFormViewDelegate
         contentView.locationView.delegate = locationViewDelegate
+        contentView.pollView.delegate = pollViewDelegate
         contentView.replyToDelegate = replyToDelegate
     }
 
@@ -452,7 +490,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             
         case .uploading, .uploadable:
             
-            if let hardlink = hardlink {
+            if let hardlink = hardlink, hardlink.hardlinkURL != nil {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progressObject)
                 } else {
@@ -472,8 +510,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             }
             
         case .complete:
-            
-            if let hardlink = hardlink {
+            if let hardlink = hardlink, hardlink.hardlinkURL != nil {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
                     config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
                 } else {
@@ -659,7 +696,7 @@ extension SentMessageCell {
     var infoViewController: UIViewController? {
         guard let message = message else { return nil }
         guard message.infoActionCanBeMadeAvailable == true else { return nil }
-        let rcv = SentMessageInfosHostingViewController(messageSent: message)
+        let rcv = SentMessageInfosHostingViewController(messageSent: message, delegate: sentMessageInfosHostingViewControllerDelegate)
         return rcv
     }
 
@@ -683,11 +720,12 @@ fileprivate struct SentMessageCellCustomContentConfiguration: UIContentConfigura
     var scheduledExistenceDestructionDate: Date?
     var scheduledVisibilityDestructionDate: Date?
     var locationViewConfiguration: LocationView.Configuration?
+    var pollViewConfiguration: MessagePollView.Configuration?
     var singleImageViewConfiguration: SingleImageView.Configuration?
     var singleGifViewConfiguration: SingleImageView.Configuration?
     var multipleImagesViewConfiguration = [SingleImageView.Configuration]()
     var multipleAttachmentsViewConfiguration = [SingleAttachmentView.Configuration]()
-    var audioPlayerConfiguration: AudioPlayerView.Configuration?
+    var audioPlayerConfiguration: AudioWaveFormView.Configuration?
 
     var textBubbleConfiguration: TextBubble.Configuration?
     var singlePreviewConfiguration: SinglePreviewView.Configuration?
@@ -930,9 +968,10 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
     fileprivate let multipleReactionsView = MultipleReactionsView()
     private let replyToBubbleView = ReplyToBubbleView(expirationIndicatorSide: .leading)
     fileprivate let locationView = LocationView(expirationIndicatorSide: .leading)
+    fileprivate let pollView = MessagePollView(expirationIndicatorSide: .leading, bubbleColor: AppTheme.shared.colorScheme.adaptiveOlvidBlue, textColor: .white, progressColor: .white)
     private let wipedView = WipedView(expirationIndicatorSide: .leading)
     private let backgroundView = SentMessageCellBackgroundView()
-    fileprivate let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .leading)
+    fileprivate let audioPlayerView = AudioWaveFormView(expirationIndicatorSide: .leading)
     private let forwardView = ForwardView()
     weak var replyToDelegate: CellReplyToDelegate?
 
@@ -1101,6 +1140,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
         mainStack.addArrangedSubview(locationView)
         
+        mainStack.addArrangedSubview(pollView)
+        
         mainStack.addArrangedSubview(audioPlayerView)
 
         mainStack.addArrangedSubview(singlePDFView)
@@ -1224,6 +1265,15 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
         } else {
             locationView.showInStack = false
         }
+        
+        // Poll view
+        if let pollViewConfiguration = newConfig.pollViewConfiguration {
+            pollView.showInStack = true
+            pollView.apply(pollViewConfiguration)
+        } else {
+            pollView.showInStack = false
+        }
+        
         // Images
 
         if let singleImageViewConfiguration = newConfig.singleImageViewConfiguration {
@@ -1271,7 +1321,7 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
         if let audioPlayerConfiguration = newConfig.audioPlayerConfiguration {
             audioPlayerView.showInStack = true
-            audioPlayerView.configure(with: audioPlayerConfiguration)
+            audioPlayerView.apply(audioPlayerConfiguration)
         } else {
             audioPlayerView.showInStack = false
         }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import Network
 import OlvidUtils
 import ObvTypes
@@ -78,6 +78,8 @@ public final class ObvNetworkSendManagerImplementation: ObvNetworkPostDelegate, 
         uploadAttachmentChunksCoordinator.delegateManager = delegateManager
         tryToDeleteMessageAndAttachmentsCoordinator.delegateManager = delegateManager
         bootstrapWorker.delegateManager = delegateManager
+        DeletedOutboxMessage.delegateManager = delegateManager
+        OutboxMessage.delegateManager = delegateManager
         Task { await batchUploadMessagesWithoutAttachmentCoordinator.setDelegateManager(delegateManager) }
     }
 }
@@ -119,10 +121,13 @@ extension ObvNetworkSendManagerImplementation {
 
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {}
     
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {
+        delegateManager.networkSendFlowDelegate.resetAllFailedSendAttempsCountersAndRetrySending()
+        await bootstrapWorker.applicationWasInitializedButWasNeverOnScreen(flowId: flowId)
+    }
     
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
         if forTheFirstTime {
-            delegateManager.networkSendFlowDelegate.resetAllFailedSendAttempsCountersAndRetrySending()
             monitorNetworkChanges()
         }
         await bootstrapWorker.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
@@ -203,11 +208,11 @@ extension ObvNetworkSendManagerImplementation {
         
         // Delete all outbox messages relating to the owned identity
         
-        try OutboxMessage.deleteAllForOwnedIdentity(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext)
+        try OutboxMessage.deleteAllForOwnedIdentity(ownedCryptoIdentity, within: obvContext.context)
         
         // Delete all `DeletedOutboxMessage` relating to the owned identity
         
-        try DeletedOutboxMessage.batchDelete(ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext)
+        try DeletedOutboxMessage.batchDelete(ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext.context)
 
     }
     

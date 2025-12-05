@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,7 @@ import ObvAppTypes
 @MainActor
 protocol SingleDiscussionViewControllerDelegate: AnyObject {
     
-    func userTappedTitleOfDiscussion(_ discussion: PersistedDiscussion)
+    func userTappedTitleOfDiscussion(_ vc: NewSingleDiscussionViewController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
     func userDidTapOnContactImage(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 
 
@@ -36,9 +36,9 @@ protocol SingleDiscussionViewControllerDelegate: AnyObject {
     ///   - mentionableIdentity: An instance of ``ObvMentionableIdentityAttribute.Value`` that the user tapped.
     func singleDiscussionViewController(_ viewController: SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: ObvMentionableIdentityAttribute.Value) async
     
-    func userWantsToSendDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToAddAttachmentsToDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws
-    func userWantsToAddAttachmentsToDraftFromURLs(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws
+    func userWantsToSendDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToAddAttachmentsToDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
+    func userWantsToAddAttachmentsToDraftFromURLs(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
     func userWantsToUpdateDraftBodyAndMentions(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
     func userWantsToDeleteAttachmentsFromDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
     func userWantsToReplyToMessage(_ singleDiscussionViewController: SomeSingleDiscussionViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
@@ -53,9 +53,18 @@ protocol SingleDiscussionViewControllerDelegate: AnyObject {
     func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ singleDiscussionViewController: SomeSingleDiscussionViewController, discussionPermanentID: ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedDiscussion>, messagePermanentIDs: Set<ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedMessage>>) async throws
     func messagesAreNotNewAnymore(_ singleDiscussionViewController: SomeSingleDiscussionViewController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
     func userWantsToUpdateReaction(_ singleDiscussionViewController: SomeSingleDiscussionViewController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
-
+    func userWantsToUpdatePollVote(_ singleDiscussionViewController: SomeSingleDiscussionViewController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, voted: Bool, version: Int) async throws
     func userWantsToShowMapToConsultLocationSharedContinously(_ singleDiscussionViewController: SomeSingleDiscussionViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws
     func userWantsToShowMapToSendOrShareLocationContinuously(_ singleDiscussionViewController: SomeSingleDiscussionViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToCreatePoll(_ singleDiscussionViewController: SomeSingleDiscussionViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToDisplayPollView(_ singleDiscussionViewController: SomeSingleDiscussionViewController, pollObjectID: TypeSafeManagedObjectID<PersistedPoll>) async throws
     func userWantsToStopSharingLocationInDiscussion(_ singleDiscussionViewController: SomeSingleDiscussionViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    
+    func userWantsToProcessReceiptsStoredForLater(_ singleDiscussionViewController: SomeSingleDiscussionViewController, ownedCryptoId: ObvCryptoId, returnReceiptElements: Set<ObvReturnReceiptElements>) async
+
+    func discussionViewWillAppear(_ singleDiscussionViewController: SomeSingleDiscussionViewController)
+    func discussionViewWillDisappear(_ singleDiscussionViewController: SomeSingleDiscussionViewController)
+    
+    func userWantsToDisplayContactIntroductionScreen(_ singleDiscussionViewController: SomeSingleDiscussionViewController, contactIdentifier: ObvTypes.ObvContactIdentifier)
     
 }

@@ -53,6 +53,15 @@ extension ObvGroupV2Identifier: ObvCodable {
 }
 
 
+extension ObvGroupV2Identifier: Identifiable {
+    
+    public var id: Data {
+        return "ObvGroupV1Identifier".data(using: .utf8)! + ownedCryptoId.getIdentity() + identifier.id
+    }
+    
+}
+
+
 // MARK: - Implementing LosslessStringConvertible, leveraging the ObvCodable conformance
 
 extension ObvGroupV2Identifier: LosslessStringConvertible {

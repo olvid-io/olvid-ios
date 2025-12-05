@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,6 @@
 import Foundation
 import CoreData
 import ObvTypes
-import OlvidUtils
 
 /// This class is used when restoring a backup
 struct BackupItemObjectAssociations {
@@ -41,21 +40,21 @@ struct BackupItemObjectAssociations {
         association[hashable.hashValue] = object.objectID
     }
 
-    func getObject<T: NSManagedObject, G: Hashable>(associatedTo hashable: G, within obvContext: ObvContext) throws -> T {
+    func getObject<T: NSManagedObject, G: Hashable>(associatedTo hashable: G, within context: NSManagedObjectContext) throws -> T {
         guard let objectID = association[hashable.hashValue] else {
             throw BackupItemObjectAssociations.makeError(message: "Object not found")
         }
-        let object = try obvContext.existingObject(with: objectID)
+        let object = try context.existingObject(with: objectID)
         guard let typedObject = object as? T else {
             throw BackupItemObjectAssociations.makeError(message: "Could not cast object")
         }
         return typedObject
     }
     
-    func getObjectIfPresent<T: NSManagedObject, G: Hashable>(associatedTo hashableOrNil: G?, within obvContext: ObvContext) throws -> T? {
+    func getObjectIfPresent<T: NSManagedObject, G: Hashable>(associatedTo hashableOrNil: G?, within context: NSManagedObjectContext) throws -> T? {
         guard let hashable = hashableOrNil else {
             return nil
         }
-        return try getObject(associatedTo: hashable, within: obvContext)
+        return try getObject(associatedTo: hashable, within: context)
     }
 }

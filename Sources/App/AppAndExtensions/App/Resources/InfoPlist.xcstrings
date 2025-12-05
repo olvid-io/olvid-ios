@@ -1,300 +1,810 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "Apple m4a Audio" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple m4a Audio"
-          }
-        }
-      }
-    },
-    "CFBundleDisplayName" : {
-      "comment" : "Bundle display name",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Olvid"
+  "sourceLanguage": "en",
+  "strings": {
+    "Apple Files app file": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei aus der Apple Dateien-App"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Olvid"
-          }
-        }
-      }
-    },
-    "CFBundleName" : {
-      "comment" : "Bundle name",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Files app file"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid"
-          }
-        }
-      }
-    },
-    "Chromium initiated drag" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chromium initiated drag"
-          }
-        }
-      }
-    },
-    "Microsoft Excel document" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Document Microsoft Excel"
-          }
-        }
-      }
-    },
-    "Microsoft Powerpoint document" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Document Microsoft Powerpoint"
-          }
-        }
-      }
-    },
-    "Microsoft Word 97 document" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Document Microsoft Word 97"
-          }
-        }
-      }
-    },
-    "Microsoft Word document" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Document Microsoft Word"
-          }
-        }
-      }
-    },
-    "NSCameraUsageDescription" : {
-      "comment" : "Privacy - Camera Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Access to the camera allows you to scan the QR code of your contacts and to take pictures and videos right from within a discussion."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivo de la aplicación Archivos de Apple"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'accès à l'appareil photo permet de scanner le code QR de vos contacts et de prendre des photos et des vidéos directement au sein d'une discussion."
-          }
-        }
-      }
-    },
-    "NSFaceIDUsageDescription" : {
-      "comment" : "Privacy - Face ID Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Use Face ID to access Olvid"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Application Fichiers d’Apple"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utiliser Face ID pour accéder à Olvid"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File dall'app File di Apple"
           }
         }
       }
     },
-    "NSHumanReadableCopyright" : {
-      "comment" : "Copyright (human-readable)",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Copyright © 2019-2025 Olvid SAS"
+    "Apple Finder node under macOS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Finder-Knoten unter macOS"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copyright © 2019-2025 Olvid SAS"
-          }
-        }
-      }
-    },
-    "NSLocationAlwaysAndWhenInUseUsageDescription" : {
-      "comment" : "Privacy - Location Always and When In Use Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Your location is necessary when you decide to share it with other users."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Finder node under macOS"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre position géographique est nécessaire si vous décidez de la partager avec d'autres utilisateurs."
-          }
-        }
-      }
-    },
-    "NSLocationAlwaysUsageDescription" : {
-      "comment" : "Privacy - Location Always Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Your location is necessary when you decide to share it with other users."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nodo de Buscar en macOS"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre position géographique est nécessaire si vous décidez de la partager avec d'autres utilisateurs."
-          }
-        }
-      }
-    },
-    "NSLocationUsageDescription" : {
-      "comment" : "Privacy - Location Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Your location is necessary when you decide to share it with other users."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nœud du Finder d’Apple sous macOS"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre position géographique est nécessaire si vous décidez de la partager avec d'autres utilisateurs."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nodo Finder di Apple su macOS"
           }
         }
       }
     },
-    "NSLocationWhenInUseUsageDescription" : {
-      "comment" : "Privacy - Location When In Use Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Your location is necessary when you decide to share it with other users."
+    "Apple Link Presentation metadata": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Link-Präsentationsmetadaten"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre position géographique est nécessaire si vous décidez de la partager avec d'autres utilisateurs."
-          }
-        }
-      }
-    },
-    "NSMicrophoneUsageDescription" : {
-      "comment" : "Privacy - Microphone Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Allowing access to the microphone is required to make secure audio calls and to record movies and voice messages."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Link Presentation metadata"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'accès au micro est nécessaire pour passer des appels sécurisés ainsi que pour enregistrer des films et des messages audios."
-          }
-        }
-      }
-    },
-    "NSPhotoLibraryAddUsageDescription" : {
-      "comment" : "Privacy - Photo Library Additions Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Write access is required to save a picture to your photo library. Please note that Olvid will not have access to the other photos of your photo library."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metadatos de la presentación de Enlace de Apple"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'accès en écriture à votre librairie de photos permet d'y sauver une image directement. Notez que Olvid n'aura pas accès aux autres photos de votre librairie de photos."
-          }
-        }
-      }
-    },
-    "Olvid Backup" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sauvegarde Olvid"
-          }
-        }
-      }
-    },
-    "Olvid Link Preview" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid Link Preview"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Métadonnées d’un lien Apple"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prévisualisation de lien Olvid"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metadati della presentazione del link Apple"
           }
         }
       }
     },
-    "Web Internet Location" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Site internet"
+    "Apple m4a Audio": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple m4a Audio"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple m4a Audio"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio m4a de Apple"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple m4a Audio"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio m4a Apple"
+          }
+        }
+      }
+    },
+    "CFBundleDisplayName": {
+      "comment": "Bundle display name",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Olvid"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        }
+      }
+    },
+    "CFBundleName": {
+      "comment": "Bundle name",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        }
+      }
+    },
+    "Chromium initiated drag": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chromium hat mit dem Ziehen begonnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chromium initiated drag"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrastre iniciado por Chromium"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chromium initiated drag"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trascinamento avviato da Chromium"
+          }
+        }
+      }
+    },
+    "Microsoft Excel document": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Excel-Dokument"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Excel document"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento de Microsoft Excel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Document Microsoft Excel"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft Excel"
+          }
+        }
+      }
+    },
+    "Microsoft Powerpoint document": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft PowerPoint-Dokument"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Powerpoint document"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento de Microsoft Powerpoint"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Document Microsoft Powerpoint"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft PowerPoint"
+          }
+        }
+      }
+    },
+    "Microsoft Word 97 document": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word 97-Dokument"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word 97 document"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento de Microsoft Word 97"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Document Microsoft Word 97"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft Word 97"
+          }
+        }
+      }
+    },
+    "Microsoft Word document": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word Dokument"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word document"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento de Microsoft Word"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Document Microsoft Word"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft Word"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription": {
+      "comment": "Privacy - Camera Usage Description",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Zugriff auf die Kamera ermöglicht es Ihnen, die QR-Codes Ihrer Kontakte zu scannen und direkt aus einem Chat Fotos und Videos aufzunehmen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Access to the camera allows you to scan the QR code of your contacts and to take pictures and videos right from within a discussion."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El acceso a la cámara te permite escanear el código QR de tus contactos y tomar fotos y videos directamente desde una conversación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'accès à l'appareil photo permet de scanner le code QR de vos contacts et de prendre des photos et des vidéos directement au sein d'une discussion."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'accesso alla fotocamera ti permette di scansionare il codice QR dei tuoi contatti e di scattare foto e video direttamente all'interno di una conversazione."
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription": {
+      "comment": "Privacy - Face ID Usage Description",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verwende Face ID, um auf Olvid zuzugreifen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Use Face ID to access Olvid"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa Face ID para acceder a Olvid"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser Face ID pour accéder à Olvid"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa Face ID per accedere a Olvid"
+          }
+        }
+      }
+    },
+    "NSHumanReadableCopyright": {
+      "comment": "Copyright (human-readable)",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2025 Olvid SAS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Copyright © 2019-2025 Olvid SAS"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2025 Olvid SAS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2025 Olvid SAS"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2025 Olvid SAS"
+          }
+        }
+      }
+    },
+    "NSLocationAlwaysAndWhenInUseUsageDescription": {
+      "comment": "Privacy - Location Always and When In Use Usage Description",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Standort ist erforderlich, wenn du ihn mit anderen Benutzern teilen möchtest."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Your location is necessary when you decide to share it with other users."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu ubicación es necesaria cuando decidas compartirla con otros usuarios."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre position géographique est nécessaire si vous décidez de la partager avec d'autres utilisateurs."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La tua posizione è necessaria quando decidi di condividerla con altri utenti."
+          }
+        }
+      }
+    },
+    "NSLocationAlwaysUsageDescription": {
+      "comment": "Privacy - Location Always Usage Description",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Standort ist erforderlich, wenn du ihn mit anderen Nutzern teilen möchtest."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Your location is necessary when you decide to share it with other users."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu ubicación es necesaria cuando decidas compartirla con otros usuarios."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre position géographique est nécessaire si vous décidez de la partager avec d'autres utilisateurs."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La tua posizione è necessaria quando decidi di condividerla con altri utenti."
+          }
+        }
+      }
+    },
+    "NSLocationUsageDescription": {
+      "comment": "Privacy - Location Usage Description",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Standort ist erforderlich, wenn du ihn mit anderen Benutzern teilen möchtest."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Your location is necessary when you decide to share it with other users."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu ubicación es necesaria cuando decidas compartirla con otros usuarios."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre position géographique est nécessaire si vous décidez de la partager avec d'autres utilisateurs."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La tua posizione è necessaria quando decidi di condividerla con altri utenti."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "comment": "Privacy - Location When In Use Usage Description",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Standort ist erforderlich, wenn du ihn mit anderen Benutzern teilen möchtest."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Your location is necessary when you decide to share it with other users."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu ubicación es necesaria cuando decidas compartirla con otros usuarios."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre position géographique est nécessaire si vous décidez de la partager avec d'autres utilisateurs."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La tua posizione è necessaria quando decidi di condividerla con altri utenti."
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription": {
+      "comment": "Privacy - Microphone Usage Description",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Zugriff auf das Mikrofon ist erforderlich, um sichere Audioanrufe zu tätigen und Filme und Sprachnachrichten aufzunehmen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Allowing access to the microphone is required to make secure audio calls and to record movies and voice messages."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir el acceso al micrófono es necesario para realizar llamadas de audio seguras y grabar vídeos y mensajes de voz."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'accès au micro est nécessaire pour passer des appels sécurisés ainsi que pour enregistrer des films et des messages audios."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'accesso al microfono è necessario per effettuare chiamate audio sicure e registrare video e messaggi vocali."
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryAddUsageDescription": {
+      "comment": "Privacy - Photo Library Additions Usage Description",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Speichern eines Bildes in Ihrer Fotomediathek sind Schreibzugriffsrechte erforderlich. Bitte beachten Sie, dass Olvid nicht auf Ihre anderen Fotos in der Fotomediathek zugreifen kann."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Write access is required to save a picture to your photo library. Please note that Olvid will not have access to the other photos of your photo library."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se requiere acceso de escritura para guardar una imagen en tu biblioteca de fotos. Ten en cuenta que Olvid no tendrá acceso a las demás fotos de tu biblioteca."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'accès en écriture à votre librairie de photos permet d'y sauver une image directement. Notez que Olvid n'aura pas accès aux autres photos de votre librairie de photos."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "È necessario l'accesso in scrittura per salvare un'immagine nella tua libreria foto. Tieni presente che Olvid non avrà accesso alle altre foto della tua libreria."
+          }
+        }
+      }
+    },
+    "Olvid Backup": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid-Sicherung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid Backup"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de seguridad de Olvid"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sauvegarde Olvid"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup di Olvid"
+          }
+        }
+      }
+    },
+    "Olvid Link Preview": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid-Link-Vorschau"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid Link Preview"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa del enlace olvidado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prévisualisation de lien Olvid"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteprima Link Olvid"
+          }
+        }
+      }
+    },
+    "Web Internet Location": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web-Internet-Standort"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web Internet Location"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ubicación en la web"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Site internet"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posizione Internet Web"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

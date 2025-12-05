@@ -10,7 +10,9 @@
             <plist version="1.0">
                 <dict>
                     <key>NSPersistenceFrameworkVersion</key>
-                    <integer>1152</integer>
+                    <integer>1448</integer>
+                    <key>NSStoreModelVersionChecksumKey</key>
+                    <string>bMpud663vz0bXQE24C6Rh4MvJ5jVnzsD2sI3njZkKbc=</string>
                     <key>NSStoreModelVersionHashes</key>
                     <dict>
                         <key>XDDevAttributeMapping</key>
@@ -53,7 +55,7 @@
     <object type="XDDEVENTITYMAPPING" id="z103">
         <attribute name="sourcename" type="string">GroupV2SignatureReceived</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">33</attribute>
+        <attribute name="mappingnumber" type="int16">34</attribute>
         <attribute name="destinationname" type="string">GroupV2SignatureReceived</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -79,12 +81,12 @@
     <object type="XDDEVENTITYMAPPING" id="z108">
         <attribute name="sourcename" type="string">ContactGroupOwned</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">17</attribute>
+        <attribute name="mappingnumber" type="int16">18</attribute>
         <attribute name="destinationname" type="string">ContactGroupOwned</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z169 z341"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z214 z166 z216 z415 z143"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z341 z169"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z415 z143 z214 z166 z216"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z109">
         <attribute name="autogenerateexpression" type="bool">1</attribute>
@@ -127,11 +129,11 @@
     <object type="XDDEVENTITYMAPPING" id="z118">
         <attribute name="sourcename" type="string">ObvObliviousChannel</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">37</attribute>
+        <attribute name="mappingnumber" type="int16">38</attribute>
         <attribute name="destinationname" type="string">ObvObliviousChannel</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z489 z112 z295 z257 z117 z273 z302 z454 z323 z208 z480 z340 z115 z381"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z302 z489 z454 z112 z115 z381 z340 z480 z295 z257 z273 z323 z208 z117"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z493"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z119">
@@ -212,7 +214,7 @@
     <object type="XDDEVENTITYMAPPING" id="z137">
         <attribute name="sourcename" type="string">PendingServerQuery</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">23</attribute>
+        <attribute name="mappingnumber" type="int16">24</attribute>
         <attribute name="destinationname" type="string">PendingServerQuery</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -261,7 +263,7 @@
     <object type="XDDEVENTITYMAPPING" id="z147">
         <attribute name="sourcename" type="string">OwnedIdentityMaskingUID</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">18</attribute>
+        <attribute name="mappingnumber" type="int16">19</attribute>
         <attribute name="destinationname" type="string">OwnedIdentityMaskingUID</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -283,12 +285,12 @@
     <object type="XDDEVENTITYMAPPING" id="z151">
         <attribute name="sourcename" type="string">ContactGroupJoined</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">4</attribute>
+        <attribute name="mappingnumber" type="int16">5</attribute>
         <attribute name="destinationname" type="string">ContactGroupJoined</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
         <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z265 z462"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z131 z458 z283 z399 z201 z376"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z458 z131 z399 z283 z201 z376"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z152">
         <attribute name="name" type="string">isAppMessageWithUserContent</attribute>
@@ -362,7 +364,7 @@
         <attribute name="destinationname" type="string">BackupKey</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z139 z105 z331 z409 z394 z443 z471"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z443 z409 z471 z394 z331 z139 z105"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z440"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z168">
@@ -376,11 +378,11 @@
     <object type="XDDEVENTITYMAPPING" id="z170">
         <attribute name="sourcename" type="string">InboxAttachmentSession</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">9</attribute>
+        <attribute name="mappingnumber" type="int16">10</attribute>
         <attribute name="destinationname" type="string">InboxAttachmentSession</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z474 z460"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z460 z474"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z405"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z171">
@@ -395,11 +397,11 @@
     <object type="XDDEVENTITYMAPPING" id="z173">
         <attribute name="sourcename" type="string">OwnedIdentityDetailsPublished</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">43</attribute>
+        <attribute name="mappingnumber" type="int16">44</attribute>
         <attribute name="destinationname" type="string">OwnedIdentityDetailsPublished</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z365 z478 z352 z281 z222"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z222 z365 z478 z281 z352"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z446"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z174">
@@ -418,7 +420,7 @@
     <object type="XDDEVENTITYMAPPING" id="z177">
         <attribute name="sourcename" type="string">ChannelCreationPingSignatureReceived</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">5</attribute>
+        <attribute name="mappingnumber" type="int16">6</attribute>
         <attribute name="destinationname" type="string">ChannelCreationPingSignatureReceived</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -436,7 +438,7 @@
     <object type="XDDEVENTITYMAPPING" id="z180">
         <attribute name="sourcename" type="string">TrustEstablishmentCommitmentReceived</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">41</attribute>
+        <attribute name="mappingnumber" type="int16">42</attribute>
         <attribute name="destinationname" type="string">TrustEstablishmentCommitmentReceived</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -459,11 +461,11 @@
     <object type="XDDEVENTITYMAPPING" id="z184">
         <attribute name="sourcename" type="string">ContactDevice</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">7</attribute>
+        <attribute name="mappingnumber" type="int16">8</attribute>
         <attribute name="destinationname" type="string">ContactDevice</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z149 z272"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z272 z149"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z217"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z185">
@@ -494,7 +496,7 @@
     <object type="XDDEVENTITYMAPPING" id="z191">
         <attribute name="sourcename" type="string">PersistedEngineDialog</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">35</attribute>
+        <attribute name="mappingnumber" type="int16">36</attribute>
         <attribute name="destinationname" type="string">PersistedEngineDialog</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -525,7 +527,7 @@
         <attribute name="destinationname" type="string">CachedWellKnown</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z382 z150 z296"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z296 z382 z150"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z197">
@@ -584,7 +586,7 @@
         <attribute name="destinationname" type="string">InboxAttachmentChunk</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z481 z258 z495 z411 z330 z107 z457 z129 z384 z125"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z457 z330 z129 z495 z125 z481 z384 z411 z258 z107"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z392"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z210">
@@ -612,11 +614,11 @@
     <object type="XDDEVENTITYMAPPING" id="z215">
         <attribute name="sourcename" type="string">OutboxAttachmentChunk</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">44</attribute>
+        <attribute name="mappingnumber" type="int16">45</attribute>
         <attribute name="destinationname" type="string">OutboxAttachmentChunk</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z487 z120 z448 z264 z190 z204 z124 z400 z163 z153 z242"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z400 z120 z163 z190 z242 z448 z153 z487 z204 z264 z124"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z238"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z216">
@@ -652,11 +654,11 @@
     <object type="XDDEVENTITYMAPPING" id="z223">
         <attribute name="sourcename" type="string">PendingDeleteFromServer</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">14</attribute>
+        <attribute name="mappingnumber" type="int16">15</attribute>
         <attribute name="destinationname" type="string">PendingDeleteFromServer</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z212 z315"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z315 z212"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z224">
@@ -713,11 +715,11 @@
     <object type="XDDEVENTITYMAPPING" id="z236">
         <attribute name="sourcename" type="string">ContactGroupDetailsLatest</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">32</attribute>
+        <attribute name="mappingnumber" type="int16">33</attribute>
         <attribute name="destinationname" type="string">ContactGroupDetailsLatest</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z175 z324 z159 z430 z251"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z159 z175 z324 z430 z251"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z172"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z237">
@@ -736,12 +738,12 @@
     <object type="XDDEVENTITYMAPPING" id="z240">
         <attribute name="sourcename" type="string">OwnedDevice</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">36</attribute>
+        <attribute name="mappingnumber" type="int16">37</attribute>
         <attribute name="destinationname" type="string">OwnedDevice</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z197 z288"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z342 z192"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z288 z197"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z192 z342"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z241">
         <attribute name="name" type="string">rawObvGroupV2Identifier</attribute>
@@ -790,11 +792,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z250">
         <attribute name="sourcename" type="string">DeletedOutboxMessage</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">19</attribute>
+        <attribute name="mappingnumber" type="int16">20</attribute>
         <attribute name="destinationname" type="string">DeletedOutboxMessage</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z220 z364 z247"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z247 z220 z364"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z251">
@@ -804,11 +806,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z252">
         <attribute name="sourcename" type="string">MessageHeader</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">47</attribute>
+        <attribute name="mappingnumber" type="int16">48</attribute>
         <attribute name="destinationname" type="string">MessageHeader</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z482 z271 z459 z102 z456"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z459 z271 z102 z456 z482"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z449"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z253">
@@ -838,11 +840,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z259">
         <attribute name="sourcename" type="string">KeyMaterial</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">1</attribute>
+        <attribute name="mappingnumber" type="int16">2</attribute>
         <attribute name="destinationname" type="string">KeyMaterial</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z488 z422 z293 z276"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z293 z422 z488 z276"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z161"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z260">
@@ -885,11 +887,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z269">
         <attribute name="sourcename" type="string">ChannelCreationWithContactDeviceProtocolInstance</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">24</attribute>
+        <attribute name="mappingnumber" type="int16">25</attribute>
         <attribute name="destinationname" type="string">ChannelCreationWithContactDeviceProtocolInstance</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z437 z485"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z485 z437"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z270"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z270">
@@ -916,11 +918,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z275">
         <attribute name="sourcename" type="string">InboxMessage</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">29</attribute>
+        <attribute name="mappingnumber" type="int16">30</attribute>
         <attribute name="destinationname" type="string">InboxMessage</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z490 z453 z181 z305 z291 z484 z406 z122 z498 z353 z337 z127 z390"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z406 z337 z490 z291 z453 z122 z305 z353 z127 z181 z484 z498 z390"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z234"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z276">
@@ -935,21 +937,21 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z278">
         <attribute name="sourcename" type="string">ContactGroupV2Details</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">34</attribute>
+        <attribute name="mappingnumber" type="int16">35</attribute>
         <attribute name="destinationname" type="string">ContactGroupV2Details</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z497 z280 z445 z210 z328"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z445 z280 z210 z497 z328"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z451 z441"></relationship>
     </object>
     <object type="XDDEVENTITYMAPPING" id="z279">
         <attribute name="sourcename" type="string">ProtocolInstance</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">6</attribute>
+        <attribute name="mappingnumber" type="int16">7</attribute>
         <attribute name="destinationname" type="string">ProtocolInstance</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z436 z164 z455 z414 z231"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z455 z414 z436 z231 z164"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z157 z358 z244"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z280">
@@ -1004,11 +1006,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z292">
         <attribute name="sourcename" type="string">Backup</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">38</attribute>
+        <attribute name="mappingnumber" type="int16">39</attribute>
         <attribute name="destinationname" type="string">Backup</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z246 z466 z243 z266 z282 z429 z308"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z282 z266 z429 z466 z308 z243 z246"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z110"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z293">
@@ -1072,12 +1074,12 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z307">
         <attribute name="sourcename" type="string">ContactIdentity</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">12</attribute>
+        <attribute name="mappingnumber" type="int16">13</attribute>
         <attribute name="destinationname" type="string">ContactIdentity</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z144 z156 z355 z116 z114 z299 z111"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z165 z450 z432 z470 z126 z388 z420 z301"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z156 z299 z111 z116 z355 z144 z114"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z165 z420 z126 z301 z450 z432 z388 z470"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z308">
         <attribute name="name" type="string">statusRaw</attribute>
@@ -1127,11 +1129,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z319">
         <attribute name="sourcename" type="string">IdentityServerUserData</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">20</attribute>
+        <attribute name="mappingnumber" type="int16">21</attribute>
         <attribute name="destinationname" type="string">IdentityServerUserData</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z486 z160 z383"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z160 z383 z486"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z320">
@@ -1169,11 +1171,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z327">
         <attribute name="sourcename" type="string">KeycloakServer</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">45</attribute>
+        <attribute name="mappingnumber" type="int16">46</attribute>
         <attribute name="destinationname" type="string">KeycloakServer</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z391 z287 z389 z424 z284 z134 z431 z335 z183 z113 z121"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z121 z284 z389 z134 z391 z431 z183 z424 z287 z335 z113"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z418 z320"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z328">
@@ -1212,11 +1214,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z336">
         <attribute name="sourcename" type="string">PersistedTrustOrigin</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">26</attribute>
+        <attribute name="mappingnumber" type="int16">27</attribute>
         <attribute name="destinationname" type="string">PersistedTrustOrigin</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z179 z396 z203 z452 z119 z241"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z241 z179 z396 z452 z203 z119"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z228"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z337">
@@ -1256,8 +1258,8 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
         <attribute name="destinationname" type="string">Provision</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z106 z256 z176 z476"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z421 z187"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z106 z176 z256 z476"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z187 z421"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z345">
         <attribute name="name" type="string">protocolInstanceUid</attribute>
@@ -1266,7 +1268,7 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z346">
         <attribute name="sourcename" type="string">ProtocolInstanceWaitingForContactUpgradeToOneToOne</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">21</attribute>
+        <attribute name="mappingnumber" type="int16">22</attribute>
         <attribute name="destinationname" type="string">ProtocolInstanceWaitingForContactUpgradeToOneToOne</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -1280,11 +1282,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z348">
         <attribute name="sourcename" type="string">ReceivedMessage</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">13</attribute>
+        <attribute name="mappingnumber" type="int16">14</attribute>
         <attribute name="destinationname" type="string">ReceivedMessage</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z447 z186 z248 z360 z345 z297 z300 z402 z154 z372"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z402 z372 z297 z360 z186 z300 z248 z447 z154 z345"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z349">
@@ -1292,14 +1294,15 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
         <relationship name="entitymapping" type="1/1" destination="XDDEVENTITYMAPPING" idrefs="z499"></relationship>
     </object>
     <object type="XDDEVENTITYMAPPING" id="z350">
+        <attribute name="migrationpolicyclassname" type="string">OwnedIdentityToOwnedIdentityWithValueTransformers</attribute>
         <attribute name="sourcename" type="string">OwnedIdentity</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">48</attribute>
+        <attribute name="mappingnumber" type="int16">1</attribute>
         <attribute name="destinationname" type="string">OwnedIdentity</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z463 z145 z158 z218"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z439 z425 z322 z130 z467 z377 z475 z368"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z218 z145 z158 z463"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z322 z439 z377 z475 z130 z425 z368 z467"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z351">
         <attribute name="autogenerateexpression" type="bool">1</attribute>
@@ -1346,12 +1349,12 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z361">
         <attribute name="sourcename" type="string">InboxAttachment</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">11</attribute>
+        <attribute name="mappingnumber" type="int16">12</attribute>
         <attribute name="destinationname" type="string">InboxAttachment</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z274 z403 z473 z104 z469 z427 z354 z255"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z343 z146 z174"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z274 z473 z255 z104 z354 z403 z469 z427"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z174 z343 z146"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z362">
         <attribute name="autogenerateexpression" type="bool">1</attribute>
@@ -1361,11 +1364,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z363">
         <attribute name="sourcename" type="string">MutualScanSignatureReceived</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">2</attribute>
+        <attribute name="mappingnumber" type="int16">3</attribute>
         <attribute name="destinationname" type="string">MutualScanSignatureReceived</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z483 z356"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z356 z483"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z364">
@@ -1379,21 +1382,21 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z366">
         <attribute name="sourcename" type="string">OutboxAttachment</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">10</attribute>
+        <attribute name="mappingnumber" type="int16">11</attribute>
         <attribute name="destinationname" type="string">OutboxAttachment</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z285 z318 z229 z312 z461 z417 z142 z412"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z155 z385 z213"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z417 z412 z285 z312 z318 z229 z461 z142"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z385 z213 z155"></relationship>
     </object>
     <object type="XDDEVENTITYMAPPING" id="z367">
         <attribute name="sourcename" type="string">ContactGroupV2PendingMember</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">31</attribute>
+        <attribute name="mappingnumber" type="int16">32</attribute>
         <attribute name="destinationname" type="string">ContactGroupV2PendingMember</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z311 z135 z232 z260"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z232 z311 z135 z260"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z182"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z368">
@@ -1443,11 +1446,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z378">
         <attribute name="sourcename" type="string">PendingGroupMember</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">16</attribute>
+        <attribute name="mappingnumber" type="int16">17</attribute>
         <attribute name="destinationname" type="string">PendingGroupMember</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z188 z262 z313"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z313 z188 z262"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z479"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z379">
@@ -1457,11 +1460,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z380">
         <attribute name="sourcename" type="string">ContactIdentityDetailsPublished</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">42</attribute>
+        <attribute name="mappingnumber" type="int16">43</attribute>
         <attribute name="destinationname" type="string">ContactIdentityDetailsPublished</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z410 z434 z200 z304 z195"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z200 z410 z195 z434 z304"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z277"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z381">
@@ -1493,7 +1496,7 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
         <attribute name="destinationname" type="string">OutboxMessage</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z168 z123 z254 z491 z393 z290 z235 z194 z152 z263 z334 z379"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z334 z235 z379 z168 z263 z152 z194 z491 z290 z393 z254 z123"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z109 z351"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z387">
@@ -1541,11 +1544,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z397">
         <attribute name="sourcename" type="string">RegisteredPushNotification</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">22</attribute>
+        <attribute name="mappingnumber" type="int16">23</attribute>
         <attribute name="destinationname" type="string">RegisteredPushNotification</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z357 z373 z286 z133 z233"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z233 z373 z286 z357 z133"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z398">
@@ -1577,11 +1580,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z404">
         <attribute name="sourcename" type="string">GroupServerUserData</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">39</attribute>
+        <attribute name="mappingnumber" type="int16">40</attribute>
         <attribute name="destinationname" type="string">GroupServerUserData</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z239 z225 z136 z306"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z225 z306 z136 z239"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z405">
@@ -1596,7 +1599,7 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z407">
         <attribute name="sourcename" type="string">KeycloakRevokedIdentity</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">3</attribute>
+        <attribute name="mappingnumber" type="int16">4</attribute>
         <attribute name="destinationname" type="string">KeycloakRevokedIdentity</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -1606,7 +1609,7 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z408">
         <attribute name="sourcename" type="string">ContactGroupV2Member</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">30</attribute>
+        <attribute name="mappingnumber" type="int16">31</attribute>
         <attribute name="destinationname" type="string">ContactGroupV2Member</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
@@ -1658,11 +1661,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z419">
         <attribute name="sourcename" type="string">ServerSession</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">15</attribute>
+        <attribute name="mappingnumber" type="int16">16</attribute>
         <attribute name="destinationname" type="string">ServerSession</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z227 z371 z413 z468"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z227 z371 z468 z413"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING"></relationship>
     </object>
     <object type="XDDEVRELATIONSHIPMAPPING" id="z420">
@@ -1726,11 +1729,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z433">
         <attribute name="sourcename" type="string">ContactGroupDetailsTrusted</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">8</attribute>
+        <attribute name="mappingnumber" type="int16">9</attribute>
         <attribute name="destinationname" type="string">ContactGroupDetailsTrusted</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z171 z338 z189 z199 z221"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z221 z189 z171 z338 z199"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z401"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z434">
@@ -1780,11 +1783,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z444">
         <attribute name="sourcename" type="string">LinkBetweenProtocolInstances</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">40</attribute>
+        <attribute name="mappingnumber" type="int16">41</attribute>
         <attribute name="destinationname" type="string">LinkBetweenProtocolInstances</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z314 z326 z138"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z138 z314 z326"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z303"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z445">
@@ -1875,11 +1878,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z465">
         <attribute name="sourcename" type="string">ContactIdentityDetailsTrusted</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">46</attribute>
+        <attribute name="mappingnumber" type="int16">47</attribute>
         <attribute name="destinationname" type="string">ContactIdentityDetailsTrusted</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z289 z416 z374 z395 z132"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z132 z395 z416 z374 z289"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z492"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z466">
@@ -1911,11 +1914,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z472">
         <attribute name="sourcename" type="string">OutboxAttachmentSession</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">28</attribute>
+        <attribute name="mappingnumber" type="int16">29</attribute>
         <attribute name="destinationname" type="string">OutboxAttachmentSession</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z193 z205 z267"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z267 z193 z205"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z325"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z473">
@@ -1938,11 +1941,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z477">
         <attribute name="sourcename" type="string">ContactGroupDetailsPublished</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">27</attribute>
+        <attribute name="mappingnumber" type="int16">28</attribute>
         <attribute name="destinationname" type="string">ContactGroupDetailsPublished</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z329 z249 z375 z224 z206"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z224 z329 z375 z249 z206"></relationship>
         <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z369"></relationship>
     </object>
     <object type="XDDEVATTRIBUTEMAPPING" id="z478">
@@ -2035,11 +2038,11 @@ dmVyVCR0b3BYJG9iamVjdHMSAAGGoF8QD05TS2V5ZWRBcmNoaXZlctEAAAAIAAAACVRyb290gAGvESOe
     <object type="XDDEVENTITYMAPPING" id="z499">
         <attribute name="sourcename" type="string">ContactGroupV2</attribute>
         <attribute name="mappingtypename" type="string">Undefined</attribute>
-        <attribute name="mappingnumber" type="int16">25</attribute>
+        <attribute name="mappingnumber" type="int16">26</attribute>
         <attribute name="destinationname" type="string">ContactGroupV2</attribute>
         <attribute name="autogenerateexpression" type="bool">1</attribute>
         <relationship name="mappingmodel" type="1/1" destination="XDDEVMAPPINGMODEL" idrefs="z245"></relationship>
-        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z438 z423 z370 z162 z464 z185 z237 z253 z211 z349 z178 z316"></relationship>
-        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z426 z226 z261 z435 z362"></relationship>
+        <relationship name="attributemappings" type="0/0" destination="XDDEVATTRIBUTEMAPPING" idrefs="z316 z185 z349 z178 z423 z253 z438 z162 z237 z211 z464 z370"></relationship>
+        <relationship name="relationshipmappings" type="0/0" destination="XDDEVRELATIONSHIPMAPPING" idrefs="z261 z226 z426 z435 z362"></relationship>
     </object>
 </database>

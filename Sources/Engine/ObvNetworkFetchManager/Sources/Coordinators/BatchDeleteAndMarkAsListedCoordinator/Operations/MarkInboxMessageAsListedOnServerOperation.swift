@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,7 +35,7 @@ final class MarkInboxMessageAsListedOnServerOperation: ContextualOperationWithSp
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         do {
-            try InboxMessage.markAsListedOnServer(messageId: messageId, within: obvContext)
+            try InboxMessage.markAsListedOnServer(messageId: messageId, within: obvContext.context)
         } catch {
             return cancel(withReason: .coreDataError(error: error))
         }

@@ -105,7 +105,7 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: ContextualOpera
                 guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
                     return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
                 }
-                _ = try? PersistedMessageSystem.insertMembersOfGroupV2WereUpdatedSystemMessage(within: groupV2Discussion)
+                _ = try? PersistedMessageSystem.insertMembersOfGroupV2WereUpdatedSystemMessage(within: groupV2Discussion, markAsRead: true)
             case .contactJoinedGroup,
                     .contactLeftGroup:
                 guard let contactIdentityObjectID = self.optionalContactIdentityObjectID else {
@@ -118,7 +118,7 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: ContextualOpera
                 case .groupV1, .groupV2:
                     break
                 }
-                _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: contactIdentity, optionalOwnedCryptoId: nil, optionalCallLogItem: nil, discussion: discussion, timestamp: Date())
+                _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: contactIdentity, optionalOwnedCryptoId: nil, optionalCallLogItem: nil, discussion: discussion, timestamp: Date(), markAsRead: true)
             case .contactRevokedByIdentityProvider:
                 // We do not need to pass the optional identity, as it is obvious in this case. And we prevent merge conflicts by doing so.
                 _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalOwnedCryptoId: nil, optionalCallLogItem: nil, discussion: discussion, timestamp: Date())

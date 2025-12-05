@@ -140,16 +140,20 @@ struct CreatePasscodeView: View {
     fileprivate var model: CreatePasscodeModel
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             InnerCreatePasscodeView(model: model)
-                .navigationBarItems(leading:
-                                        Button(action: model.cancel,
-                                               label: {
-                    Image(systemIcon: .xmarkCircleFill)
-                        .font(Font.system(size: 24, weight: .semibold, design: .default))
-                })
-                                            .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
-                )
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        if #available(iOS 26.0, *) {
+                            Button(role: .cancel, action: model.cancel)
+                        } else {
+                            Button(action: model.cancel) {
+                                Image(systemIcon: .xmarkCircleFill)
+                                    .font(Font.system(size: 24, weight: .semibold, design: .default))
+                            }
+                        }
+                    }
+                }
         }
     }
 }
@@ -187,13 +191,12 @@ fileprivate struct InnerCreatePasscodeView: View {
                 model.secureFocus = secureFocus
                 model.textFocus = textFocus
             }
-            NavigationLink(destination: VerifyCreatedPasscodeView(model: model),
-                           isActive: $showVerificationView) {
-                OlvidButton(style: .blue, title: Text("CREATE_MY_PASSCODE")) {
-                    showVerificationView = true
+            CreateMyPasscodeButton(action: { showVerificationView = true })
+                .disabled(model.passcodeError != nil)
+                .navigationDestination(isPresented: $showVerificationView) {
+                    VerifyCreatedPasscodeView(model: model)
                 }
-            }
-                           .disabled(model.passcodeError != nil)
+                           
             ScrollView {
                 HStack {
                     Spacer()
@@ -207,6 +210,29 @@ fileprivate struct InnerCreatePasscodeView: View {
         .padding(.horizontal, 30)
     }
 }
+
+
+// MARK: - Internal view
+
+private struct CreateMyPasscodeButton: View {
+    
+    let action: () -> Void
+    
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            Button(action: action) {
+                Text("CREATE_MY_PASSCODE")
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.glassProminent)
+            .buttonSizing(.flexible)
+        } else {
+            OlvidButton(style: .blue, title: Text("CREATE_MY_PASSCODE"), action: action)
+        }
+    }
+    
+}
+
 
 struct VerifyCreatedPasscodeView: View {
 
@@ -226,12 +252,12 @@ struct VerifyCreatedPasscodeView: View {
                           secureFocus: $model.secureFocus,
                           textFocus: $model.textFocus,
                           remainingLockoutTime: .constant(nil))
-            OlvidButton(style: .blue, title: Text("CREATE_MY_PASSCODE")) {
-                model.confirmPasscode(passcode: passcode)
-            }
-            .disabled(model.passcode != passcode)
+            CreateMyPasscodeButton(action: { model.confirmPasscode(passcode: passcode) })
+                .disabled(model.passcode != passcode)
             Spacer()
         }
         .padding(.horizontal, 30)
     }
 }
+
+

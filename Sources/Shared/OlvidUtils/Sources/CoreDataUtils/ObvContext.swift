@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -17,10 +17,11 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import Foundation
+@preconcurrency import Foundation
 import CoreData
-import os.log
+import OSLog
 
+@preconcurrency
 public final class ObvContext: Hashable, CustomDebugStringConvertible {
     
     private static var log: OSLog { OSLog(subsystem: "io.olvid", category: "ObvContext") }
@@ -33,7 +34,7 @@ public final class ObvContext: Hashable, CustomDebugStringConvertible {
 
     public let context: NSManagedObjectContext
     public let flowId: FlowIdentifier
-    private var token: NSObjectProtocol?
+    private let token: NSObjectProtocol?
     public let uuid = UUID()
     private var saveWasCalledWithOnSaveCompletionHandlers = false
     private var saveWasCalled = SaveWasCalledWrapper()
@@ -255,27 +256,19 @@ extension ObvContext {
     }
     
     
-    public func performAndWait(_ block: () -> Void) {
+    public func performAndWait(_ block: @Sendable () -> Void) {
         self.context.performAndWait(block)
     }
 
     
-    public func performAndWaitOrThrow(_ block: () throws -> Void) throws {
-        var error: Error? = nil
-        self.context.performAndWait {
-            do {
-                try block()
-            } catch let err {
-                error = err
-            }
-        }
-        guard error == nil else {
-            throw error!
+    public func performAndWaitOrThrow(_ block: @Sendable () throws -> Void) throws {
+        try self.context.performAndWait {
+            try block()
         }
     }
 
     
-    public func perform(_ block: @escaping () -> Void) {
+    public func perform(_ block: @escaping @Sendable () -> Void) {
         self.context.perform(block)
     }
     

@@ -124,11 +124,13 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
 
                 ObvPhotoButtonView(actions: self, model: model)
                     .padding(.bottom, 10)
-
+                
                 InternalTextField("ONBOARDING_NAME_CHOOSER_TEXTFIELD_FIRSTNAME", text: $firstname)
+                    .autocorrectionDisabled()
                     .onChange(of: firstname) { _ in resetIsButtonDisabled() }
                     .padding(.bottom, 10)
                 InternalTextField("ONBOARDING_NAME_CHOOSER_TEXTFIELD_LASTNAME", text: $lastname)
+                    .autocorrectionDisabled()
                     .onChange(of: lastname) { _ in resetIsButtonDisabled() }
                     .padding(.bottom, 10)
                 if model.showPositionAndOrganisation {
@@ -138,24 +140,28 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
                         .padding(.bottom, 10)
                 }
                 
-                HStack {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                }.opacity(isInterfaceDisabled ? 1.0 : 0.0)
-                
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemIcon: .lightbulbMax)
+                        .foregroundStyle(.yellow)
+                    Text("PROTECT_PRIVACY_EXPLANATION")
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+                .font(.callout)
+                .padding(.top, 10)
+
+                CreateProfileButton(action: createProfileButtonTapped, isInterfaceDisabled: isInterfaceDisabled)
+                    .disabled(isButtonDisabled)
+                    .padding(.vertical, 20)
+
                 HStack {
                     Text("ONBOARDING_NAME_CHOOSER_MANAGED_PROFILE_LABEL")
                         .foregroundStyle(.secondary)
                     Button("ONBOARDING_NAME_CHOOSER_MANAGED_PROFILE_BUTTON_TITLE".localizedInThisBundle, action: actions.userIndicatedHerProfileIsManagedByOrganisation)
                 }
                 .font(.subheadline)
-                .padding(.top, 10)
-                
-                InternalButton("ONBOARDING_NAME_CHOOSER_BUTTON_TITLE", action: createProfileButtonTapped)
-                .disabled(isButtonDisabled)
-                .padding(.vertical, 20)
-                
+                .padding(.top, 20)
+                                
             }
             .padding(.horizontal)
             .disabled(isInterfaceDisabled)
@@ -166,29 +172,37 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
 }
 
 
-// MARK: - Button used in this view only
+// MARK: - Internal view
 
-private struct InternalButton: View {
+private struct CreateProfileButton: View {
     
-    private let key: LocalizedStringKey
-    private let action: () -> Void
-    @Environment(\.isEnabled) var isEnabled
-    
-    init(_ key: LocalizedStringKey, action: @escaping () -> Void) {
-        self.key = key
-        self.action = action
-    }
+    let action: () -> Void
+    let isInterfaceDisabled: Bool
+
+    private let title = String(localizedInThisBundle: "ONBOARDING_NAME_CHOOSER_BUTTON_TITLE")
         
     var body: some View {
-        Button(action: action) {
-            Text(key)
-                .foregroundStyle(.white)
-            .padding(.horizontal, 30)
-            .padding(.vertical, 24)
+        if #available(iOS 26.0, *) {
+            Button(action: action) {
+                Text(title)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.glassProminent)
+            .buttonSizing(.flexible)
+        } else {
+            Button(action: action) {
+                HStack {
+                    Spacer(minLength: 0)
+                    if isInterfaceDisabled {
+                        ProgressView()
+                    }
+                    Text(title)
+                        .padding(.vertical, 12)
+                    Spacer(minLength: 0)
+                }
+            }
+            .buttonStyle(.borderedProminent)
         }
-        .background(Color.blue01)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
     }
     
 }
@@ -222,54 +236,61 @@ private struct InternalTextField: View {
 
 // MARK: - Previews
 
-struct NewUnmanagedDetailsChooserView_Previews: PreviewProvider {
+
+#if DEBUG
+
+private final class ActionsForPreviews: NewUnmanagedDetailsChooserViewActions {
     
-    private final class ActionsForPreviews: NewUnmanagedDetailsChooserViewActions {
-        func userWantsToTakePhoto() async -> UIImage? {
-            return UIImage(systemIcon: .checkmarkShield)
-            
-        }
+    func userWantsToTakePhoto() async -> UIImage? {
+        return UIImage(systemIcon: .checkmarkShield)
         
-        func userWantsToChoosePhoto() async -> UIImage? {
-            return UIImage(systemIcon: .checkmarkSealFill)
-        }
-        
-        func userWantsToChoosePhotoWithDocumentPicker() async -> UIImage? {
-            return UIImage(systemIcon: .airpods)
-        }
-        
-        func userDidChooseUnmanagedDetails(ownedIdentityCoreDetails: ObvTypes.ObvIdentityCoreDetails, photo: UIImage?) {}
-        func userIndicatedHerProfileIsManagedByOrganisation() {}
     }
-
-    private static let actions = ActionsForPreviews()
     
-    final class ModelForPreviews: NewUnmanagedDetailsChooserViewModelProtocol {
+    func userWantsToChoosePhoto() async -> UIImage? {
+        return UIImage(systemIcon: .checkmarkSealFill)
+    }
+    
+    func userWantsToChoosePhotoWithDocumentPicker() async -> UIImage? {
+        return UIImage(systemIcon: .airpods)
+    }
+    
+    func userDidChooseUnmanagedDetails(ownedIdentityCoreDetails: ObvTypes.ObvIdentityCoreDetails, photo: UIImage?) {}
+    func userIndicatedHerProfileIsManagedByOrganisation() {}
+    
+}
 
-        var photoThatCannotBeRemoved: UIImage? { nil }
-        @Published var circledInitialsConfiguration: CircledInitialsConfiguration
-        let showPositionAndOrganisation: Bool
-        
-        init(showPositionAndOrganisation: Bool) {
-            self.showPositionAndOrganisation = showPositionAndOrganisation
+@MainActor
+private final class ModelForPreviews: NewUnmanagedDetailsChooserViewModelProtocol {
+    
+    var photoThatCannotBeRemoved: UIImage? { nil }
+    @Published var circledInitialsConfiguration: CircledInitialsConfiguration
+    let showPositionAndOrganisation: Bool
+    
+    init(showPositionAndOrganisation: Bool) {
+        self.showPositionAndOrganisation = showPositionAndOrganisation
+        self.circledInitialsConfiguration = .icon(.person)
+    }
+    
+    func updatePhoto(with photo: UIImage?) async {
+        if let photo {
+            self.circledInitialsConfiguration = .photo(photo: .image(image: photo))
+        } else {
             self.circledInitialsConfiguration = .icon(.person)
         }
-
-        @MainActor
-        func updatePhoto(with photo: UIImage?) async {
-            if let photo {
-                self.circledInitialsConfiguration = .photo(photo: .image(image: photo))
-            } else {
-                self.circledInitialsConfiguration = .icon(.person)
-            }
-        }
-
-    }
-        
-    private static let model = ModelForPreviews(showPositionAndOrganisation: false)
-
-    static var previews: some View {
-        NewUnmanagedDetailsChooserView(model: model, actions: actions)
     }
     
 }
+
+@MainActor
+private let actionsForPreviews = ActionsForPreviews()
+
+@MainActor
+private let modelForPreviews = ModelForPreviews(showPositionAndOrganisation: false)
+
+#Preview {
+    NewUnmanagedDetailsChooserView(model: modelForPreviews,
+                                   actions: actionsForPreviews)
+    .environment(\.locale, .init(identifier: "fr"))
+}
+
+#endif

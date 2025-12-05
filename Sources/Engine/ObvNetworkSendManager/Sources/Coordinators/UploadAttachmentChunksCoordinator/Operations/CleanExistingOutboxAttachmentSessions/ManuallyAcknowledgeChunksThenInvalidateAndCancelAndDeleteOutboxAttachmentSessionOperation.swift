@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import CoreData
 import ObvTypes
@@ -32,6 +32,7 @@ final class ManuallyAcknowledgeChunksThenInvalidateAndCancelAndDeleteOutboxAttac
         case cannotFindAttachmentInDatabase
         case noOutboxAttachmentSessionSet
         case couldNotSaveContext
+        case selfDeallocated
     }
 
     private let uuid = UUID()
@@ -74,9 +75,9 @@ final class ManuallyAcknowledgeChunksThenInvalidateAndCancelAndDeleteOutboxAttac
             return cancel(withReason: .contextCreatorIsNotSet)
         }
         
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
             
-            guard let outboxAttachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+            guard let outboxAttachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else {
                 return cancel(withReason: .cannotFindAttachmentInDatabase)
             }
             
@@ -93,7 +94,22 @@ final class ManuallyAcknowledgeChunksThenInvalidateAndCancelAndDeleteOutboxAttac
             
             let urlSession = URLSession(configuration: sessionConfiguration, delegate: nil, delegateQueue: nil)
             urlSession.getAllTasks(completionHandler: { [weak self] (tasks) in
-                obvContext.performAndWait {
+                obvContext.performAndWait { [weak self] in
+                    
+                    guard let self else {
+                        assertionFailure()
+                        return
+                    }
+
+                    // We re-fetch the OutboxAttachment and the OutboxAttachmentSession to prevent swift-concurrency warning issues
+                    
+                    guard let outboxAttachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else {
+                        return cancel(withReason: .cannotFindAttachmentInDatabase)
+                    }
+
+                    guard let outboxAttachmentSession = outboxAttachment.session else {
+                        return cancel(withReason: .noOutboxAttachmentSessionSet)
+                    }
 
                     for task in tasks {
                         guard let chunkNumber = task.getAssociatedChunkNumber() else { continue }
@@ -105,15 +121,15 @@ final class ManuallyAcknowledgeChunksThenInvalidateAndCancelAndDeleteOutboxAttac
                     }
                     
                     urlSession.invalidateAndCancel()
-                    obvContext.delete(outboxAttachmentSession)
+                    obvContext.context.delete(outboxAttachmentSession)
                     
                     do {
                         try obvContext.save(logOnFailure: log)
                     } catch {
-                        self?.cancel(withReason: .couldNotSaveContext)
+                        self.cancel(withReason: .couldNotSaveContext)
                     }
 
-                    self?._isFinished = true
+                    self._isFinished = true
                 }
             })
             

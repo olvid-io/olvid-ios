@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import UniformTypeIdentifiers
 import ObvCrypto
 import ObvEncoder
@@ -27,7 +27,7 @@ import UIKit
 import ObvAppCoreConstants
 
 /// Represents an "url preview" metadata. This is the type to use to send/receive and store links metadatas.
-final class ObvLinkMetadata: NSObject, ObvFailableEncodable, NSSecureCoding {
+final class ObvLinkMetadata: NSObject, ObvFailableEncodable, NSSecureCoding, @unchecked Sendable {
 
     let title: String?
     let desc: String?

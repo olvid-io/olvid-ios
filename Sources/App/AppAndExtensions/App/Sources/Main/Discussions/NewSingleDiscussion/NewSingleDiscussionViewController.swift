@@ -19,7 +19,7 @@
 
 import UIKit
 import CoreData
-import os.log
+import OSLog
 import QuickLook
 import MobileCoreServices
 import AVFoundation
@@ -40,9 +40,12 @@ import LinkPresentation
 import ObvAppCoreConstants
 import ObvLocation
 import ObvAppTypes
+import ObvSingleDiscussion
+import ObvSystemIcon
+import ObvSharedDataSources
 
 
-final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, ObvErrorMaker, TextBubbleDelegate, NewComposeMessageViewDatasource, UICollectionViewDropDelegate, UICollectionViewDragDelegate, UISearchControllerDelegate {
+final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, ObvErrorMaker, TextBubbleDelegate, NewComposeMessageViewDatasource, UISearchControllerDelegate {
     
     static let errorDomain = "NewSingleDiscussionViewController"
     let currentOwnedCryptoId: ObvCryptoId
@@ -79,6 +82,9 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private static let spaceBellowLastCell: CGFloat = 8.0
     private var hideGroupMemberChangeMessages = ObvMessengerSettings.ContactsAndGroups.hideGroupMemberChangeMessages
     private var objectIDSentMessageJustSent: TypeSafeManagedObjectID<PersistedMessageSent>?
+    private let avatarViewDataSource: ObvAvatarViewDataSource
+    private let messageReactionsViewDataSource: ObvMessageReactionsViewDataSource
+    private let notificationGenerator = UINotificationFeedbackGenerator()
 
     // Search related variables
     private var isUserPerformingSearch = false
@@ -89,9 +95,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
 
     /// Defines the kind of view shown above the keyboard. In general, it's the composition view. But it can be the search view during a search.
     private var accessoryViewKindShown: AccessoryViewKind = .none
-    
-    // MARK: attribute - private - ObvLinkMedata
-    private var previewMetadataInComposeView: ObvLinkMetadata?
     
 
     // MARK: attribute - private - context menu manager used to display a custom view alongside UIContextMenu
@@ -214,11 +217,11 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     }()
 
     enum InitialScroll {
-        case specificMessage(_: PersistedMessage)
+        case specificMessage(TypeSafeManagedObjectID<PersistedMessage>)
         case newMessageSystemOrLastMessage
     }
 
-    init(discussion: PersistedDiscussion, delegate: SingleDiscussionViewControllerDelegate, initialScroll: InitialScroll) throws {
+    init(discussion: PersistedDiscussion, delegate: SingleDiscussionViewControllerDelegate, initialScroll: InitialScroll, avatarViewDataSource: ObvAvatarViewDataSource, messageReactionsViewDataSource: ObvMessageReactionsViewDataSource) throws {
         guard let ownCryptoId = discussion.ownedIdentity?.cryptoId else {
             throw Self.makeError(message: "Could not determine owned identity")
         }
@@ -230,6 +233,8 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         self.initialScroll = initialScroll
         self.visibilityTrackerForSensitiveMessages = VisibilityTrackerForSensitiveMessages(discussionPermanentID: discussion.discussionPermanentID)
         self.searchControllerDelegate = SingleDiscussionSearchControllerDelegate(discussionObjectID: discussion.typedObjectID)
+        self.avatarViewDataSource = avatarViewDataSource
+        self.messageReactionsViewDataSource = messageReactionsViewDataSource
         super.init(nibName: nil, bundle: nil)
         self.composeMessageView = NewComposeMessageView(
             draft: discussion.draft,
@@ -268,6 +273,15 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         insertOrUpdateSystemMessageCountingNewMessages(removeExisting: true)
 
         configureHierarchy()
+        // The following line is particularly important on iOS 26 to avoid
+        // glitchy animations when pushing a discussion on the navigation stack.
+        // We restrict to iOS 26 in compact mode, as it's the only situation where
+        // the issue occurs.
+        if #available(iOS 26.0, *) {
+            if traitCollection.horizontalSizeClass == .compact {
+                view.layoutIfNeeded()
+            }
+        }
         configureDataSource()
         
         // Managing the system message indicating new messages
@@ -279,7 +293,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         
         observePersistedDiscussionChanges()
         observePersistedObvContactIdentityChanges()
-        observeRouteChange()
         registerForKeyboardNotifications()
         
         observeMessagesToReconfigure()
@@ -374,6 +387,9 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
+        delegate?.discussionViewWillAppear(self)
+        
         registerForNotification()
 
         // This constraint was *not* set in viewDidLoad. We want to reset it every time the main view will appear
@@ -462,38 +478,35 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private func performInitialScrollIfAppropriateAndRemoveHidingView() {
         assert(Thread.isMainThread)
         guard viewDidAppearWasCalled else {
-            // ObvDisplayableLogs.shared.log("[Discussion] Since viewDidAppearWasCalled is false, we do not scroll yet")
             return
         }
         guard atLeastOneSnapshotWasApplied else {
-            // ObvDisplayableLogs.shared.log("[Discussion] Since atLeastOneSnapshotWasApplied is false, we do not scroll yet")
             return
         }
         guard !initialScrollWasPerformed else {
-            // ObvDisplayableLogs.shared.log("[Discussion] Since initialScrollWasPerformed was already performed, we do not scroll")
             return
         }
         initialScrollWasPerformed = true
         let completion = { [weak self] in
             self?.scrollViewDidEndAutomaticScroll()
-            // ObvDisplayableLogs.shared.log("[Discussion] Removing hiding view")
             UIView.animate(withDuration: 0.3) {
                 self?.hidingView.alpha = 0
             } completion: { _ in
                 self?.hidingView.isHidden = true
                 self?.scrollToBottomButton.isTrackingEnabled = true
-                // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Will call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew from performInitialScrollIfAppropriateAndRemoveHidingView")
                 self?.markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
             }
         }
         switch initialScroll {
-        case .specificMessage(let message):
+        case .specificMessage(let messageObjectID):
+            guard let message = try? PersistedMessage.get(with: messageObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
             guard let indexPath = frc.indexPath(forObject: message) else { return }
             let completionAndAnimate = { [weak self] in
                 completion()
                 // Waiting some time before animating the item prevents an animation glitch under iOS 18
                 DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(200)) { [weak self] in
                     self?.animateItem(at: indexPath)
+                    self?.focusVoiceOverOnCell(at: indexPath)
                 }
             }
             collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: completionAndAnimate)
@@ -502,14 +515,30 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 guard let indexPath = frc.indexPath(forObject: unreadMessagesSystemMessage) else { assertionFailure(); return }
                 collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: completion)
             } else {
-                collectionView.adjustedScrollToBottom(completion: completion)
+                collectionView.adjustedScrollToBottom { [weak self] in
+                    completion()
+                    DispatchQueue.main.async { [weak self] in
+                        self?.focusVoiceOverOnLastCell()
+                    }
+                }
             }
         }
+    }
+    
+    private func focusVoiceOverOnCell(at indexPath: IndexPath) {
+        guard let cell = collectionView.cellForItem(at: indexPath) else { return }
+        UIAccessibility.post(notification: .screenChanged, argument: cell)
+    }
+
+    private func focusVoiceOverOnLastCell() {
+        guard let lastIndexPath = collectionView.lastIndexPath else { return }
+        focusVoiceOverOnCell(at: lastIndexPath)
     }
     
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        delegate?.discussionViewWillDisappear(self)
         composeMessageView.discussionViewWillDisappear()
         invalidateTimerForRefreshingCellCountdowns()
         processReceivedMessagesThatBecameNotNewDuringScrolling()
@@ -521,6 +550,9 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         removeTipsOnViewWillDisappear(animated: animated)
         
         hideContextReactionViewIfNeeded(animated: false)
+        
+        // If audio is playing, stop it.
+        ObvAudioPlayer.shared.stop()
     }
     
     
@@ -590,7 +622,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
             },
             NotificationCenter.default.addObserver(forName: sceneDidEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
                 Task { [weak self] in
-                    guard OlvidUserActivitySingleton.shared.currentDiscussionPermanentID == discussionPermanentID else { return }
+                    guard OlvidUserActivitySingleton.shared.currentDiscussionID?.permanentID == discussionPermanentID else { return }
                     os_log("🛫 Start call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
                     await self?.theUserLeftTheDiscussion()
                     os_log("🛫 End call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
@@ -608,6 +640,13 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     func addAttachmentFromAirDropFile(at fileURL: URL) {
         self.composeMessageView.addAttachmentFromAirDropFile(at: fileURL)
     }
+    
+    
+    
+    var discussionId: ObvAppTypes.ObvDiscussionIdentifier? {
+        self.discussion.discussionIdentifier
+    }
+    
 }
 
 
@@ -617,35 +656,67 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
 
 extension NewSingleDiscussionViewController {
     
-    func configureNavigationTitle() {
+    private func configureNavigationTitle() {
         
         assert(Thread.isMainThread)
         
         guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return }
         navigationItem.titleView = nil
-        switch discussion.status {
-        case .locked:
-            navigationItem.titleView = SingleDiscussionTitleView(title: discussion.title, subtitle: discussion.subtitle)
-        case .preDiscussion, .active:
-            switch try? discussion.kind {
-            case .oneToOne(withContactIdentity: let contact):
-                if let contact = contact {
-                    navigationItem.titleView = SingleDiscussionTitleView(objectID: contact.typedObjectID)
+        if #available(iOS 26.0, *) {
+            let configuration: SingleDiscussionTitleViewConfiguration
+            switch discussion.status {
+            case .locked:
+                configuration = .forLockedDiscussion(title: discussion.title, subtitle: discussion.subtitle)
+            case .preDiscussion, .active:
+                switch try? discussion.kind {
+                case .oneToOne(withContactIdentity: let contact):
+                    if let contact = contact {
+                        configuration = .forOneToOneDiscussion(contact: contact)
+                    } else {
+                        configuration = .forLockedDiscussion(title: discussion.title, subtitle: discussion.subtitle)
+                    }
+                case .groupV1(withContactGroup: let contactGroup):
+                    if let group = contactGroup {
+                        configuration = .forGroupV1(group: group)
+                    } else {
+                        configuration = .forLockedDiscussion(title: discussion.title, subtitle: discussion.subtitle)
+                    }
+                case .groupV2(withGroup: let group):
+                    if let group {
+                        configuration = .forGroupV2(group: group)
+                    } else {
+                        configuration = .forLockedDiscussion(title: discussion.title, subtitle: discussion.subtitle)
+                    }
+                case .none:
+                    configuration = .forLockedDiscussion(title: discussion.title, subtitle: discussion.subtitle)
                 }
-            case .groupV1(withContactGroup: let contactGroup):
-                if let group = contactGroup {
-                    navigationItem.titleView = SingleDiscussionTitleView(objectID: group.typedObjectID)
-                }
-            case .groupV2(withGroup: let group):
-                if let group = group {
-                    navigationItem.titleView = SingleDiscussionTitleView(objectID: group.typedObjectID)
-                }
-            case .none:
-                break
+                navigationItem.titleView = makeSingleDiscussionTitleView(configuration: configuration)
             }
-        }
-        if navigationItem.titleView == nil {
-            navigationItem.titleView = SingleDiscussionTitleView(title: discussion.title, subtitle: discussion.subtitle)
+        } else {
+            switch discussion.status {
+            case .locked:
+                navigationItem.titleView = SingleDiscussionTitleView(title: discussion.title, subtitle: discussion.subtitle)
+            case .preDiscussion, .active:
+                switch try? discussion.kind {
+                case .oneToOne(withContactIdentity: let contact):
+                    if let contact = contact {
+                        navigationItem.titleView = SingleDiscussionTitleView(objectID: contact.typedObjectID)
+                    }
+                case .groupV1(withContactGroup: let contactGroup):
+                    if let group = contactGroup {
+                        navigationItem.titleView = SingleDiscussionTitleView(objectID: group.typedObjectID)
+                    }
+                case .groupV2(withGroup: let group):
+                    if let group = group {
+                        navigationItem.titleView = SingleDiscussionTitleView(objectID: group.typedObjectID)
+                    }
+                case .none:
+                    break
+                }
+            }
+            if navigationItem.titleView == nil {
+                navigationItem.titleView = SingleDiscussionTitleView(title: discussion.title, subtitle: discussion.subtitle)
+            }
         }
         
         // The title of the navigationItem is not displayed, since we always set a titleView. Yet, we set it so as to
@@ -700,8 +771,13 @@ extension NewSingleDiscussionViewController {
         if !menuElements.isEmpty {
             
             let menu = UIMenu(title: "", children: menuElements)
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let ellipsisImage = UIImage(systemIcon: .ellipsisCircle, withConfiguration: symbolConfiguration)
+            let systemIcon: SystemIcon
+            if #available(iOS 26, *) {
+                systemIcon = .ellipsis
+            } else {
+                systemIcon = .ellipsisCircle
+            }
+            let ellipsisImage = UIImage(systemIcon: systemIcon)
             let ellipsisButton = UIBarButtonItem(
                 title: nil,
                 image: ellipsisImage,
@@ -750,8 +826,7 @@ extension NewSingleDiscussionViewController {
     
     @objc private func titleViewWasTapped() {
         assert(delegate != nil)
-        guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-        delegate?.userTappedTitleOfDiscussion(discussion)
+        delegate?.userTappedTitleOfDiscussion(self, discussionObjectID: discussionObjectID)
     }
     
     
@@ -938,10 +1013,11 @@ extension NewSingleDiscussionViewController {
                         cacheDelegate: cacheDelegate,
                         cellReconfigurator: self,
                         textBubbleDelegate: self,
-                        audioPlayerViewDelegate: self,
+                        audioWaveFormViewDelegate: self,
                         shortcutMenuDelegate: self,
                         replyToDelegate: self,
-                        locationViewDelegate: self)
+                        locationViewDelegate: self,
+                        pollViewDelegate: self)
     }
 
     
@@ -954,9 +1030,12 @@ extension NewSingleDiscussionViewController {
                         cacheDelegate: cacheDelegate,
                         cellReconfigurator: self,
                         textBubbleDelegate: self,
+                        audioWaveFormViewDelegate: self,
                         shortcutMenuDelegate: self,
                         replyToDelegate: self,
-                        locationViewDelegate: self)
+                        locationViewDelegate: self,
+                        sentMessageInfosHostingViewControllerDelegate: self,
+                        pollViewDelegate: self)
     }
     
     
@@ -1129,18 +1208,6 @@ extension NewSingleDiscussionViewController {
             }
         })
     }
-
-    private func observeRouteChange() {
-        observationTokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil) { [weak self] _ in
-            OperationQueue.main.addOperation {
-                self?.collectionView?.visibleCells.forEach { cell in
-                    guard let audioPlayerView = cell.deepSearchSubView(ofClass: AudioPlayerView.self) else { return }
-                    audioPlayerView.configureSpeakerButton()
-                }
-            }
-        })
-    }
-
     
     private func insertSystemMessageIfCurrentDiscussionIsEmpty() {
         guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return }
@@ -1173,17 +1240,6 @@ extension NewSingleDiscussionViewController {
 
 }
 
-// MARK: - Implementing MessageReactionsListHostingViewControllerDelegate
-
-extension NewSingleDiscussionViewController: MessageReactionsListHostingViewControllerDelegate {
-    
-    func userWantsToUpdateReaction(_ messageReactionsListHostingViewController: MessageReactionsListHostingViewController, ownedCryptoId: ObvTypes.ObvCryptoId, messageObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedMessage>, newEmoji: String?) async throws {
-        guard let delegate else { assertionFailure(); throw Self.makeError(message: "delegate is nil") }
-        try await delegate.userWantsToUpdateReaction(self, ownedCryptoId: ownedCryptoId, messageObjectID: messageObjectID, newEmoji: newEmoji)
-    }
-    
-}
-
 
 // MARK: - Implementing VisibilityTrackerForSensitiveMessagesDelegate
 
@@ -1194,6 +1250,18 @@ extension NewSingleDiscussionViewController: VisibilityTrackerForSensitiveMessag
         try await delegate.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(self, discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
     }
     
+}
+
+
+// MARK: - SentMessageInfosHostingViewControllerDelegate
+
+extension NewSingleDiscussionViewController: SentMessageInfosHostingViewControllerDelegate {
+    
+    func userWantsToProcessReceiptsStoredForLater(_ vc: SentMessageInfosHostingViewController, ownedCryptoId: ObvCryptoId, returnReceiptElements: Set<ObvReturnReceiptElements>) async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.userWantsToProcessReceiptsStoredForLater(self, ownedCryptoId: ownedCryptoId, returnReceiptElements: returnReceiptElements)
+    }
+
 }
 
 
@@ -1701,7 +1769,7 @@ extension NewSingleDiscussionViewController {
     
     /// This method sends a notification allowing the database to mark the message as not new (which will eventually send read receipt if this setting is set)
     private func markAsNotNewTheMessageInCell(_ cell: UICollectionViewCell) {
-        guard OlvidUserActivitySingleton.shared.currentDiscussionPermanentID == self.discussionPermanentID else { return }
+        guard OlvidUserActivitySingleton.shared.currentDiscussionID?.permanentID == self.discussionPermanentID else { return }
         guard viewDidAppearWasCalled else { return }
         
         // If the scene is not foreground active, we do not mark visible messages as not new.
@@ -2013,6 +2081,34 @@ extension NewSingleDiscussionViewController: LocationViewDelegate {
             }
         }
     }
+}
+
+
+// MARK: - MessagePollViewDelegate
+
+extension NewSingleDiscussionViewController: MessagePollViewDelegate {
+    
+    func userWantsToUpdatePollVote(_ messagePollView: MessagePollView, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollCandidateUUID: UUID, voted: Bool, version: Int, voteSentStatus: VoteSentStatus) async throws {
+        Task {
+            if voteSentStatus == .canBeSent {
+                try await delegate?.userWantsToUpdatePollVote(self,
+                                                              ownedCryptoId: self.currentOwnedCryptoId,
+                                                              messageObjectID: messageObjectID,
+                                                              pollVoteCandidateUuid: pollCandidateUUID,
+                                                              voted: voted,
+                                                              version: version)
+            } else {
+                let toast = Toast(style: .warning, message: voteSentStatus.toastMessage)
+                Toaster.showToast(toast: toast)
+            }
+        }
+    }
+    
+    func userWantsToDisplayPollView(_ messagepollView: MessagePollView, pollObjectID: TypeSafeManagedObjectID<PersistedPoll>) async throws {
+        guard let delegate else { assertionFailure(); throw Self.makeError(message: "Delegate is nil") }
+        try await delegate.userWantsToDisplayPollView(self, pollObjectID: pollObjectID)
+    }
+    
 }
 
 // MARK: - UIContextMenuConfiguration
@@ -2359,10 +2455,14 @@ extension NewSingleDiscussionViewController: ContextMenuManagerDelegate, CellMes
             let action = UIAction(title: "Info") { [weak self] (_) in
                 if let vc = cell.infoViewController {
                     let nav = UINavigationController(rootViewController: vc)
-                    let appearance = UINavigationBarAppearance()
-                    appearance.configureWithOpaqueBackground()
-                    nav.navigationBar.standardAppearance = appearance
-                    nav.navigationBar.scrollEdgeAppearance = appearance
+                    if #available(iOS 26, *) {
+                        // We don't change the appearance under iOS 26
+                    } else {
+                        let appearance = UINavigationBarAppearance()
+                        appearance.configureWithOpaqueBackground()
+                        nav.navigationBar.standardAppearance = appearance
+                        nav.navigationBar.scrollEdgeAppearance = appearance
+                    }
                     self?.navigationController?.present(nav, animated: true)
                 }
             }
@@ -2588,9 +2688,9 @@ extension NewSingleDiscussionViewController: ContextMenuManagerDelegate, CellMes
         if discussionPermanentIDs.count == 1,
            let discussionPermanentID = discussionPermanentIDs.first,
            discussionPermanentID != persistedMessageDiscussion.discussionPermanentID,
-           let ownedCryptoId = persistedMessageDiscussion.ownedIdentity?.cryptoId {
+           let discussionIdentifier = persistedMessageDiscussion.discussionIdentifier {
             // We assume the discussion belongs the current owned identity
-            let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionPermanentID)
+            let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                 .postOnDispatchQueue()
         }
@@ -2766,7 +2866,13 @@ extension NewSingleDiscussionViewController {
     }
 
     
-    func scrollTo(message: PersistedMessage) {
+    func scrollTo(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) {
+        guard let message = try? PersistedMessage.get(with: messageObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+        self.scrollTo(message: message)
+    }
+    
+    
+    private func scrollTo(message: PersistedMessage) {
         assert(Thread.isMainThread)
         guard let frc = self.frc else { return }
         guard let message = try? PersistedMessage.get(with: message.typedObjectID, within: frc.managedObjectContext) else { return }
@@ -2895,6 +3001,11 @@ extension NewSingleDiscussionViewController: AttachmentsCollectionViewController
 
 extension NewSingleDiscussionViewController: NewComposeMessageViewDelegate {
     
+    func userWantsToDisplayContactIntroductionScreen(_ newComposeMessageView: NewComposeMessageView, contactIdentifier: ObvTypes.ObvContactIdentifier) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToDisplayContactIntroductionScreen(self, contactIdentifier: contactIdentifier)
+    }
+    
     /// This method is called when the user taps the location button in the view allowint to compose a message.
     func userWantsToShowMapToSendOrShareLocationContinuously(_ newComposeMessageView: NewComposeMessageView, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let delegate else { assertionFailure(); throw Self.makeError(message: "Delegate is nil") }
@@ -2920,21 +3031,26 @@ extension NewSingleDiscussionViewController: NewComposeMessageViewDelegate {
     
     
     /// Called by the `NewComposeMessageView` when the user wants to send a draft.
-    func userWantsToSendDraft(_ newComposeMessageView: NewComposeMessageView, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToSendDraft(_ newComposeMessageView: NewComposeMessageView, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
         guard let delegate else { assertionFailure(); throw Self.makeError(message: "Delegate is nil") }
-        try await delegate.userWantsToSendDraft(self, draftPermanentID: draftPermanentID, textBody: textBody, mentions: mentions)
+        try await delegate.userWantsToSendDraft(self, draftObjectID: draftObjectID, textBody: textBody, mentions: mentions)
     }
     
     
-    func userWantsToAddAttachmentsToDraft(_ newComposeMessageView: NewComposeMessageView, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws {
+    func userWantsToAddAttachmentsToDraft(_ newComposeMessageView: NewComposeMessageView, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste] {
         guard let delegate else { assertionFailure(); throw Self.makeError(message: "Delegate is nil") }
-        try await delegate.userWantsToAddAttachmentsToDraft(self, draftPermanentID: draftPermanentID, itemProviders: itemProviders)
+        return try await delegate.userWantsToAddAttachmentsToDraft(self, draftObjectID: draftObjectID, itemProviders: itemProviders, source: source)
     }
     
     
-    func userWantsToAddAttachmentsToDraftFromURLs(_ newComposeMessageView: NewComposeMessageView, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws {
+    func userWantsToAddAttachmentsToDraftFromURLs(_ newComposeMessageView: NewComposeMessageView, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws {
         guard let delegate else { assertionFailure(); throw Self.makeError(message: "Delegate is nil") }
-        try await delegate.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: urls)
+        try await delegate.userWantsToAddAttachmentsToDraftFromURLs(self, draftObjectID: draftObjectID, urls: urls)
+    }
+    
+    func userWantsToCreatePoll(_ newComposeMessageView: NewComposeMessageView, discussionIdentifier: ObvDiscussionIdentifier) async throws {
+        guard let delegate else { assertionFailure(); throw Self.makeError(message: "Delegate is nil") }
+        try await delegate.userWantsToCreatePoll(self, discussionIdentifier: discussionIdentifier)
     }
     
 }
@@ -2951,7 +3067,12 @@ extension NewSingleDiscussionViewController {
     func newComposeMessageViewHasDetectedLink(_ newComposeMessageView: NewComposeMessageView) {
 
         if let link = newComposeMessageView.currentHttpsURLDetected {
-            guard previewMetadataInComposeView?.url != link else { return }
+            
+            // Don't request a preview if there is already one for this link
+            
+            let draftAlreadyShowsPreview = self.discussion.draft.fyleJoinsPreviews.contains(where: { $0.fileName == link.absoluteString })
+            guard !draftAlreadyShowsPreview else { return }
+            
             Task {
                 do {
                     sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: discussion.draft.typedObjectID)
@@ -2968,29 +3089,25 @@ extension NewSingleDiscussionViewController {
                     
                     let linkMetadata = await ObvLinkMetadata.from(linkMetadata: linkMetadataFromProvider)
                     
-                    self.previewMetadataInComposeView = linkMetadata
-                    if let discussionDraftObjectPermanentID = try? discussion.draft.objectPermanentID {
-                        try? await sendUserWantsToAddAttachmentstoDraft(draftPermanentID: discussionDraftObjectPermanentID, linkMetadata: linkMetadata)
-                    }
+                    let draftObjectID = discussion.draft.typedObjectID
+                    try? await attachLinkMetadataToDraft(draftObjectID: draftObjectID, linkMetadata: linkMetadata)
                 } catch {
                     sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: discussion.draft.typedObjectID)
-                    previewMetadataInComposeView = nil
                 }
             }
         } else {
             Task {
                 do {
                     sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: discussion.draft.typedObjectID)
-                    previewMetadataInComposeView = nil
                 }
             }
         }
     }
     
 
-    private func sendUserWantsToAddAttachmentstoDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, linkMetadata: ObvLinkMetadata) async throws {
+    private func attachLinkMetadataToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, linkMetadata: ObvLinkMetadata) async throws {
         let itemProvider = NSItemProvider(item: linkMetadata, typeIdentifier: UTType.olvidLinkPreview.identifier)
-        try await delegate?.userWantsToAddAttachmentsToDraft(self, draftPermanentID: draftPermanentID, itemProviders: [itemProvider])
+        _ = try await delegate?.userWantsToAddAttachmentsToDraft(self, draftObjectID: draftObjectID, itemProviders: [itemProvider], source: .none)
     }
 
     
@@ -3024,11 +3141,6 @@ extension NewSingleDiscussionViewController {
         defer { isRegisteredToKeyboardNotifications = true }
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardDidHideOrShow(_:)), name: UIResponder.keyboardDidHideNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardDidHideOrShow(_:)), name: UIResponder.keyboardDidShowNotification, object: nil)
-        if #unavailable(iOS 15.5) {
-            // This observers updates the in-house keyboard layout guide. It will be removed as soon as Apple's keyboardLayoutGuide works as expected
-            NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShowOrHide(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
-            NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShowOrHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
-        }
     }
 
     
@@ -3036,28 +3148,11 @@ extension NewSingleDiscussionViewController {
         toggledWhenKeyboardDidHideOrShow.toggle()
         guard composeMessageView.preventTextViewFromEditing == false else { return }
         composeMessageView.setNeedsLayout()
-        UIView.animate(withDuration: 0.3) { [weak self] in
-            self?.composeMessageView.layoutIfNeeded()
-        }
-    }
-
-    // Should only be used for iOS < 15.5
-    @available(iOS, introduced: 15.0, deprecated: 15.5, message: "Used to simulated Apple's built-in keyboardLayoutGuide as it is bugged for iOS before 15.5")
-    @objc private func keyboardWillShowOrHide(_ notification: Notification) {
-        let info = notification.userInfo
-        guard let endRect = info?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { assertionFailure(); return }
-        var offset = view.bounds.size.height - endRect.origin.y
-        if offset == 0 {
-            offset = view.safeAreaInsets.bottom
-        }
-        let duration = info?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval ?? 2.0
-        
-        let viewOriginInWindow = view.convert(view.frame.origin, to: nil) // Non-zero when displaying the call banner
-        offset += viewOriginInWindow.y
-        
-        UIView.animate(withDuration: duration) { [weak self] in
-            self?.view.layoutIfNeeded()
-        }
+        // 2025-10-17 We comment the following lines as they crash on iOS 18 and 26 (and maybe others)
+        // when showing the emoji keyboard.
+        //        UIView.animate(withDuration: 0.3) { [weak self] in
+        //            self?.composeMessageView.layoutIfNeeded()
+        //        }
     }
     
 }
@@ -3475,30 +3570,28 @@ extension NewSingleDiscussionViewController {
 
     
     private func userTappedOnReactionView(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) {
-        guard let message = try? PersistedMessage.get(with: messageObjectID, within: ObvStack.shared.viewContext) else { return }
 
-        guard let vc = MessageReactionsListHostingViewController(message: message, delegate: self) else {
-            assertionFailure()
-            return
-        }
+        let messageIdentifier: ObvMessageReactionsViewModel.MessageIdentifier = .objectID(messageObjectID.objectID)
+        
+        let vc = ObvMessageReactionsViewController(messageIdentifier: messageIdentifier,
+                                                   dataSource: messageReactionsViewDataSource,
+                                                   avatarViewDataSource: avatarViewDataSource,
+                                                   delegate: self)
+        let nav = UINavigationController(rootViewController: vc)
         
         if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
-            
-            let nav = UINavigationController(rootViewController: vc)
             present(nav, animated: true)
-            
         } else {
-            
-            if let sheet = vc.sheetPresentationController {
+            if let sheet = nav.sheetPresentationController {
                 sheet.detents = [ .medium(), .large() ]
                 sheet.prefersGrabberVisible = true
                 sheet.preferredCornerRadius = 30.0
             }
-            present(vc, animated: true)
-            
+            present(nav, animated: true)
         }
         
     }
+    
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive event: UIEvent) -> Bool {
         // Long Press should not receive touch if the view touched is an UIButton to prevent any delay on interaction.
@@ -3514,6 +3607,47 @@ extension NewSingleDiscussionViewController {
     }
 
 }
+
+
+// MARK: - Implementing ObvMessageReactionsViewControllerDelegate
+
+extension NewSingleDiscussionViewController: ObvMessageReactionsViewControllerDelegate {
+    
+    func userWantsToRemoveReaction(_ vc: ObvSingleDiscussion.ObvMessageReactionsViewController, reactionIdentifier: ObvSingleDiscussion.ObvMessageReactionsViewModel.ReactionIdentifier) async throws {
+        switch reactionIdentifier {
+        case .forPreviews:
+            assertionFailure()
+            return
+        case .objectID(let objectID):
+            guard let reaction = try PersistedMessageReactionSent.get(with: TypeSafeManagedObjectID<PersistedMessageReactionSent>(objectID: objectID), within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+            guard let ownedCryptoId = reaction.message?.discussion?.ownedIdentity?.cryptoId else { return }
+            guard let messageObjectID: TypeSafeManagedObjectID<PersistedMessage> = reaction.message?.typedObjectID else { return }
+            guard let delegate else { assertionFailure(); throw Self.makeError(message: "delegate is nil") }
+            do {
+                try await delegate.userWantsToUpdateReaction(self, ownedCryptoId: ownedCryptoId, messageObjectID: messageObjectID, newEmoji: nil)
+                notificationGenerator.notificationOccurred(.success)
+            } catch {
+                notificationGenerator.notificationOccurred(.error)
+            }
+        }
+    }
+    
+    func userWantsToAddReactionToFavorites(_ vc: ObvSingleDiscussion.ObvMessageReactionsViewController, emoji: Character) async throws {
+        ObvMessengerSettings.Emoji.preferredEmojisList.insert(String(emoji), at: 0)
+        notificationGenerator.notificationOccurred(.success)
+    }
+    
+    func userWantsToRemoveReactionFromFavorites(_ vc: ObvSingleDiscussion.ObvMessageReactionsViewController, emoji: Character) async throws {
+        ObvMessengerSettings.Emoji.preferredEmojisList.removeAll { $0 == String(emoji) }
+        notificationGenerator.notificationOccurred(.success)
+    }
+    
+    func userWantsToDismissObvMessageReactionsViewController(_ vc: ObvMessageReactionsViewController) {
+        (vc.navigationController ?? vc).dismiss(animated: true)
+    }
+    
+}
+
 
 // MARK: - ViewShowingHardLinksDelegate / CustomQLPreviewControllerDelegate / Previewing attachments
 
@@ -3645,7 +3779,7 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - AudioPlayerViewDelegate
 
-extension NewSingleDiscussionViewController: AudioPlayerViewDelegate {
+extension NewSingleDiscussionViewController: AudioWaveFormViewDelegate {
 
     func audioHasBeenPlayed(_ hardlink: HardLinkToFyle) {
         guard let cell = findCellShowingHardlink(hardlink) else { assertionFailure(); return }
@@ -3653,6 +3787,10 @@ extension NewSingleDiscussionViewController: AudioPlayerViewDelegate {
         guard let join = message.fyleMessageJoinWithStatus?.first(where: { $0.fyle?.url == hardlink.fyleURL }) else { assertionFailure(); return }
         guard let receivedJoin = join as? ReceivedFyleMessageJoinWithStatus else { return }
         ObvMessengerInternalNotification.userHasOpenedAReceivedAttachment(receivedFyleJoinID: receivedJoin.typedObjectID).postOnDispatchQueue()
+    }
+    
+    func audioWaveFormShouldInvalidateCollectionLayout() {
+        collectionView.collectionViewLayout.invalidateLayout()
     }
 }
 
@@ -3857,10 +3995,9 @@ extension NewSingleDiscussionViewController: DiscussionsSelectionViewControllerD
 
 // MARK: - UICollectionViewDropDelegate
 
-extension NewSingleDiscussionViewController {
+extension NewSingleDiscussionViewController: UICollectionViewDropDelegate {
     
     func collectionView(_ collectionView: UICollectionView, canHandle session: UIDropSession) -> Bool {
-        debugPrint("🫵 \(self.debugDescription) canHandle")
         guard !isDragSessionInProgress else { return false }
         return true
     }
@@ -3873,12 +4010,8 @@ extension NewSingleDiscussionViewController {
     }
     
     func collectionView(_ collectionView: UICollectionView, performDropWith coordinator: UICollectionViewDropCoordinator) {
-        
         let itemProviders = coordinator.items.map(\.dragItem.itemProvider)
-        Task {
-            await composeMessageView.addAttachments(from: itemProviders, attachTextItems: true)
-        }
-
+        composeMessageView.addAttachmentsDroppedInDiscussion(itemProviders: itemProviders)
     }
     
 }
@@ -3886,7 +4019,7 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - UICollectionViewDragDelegate
 
-extension NewSingleDiscussionViewController {
+extension NewSingleDiscussionViewController: UICollectionViewDragDelegate {
     
     func collectionView(_ collectionView: UICollectionView, dragSessionWillBegin session: UIDragSession) {
         isDragSessionInProgress = true

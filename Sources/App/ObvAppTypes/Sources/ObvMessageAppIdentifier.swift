@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,7 @@ import ObvEncoder
 /// Identifies a sent or received message at the App level.
 ///
 /// This type is distinct from ``ObvTypes.ObvMessageIdentifier`` as it uses the `senderIdentifier`, `senderThreadIdentifier`, and `senderSequenceNumber` instead of the message identifier from server to identify a message.
-public enum ObvMessageAppIdentifier {
+public enum ObvMessageAppIdentifier: Sendable {
     
     case sent(discussionIdentifier: ObvDiscussionIdentifier, senderThreadIdentifier: UUID, senderSequenceNumber: Int)
     case received(discussionIdentifier: ObvDiscussionIdentifier, senderIdentifier: Data, senderThreadIdentifier: UUID, senderSequenceNumber: Int)
@@ -90,6 +90,10 @@ extension ObvMessageAppIdentifier {
         }
     }
 
+    public var ownedCryptoId: ObvCryptoId {
+        discussionIdentifier.ownedCryptoId
+    }
+    
 }
 
 

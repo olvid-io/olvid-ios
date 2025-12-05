@@ -65,7 +65,7 @@ public protocol ObvChannelDelegate: ObvManager {
     func getDeviceUidsOfRemoteIdentitiesHavingConfirmedObliviousChannelWithTheCurrentDeviceOfOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, remoteIdentities: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<UID>]
 
     /// Method used when determining which Oblivious channels are obsolete.
-    func getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within: ObvContext) throws -> Set<ObliviousChannelIdentifier>
+    func getAllObliviousChannelIdentifiers(within: ObvContext) throws -> Set<ObliviousChannelIdentifier>
     
     // Preparing for an owned identity deletion
     

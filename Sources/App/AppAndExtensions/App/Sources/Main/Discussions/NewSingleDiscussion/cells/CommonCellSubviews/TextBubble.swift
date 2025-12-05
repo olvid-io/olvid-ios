@@ -163,6 +163,7 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         textView.textContainerInset = UIEdgeInsets.zero
         textView.isEditable = false
         textView.isSelectable = true // Must be set to `true` for the data detector to work
+        textView.tintColor = .white // Set Tint Color for selection to be displayed.
         textView.adjustsFontForContentSizeCategory = true
         textView.textColor = textColor
         textView.linkTextAttributes = [:] // Do not specify any attributes for link, let the attributed string decide
@@ -191,6 +192,15 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         NSLayoutConstraint.activate(constraints)
         
         textView.setContentCompressionResistancePriority(.required, for: .vertical)
+
+        // Contraints with small priority preventing ambiguous contraints issues
+        do {
+            let lowPriorityConstraints = [
+                self.heightAnchor.constraint(equalToConstant: 1),
+            ]
+            lowPriorityConstraints.forEach({ $0.priority = .defaultLow })
+            NSLayoutConstraint.activate(lowPriorityConstraints)
+        }
 
         setupConstraintsForExpirationIndicator(gap: MessageCellConstants.gapBetweenExpirationViewAndBubble)
 

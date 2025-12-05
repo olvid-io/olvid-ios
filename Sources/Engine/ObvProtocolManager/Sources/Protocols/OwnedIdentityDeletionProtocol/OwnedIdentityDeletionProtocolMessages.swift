@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -74,8 +74,8 @@ extension OwnedIdentityDeletionProtocol {
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.globalOwnedIdentityDeletion = try message.encodedInputs[0].obvDecode()
         }
         
@@ -96,7 +96,7 @@ extension OwnedIdentityDeletionProtocol {
         var encodedInputs: [ObvEncoded] { [] }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }
@@ -122,7 +122,7 @@ extension OwnedIdentityDeletionProtocol {
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
     }
@@ -148,7 +148,7 @@ extension OwnedIdentityDeletionProtocol {
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
     }
@@ -182,8 +182,8 @@ extension OwnedIdentityDeletionProtocol {
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.deletedContactOwnedIdentity = try message.encodedInputs[0].obvDecode()
             self.signature = try message.encodedInputs[1].obvDecode()
         }
@@ -203,8 +203,8 @@ extension OwnedIdentityDeletionProtocol {
         // Initializers
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             let encodedSuccess = encodedElements[0]
             guard let success = Bool(encodedSuccess) else {

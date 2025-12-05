@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -53,11 +53,7 @@ extension UIApplication {
                 }))
 
                 alert.addAction(.init(title: String(localized: "ACTION_TITLE_COPY_LINK"), style: .default) { _ in
-                    // We copy different representations of the url in order to be able to paste it everywhere properly.
-                    UIPasteboard.general.addItems([
-                        [UTType.text.identifier: safeURL.absoluteString],
-                        [UTType.url.identifier: safeURL]
-                    ])
+                    UIPasteboard.general.setValue(safeURL, forPasteboardType: UTType.url.identifier)
                 })
                 
                 alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))

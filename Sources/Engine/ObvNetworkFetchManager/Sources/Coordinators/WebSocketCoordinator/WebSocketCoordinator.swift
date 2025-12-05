@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvTypes
 import os.log
 import ObvCrypto
 import ObvTypes
@@ -40,6 +41,25 @@ actor WebSocketCoordinator: NSObject {
         
     private var failedAttemptsCounterManager = FailedAttemptsCounterManager()
     private var retryManager = FetchRetryManager()
+
+    private var continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt: AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt>.Continuation?
+    private var encryptedReceivedReturnReceiptToSend = [ObvEncryptedReceivedReturnReceipt]()
+    
+    deinit {
+        continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt?.finish()
+        continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt = nil
+    }
+    
+    private func replaceContinuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt(by newContinuation: AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt>.Continuation) {
+        if let continuation = self.continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt {
+            continuation.finish()
+        }
+        continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt = newContinuation
+    }
+    
+    private func popLastEncryptedReceivedReturnReceiptToSend() -> ObvEncryptedReceivedReturnReceipt? {
+        encryptedReceivedReturnReceiptToSend.popLast()
+    }
 
     enum ObvError: Error {
         case theDelegateManagerIsNil
@@ -129,6 +149,19 @@ actor WebSocketCoordinator: NSObject {
 
 extension WebSocketCoordinator: WebSocketDelegate {
     
+    func getAsyncStreamOfEncryptedReceivedReturnReceipt() -> AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt> {
+        let stream = AsyncStream(ObvEncryptedReceivedReturnReceipt.self) { [weak self] (continuation: AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt>.Continuation) in
+            guard let self else { return }
+            Task {
+                await self.replaceContinuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt(by: continuation)
+                while let encryptedReceivedReturnReceipt = await self.popLastEncryptedReceivedReturnReceiptToSend() {
+                    continuation.yield(encryptedReceivedReturnReceipt)
+                }
+            }
+        }
+        return stream
+    }
+    
     func connectUpdatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
         
         os_log("🏓 Call to connectAll(ownedCryptoIdsAndCurrentDeviceUIDs:flowId:)", log: log, type: .info)
@@ -203,32 +236,40 @@ extension WebSocketCoordinator: WebSocketDelegate {
         }
     }
     
-    
-    func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (state: URLSessionTask.State, pingInterval: TimeInterval?) {
+
+    func getWebSocketState(ownedIdentity: ObvCryptoIdentity, handler: @escaping @Sendable (Result<(URLSessionTask.State, TimeInterval?), Error>) -> Void) {
+        
+        let queue = DispatchQueue(label: "WebSocketCoordinator.pong")
         
         guard let webSocketTask = webSocketTaskForOwnedCryptoId[ownedIdentity] else {
             os_log("🏓 Could not find an appropriate webSocketServerURL for this owned identity", log: log, type: .error)
             assertionFailure()
-            throw ObvError.couldNotFindWebSocketTaskForOwnedIdentity
+            queue.async {
+                handler(.failure(ObvError.couldNotFindWebSocketTaskForOwnedIdentity))
+            }
+            return
         }
 
         let state = webSocketTask.state
         
         switch state {
         case .running:
-            let pingTime = Date()
-            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(URLSessionTask.State,TimeInterval?), Error>) in
-                webSocketTask.sendPing { error in
-                    if let error {
-                        return continuation.resume(throwing: error)
-                    } else {
-                        let interval = Date().timeIntervalSince(pingTime)
-                        return continuation.resume(returning: (state, interval))
+            let pingTime = Date.now
+            // For some reason, using `withCheckedThrowingContinutation` here produces crash when starting the app
+            webSocketTask.sendPing { error in
+                if let error {
+                    queue.async {
+                        handler(.failure(error))
+                    }
+                } else {
+                    let interval = Date.now.timeIntervalSince(pingTime)
+                    queue.async {
+                        handler(.success((state, interval)))
                     }
                 }
             }
         default:
-            return (state, nil)
+            handler(.success((state, nil)))
         }
         
     }
@@ -427,9 +468,10 @@ extension WebSocketCoordinator {
             // Case #1: ReturnReceipt
             
             os_log("🏓 The server sent a ReturnReceipt", log: log, type: .info)
-            if let notificationDelegate = delegateManager.notificationDelegate {
-                ObvNetworkFetchNotificationNew.newReturnReceiptToProcess(encryptedReceivedReturnReceipt: encryptedReceivedReturnReceipt)
-                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
+            if let continuation = continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt {
+                continuation.yield(encryptedReceivedReturnReceipt)
+            } else {
+                encryptedReceivedReturnReceiptToSend.insert(encryptedReceivedReturnReceipt, at: 0)
             }
             
         } else if let receivedMessage = try? NewMessageAvailableMessage(string: stringReceived) {

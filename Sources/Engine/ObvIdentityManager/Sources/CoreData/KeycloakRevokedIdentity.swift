@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,11 +21,11 @@ import Foundation
 import CoreData
 import OlvidUtils
 import ObvCrypto
-import os.log
+import OSLog
 
 
 @objc(KeycloakRevokedIdentity)
-final class KeycloakRevokedIdentity: NSManagedObject, ObvManagedObject {
+final class KeycloakRevokedIdentity: NSManagedObject {
     
     // MARK: Internal constants
     
@@ -34,6 +34,11 @@ final class KeycloakRevokedIdentity: NSManagedObject, ObvManagedObject {
     private static let errorDomain = "KeycloakRevokedIdentity"
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { KeycloakRevokedIdentity.makeError(message: message) }
+
+    static weak var delegateManager: ObvIdentityDelegateManager?
+    
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: KeycloakRevokedIdentity.logSubsystem, category: "KeycloakRevokedIdentity") }()
 
     // MARK: Attributes
 
@@ -46,9 +51,6 @@ final class KeycloakRevokedIdentity: NSManagedObject, ObvManagedObject {
     @NSManaged private(set) var keycloakServer: KeycloakServer? // Expected to be non-nil
     
     // MARK: Other variables
-
-    weak var obvContext: ObvContext?
-    weak var delegateManager: ObvIdentityDelegateManager?
 
     enum RevocationType: Int {
         case compromised = 0
@@ -79,37 +81,34 @@ final class KeycloakRevokedIdentity: NSManagedObject, ObvManagedObject {
         
     // MARK: - Initializer
 
-    convenience init?(keycloakServer: KeycloakServer, keycloakRevocation: JsonKeycloakRevocation, delegateManager: ObvIdentityDelegateManager) throws {
+    convenience init?(keycloakServer: KeycloakServer, keycloakRevocation: JsonKeycloakRevocation) throws {
         try self.init(
             keycloakServer: keycloakServer,
             identity: keycloakRevocation.cryptoIdentity,
             revocationType: keycloakRevocation.revocationType,
-            revocationTimestamp: keycloakRevocation.revocationTimestamp,
-            delegateManager: delegateManager)
+            revocationTimestamp: keycloakRevocation.revocationTimestamp)
     }
     
-    convenience init?(keycloakServer: KeycloakServer, identity: ObvCryptoIdentity, revocationType: RevocationType, revocationTimestamp: Date, delegateManager: ObvIdentityDelegateManager) throws {
-        guard let obvContext = keycloakServer.obvContext else { throw KeycloakRevokedIdentity.makeError(message: "KeycloakRevokedIdentity initialization failed, cannot find appropriate ObvContext") }
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: "KeycloakRevokedIdentity")
+    convenience init?(keycloakServer: KeycloakServer, identity: ObvCryptoIdentity, revocationType: RevocationType, revocationTimestamp: Date) throws {
+        guard let context = keycloakServer.managedObjectContext else { throw KeycloakRevokedIdentity.makeError(message: "KeycloakRevokedIdentity initialization failed, cannot find appropriate context") }
 
         guard try KeycloakRevokedIdentity.noEntryExists(keycloakServer: keycloakServer, identity: identity, revocationType: revocationType, revocationTimestamp: revocationTimestamp) else {
-            os_log("A previous entry with the identical values already exists within the KeycloakRevokedIdentity database, we skip this init", log: log, type: .info)
+            Self.logger.info("A previous entry with the identical values already exists within the KeycloakRevokedIdentity database, we skip this init")
             return nil
         }
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakRevokedIdentity.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakRevokedIdentity.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.setIdentiy(with: identity)
         self.setRevocationType(revocationType)
         self.revocationTimestamp = revocationTimestamp
         self.keycloakServer = keycloakServer
-        self.delegateManager = delegateManager
     }
     
     
     func delete() throws {
-        guard let obvContext = self.obvContext else { assertionFailure(); throw makeError(message: "Could not delete KeycloakRevokedIdentity instance since no obv context could be found.") }
-        obvContext.delete(self)
+        guard let context = self.managedObjectContext else { assertionFailure(); throw makeError(message: "Could not delete KeycloakRevokedIdentity instance since no obv context could be found.") }
+        context.delete(self)
     }
 
     // MARK: - Database queries
@@ -144,7 +143,7 @@ final class KeycloakRevokedIdentity: NSManagedObject, ObvManagedObject {
     
     
     private static func noEntryExists(keycloakServer: KeycloakServer, identity: ObvCryptoIdentity, revocationType: RevocationType, revocationTimestamp: Date) throws -> Bool {
-        guard let obvContext = keycloakServer.obvContext else { assertionFailure(); throw KeycloakRevokedIdentity.makeError(message: "Could not find obv context in KeycloakServer instance (3)") }
+        guard let context = keycloakServer.managedObjectContext else { assertionFailure(); throw KeycloakRevokedIdentity.makeError(message: "Could not find obv context in KeycloakServer instance (3)") }
         let request: NSFetchRequest<KeycloakRevokedIdentity> = KeycloakRevokedIdentity.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withKeycloakServer(keycloakServer),
@@ -153,12 +152,13 @@ final class KeycloakRevokedIdentity: NSManagedObject, ObvManagedObject {
             Predicate.withRevocationTimestamp(revocationTimestamp),
         ])
         request.fetchLimit = 1
-        return try obvContext.count(for: request) == 0
+        let item = try context.fetch(request).first
+        return item == nil
     }
 
     
     static func batchDeleteEntriesWithRevocationTimestampBeforeDate(_ date: Date, for keycloakServer: KeycloakServer) throws {
-        guard let obvContext = keycloakServer.obvContext else { assertionFailure(); throw KeycloakRevokedIdentity.makeError(message: "Could not find obv context in KeycloakServer instance") }
+        guard let context = keycloakServer.managedObjectContext else { assertionFailure(); throw KeycloakRevokedIdentity.makeError(message: "Could not find obv context in KeycloakServer instance") }
         let request: NSFetchRequest<NSFetchRequestResult> = KeycloakRevokedIdentity.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withKeycloakServer(keycloakServer),
@@ -166,12 +166,12 @@ final class KeycloakRevokedIdentity: NSManagedObject, ObvManagedObject {
         ])
         let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         batchDeleteRequest.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(batchDeleteRequest) as? NSBatchDeleteResult
+        let result = try context.execute(batchDeleteRequest) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }
@@ -179,13 +179,13 @@ final class KeycloakRevokedIdentity: NSManagedObject, ObvManagedObject {
     
     
     static func get(keycloakServer: KeycloakServer, identity: ObvCryptoIdentity) throws -> [KeycloakRevokedIdentity] {
-        guard let obvContext = keycloakServer.obvContext else { assertionFailure(); throw KeycloakRevokedIdentity.makeError(message: "Could not find obv context in KeycloakServer instance (2)") }
+        guard let context = keycloakServer.managedObjectContext else { assertionFailure(); throw KeycloakRevokedIdentity.makeError(message: "Could not find obv context in KeycloakServer instance (2)") }
         let request: NSFetchRequest<KeycloakRevokedIdentity> = KeycloakRevokedIdentity.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withKeycloakServer(keycloakServer),
             Predicate.withIdentity(identity),
         ])
-        return try obvContext.fetch(request)
+        return try context.fetch(request)
     }
     
 }

@@ -379,7 +379,7 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
     }
 
     
-    override func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage? {
+    override func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage {
         
         guard self.contactIdentity == contact else {
             throw ObvUICoreDataError.unexpectedContact
@@ -392,13 +392,49 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
     }
     
     
-    override func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+    override func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage {
         
         guard self.ownedIdentity == ownedIdentity else {
             throw ObvUICoreDataError.unexpectedOwnedIdentity
         }
 
         let updatedMessage = try super.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return updatedMessage
+        
+    }
+
+    // MARK: - Process poll vote requests
+
+    override func processSetOrUpdatePollVoteOnMessageLocalRequest(from ownedIdentity: PersistedObvOwnedIdentity,
+                                                         for message: PersistedMessage,
+                                                         pollCandidateUUID: UUID,
+                                                         voted: Bool,
+                                                         version: Int) throws {
+        try super.processSetOrUpdatePollVoteOnMessageLocalRequest(from: ownedIdentity, for: message, pollCandidateUUID: pollCandidateUUID, voted: voted, version: version)
+    }
+
+    
+    override func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage {
+        
+        guard self.contactIdentity == contact else {
+            throw ObvUICoreDataError.unexpectedContact
+        }
+
+        let updatedMessage = try super.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return updatedMessage
+        
+    }
+    
+    
+    override func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvUICoreDataError.unexpectedOwnedIdentity
+        }
+
+        let updatedMessage = try super.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
         
         return updatedMessage
         
@@ -459,7 +495,9 @@ extension PersistedOneToOneDiscussion {
         enum Key: String {
             case rawContactIdentityIdentity = "rawContactIdentityIdentity"
             case rawContactIdentity = "rawContactIdentity"
-            static let ownedIdentityIdentity = [PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
+            static let ownedIdentityIdentity = [
+                PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue,
+                PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
         }
         static func withContactCryptoId(_ cryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.rawContactIdentityIdentity, EqualToData: cryptoId.getIdentity())
@@ -475,6 +513,12 @@ extension PersistedOneToOneDiscussion {
         }
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             PersistedDiscussion.Predicate.persistedDiscussion(withObjectID: objectID)
+        }
+        static func withContactId(_ contactId: ObvContactIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withOwnedCryptoId(contactId.ownedCryptoId),
+                withContactCryptoId(contactId.contactCryptoId),
+            ])
         }
     }
     
@@ -493,6 +537,7 @@ extension PersistedOneToOneDiscussion {
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedCryptoId(ownedCryptoId),
             Predicate.withContactCryptoId(contactCryptoId),
+            PersistedDiscussion.Predicate.withStatus(.active),
         ])
         request.fetchLimit = 1
         return (try context.fetch(request)).first
@@ -569,6 +614,43 @@ extension PersistedOneToOneDiscussion {
         return try context.fetch(request).first
     }
 
+    
+    static func isPersistedOneToOneDiscussionExisting(contactId: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> Bool {
+        return try getPersistedDiscussionOneToOneObjectID(contactId: contactId, within: context) != nil
+    }
+    
+    
+    static func getPersistedDiscussionOneToOneObjectID(contactId: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> TypeSafeManagedObjectID<PersistedOneToOneDiscussion>? {
+        let batchFetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        batchFetchRequest.resultType = .managedObjectIDResultType
+        batchFetchRequest.predicate = Predicate.withContactId(contactId)
+        batchFetchRequest.fetchLimit = 1
+        let result = try context.fetch(batchFetchRequest) as? [NSManagedObjectID] ?? []
+        return result.compactMap({ TypeSafeManagedObjectID<PersistedOneToOneDiscussion>(objectID: $0) }).first
+    }
+    
+    public static func getPersistedDiscussionOneToOne(contactId: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> PersistedOneToOneDiscussion? {
+        let request: NSFetchRequest<PersistedOneToOneDiscussion> = PersistedOneToOneDiscussion.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedCryptoId(contactId.ownedCryptoId),
+            Predicate.withContactCryptoId(contactId.contactCryptoId),
+            PersistedDiscussion.Predicate.withStatus(.active),
+        ])
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+    
+    public static func getFetchedResultControllerOfPersistedDiscussionOneToOneContactID(contactId: ObvContactIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedOneToOneDiscussion> {
+        let request: NSFetchRequest<PersistedOneToOneDiscussion> = PersistedOneToOneDiscussion.fetchRequest()
+        request.predicate = Predicate.withContactId(contactId)
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedDiscussion.Predicate.Key.title.rawValue, ascending: true)]
+        request.fetchLimit = 1
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+    
 }
 
 

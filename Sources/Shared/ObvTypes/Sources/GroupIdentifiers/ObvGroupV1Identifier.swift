@@ -44,6 +44,15 @@ public struct ObvGroupV1Identifier: Sendable, Hashable {
 }
 
 
+extension ObvGroupV1Identifier: Identifiable {
+    
+    public var id: Data {
+        return "ObvGroupV1Identifier".data(using: .utf8)! + ownedCryptoId.getIdentity() + groupV1Identifier.id
+    }
+
+}
+
+
 // MARK: - Implementing ObvCodable
 
 extension ObvGroupV1Identifier: ObvCodable {
@@ -140,6 +149,15 @@ public struct GroupV1Identifier: Hashable, Sendable {
     enum ObvError: Error {
         case notEnoughData
         case couldNotRecoverGroupUid
+    }
+    
+}
+
+
+extension GroupV1Identifier: Identifiable {
+    
+    public var id: Data {
+        groupUid.raw + groupOwner.getIdentity()
     }
     
 }

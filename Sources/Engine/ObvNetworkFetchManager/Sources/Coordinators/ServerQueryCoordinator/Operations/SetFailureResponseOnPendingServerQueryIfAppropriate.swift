@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,12 +34,10 @@ final class SetFailureResponseOnPendingServerQueryIfAppropriate: ContextualOpera
     
     private let pendingServerQueryObjectID: NSManagedObjectID
     private let condition: Condition
-    private let delegateManager: ObvNetworkFetchDelegateManager
     
-    init(pendingServerQueryObjectID: NSManagedObjectID, condition: Condition, delegateManager: ObvNetworkFetchDelegateManager) {
+    init(pendingServerQueryObjectID: NSManagedObjectID, condition: Condition) {
         self.pendingServerQueryObjectID = pendingServerQueryObjectID
         self.condition = condition
-        self.delegateManager = delegateManager
         super.init()
     }
     
@@ -70,7 +68,7 @@ final class SetFailureResponseOnPendingServerQueryIfAppropriate: ContextualOpera
         
         do {
             
-            guard let serverQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectID, delegateManager: delegateManager, within: obvContext) else {
+            guard let serverQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectID, within: obvContext.context) else {
                 return postOperationAction = .doNothingAsPendingServerQueryCannotBeFound
             }
             

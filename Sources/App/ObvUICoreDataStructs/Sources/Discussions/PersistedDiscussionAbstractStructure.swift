@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvTypes
 import ObvAppTypes
 
 
-public struct PersistedDiscussionAbstractStructure {
+public struct PersistedDiscussionAbstractStructure: Sendable {
     
     let ownedIdentity: PersistedObvOwnedIdentityStructure
     let title: String
@@ -37,7 +37,7 @@ public struct PersistedDiscussionAbstractStructure {
     }
     
     
-    public enum StructureKind {
+    public enum StructureKind: Sendable {
         case oneToOneDiscussion(structure: PersistedOneToOneDiscussionStructure)
         case groupDiscussion(structure: PersistedGroupDiscussionStructure)
         case groupV2Discussion(structure: PersistedGroupV2DiscussionStructure)

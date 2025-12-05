@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import UIKit
 import SwiftUI
 import ObvTypes
 import ObvUICoreData
+import ObvDesignSystem
 
 
 protocol AllInvitationsHostingControllerDelegate: AnyObject {
@@ -45,6 +46,13 @@ final class AllInvitationsHostingController: UIHostingController<AllInvitationsV
     
     @MainActor required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
+        
     }
     
     // AllInvitationsViewActionsProtocol

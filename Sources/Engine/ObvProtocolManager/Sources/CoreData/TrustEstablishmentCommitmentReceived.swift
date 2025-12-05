@@ -25,37 +25,43 @@ import OlvidUtils
 
 
 @objc(TrustEstablishmentCommitmentReceived)
-final class TrustEstablishmentCommitmentReceived: NSManagedObject, ObvManagedObject {
+final class TrustEstablishmentCommitmentReceived: NSManagedObject {
     
     // MARK: Internal constants
 
     private static let entityName = "TrustEstablishmentCommitmentReceived"
-    private static let rawOwnedIdentityKey = "rawOwnedIdentity"
-    private static let commitmentKey = "commitment"
 
     // MARK: Attributes
 
-    @NSManaged private var rawOwnedIdentity: Data
-    @NSManaged private var commitment: Data
+    @NSManaged private var rawOwnedIdentity: Data? // Non-optional in the model
+    @NSManaged private var commitment: Data? // Non-optional in the model
 
     // MARK: Variables
 
     private var ownedIdentity: ObvCryptoIdentity {
-        get { ObvCryptoIdentity(from: rawOwnedIdentity)! }
-        set { rawOwnedIdentity = newValue.getIdentity() }
+        get throws(ObvError) {
+            guard let rawOwnedIdentity else { assertionFailure(); throw .unexpectedNilValue }
+            guard let ownedIdentity = ObvCryptoIdentity(from: rawOwnedIdentity) else { assertionFailure(); throw .couldNotParseValue }
+            return ownedIdentity
+        }
     }
-
-    weak var obvContext: ObvContext?
 
     // MARK: - Initializer
 
-    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, commitment: Data, within obvContext: ObvContext) {
+    /// 2025-08-27: ok
+    convenience init(ownedCryptoIdentity: ObvCryptoIdentity, commitment: Data, within context: NSManagedObjectContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: TrustEstablishmentCommitmentReceived.entityName,
-                                                           in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.ownedIdentity = ownedCryptoIdentity
+                                                           in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        self.rawOwnedIdentity = ownedCryptoIdentity.getIdentity()
         self.commitment = commitment
     }
+    
+    enum ObvError: Error {
+        case unexpectedNilValue
+        case couldNotParseValue
+    }
+    
 }
 
 
@@ -63,45 +69,49 @@ final class TrustEstablishmentCommitmentReceived: NSManagedObject, ObvManagedObj
 
 extension TrustEstablishmentCommitmentReceived {
     
+    struct Predicate {
+        enum Key: String {
+            case rawOwnedIdentity = "rawOwnedIdentity"
+            case commitment = "commitment"
+        }
+        static func withOwnedCryptoIdentity(_ ownedIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(Key.rawOwnedIdentity, EqualToData: ownedIdentity.getIdentity())
+        }
+        static func withCommitment(_ commitment: Data) -> NSPredicate {
+            NSPredicate(Key.commitment, EqualToData: commitment)
+        }
+    }
+
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<TrustEstablishmentCommitmentReceived> {
         return NSFetchRequest<TrustEstablishmentCommitmentReceived>(entityName: TrustEstablishmentCommitmentReceived.entityName)
     }
 
-    private struct Predicate {
-        static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@",
-                        TrustEstablishmentCommitmentReceived.rawOwnedIdentityKey,
-                        ownedCryptoIdentity.getIdentity() as NSData)
-        }
-        static func withCommitment(_ commitment: Data) -> NSPredicate {
-            NSPredicate(format: "%K == %@",
-                        TrustEstablishmentCommitmentReceived.commitmentKey,
-                        commitment as NSData)
-        }
-    }
-
-    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, commitment: Data, within obvContext: ObvContext) throws -> Bool {
+    
+    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, commitment: Data, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<TrustEstablishmentCommitmentReceived> = TrustEstablishmentCommitmentReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
             Predicate.withCommitment(commitment),
         ])
-        let count = try obvContext.count(for: request)
-        return count > 0
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item != nil
     }
 
     
-    static func batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: TrustEstablishmentCommitmentReceived.entityName)
         fetchRequest.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }

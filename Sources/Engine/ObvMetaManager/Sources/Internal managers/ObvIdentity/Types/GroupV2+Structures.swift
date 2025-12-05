@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
   
 
 import Foundation
+import CoreData
 import ObvEncoder
 import ObvCrypto
 import CryptoKit
@@ -110,10 +111,10 @@ public struct GroupV2 {
             
             
             /// Creates a block instance appropriate as the first block of a `GroupAdministratorsChain`.
-            fileprivate init(ownedIdentity: ObvCryptoIdentity, otherAdministrators: [ObvCryptoIdentity], using prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws {
+            fileprivate init(ownedIdentity: ObvCryptoIdentity, otherAdministrators: [ObvCryptoIdentity], using prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within context: NSManagedObjectContext) throws {
                 let innerData = InnerData(ownedIdentity: ownedIdentity, otherAdministrators: otherAdministrators, prng: prng)
                 let encodedInnerData = innerData.obvEncode()
-                let signature = try solveChallengeDelegate.solveChallenge(.groupV2AdministratorsChain(rawInnerData: encodedInnerData.rawData), for: ownedIdentity, using: prng, within: obvContext)
+                let signature = try solveChallengeDelegate.solveChallenge(.groupV2AdministratorsChain(rawInnerData: encodedInnerData.rawData), for: ownedIdentity, using: prng, within: context)
                 self.encodedInnerData = encodedInnerData
                 self.innerData = innerData
                 self.signatureOnInnerData = signature
@@ -121,10 +122,10 @@ public struct GroupV2 {
 
             
             /// Creates a block instance appropriate for the subsequent block of a `GroupAdministratorsChain`.
-            fileprivate init(ownedIdentity: ObvCryptoIdentity, otherAdministrators: [ObvCryptoIdentity], previousBlock: Block, using prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws {
+            fileprivate init(ownedIdentity: ObvCryptoIdentity, otherAdministrators: [ObvCryptoIdentity], previousBlock: Block, using prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within context: NSManagedObjectContext) throws {
                 let innerData = InnerData(ownedIdentity: ownedIdentity, otherAdministrators: otherAdministrators, previousBlock: previousBlock)
                 let encodedInnerData = innerData.obvEncode()
-                let signature = try solveChallengeDelegate.solveChallenge(.groupV2AdministratorsChain(rawInnerData: encodedInnerData.rawData), for: ownedIdentity, using: prng, within: obvContext)
+                let signature = try solveChallengeDelegate.solveChallenge(.groupV2AdministratorsChain(rawInnerData: encodedInnerData.rawData), for: ownedIdentity, using: prng, within: context)
                 self.encodedInnerData = encodedInnerData
                 self.innerData = innerData
                 self.signatureOnInnerData = signature
@@ -217,15 +218,15 @@ public struct GroupV2 {
         }
         
         
-        public static func startNewChain(ownedIdentity: ObvCryptoIdentity, otherAdministrators: [ObvCryptoIdentity], using prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws -> AdministratorsChain {
-            let firstBlock = try Block(ownedIdentity: ownedIdentity, otherAdministrators: otherAdministrators, using: prng, solveChallengeDelegate: solveChallengeDelegate, within: obvContext)
+        public static func startNewChain(ownedIdentity: ObvCryptoIdentity, otherAdministrators: [ObvCryptoIdentity], using prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within context: NSManagedObjectContext) throws -> AdministratorsChain {
+            let firstBlock = try Block(ownedIdentity: ownedIdentity, otherAdministrators: otherAdministrators, using: prng, solveChallengeDelegate: solveChallengeDelegate, within: context)
             let sha256OfFirstBlock = firstBlock.computeSha256()
             guard let groupUID = UID(uid: sha256OfFirstBlock) else { throw Self.makeError(message: "Could not compute Group UID from Sha256 of first block") }
             return try AdministratorsChain(groupUID: groupUID, blocks: [firstBlock], integrityChecked: false).withCheckedIntegrity(expectedGroupUID: groupUID, alreadyTrustedPrefixAdministratorChain: nil)
         }
         
         
-        func addBlock(ownedIdentity: ObvCryptoIdentity, otherAdministrators: [ObvCryptoIdentity], using prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws -> AdministratorsChain {
+        func addBlock(ownedIdentity: ObvCryptoIdentity, otherAdministrators: [ObvCryptoIdentity], using prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within context: NSManagedObjectContext) throws -> AdministratorsChain {
             guard let currentLastBlock = self.blocks.last else {
                 assertionFailure()
                 throw Self.makeError(message: "The administrator chain is empty")
@@ -235,7 +236,7 @@ public struct GroupV2 {
                 assertionFailure()
                 throw Self.makeError(message: "The owned identity cannot update the administrator chain since she is not an administrator")
             }
-            let newBlock = try Block(ownedIdentity: ownedIdentity, otherAdministrators: otherAdministrators, previousBlock: currentLastBlock, using: prng, solveChallengeDelegate: solveChallengeDelegate, within: obvContext)
+            let newBlock = try Block(ownedIdentity: ownedIdentity, otherAdministrators: otherAdministrators, previousBlock: currentLastBlock, using: prng, solveChallengeDelegate: solveChallengeDelegate, within: context)
             
             return Self.init(groupUID: self.groupUID,
                              blocks: self.blocks + [newBlock],
@@ -933,14 +934,14 @@ public struct GroupV2 {
         }
         
         
-        public func signThenEncrypt(ownedIdentity: ObvCryptoIdentity, blobMainSeed: Seed, blobVersionSeed: Seed, solveChallengeDelegate: ObvSolveChallengeDelegate, with prng: PRNGService, within obvContext: ObvContext) throws -> EncryptedData {
+        public func signThenEncrypt(ownedIdentity: ObvCryptoIdentity, blobMainSeed: Seed, blobVersionSeed: Seed, solveChallengeDelegate: ObvSolveChallengeDelegate, with prng: PRNGService, within context: NSManagedObjectContext) throws -> EncryptedData {
             
             let encodedBlob = try self.obvEncode()
             
             let signature = try solveChallengeDelegate.solveChallenge(.groupBlob(rawEncodedBlob: encodedBlob.rawData),
                                                                       for: ownedIdentity,
                                                                       using: prng,
-                                                                      within: obvContext)
+                                                                      within: context)
             
             let encodedSignedBlob = [encodedBlob, ownedIdentity.obvEncode(), signature.obvEncode()].obvEncode()
             
@@ -1072,7 +1073,7 @@ public struct GroupV2 {
         
         
         /// Returns an updated `ServerBlob` given the changeset.
-        public func consolidateWithChangeset(_ changeset: ObvGroupV2.Changeset, ownedIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws -> ServerBlob {
+        public func consolidateWithChangeset(_ changeset: ObvGroupV2.Changeset, ownedIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within context: NSManagedObjectContext) throws -> ServerBlob {
             
             var updatedSerializedGroupCoreDetails = self.serializedGroupCoreDetails
             var updatedSerializedGroupType = self.serializedGroupType
@@ -1083,8 +1084,8 @@ public struct GroupV2 {
             var updatedGroupMembers = Set<GroupV2.IdentityAndPermissionsAndDetails>()
             for member in self.groupMembers {
                 do {
-                    if try identityDelegate.isIdentity(member.identity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) {
-                        let (publishedIdentityDetails, trustedIdentityDetails) = try identityDelegate.getIdentityDetailsOfContactIdentity(member.identity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    if try identityDelegate.isIdentity(member.identity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: context) {
+                        let (publishedIdentityDetails, trustedIdentityDetails) = try identityDelegate.getIdentityDetailsOfContactIdentity(member.identity, ofOwnedIdentity: ownedIdentity, within: context)
                         let updatedSerializedIdentityCoreDetails = try (publishedIdentityDetails ?? trustedIdentityDetails).coreDetails.jsonEncode()
                         let memberWithUpdatedCoreDetails = GroupV2.IdentityAndPermissionsAndDetails(identity: member.identity,
                                                                                                     rawPermissions: member.rawPermissions,
@@ -1111,11 +1112,11 @@ public struct GroupV2 {
                     guard !updatedGroupMembers.map({ $0.identity }).contains(contactCryptoId.cryptoIdentity) else {
                         continue
                     }
-                    guard try identityDelegate.isIdentity(contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
+                    guard try identityDelegate.isIdentity(contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: context) else {
                         assertionFailure()
                         throw Self.makeError(message: "One of the added members is not a contact of the owned identity")
                     }
-                    let details = try identityDelegate.getIdentityDetailsOfContactIdentity(contactCryptoId.cryptoIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    let details = try identityDelegate.getIdentityDetailsOfContactIdentity(contactCryptoId.cryptoIdentity, ofOwnedIdentity: ownedIdentity, within: context)
                     let detailsToUse = details.publishedIdentityDetails ?? details.trustedIdentityDetails
                     let serializedIdentityCoreDetails = try detailsToUse.coreDetails.jsonEncode()
                     // If the member was already part of the group, we do not change her invitation nonce. Otherwise, we create one.
@@ -1181,7 +1182,7 @@ public struct GroupV2 {
                                                                                        otherAdministrators: otherAdministrators,
                                                                                        using: prng,
                                                                                        solveChallengeDelegate: solveChallengeDelegate,
-                                                                                       within: obvContext)
+                                                                                       within: context)
                 } else {
                     updatedAdministratorsChain = self.administratorsChain
                 }

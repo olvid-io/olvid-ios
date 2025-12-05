@@ -43,7 +43,8 @@ extension SettingsDictionary {
             .disableAppleGenericVersioning()
             .automaticCodeSigning(devTeam: Constant.devTeam)
             .developmentAssets(developmentAssets)
-        
+            //.enableModuleVerifier(true) // We cannot set this for now, because of an error in OLVIDAutoGrowingTextViewTextViewDelegateProxy.h (a file that shall be deleted soon)
+
         if enableSwift6 {
             return base
                 .swiftVersion("6.0")

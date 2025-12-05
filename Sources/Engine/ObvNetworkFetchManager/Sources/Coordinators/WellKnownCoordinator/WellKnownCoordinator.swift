@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -133,7 +133,7 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
 
         // Fill the cache with what we already have in database
 
-        let valuesFromDB = try await getWellKnownFromDatabase(contextCreator: contextCreator, flowId: flowId)
+        let valuesFromDB = try await getWellKnownFromDatabase(contextCreator: contextCreator)
         for (serverURL, wellKnown) in valuesFromDB {
             wellKnownCache[serverURL] = wellKnown
         }
@@ -217,12 +217,12 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
 
 extension WellKnownCoordinator {
     
-    private func getWellKnownFromDatabase(contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) async throws -> [URL: WellKnownJSON] {
+    private func getWellKnownFromDatabase(contextCreator: ObvCreateContextDelegate) async throws -> [URL: WellKnownJSON] {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[URL: WellKnownJSON], Error>) in
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+            contextCreator.performBackgroundTaskAndWait { context in
                 var returnedValues = [URL: WellKnownJSON]()
                 do {
-                    let cachedWellKnowns = try CachedWellKnown.getAllCachedWellKnown(within: obvContext)
+                    let cachedWellKnowns = try CachedWellKnown.getAllCachedWellKnown(within: context)
                     for cachedWellKnown in cachedWellKnowns {
                         guard let wellKnown = cachedWellKnown.wellKnownJSON else { assertionFailure(); continue }
                         returnedValues[cachedWellKnown.serverURL] = wellKnown

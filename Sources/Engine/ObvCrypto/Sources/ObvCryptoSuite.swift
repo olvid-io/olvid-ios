@@ -21,7 +21,8 @@ import Foundation
 
 public typealias SuiteVersion = Int
 
-public struct ObvCryptoSuite: Sendable {
+@preconcurrency
+public struct ObvCryptoSuite {
 
     // MARK: Singleton pattern
     public static let sharedInstance: ObvCryptoSuite = ObvCryptoSuite()

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,7 +49,9 @@ extension PersistedExpirationForSentMessageWithLimitedExistence {
         enum Key: String {
             case messageSentWithLimitedExistence = "messageSentWithLimitedExistence"
         }
-        static let withNoMessage = NSPredicate(withNilValueForKey: Key.messageSentWithLimitedExistence)
+        static var withNoMessage: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.messageSentWithLimitedExistence)
+        }
     }
     
     @nonobjc private static func fetchRequest() -> NSFetchRequest<PersistedExpirationForSentMessageWithLimitedExistence> {

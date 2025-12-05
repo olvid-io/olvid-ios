@@ -33,7 +33,6 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 public enum ObvProtocolNotification {
-	case mutualScanContactAdded(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, signature: Data)
 	case protocolMessageToProcess(protocolMessageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 	case protocolMessageProcessed(protocolMessageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 	case groupV2UpdateDidFail(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data, flowId: FlowIdentifier)
@@ -44,7 +43,6 @@ public enum ObvProtocolNotification {
 	case anOwnedIdentityTransferProtocolFailed(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID, error: Error)
 
 	private enum Name {
-		case mutualScanContactAdded
 		case protocolMessageToProcess
 		case protocolMessageProcessed
 		case groupV2UpdateDidFail
@@ -65,7 +63,6 @@ public enum ObvProtocolNotification {
 
 		static func forInternalNotification(_ notification: ObvProtocolNotification) -> NSNotification.Name {
 			switch notification {
-			case .mutualScanContactAdded: return Name.mutualScanContactAdded.name
 			case .protocolMessageToProcess: return Name.protocolMessageToProcess.name
 			case .protocolMessageProcessed: return Name.protocolMessageProcessed.name
 			case .groupV2UpdateDidFail: return Name.groupV2UpdateDidFail.name
@@ -80,12 +77,6 @@ public enum ObvProtocolNotification {
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .mutualScanContactAdded(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, signature: let signature):
-			info = [
-				"ownedIdentity": ownedIdentity,
-				"contactIdentity": contactIdentity,
-				"signature": signature,
-			]
 		case .protocolMessageToProcess(protocolMessageId: let protocolMessageId, flowId: let flowId):
 			info = [
 				"protocolMessageId": protocolMessageId,
@@ -136,16 +127,6 @@ public enum ObvProtocolNotification {
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
 		backgroundQueue.async {
 			notificationDelegate.post(name: name, userInfo: userInfo)
-		}
-	}
-
-	public static func observeMutualScanContactAdded(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, Data) -> Void) -> NSObjectProtocol {
-		let name = Name.mutualScanContactAdded.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
-			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
-			let signature = notification.userInfo!["signature"] as! Data
-			block(ownedIdentity, contactIdentity, signature)
 		}
 	}
 

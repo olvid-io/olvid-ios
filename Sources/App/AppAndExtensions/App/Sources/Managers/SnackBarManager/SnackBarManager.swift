@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import Combine
 import ObvTypes
 import os.log
 import UIKit
@@ -35,6 +36,7 @@ actor SnackBarManager {
     private let obvEngine: ObvEngine
 
     private var observationTokens = [NSObjectProtocol]()
+    private var cancellables = Set<AnyCancellable>()
     private var alreadyCheckedIdentities = Set<ObvCryptoId>()
 
     private var currentCryptoId: ObvCryptoId? {
@@ -54,24 +56,40 @@ actor SnackBarManager {
     
     deinit {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        cancellables.forEach { $0.cancel() }
     }
 
     func performPostInitialization() async {
+        continouslyUpdateCurrentOwnedCryptoId()
         await listenToNotifications()
     }
 
-    private func listenToNotifications() async {
-        await listenToUIApplicationNotifications()
-        observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeMetaFlowControllerDidSwitchToOwnedIdentity { newOwnedCryptoId in
-                Task { [weak self] in
+    
+    private func continouslyUpdateCurrentOwnedCryptoId() {
+        Task { await switchCurrentOwnedCryptoIdIfRequired() }
+        OlvidUserActivitySingleton.shared.$currentUserActivity
+            .sink { [weak self] newValue in
+                Task {
                     await self?.removeAllAlreadyCheckedIdentities()
-                    await self?.replaceCurrentCryptoId(by: newOwnedCryptoId)
+                    await self?.switchCurrentOwnedCryptoIdIfRequired()
                     if let currentCryptoId = await self?.currentCryptoId {
                         await self?.determineSnackBarToDisplay(for: currentCryptoId)
                     }
                 }
-            },
+            }
+            .store(in: &cancellables)
+    }
+
+    
+    private func switchCurrentOwnedCryptoIdIfRequired() async {
+        guard let newOwnedCryptoId = OlvidUserActivitySingleton.shared.currentUserActivity?.ownedCryptoId else { return }
+        replaceCurrentCryptoId(by: newOwnedCryptoId)
+    }
+    
+
+    private func listenToNotifications() async {
+        await listenToUIApplicationNotifications()
+        observationTokens.append(contentsOf: [
             ObvMessengerCoreDataNotification.observeOwnedIdentityWasReactivated { _ in
                 Task { [weak self] in
                     await self?.removeAllAlreadyCheckedIdentities()

@@ -113,4 +113,6 @@ public struct ObvAppCoreConstants {
 
     }
     
+    public static let minimumLengthOfPasswordForHiddenProfiles = 4
+
 }

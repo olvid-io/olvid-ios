@@ -44,7 +44,7 @@ final class ScreenCaptureDetector {
         startUpdatingCurrentlyDisplayedMessagesWithLimitedVisibility()
     }
     /// Publisher only set when the user is within a discussion
-    private let persistedDiscussionPermanentIDsOfShownDiscussion: AnyPublisher<DiscussionPermanentID?, Never> = OlvidUserActivitySingleton.shared.$currentDiscussionPermanentID
+    private let persistedDiscussionPermanentIDsOfShownDiscussion: AnyPublisher<OlvidUserActivitySingleton.DiscussionID?, Never> = OlvidUserActivitySingleton.shared.$currentDiscussionID
         .eraseToAnyPublisher()
     
     
@@ -60,8 +60,8 @@ final class ScreenCaptureDetector {
     private func startUpdatingCurrentlyDisplayedMessagesWithLimitedVisibility() {
         cancellableForObservingWhenTheUserLeavesTheDiscussion = persistedDiscussionPermanentIDsOfShownDiscussion
             .receive(on: RunLoop.main)
-            .sink { [weak self] discussionPermanentID in
-            if discussionPermanentID == nil {
+            .sink { [weak self] discussionID in
+            if discussionID == nil {
                 // The user left the discussion
                 self?.currentlyDisplayedMessagesWithLimitedVisibility = nil
             }
@@ -89,20 +89,20 @@ final class ScreenCaptureDetector {
         }
         cancellableForScreenShotDetection = persistedDiscussionPermanentIDsOfShownDiscussion
             .combineLatest($screenShotTaken, $currentlyDisplayedMessagesWithLimitedVisibility)
-            .sink { [weak self] activeDiscussionPermanentID, screenShotTaken, discussionAndMessagePermanentIDs in
+            .sink { [weak self] activeDiscussionID, screenShotTaken, discussionAndMessagePermanentIDs in
                 
                 // Make sure there is an active discussion, a non-nil displayed discussion/messages with limited visibility, and that a screenshot was taken
-                guard let activeDiscussionPermanentID, let discussionAndMessagePermanentIDs, screenShotTaken else { return }
+                guard let activeDiscussionID, let discussionAndMessagePermanentIDs, screenShotTaken else { return }
 
                 // Make sure that the active discussion corresponds to the one that sent us the set of displayed messages with limited visibility
-                guard activeDiscussionPermanentID == discussionAndMessagePermanentIDs.discussionPermanentID else { return }
+                guard activeDiscussionID.permanentID == discussionAndMessagePermanentIDs.discussionPermanentID else { return }
 
                 // Make sure the set of displayed messages is not empty
                 guard !discussionAndMessagePermanentIDs.messagePermanentIDs.isEmpty else { return }
 
                 // If we reach this point, we detected a screenshot
                 Task {
-                    await self?.delegate?.screenshotOfSensitiveMessagesWasDetected(discussionPermanentID: activeDiscussionPermanentID)
+                    await self?.delegate?.screenshotOfSensitiveMessagesWasDetected(discussionPermanentID: activeDiscussionID.permanentID)
                 }
                 
             }
@@ -119,24 +119,24 @@ final class ScreenCaptureDetector {
     private func startDetectingScreenCaptures() {
         cancellableForMainScreenIsCaptured = persistedDiscussionPermanentIDsOfShownDiscussion
             .combineLatest(mainScreenIsCaptured, $currentlyDisplayedMessagesWithLimitedVisibility)
-            .sink { [weak self] activeDiscussionPermanentID, mainScreenIsCaptured, discussionAndMessagePermanentIDs in
+            .sink { [weak self] activeDiscussionID, mainScreenIsCaptured, discussionAndMessagePermanentIDs in
 
                 // Make sure there is an active discussion, a non-nil displayed discussion/messages with limited visibility, and that the screen is being captured
-                guard let activeDiscussionPermanentID, let discussionAndMessagePermanentIDs, mainScreenIsCaptured else { return }
+                guard let activeDiscussionID, let discussionAndMessagePermanentIDs, mainScreenIsCaptured else { return }
 
                 // Make sure that the active discussion corresponds to the one that sent us the set of displayed messages with limited visibility
-                guard activeDiscussionPermanentID == discussionAndMessagePermanentIDs.discussionPermanentID else { return }
+                guard activeDiscussionID.permanentID == discussionAndMessagePermanentIDs.discussionPermanentID else { return }
 
                 // Make sure the set of displayed messages is not empty
                 guard !discussionAndMessagePermanentIDs.messagePermanentIDs.isEmpty else { return }
 
                 // We don't want to detect a screen capture for the same discussion twice
-                guard self?.permanentIDsOfDiscussionsForWhichScreenCaptureWasDetected.contains(activeDiscussionPermanentID) == false else { return }
-                self?.permanentIDsOfDiscussionsForWhichScreenCaptureWasDetected.insert(activeDiscussionPermanentID)
+                guard self?.permanentIDsOfDiscussionsForWhichScreenCaptureWasDetected.contains(activeDiscussionID.permanentID) == false else { return }
+                self?.permanentIDsOfDiscussionsForWhichScreenCaptureWasDetected.insert(activeDiscussionID.permanentID)
 
                 // If we reach this point, we detected a screen capture
                 Task {
-                    await self?.delegate?.screenCaptureOfSensitiveMessagesWasDetected(discussionPermanentID: activeDiscussionPermanentID)
+                    await self?.delegate?.screenCaptureOfSensitiveMessagesWasDetected(discussionPermanentID: activeDiscussionID.permanentID)
                 }
                 
             }

@@ -48,6 +48,8 @@ public struct ObvAvatarLegacyView<Model: ObvAvatarLegacyViewModel>: View {
     
     private var fontSize: CGFloat {
         switch model.size {
+        case .small:
+            return 10.0
         case .normal:
             return 20.0
         case .large:
@@ -61,6 +63,8 @@ public struct ObvAvatarLegacyView<Model: ObvAvatarLegacyViewModel>: View {
     
     private var roundedCornersSize: CGSize {
         switch model.size {
+        case .small:
+            return CGSize(width: 6, height: 6)
         case .normal:
             return CGSize(width: 12, height: 12)
         case .large:
@@ -75,6 +79,8 @@ public struct ObvAvatarLegacyView<Model: ObvAvatarLegacyViewModel>: View {
     
     private var greenShieldFontSize: CGFloat {
         switch model.size {
+        case .small:
+            return 8
         case .normal:
             return 16
         case .large:
@@ -88,6 +94,8 @@ public struct ObvAvatarLegacyView<Model: ObvAvatarLegacyViewModel>: View {
     
     private var greenShieldOffset: CGSize {
         switch model.size {
+        case .small:
+            return .init(width: 3, height: -3)
         case .normal:
             return .init(width: 6, height: -6)
         case .large:
@@ -185,6 +193,10 @@ private final class ActionsForPreviews: ObvAvatarLegacyViewActions {
 }
 
 
+#Preview("Small size") {
+    ObvAvatarLegacyView(model: ModelForPreviews(displayedLetter: "A", size: .small, showGreenShield: false), actions: ActionsForPreviews())
+}
+
 #Preview("Normal size") {
     ObvAvatarLegacyView(model: ModelForPreviews(displayedLetter: "A", size: .normal, showGreenShield: false), actions: ActionsForPreviews())
 }
@@ -195,6 +207,10 @@ private final class ActionsForPreviews: ObvAvatarLegacyViewActions {
 
 #Preview("xLarge size") {
     ObvAvatarLegacyView(model: ModelForPreviews(displayedLetter: "A", size: .xLarge, showGreenShield: false), actions: ActionsForPreviews())
+}
+
+#Preview("Small size with shield") {
+    ObvAvatarLegacyView(model: ModelForPreviews(displayedLetter: "A", size: .small, showGreenShield: true), actions: ActionsForPreviews())
 }
 
 #Preview("Normal size with shield") {

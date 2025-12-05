@@ -29,7 +29,7 @@ To build Olvid for iOS, you would need:
 - Git LFS
   - Make sure to run `git lfs install --system` to install the appropriate LFS hooks prior cloning
 - If you wish to run the project on a real device, specify your development by updating the value for `Constant.devTeam` in `Tuist/ProjectDescriptionHelpers/Constant.swift`
-- [`tuist`](https://github.com/tuist/tuist) installed (at least version 4.30.0)
+- [`tuist`](https://github.com/tuist/tuist) installed (at least version 4.54.3)
 - `tuist generate` to generate and open the Xcode workspace
 
 - If you encounter an issue with `error: 'swiftpackagemanager': invalid manifest` when executing `tuist generate`, make sure that you have an Xcode-defined command line tools path.
@@ -38,7 +38,7 @@ To build Olvid for iOS, you would need:
 
 ## Running Olvid in a simulator
 
-After generating the project, choose the `Olvid` scheme. Then choose a simulator (like an iPhone 15 Pro for example). From the `Product` menu, choose `Run`. This should compile Olvid for iOS and launch it in the chosen simulator.
+After generating the project, choose the `Olvid` scheme. Then choose a simulator. From the `Product` menu, choose `Run`. This should compile Olvid for iOS and launch it in the chosen simulator.
 
 ## Running Olvid on a real device
 

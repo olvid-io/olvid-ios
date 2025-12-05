@@ -20,7 +20,7 @@
 import Foundation
 
 
-public struct ObvGroupDetails: Equatable {
+public struct ObvGroupDetails: Equatable, Hashable, Sendable {
 
     public let coreDetails: ObvGroupCoreDetails
     public let photoURL: URL?
@@ -32,7 +32,12 @@ public struct ObvGroupDetails: Equatable {
 
     public static func == (lhs: ObvGroupDetails, rhs: ObvGroupDetails) -> Bool {
         guard lhs.coreDetails == rhs.coreDetails else { return false }
-        switch (lhs.photoURL?.path, rhs.photoURL?.path) {
+        guard lhs.hasIdenticalPhoto(than: rhs) else { return false }
+        return true
+    }
+
+    public func hasIdenticalPhoto(than other: ObvGroupDetails) -> Bool {
+        switch (self.photoURL?.path, other.photoURL?.path) {
         case (.none, .none): break
         case (.none, .some): return false
         case (.some, .none): return false
@@ -43,5 +48,23 @@ public struct ObvGroupDetails: Equatable {
         }
         return true
     }
+    
+}
 
+
+public struct ObvGroupTrustedAndPublishedDetails: Equatable, Hashable, Sendable {
+    
+    public let trustedDetails: ObvGroupDetails
+    public let publishedDetails: ObvGroupDetails?
+    
+    public init(trustedDetails: ObvGroupDetails, publishedDetails: ObvGroupDetails?) {
+        self.trustedDetails = trustedDetails
+        self.publishedDetails = publishedDetails
+    }
+    
+    public var publishedDetailsExistAndHaveDistinctPhotoThanTrustedDetails: Bool {
+        guard let publishedDetails else { return false }
+        return !publishedDetails.hasIdenticalPhoto(than: trustedDetails)
+    }
+    
 }

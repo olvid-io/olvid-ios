@@ -28,7 +28,7 @@ import ObvDesignSystem
 
 protocol IdentityProviderValidationViewActionsProtocol: AnyObject {
     func discoverKeycloakServer(keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)
-    func userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws
+    func userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws
 }
 
 
@@ -45,6 +45,13 @@ struct IdentityProviderValidationView: View {
     struct Model {
         let keycloakConfiguration: ObvKeycloakConfiguration
         let isConfiguredFromMDM: Bool
+        let isBindingExistingProfile: BindingExistingProfile
+        
+        enum BindingExistingProfile {
+            case no
+            case yes(ownedCryptoId: ObvCryptoId)
+        }
+        
     }
     
     
@@ -102,6 +109,7 @@ struct IdentityProviderValidationView: View {
             try await actions.userWantsToAuthenticateOnKeycloakServer(
                 keycloakConfiguration: model.keycloakConfiguration,
                 isConfiguredFromMDM: model.isConfiguredFromMDM,
+                isBindingExistingProfile: model.isBindingExistingProfile,
                 keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
         } catch {
             // Do not show an alert if the user just cancelled the authentication process
@@ -167,18 +175,28 @@ struct IdentityProviderValidationView: View {
             
             if case .discovered(keycloakServerKeyAndConfig: let config) = discoveryStatus {
                 
-                Button(action: { Task { await userWantsToAuthenticate(keycloakServerKeyAndConfig: config) } }) {
-                    Label("AUTHENTICATE", systemIcon: .personCropCircleBadgeCheckmark)
-                        .foregroundStyle(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
+                Group {
+                    if #available(iOS 26.0, *) {
+                        Button(action: { Task { await userWantsToAuthenticate(keycloakServerKeyAndConfig: config) } }) {
+                            Label("AUTHENTICATE", systemIcon: .personCropCircleBadgeCheckmark)
+                                .padding(.vertical)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .buttonSizing(.flexible)
+                    } else {
+                        Button(action: { Task { await userWantsToAuthenticate(keycloakServerKeyAndConfig: config) } }) {
+                            Label("AUTHENTICATE", systemIcon: .personCropCircleBadgeCheckmark)
+                                .padding(.vertical)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
-                .background(Color.blue01)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding()
                 .alert(authenticationFailureAlertTitle, isPresented: $isAlertShown) {
                     Button("OK".localizedInThisBundle, role: .cancel) { }
                 }
+
             }
             
         }

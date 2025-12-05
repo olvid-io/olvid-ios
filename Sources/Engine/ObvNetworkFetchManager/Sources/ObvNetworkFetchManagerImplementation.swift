@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvMetaManager
@@ -42,6 +42,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
     
     private static var logCategory = "ObvNetworkFetchManagerImplementation"
     private static var log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+    private static var logger = Logger(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
         
     /// Strong reference to the delegate manager, which keeps strong references to all external and internal delegate requirements.
     let delegateManager: ObvNetworkFetchDelegateManager
@@ -54,6 +55,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
                 
         let logSubsystem = "\(logPrefix).\(ObvNetworkFetchDelegateManager.defaultLogSubsystem)"
         Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
+        Self.logger = Logger(subsystem: logSubsystem, category: Self.logCategory)
 
         self.bootstrapWorker = BootstrapWorker(inbox: inbox, logPrefix: logPrefix)
                 
@@ -116,6 +118,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
 
 
 // MARK: - Implementing ObvManager
+
 extension ObvNetworkFetchManagerImplementation {
     
     public var requiredDelegates: [ObvEngineDelegateType] {
@@ -173,6 +176,9 @@ extension ObvNetworkFetchManagerImplementation {
         }
     }
     
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {
+        await bootstrapWorker.applicationWasInitializedButWasNeverOnScreen(flowId: flowId)
+    }
     
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
         await bootstrapWorker.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
@@ -195,8 +201,8 @@ extension ObvNetworkFetchManagerImplementation {
         try await delegateManager.networkFetchFlowDelegate.updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
     }
 
-    public func postServerQuery(_ serverQuery: ServerQuery, within context: ObvContext) {
-        delegateManager.networkFetchFlowDelegate.post(serverQuery, within: context)
+    public func postServerQuery(_ serverQuery: ServerQuery, within context: NSManagedObjectContext) {
+        delegateManager.networkFetchFlowDelegate.postServerQuery(serverQuery, within: context)
     }
 
     public func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvTurnCredentials {
@@ -207,8 +213,8 @@ extension ObvNetworkFetchManagerImplementation {
         return try await getTurnCredentialsDelegate.getTurnCredentials(ownedCryptoId: ownedCryptoId, flowId: flowId)
     }
 
-    public func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (state: URLSessionTask.State, pingInterval: TimeInterval?) {
-        return try await delegateManager.webSocketDelegate.getWebSocketState(ownedIdentity: ownedIdentity)
+    public func getWebSocketState(ownedIdentity: ObvCryptoIdentity, handler: @escaping @Sendable (Result<(URLSessionTask.State, TimeInterval?), Error>) -> Void) async {
+        await delegateManager.webSocketDelegate.getWebSocketState(ownedIdentity: ownedIdentity, handler: handler)
     }
     
     public func connectWebsockets(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
@@ -223,6 +229,11 @@ extension ObvNetworkFetchManagerImplementation {
         try await delegateManager.webSocketDelegate.sendDeleteReturnReceipt(ownedIdentity: ownedIdentity, serverUid: serverUid)
     }
     
+    public func getAsyncStreamOfEncryptedReceivedReturnReceipt() async -> AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt> {
+        await delegateManager.webSocketDelegate.getAsyncStreamOfEncryptedReceivedReturnReceipt()
+    }
+
+    
     
     /// This methods allows to download messages currently on the server.
     ///
@@ -235,10 +246,15 @@ extension ObvNetworkFetchManagerImplementation {
         await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: ownedIdentity, flowId: flowId)
     }
     
+    /// During startup, the app calls an engine method that calls this method, allowing the app to be notified when a new `ObvMessage` or a new `ObvOwnedMessage` is available.
+    public func getAsyncStreamOfObvMessageOrObvOwnedMessages() async -> AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]> {
+        await delegateManager.messagesDelegate.getAsyncStreamOfObvMessageOrObvOwnedMessages()
+    }
+    
 
-    public func allAttachmentsCanBeDownloadedForMessage(withId messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws -> Bool {
+    public func allAttachmentsCanBeDownloadedForMessage(withId messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws -> Bool {
         
-        guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext) else {
+        guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: context) else {
             os_log("Message does not exist in InboxMessage", log: Self.log, type: .error)
             throw makeError(message: "Message does not exist in InboxMessage")
         }
@@ -249,9 +265,9 @@ extension ObvNetworkFetchManagerImplementation {
     }
     
     
-    public func attachment(withId attachmentId: ObvAttachmentIdentifier, canBeDownloadedwithin obvContext: ObvContext) throws -> Bool {
+    public func attachment(withId attachmentId: ObvAttachmentIdentifier, canBeDownloadedwithin context: NSManagedObjectContext) throws -> Bool {
         
-        guard let inboxAttachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+        guard let inboxAttachment = try InboxAttachment.get(attachmentId: attachmentId, within: context) else {
             os_log("Attachment does not exist in InboxAttachment (1)", log: Self.log, type: .error)
             throw makeError(message: "Attachment does not exist in InboxAttachment (1)")
         }
@@ -260,9 +276,9 @@ extension ObvNetworkFetchManagerImplementation {
         
     }
     
-    public func allAttachmentsHaveBeenDownloadedForMessage(withId messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws -> Bool {
+    public func allAttachmentsHaveBeenDownloadedForMessage(withId messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws -> Bool {
         
-        guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext) else {
+        guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: context) else {
             os_log("Message does not exist in InboxMessage", log: Self.log, type: .error)
             throw makeError(message: "Message does not exist in InboxMessage")
         }
@@ -275,10 +291,10 @@ extension ObvNetworkFetchManagerImplementation {
 
     // MARK: Other methods for attachments
     
-    public func getAttachment(withId attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) -> ObvNetworkFetchReceivedAttachment? {
+    public func getAttachment(withId attachmentId: ObvAttachmentIdentifier, within context: NSManagedObjectContext) -> ObvNetworkFetchReceivedAttachment? {
         var receivedAttachment: ObvNetworkFetchReceivedAttachment? = nil
-        obvContext.performAndWait {
-            guard let inboxAttachment = try? InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+        context.performAndWait {
+            guard let inboxAttachment = try? InboxAttachment.get(attachmentId: attachmentId, within: context) else {
                 os_log("Attachment does not exist in InboxAttachment (3)", log: Self.log, type: .error)
                 return
             }
@@ -354,7 +370,7 @@ extension ObvNetworkFetchManagerImplementation {
                     }
                 }
                 
-                // We do not delete the server sessions now, as the owned identity deletion protocol will need them to propagate information.                
+                // We do not delete the server sessions now, as the owned identity deletion protocol will need them to propagate information.
                 // Likewise, we don't delete PendingServerQueries now, as there might be one user to deactivate the owned identity.
                 
                 semaphore.signal()
@@ -375,9 +391,9 @@ extension ObvNetworkFetchManagerImplementation {
     private func getAllInboxMessageIdsForOwnedIdentity(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> [ObvMessageIdentifier] {
         guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); throw ObvError.theContextCreatorIsNotSet }
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvMessageIdentifier], Error>) in
-            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+            contextCreator.performBackgroundTask { context in
                 do {
-                    let inboxMessages = try InboxMessage.getAll(forIdentity: ownedCryptoId, within: obvContext)
+                    let inboxMessages = try InboxMessage.getAll(forIdentity: ownedCryptoId, within: context)
                     let messageIds = inboxMessages.compactMap({ $0.messageId })
                     return continuation.resume(returning: messageIds)
                 } catch {
@@ -394,7 +410,8 @@ extension ObvNetworkFetchManagerImplementation {
     
     
     public func performOwnedDeviceDiscoveryNow(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> EncryptedData {
-        
+
+        Self.logger.info("💰 Call to performOwnedDeviceDiscoveryNow")
         let method = ObvServerOwnedDeviceDiscoveryMethod(ownedIdentity: ownedCryptoId, flowId: flowId)
         let (data, response) = try await URLSession.shared.data(for: method.getURLRequest())
         
@@ -409,12 +426,15 @@ extension ObvNetworkFetchManagerImplementation {
         case .success(let status):
             switch status {
             case .ok(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
+                Self.logger.info("💰 The ObvServerOwnedDeviceDiscoveryMethod returned ok")
                 return encryptedOwnedDeviceDiscoveryResult
             case .generalError:
+                Self.logger.info("💰 The ObvServerOwnedDeviceDiscoveryMethod returned a general error")
                 let error = makeError(message: "ObvServerOwnedDeviceDiscoveryMethod returned a general error")
                 throw error
             }
         case .failure(let error):
+            Self.logger.info("💰 The ObvServerOwnedDeviceDiscoveryMethod did fail with error \(error.localizedDescription)")
             assertionFailure()
             throw error
         }
@@ -544,6 +564,25 @@ extension ObvNetworkFetchManagerImplementation {
 }
 
 
+// MARK: - "onHold" feature for application messages
+
+extension ObvNetworkFetchManagerImplementation {
+    
+    public func putMessageOnHold(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws {
+        let op1 = PutMessageOnHoldOperation(messageId: messageId)
+        try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+    }
+ 
+    
+    public func fetchOnHoldMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws -> ObvMessageOrObvOwnedMessage? {
+        let op1 = FetchOnHoldMessageOperation(messageId: messageId, inbox: delegateManager.inbox)
+        try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        return op1.obvMessageOrObvOwnedMessage
+    }
+    
+}
+
+
 // MARK: - Push notification methods
 
 extension ObvNetworkFetchManagerImplementation {
@@ -620,8 +659,8 @@ extension ObvNetworkFetchManagerImplementation {
         return try await delegateManager.networkFetchFlowDelegate.queryAPIKeyStatus(for: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
     }
     
-    public func refreshAPIPermissions(of ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements {
-        return try await delegateManager.networkFetchFlowDelegate.refreshAPIPermissions(of: ownedCryptoIdentity, flowId: flowId)
+    public func refreshAPIPermissions(of ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws {
+        try await delegateManager.networkFetchFlowDelegate.refreshAPIPermissions(of: ownedCryptoIdentity, flowId: flowId)
     }
     
     public func queryFreeTrial(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Bool {
@@ -630,18 +669,17 @@ extension ObvNetworkFetchManagerImplementation {
         return freeTrialAvailable
     }
     
-    public func startFreeTrial(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements {
+    public func startFreeTrial(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws {
         guard let freeTrialQueryDelegate = delegateManager.freeTrialQueryDelegate else { assertionFailure(); throw Self.makeError(message: "freeTrialQueryDelegate is not set") }
-        let newAPIKeyElements = try await freeTrialQueryDelegate.startFreeTrial(for: identity, flowId: flowId)
-        return newAPIKeyElements
+        try await freeTrialQueryDelegate.startFreeTrial(for: identity, flowId: flowId)
     }
 
-    public func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> ObvRegisterApiKeyResult {
-        return try await delegateManager.networkFetchFlowDelegate.registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
+    public func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws {
+        try await delegateManager.networkFetchFlowDelegate.registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
     }
 
-    public func verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
-        return try await delegateManager.networkFetchFlowDelegate.verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: appStoreReceiptElements, flowId: flowId)
+    public func verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: ObvAppStoreReceipt, environment: ObvAppStoreEnvironment, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
+        return try await delegateManager.networkFetchFlowDelegate.verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: appStoreReceiptElements, environment: environment, flowId: flowId)
     }
     
     public func queryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) async throws {

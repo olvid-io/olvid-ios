@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,9 +21,16 @@ import UIKit
 import OlvidUtils
 
 
-/// All custom `UINavigationController` instances that implement `ObvFlowController` (like, e.g., `DiscussionsFlowViewController`) use this stack of delegates, allowing multiple delegate to subscribe to `UINavigationControllerDelegate` calls.
-/// This is required since we have at least one mandatory delegate, which is the `OlvidUserActivitySingleton`. We sometimes need a second delegate (like in `DiscussionsFlowViewController`) to animate the floating button under iOS18+ alongside the push/pop
-/// of view controllers on the navigation stack.
+/// A stack of delegates for `UINavigationController` instances conforming to `ObvFlowController` (e.g., `DiscussionsFlowViewController`).
+/// This allows multiple objects to subscribe to `UINavigationControllerDelegate` callbacks.
+///
+/// Originally, this was mandatory to support two delegates:
+/// - `OlvidUserActivitySingleton` (now managed at the `MainFlowViewController` and `ObvFlowController` levels since version 4.0)
+/// - `FloatingButtonAnimator` (used to animate the floating button during push/pop transitions on iOS 18+)
+///
+/// **Note:**
+/// The `FloatingButtonAnimator`  will likely be removed in future versions as Olvid transitions to a full SwiftUI architecture.
+/// This stack is retained for now.
 @MainActor
 final class ObvFlowControllerDelegatesStack: NSObject, UINavigationControllerDelegate {
     

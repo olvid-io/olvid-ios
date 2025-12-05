@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,33 +19,16 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvTypes
 import ObvEncoder
 import ObvMetaManager
-import OlvidUtils
 
 @objc(InboxAttachment)
-final class InboxAttachment: NSManagedObject, ObvManagedObject {
+final class InboxAttachment: NSManagedObject {
     
-    enum InternalError: Error {
-        case theDecryptionKeyCanOnlyBeSetOnce
-        case theMetadataCanOnlyBeSetOnce
-        case chunksInstancesCanBeCreatedOnlyOnce
-        case couldNotDeleteAttachmentFile(atUrl: URL, error: Error)
-        case couldNotCreateAttachmentFile(error: Error?)
-        case couldNotWrite(atUrl: URL, error: Error)
-        case unexpectedChunkNumber
-    }
-    
-    private static let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: "InboxAttachment")
-    private static let errorDomain = "InboxAttachment"
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
+    private static let logger = Logger(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: "InboxAttachment")
 
     // MARK: Internal constants
     
@@ -92,19 +75,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     // MARK: Attributes
     
     @NSManaged private(set) var attachmentNumber: Int
-    private(set) var key: AuthenticatedEncryptionKey? {
-        get {
-            guard let encodedKeyData = kvoSafePrimitiveValue(forKey: Predicate.Key.encodedAuthenticatedDecryptionKey.rawValue) as? Data else { return nil }
-            let encodedKey = ObvEncoded(withRawData: encodedKeyData)!
-            return try! AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
-        }
-        set {
-            if newValue != nil {
-                let encodedKey = newValue!.obvEncode()
-                kvoSafeSetPrimitiveValue(encodedKey.rawData, forKey: Predicate.Key.encodedAuthenticatedDecryptionKey.rawValue)
-            }
-        }
-    }
+    @NSManaged private var encodedAuthenticatedDecryptionKey: Data?
     @NSManaged private(set) var expectedChunkLength: Int
     @NSManaged private(set) var initialByteCountToDownload: Int // The number of (encrypted) bytes we need to receive to eventually obtain the full file
     @NSManaged private(set) var metadata: Data?
@@ -118,7 +89,6 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
         get {
             guard let unsortedChunks = kvoSafePrimitiveValue(forKey: Predicate.Key.chunks.rawValue) as? Set<InboxAttachmentChunk> else { return [] }
             let items: [InboxAttachmentChunk] = unsortedChunks.sorted(by: { $0.chunkNumber < $1.chunkNumber })
-            for item in items { item.obvContext = self.obvContext }
             return items
         }
         set {
@@ -130,7 +100,6 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     var message: InboxMessage? {
         get {
             let value = kvoSafePrimitiveValue(forKey: Predicate.Key.message.rawValue) as? InboxMessage
-            value?.obvContext = self.obvContext
             return value
         }
         set {
@@ -140,19 +109,28 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
         }
     }
     
-    private(set) var session: InboxAttachmentSession? {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.session.rawValue) as? InboxAttachmentSession
-            item?.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.session.rawValue)
-        }
-    }
+    @NSManaged private(set) var session: InboxAttachmentSession?
 
     
     // MARK: Other variables
+    
+    private func setAuthenticatedEncryptionKey(to key: AuthenticatedEncryptionKey) {
+        let encodedKey = key.obvEncode()
+        self.encodedAuthenticatedDecryptionKey = encodedKey.rawData
+    }
+    
+    
+    var key: AuthenticatedEncryptionKey? {
+        guard let encodedKeyData = self.encodedAuthenticatedDecryptionKey else { return nil }
+        guard let encodedKey = ObvEncoded(withRawData: encodedKeyData) else { assertionFailure(); return nil }
+        do {
+            return try AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
+        } catch {
+            assertionFailure()
+            return nil
+        }
+    }
+
     
     var downloadPaused: Bool {
         return self.status == .paused
@@ -168,7 +146,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     
     func tryChangeStatusToDownloaded() throws {
         let allChunksAreDownloaded = chunks.allSatisfy({ $0.cleartextChunkWasWrittenToAttachmentFile })
-        guard allChunksAreDownloaded else { throw InboxAttachment.makeError(message: "Trying to change the status to downloaded but at least one chunk is not downloaded yet") }
+        guard allChunksAreDownloaded else { throw ObvError.tryingToChangeTheStatusToDownloadedButAtLeastOneChunkIsNotDownloadedYet }
         self.status = .downloaded
     }
     
@@ -176,8 +154,6 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
         get { return Status(rawValue: self.rawStatus)! }
         set { self.rawStatus = newValue.rawValue }
     }
-    
-    weak var obvContext: ObvContext?
     
     var fromCryptoIdentity: ObvCryptoIdentity? {
         return message?.fromCryptoIdentity
@@ -209,7 +185,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
 
     func getURL(withinInbox inbox: URL) -> URL? {
         let attachmentFileName = "\(attachmentNumber)"
-        let url = message?.getAttachmentDirectory(withinInbox: inbox)?.appendingPathComponent(attachmentFileName)
+        let url = message?.getAttachmentsDirectory(withinInbox: inbox)?.appendingPathComponent(attachmentFileName)
         return url
     }
     
@@ -226,20 +202,20 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
 
     // MARK: - Initializer
     
-    convenience init?(message: InboxMessage, attachmentNumber: Int, byteCountToDownload: Int, expectedChunkLength: Int, within obvContext: ObvContext) throws {
+    convenience init?(message: InboxMessage, attachmentNumber: Int, byteCountToDownload: Int, expectedChunkLength: Int, within context: NSManagedObjectContext) throws {
 
         guard let inboxMessageId = message.messageId else {
             assertionFailure()
-            throw Self.makeError(message: "Could not determine the InboxMessage identifier")
+            throw ObvError.couldNotDetermineMessageId
         }
         
         let attachmentId = ObvAttachmentIdentifier(messageId: inboxMessageId, attachmentNumber: attachmentNumber)
         
-        guard try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) == nil else { return nil }
+        guard try InboxAttachment.get(attachmentId: attachmentId, within: context) == nil else { return nil }
 
-        let entityDescription = NSEntityDescription.entity(forEntityName: InboxAttachment.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        
+        let entityDescription = NSEntityDescription.entity(forEntityName: InboxAttachment.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+
         self.attachmentNumber = attachmentNumber
         self.expectedChunkLength = expectedChunkLength
         self.initialByteCountToDownload = byteCountToDownload
@@ -309,7 +285,7 @@ extension InboxAttachment {
                 // Do not throw, we always pause a download right after deleting an attachment, so this case happens
                 return
             } else {
-                throw InboxAttachment.makeError(message: "Cannot transition from \(status.debugDescription) to \(newStatus.debugDescription)")
+                throw ObvError.cannotTransitionFromCurrentStatusToNewStatus(currentStatus: status, newStatus: newStatus)
             }
         }
         self.status = newStatus
@@ -344,26 +320,20 @@ extension InboxAttachment {
     }
 
     
-    func deleteDownload(fromInbox inbox: URL, within obvContext: ObvContext) throws {
-        guard self.managedObjectContext == obvContext.context else { assertionFailure(); throw Self.makeError(message: "Unexpected context") }
-        guard let url = getURL(withinInbox: inbox) else { throw InboxAttachment.makeError(message: "Cannot get attachment URL") }
+    /// Returns the URL of the file to delete once the context is saved
+    func deleteDownload(fromInbox inbox: URL) throws -> URL {
+        guard let url = getURL(withinInbox: inbox) else { throw ObvError.cannotGetAttachmentURL }
         try changeStatus(to: .markedForDeletion) // This cannot fail
         for chunk in chunks {
-            chunk.resetDownload()
-            self.obvContext?.delete(chunk)
-        }
-        try obvContext.addContextDidSaveCompletionHandler { error in
-            guard error == nil else { return }
-            if FileManager.default.fileExists(atPath: url.path) {
-                do {
-                    try FileManager.default.removeItem(at: url)
-                } catch let error {
-                    assertionFailure(error.localizedDescription)
-                }
+            do {
+                try chunk.deleteInboxAttachmentChunk()
+            } catch {
+                assertionFailure() // In production, continue with the next chunk
             }
         }
+        return url
     }
-    
+
     
     var attachmentFileIsComplete: Bool {
         return chunks.allSatisfy({ $0.cleartextChunkWasWrittenToAttachmentFile })
@@ -386,7 +356,7 @@ extension InboxAttachment {
     }
     
     func setChunksSignedURLs(_ urls: [URL]) throws {
-        guard urls.count == chunks.count else { assertionFailure(); throw InboxAttachment.makeError(message: "Unexpected number of signed URLs wrt the number of chunks") }
+        guard urls.count == chunks.count else { assertionFailure(); throw ObvError.unexpectedNumberOfSignedURLsWrtTheNumberOfChunks }
         for (chunk, url) in zip(chunks, urls) {
             chunk.signedURL = url
         }
@@ -412,16 +382,16 @@ extension InboxAttachment {
 
         guard self.key == nil else {
             assertionFailure()
-            throw InternalError.theDecryptionKeyCanOnlyBeSetOnce
+            throw ObvError.theDecryptionKeyCanOnlyBeSetOnce
         }
         guard self.metadata == nil else {
             assertionFailure()
-            throw InternalError.theMetadataCanOnlyBeSetOnce
+            throw ObvError.theMetadataCanOnlyBeSetOnce
         }
         
         self.metadata = metadata
-        self.key = key
-        
+        self.setAuthenticatedEncryptionKey(to: key)
+
         // Now that we now about the decryption key, we know about the algorithm that will be used to decrypt the chunks. We can deduce the plaintext chunk size, thus, the final size of the file. We create this empty file now and set the individual chunks cleartext sizes
         var totalCleartextLength = 0
         do {
@@ -439,28 +409,28 @@ extension InboxAttachment {
     
     private func createEmptyFileForWritingChunks(withinInbox inbox: URL, cleartextLength: Int) throws {
         
-        guard let url = getURL(withinInbox: inbox) else { throw InboxAttachment.makeError(message: "Cannot get attachment URL") }
+        guard let url = getURL(withinInbox: inbox) else { throw ObvError.cannotGetAttachmentURL }
 
         if FileManager.default.fileExists(atPath: url.path) {
             do {
                 try FileManager.default.removeItem(at: url)
             } catch let error {
-                throw InternalError.couldNotDeleteAttachmentFile(atUrl: url, error: error)
+                throw ObvError.couldNotDeleteAttachmentFile(atUrl: url, error: error)
             }
         }
         
         guard let message = self.message else {
             assertionFailure()
-            throw InternalError.couldNotCreateAttachmentFile(error: nil)
+            throw ObvError.couldNotCreateAttachmentFile(error: nil)
         }
         
         try message.createAttachmentsDirectoryIfRequired(withinInbox: inbox)
         guard FileManager.default.createFile(atPath: url.path, contents: nil, attributes: nil) else {
-            throw InternalError.couldNotCreateAttachmentFile(error: nil)
+            throw ObvError.couldNotCreateAttachmentFile(error: nil)
         }
         
         guard let fh = FileHandle(forWritingAtPath: url.path) else {
-            throw Self.makeError(message: "Could not get FileHandle")
+            throw ObvError.couldNotGetFileHandle
         }
         fh.seek(toFileOffset: UInt64(cleartextLength))
         fh.closeFile()
@@ -515,7 +485,7 @@ extension InboxAttachment {
             totalUnitCount = 0
         } else {
             guard let _totalUnitCount = self.plaintextLength else {
-                os_log("Could not find cleartext attachment size. The file might not exist yet (which is the case if the decryption key has not been set).", log: Self.log, type: .fault)
+                Self.logger.fault("Could not find cleartext attachment size. The file might not exist yet (which is the case if the decryption key has not been set).")
                 assertionFailure()
                 return nil
             }
@@ -523,7 +493,7 @@ extension InboxAttachment {
         }
 
         guard let inboxAttachmentUrl = self.getURL(withinInbox: inbox) else {
-            os_log("Cannot determine the inbox attachment URL", log: Self.log, type: .fault)
+            Self.logger.fault("Cannot determine the inbox attachment URL")
             return nil
         }
 
@@ -548,7 +518,7 @@ extension InboxAttachment {
             totalUnitCount = 0
         } else {
             guard let _totalUnitCount = self.plaintextLength else {
-                os_log("Could not find cleartext attachment size. The file might not exist yet (which is the case if the decryption key has not been set).", log: Self.log, type: .fault)
+                Self.logger.fault("Could not find cleartext attachment size. The file might not exist yet (which is the case if the decryption key has not been set).")
                 assertionFailure()
                 return nil
             }
@@ -556,7 +526,7 @@ extension InboxAttachment {
         }
 
         guard let inboxAttachmentUrl = self.getURL(withinInbox: inbox) else {
-            os_log("Cannot determine the inbox attachment URL", log: Self.log, type: .fault)
+            Self.logger.fault("Cannot determine the inbox attachment URL")
             return nil
         }
 
@@ -577,8 +547,21 @@ extension InboxAttachment {
     
     enum ObvError: Error {
         case unexpectedChunkNumber
+        case noContext
+        case theDecryptionKeyCanOnlyBeSetOnce
+        case theMetadataCanOnlyBeSetOnce
+        case chunksInstancesCanBeCreatedOnlyOnce
+        case couldNotDeleteAttachmentFile(atUrl: URL, error: Error)
+        case couldNotCreateAttachmentFile(error: Error?)
+        case couldNotWrite(atUrl: URL, error: Error)
+        case couldNotDetermineMessageId
+        case cannotTransitionFromCurrentStatusToNewStatus(currentStatus: Status, newStatus: Status)
+        case cannotGetAttachmentURL
+        case unexpectedNumberOfSignedURLsWrtTheNumberOfChunks
+        case couldNotGetFileHandle
+        case tryingToChangeTheStatusToDownloadedButAtLeastOneChunkIsNotDownloadedYet
     }
-    
+
 }
 
 
@@ -654,16 +637,16 @@ extension InboxAttachment {
     }
     
     
-    static func get(attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) throws -> InboxAttachment? {
+    static func get(attachmentId: ObvAttachmentIdentifier, within context: NSManagedObjectContext) throws -> InboxAttachment? {
         let request: NSFetchRequest<InboxAttachment> = InboxAttachment.fetchRequest()
         request.predicate = Predicate.withAttachmentIdentifier(attachmentId)
         request.relationshipKeyPathsForPrefetching = [Predicate.Key.rawStatus.rawValue]
-        let item = (try obvContext.fetch(request)).first
+        let item = (try context.fetch(request)).first
         return item
     }
     
     
-    static func getAllDownloadableWithoutSession(within obvContext: ObvContext) throws -> [InboxAttachment] {
+    static func getAllDownloadableWithoutSession(within context: NSManagedObjectContext) throws -> [InboxAttachment] {
         let request: NSFetchRequest<InboxAttachment> = InboxAttachment.fetchRequest()
 
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -674,7 +657,7 @@ extension InboxAttachment {
             Predicate.withNonNilMessageFromCryptoIdentity,
             Predicate.withStatus(.resumeRequested),
         ])
-        let items = try obvContext.fetch(request)
+        let items = try context.fetch(request)
             .filter { (attachment) -> Bool in
                 let allChunksHaveSignedURLs = attachment.chunks.allSatisfy({ $0.signedURL != nil })
                 return allChunksHaveSignedURLs }
@@ -686,8 +669,8 @@ extension InboxAttachment {
     
     /// Returns all the ``InboxAttachment`` that have no session, that can be downloaded technically and for which a resume was requested,
     /// and for which at least one chunk has no signed URL.
-    static func getAllDownloadableWithMissingSignedURL(within obvContext: ObvContext) throws -> [(attachmentId: ObvAttachmentIdentifier, expectedChunkCount: Int)] {
-        
+    static func getAllDownloadableWithMissingSignedURL(within context: NSManagedObjectContext) throws -> [(attachmentId: ObvAttachmentIdentifier, expectedChunkCount: Int)] {
+
         let request: NSFetchRequest<InboxAttachment> = InboxAttachment.fetchRequest()
 
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -705,7 +688,7 @@ extension InboxAttachment {
             Predicate.Key.rawMessageIdUid.rawValue,
         ]
         
-        let items = try obvContext.fetch(request)
+        let items = try context.fetch(request)
             .filter { attachment in
                 let noSignedURLForOneOrMoreChunks = attachment.chunks.first(where: { $0.signedURL == nil }) != nil
                 return noSignedURLForOneOrMoreChunks
@@ -720,17 +703,17 @@ extension InboxAttachment {
     }
 
     
-    static func deleteAllOrphaned(within obvContext: ObvContext) throws {
+    static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: InboxAttachment.entityName)
         fetch.predicate = Predicate.withNilMessage
         let request = NSBatchDeleteRequest(fetchRequest: fetch)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }

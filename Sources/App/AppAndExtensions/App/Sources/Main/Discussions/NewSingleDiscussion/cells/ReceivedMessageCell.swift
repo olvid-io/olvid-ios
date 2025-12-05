@@ -20,10 +20,9 @@
 import UIKit
 import UniformTypeIdentifiers
 import CoreData
-import os.log
+import OSLog
 import ObvUI
 import ObvUICoreData
-//import UI_CircledInitialsView_CircledInitialsConfiguration
 import ObvUIObvCircledInitials
 import LinkPresentation
 import ObvEncoder
@@ -47,8 +46,9 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
     weak var shortcutMenuDelegate: CellMessageShortcutMenuDelegate?
     weak var cellReconfigurator: CellReconfigurator?
     weak var textBubbleDelegate: TextBubbleDelegate?
-    weak var audioPlayerViewDelegate: AudioPlayerViewDelegate?
+    weak var audioWaveFormViewDelegate: AudioWaveFormViewDelegate?
     weak var locationViewDelegate: LocationViewDelegate?
+    weak var pollViewDelegate: MessagePollViewDelegate?
     weak var replyToDelegate: CellReplyToDelegate?
 
     override init(frame: CGRect) {
@@ -61,6 +61,8 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             let hoverGestureRecognizer = UIHoverGestureRecognizer(target: self, action: #selector(hovering(_:)))
             self.addGestureRecognizer(hoverGestureRecognizer)
         }
+        
+        self.accessibilityTraits = .allowsDirectInteraction
     }
     
     // Mark: Hovering View for Mac Catalyst
@@ -87,7 +89,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
     }
 
         
-    func updateWith(message: PersistedMessageReceived, searchedTextToHighlight: String?, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, previousMessageIsFromSameContact: Bool, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate, audioPlayerViewDelegate: AudioPlayerViewDelegate?, shortcutMenuDelegate: CellMessageShortcutMenuDelegate?, replyToDelegate: CellReplyToDelegate, locationViewDelegate: LocationViewDelegate?) {
+    func updateWith(message: PersistedMessageReceived, searchedTextToHighlight: String?, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, previousMessageIsFromSameContact: Bool, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate, audioWaveFormViewDelegate: AudioWaveFormViewDelegate?, shortcutMenuDelegate: CellMessageShortcutMenuDelegate?, replyToDelegate: CellReplyToDelegate, locationViewDelegate: LocationViewDelegate?, pollViewDelegate: MessagePollViewDelegate?) {
         assert(cacheDelegate != nil)
         self.message = message
         self.indexPath = indexPath
@@ -97,10 +99,11 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         self.cacheDelegate = cacheDelegate
         self.cellReconfigurator = cellReconfigurator
         self.textBubbleDelegate = textBubbleDelegate
-        self.audioPlayerViewDelegate = audioPlayerViewDelegate
+        self.audioWaveFormViewDelegate = audioWaveFormViewDelegate
         self.searchedTextToHighlight = searchedTextToHighlight
         self.shortcutMenuDelegate = shortcutMenuDelegate
         self.locationViewDelegate = locationViewDelegate
+        self.pollViewDelegate = pollViewDelegate
         self.replyToDelegate = replyToDelegate
     }
     
@@ -252,6 +255,20 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             content.locationViewConfiguration = nil
         }
         
+        if let poll = message.poll {
+            let candidateConfigurations: [MessagePollView.CandidateConfiguration] = poll.candidates
+                .compactMap { candidate in
+                    guard let candidateUUID = candidate.uuid else { return nil }
+                    return MessagePollView.CandidateConfiguration(
+                        UUID: candidateUUID,
+                        votes: candidate.votes.compactMap(\.voted))
+                }
+            let pollViewConfiguration = MessagePollView.Configuration(messageObjectID: message.typedObjectID.downcast, candidateVotes: candidateConfigurations)
+            content.pollViewConfiguration = pollViewConfiguration
+        } else {
+            content.pollViewConfiguration = nil
+        }
+        
         // Configure link-preview type of attachments
 
         var otherAttachments = message.fyleMessageJoinWithStatusesOfOtherTypes
@@ -309,6 +326,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             content.reactionAndCounts = []
             content.replyToBubbleViewConfiguration = nil
             content.locationViewConfiguration = nil
+            content.pollViewConfiguration = nil
 
         } else if message.isLocationMessage && content.locationViewConfiguration != nil {
             
@@ -323,6 +341,23 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             content.wipedViewConfiguration = nil
             content.singlePreviewConfiguration = nil
             content.singlePDFViewConfiguration = nil
+            content.pollViewConfiguration = nil
+            content.reactionAndCounts = ReactionAndCount.of(reactions: message.reactions)
+            
+        } else if message.isPoll && content.pollViewConfiguration != nil {
+            
+            content.textBubbleConfiguration = nil
+            content.singlePreviewConfiguration = nil
+            content.replyToBubbleViewConfiguration = nil
+            content.singleImageViewConfiguration = nil
+            content.singleGifViewConfiguration = nil
+            content.multipleImagesViewConfiguration = []
+            content.multipleAttachmentsViewConfiguration = []
+            content.audioPlayerConfiguration = nil
+            content.wipedViewConfiguration = nil
+            content.singlePreviewConfiguration = nil
+            content.singlePDFViewConfiguration = nil
+            content.locationViewConfiguration = nil
             content.reactionAndCounts = ReactionAndCount.of(reactions: message.reactions)
             
         } else {
@@ -369,8 +404,9 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
     private func registerDelegate() {
         guard let contentView = self.contentView as? ReceivedMessageCellContentView else { assertionFailure(); return }
         contentView.textBubble.delegate = textBubbleDelegate
-        contentView.audioPlayerView.delegate = audioPlayerViewDelegate
+        contentView.audioPlayerView.delegate = audioWaveFormViewDelegate
         contentView.locationView.delegate = locationViewDelegate
+        contentView.pollView.delegate = pollViewDelegate
         contentView.replyToDelegate = self.replyToDelegate
     }
 
@@ -955,11 +991,12 @@ fileprivate struct ReceivedMessageCellCustomContentConfiguration: UIContentConfi
     var scheduledVisibilityDestructionDate: Date?
     var hasBodyText = false
     var locationViewConfiguration: LocationView.Configuration?
+    var pollViewConfiguration: MessagePollView.Configuration?
     var singleImageViewConfiguration: SingleImageView.Configuration?
     var singleGifViewConfiguration: SingleImageView.Configuration?
     var multipleImagesViewConfiguration = [SingleImageView.Configuration]()
     var multipleAttachmentsViewConfiguration = [SingleAttachmentView.Configuration]()
-    var audioPlayerConfiguration: AudioPlayerView.Configuration?
+    var audioPlayerConfiguration: AudioWaveFormView.Configuration?
     var wipedViewConfiguration: WipedView.Configuration?
     var contactPictureAndNameViewConfiguration: ContactPictureAndNameView.Configuration?
     var missedMessageConfiguration: MissedMessageBubble.Configuration?
@@ -1008,9 +1045,10 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
     private let ephemeralityInformationsView = EphemeralityInformationsView()
     private let replyToBubbleView = ReplyToBubbleView(expirationIndicatorSide: .trailing)
     fileprivate let locationView = LocationView(expirationIndicatorSide: .trailing)
+    fileprivate let pollView = MessagePollView(expirationIndicatorSide: .trailing, bubbleColor: AppTheme.shared.colorScheme.newReceivedCellBackground, textColor: UIColor.label, progressColor: UIColor.label.withAlphaComponent(0.5))
     private let wipedView = WipedView(expirationIndicatorSide: .trailing)
     private let backgroundView = ReceivedMessageCellBackgroundView()
-    fileprivate let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .trailing)
+    fileprivate let audioPlayerView = AudioWaveFormView(expirationIndicatorSide: .trailing)
     private let bottomHorizontalStack = OlvidHorizontalStackView(gap: 4.0, side: .bothSides, debugName: "Date and reactions horizontal stack view", showInStack: true)
     fileprivate let missedMessageCountBubble = MissedMessageBubble()
     private let forwardView = ForwardView()
@@ -1202,6 +1240,8 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         mainStack.addArrangedSubview(multipleImagesView)
         
         mainStack.addArrangedSubview(locationView)
+        
+        mainStack.addArrangedSubview(pollView)
         
         mainStack.addArrangedSubview(attachmentsView)
 
@@ -1405,6 +1445,14 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         } else {
             locationView.showInStack = false
         }
+
+        // Poll view
+        if let pollViewConfiguration = newConfig.pollViewConfiguration {
+            pollView.showInStack = true
+            pollView.apply(pollViewConfiguration)
+        } else {
+            pollView.showInStack = false
+        }
         
         // Images
 
@@ -1453,7 +1501,7 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
 
         if let audioPlayerConfiguration = newConfig.audioPlayerConfiguration {
             audioPlayerView.showInStack = true
-            audioPlayerView.configure(with: audioPlayerConfiguration)
+            audioPlayerView.apply(audioPlayerConfiguration)
         } else {
             audioPlayerView.showInStack = false
         }

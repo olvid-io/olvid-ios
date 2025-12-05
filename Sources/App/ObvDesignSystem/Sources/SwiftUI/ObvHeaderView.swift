@@ -61,7 +61,7 @@ public struct ObvHeaderView: View {
             Text(title)
                 .multilineTextAlignment(.center)
                 .font(.title)
-                .padding(.bottom, 4)
+                .fontWeight(.semibold)
             if let subtitle {
                 Text(subtitle)
                     .multilineTextAlignment(.center)

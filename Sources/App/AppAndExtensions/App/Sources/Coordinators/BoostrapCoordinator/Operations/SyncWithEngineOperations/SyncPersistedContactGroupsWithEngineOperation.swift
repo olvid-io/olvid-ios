@@ -33,7 +33,8 @@ import ObvTypes
 final class SyncPersistedContactGroupWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
     
     private let syncType: SyncType
-    private let obvEngine: ObvEngine
+    private let obvContactGroupWithinEngine: ObvContactGroup?
+    //private let obvEngine: ObvEngine
     
     enum SyncType {
         case addToApp(groupIdentifier: ObvGroupV1Identifier, isRestoringSyncSnapshotOrBackup: Bool)
@@ -49,9 +50,9 @@ final class SyncPersistedContactGroupWithEngineOperation: ContextualOperationWit
         }
     }
 
-    init(syncType: SyncType, obvEngine: ObvEngine) {
+    init(syncType: SyncType, obvContactGroupWithinEngine: ObvContactGroup?) {
         self.syncType = syncType
-        self.obvEngine = obvEngine
+        self.obvContactGroupWithinEngine = obvContactGroupWithinEngine
         super.init()
     }
 
@@ -67,20 +68,28 @@ final class SyncPersistedContactGroupWithEngineOperation: ContextualOperationWit
 
             switch syncType {
                 
-            case .addToApp(groupIdentifier: let groupIdentifier, isRestoringSyncSnapshotOrBackup: let isRestoringSyncSnapshotOrBackup):
+            case .addToApp(groupIdentifier: _, isRestoringSyncSnapshotOrBackup: let isRestoringSyncSnapshotOrBackup):
             
                 // Make sure the contact group still exists within the engine
-                guard let obvContactGroupWithinEngine = try? obvEngine.getContactGroup(groupIdentifier: groupIdentifier) else {
+//                guard let obvContactGroupWithinEngine = try? obvEngine.getContactGroup(groupIdentifier: groupIdentifier) else {
+//                    assertionFailure()
+//                    return
+//                }
+                guard let obvContactGroupWithinEngine else {
                     assertionFailure()
                     return
                 }
-                
+
                 try persistedOwnedIdentity.addOrUpdateContactGroup(with: obvContactGroupWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
 
             case .deleteFromApp(groupIdentifier: let groupIdentifier):
                 
                 // Make sure the contact group still does not exist within the engine
-                guard (try? obvEngine.getContactGroup(groupIdentifier: groupIdentifier)) == nil else {
+//                guard (try? obvEngine.getContactGroup(groupIdentifier: groupIdentifier)) == nil else {
+//                    assertionFailure()
+//                    return
+//                }
+                guard obvContactGroupWithinEngine == nil else {
                     assertionFailure()
                     return
                 }
@@ -90,7 +99,11 @@ final class SyncPersistedContactGroupWithEngineOperation: ContextualOperationWit
             case .syncWithEngine(groupIdentifier: let groupIdentifier):
 
                 // Make sure the contact group still exists within the engine
-                guard let obvContactGroupWithinEngine = try? obvEngine.getContactGroup(groupIdentifier: groupIdentifier) else {
+//                guard let obvContactGroupWithinEngine = try? obvEngine.getContactGroup(groupIdentifier: groupIdentifier) else {
+//                    assertionFailure()
+//                    return
+//                }
+                guard let obvContactGroupWithinEngine else {
                     assertionFailure()
                     return
                 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,54 +26,70 @@ import OlvidUtils
 
 
 @objc(ProtocolInstanceWaitingForContactUpgradeToOneToOne)
-final class ProtocolInstanceWaitingForContactUpgradeToOneToOne: NSManagedObject, ObvManagedObject {
+final class ProtocolInstanceWaitingForContactUpgradeToOneToOne: NSManagedObject {
     
     // MARK: Internal constants
     
     private static let entityName = "ProtocolInstanceWaitingForContactUpgradeToOneToOne"
-    private static func makeError(message: String) -> Error { NSError(domain: "ProtocolInstanceWaitingForContactUpgradeToOneToOne", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     // MARK: Attributes
     
-    @NSManaged private(set) var contactCryptoIdentity: ObvCryptoIdentity
     @NSManaged private(set) var messageToSendRawId: Int
-    @NSManaged private(set) var ownedCryptoIdentity: ObvCryptoIdentity
+    @NSManaged private(set) var rawContactCryptoIdentity: Data? // Non-optional in the model
+    @NSManaged private(set) var rawOwnedCryptoIdentity: Data? // Non-optional in the model
     
     // MARK: Relationships
     
-    private(set) var protocolInstance: ProtocolInstance {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.protocolInstance.rawValue) as! ProtocolInstance
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.protocolInstance.rawValue)
-        }
-    }
+    @NSManaged private(set) var protocolInstance: ProtocolInstance
     
     // MARK: Other variables
     
-    weak var delegateManager: ObvProtocolDelegateManager?
-    weak var obvContext: ObvContext?
+    var ownedCryptoIdentity: ObvCryptoIdentity {
+        get throws(ObvError) {
+            guard let rawOwnedCryptoIdentity else { assertionFailure(); throw .unexpectedNilValue }
+            guard let ownedCryptoIdentity = ObvCryptoIdentity(from: rawOwnedCryptoIdentity) else { assertionFailure(); throw .couldNotParseValue }
+            return ownedCryptoIdentity
+        }
+    }
+    
+    var contactCryptoIdentity: ObvCryptoIdentity {
+        get throws(ObvError) {
+            guard let rawContactCryptoIdentity else { assertionFailure(); throw .unexpectedNilValue }
+            guard let contactCryptoIdentity = ObvCryptoIdentity(from: rawContactCryptoIdentity) else { assertionFailure(); throw .couldNotParseValue }
+            return contactCryptoIdentity
+        }
+    }
     
     // MARK: - Initializer
     
-    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, messageToSendRawId: Int, protocolInstance: ProtocolInstance, delegateManager: ObvProtocolDelegateManager) {
+    /// 2025-08-27: ok
+    convenience init(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, messageToSendRawId: Int, protocolInstance: ProtocolInstance) throws {
         
-        guard let obvContext = protocolInstance.obvContext else { return nil }
+        guard let context = protocolInstance.managedObjectContext else { assertionFailure(); throw ObvError.noContext }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: ProtocolInstanceWaitingForContactUpgradeToOneToOne.entityName,
-                                                           in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+                                                           in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         
-        self.contactCryptoIdentity = contactCryptoIdentity
         self.messageToSendRawId = messageToSendRawId
-        self.ownedCryptoIdentity = ownedCryptoIdentity
+        self.rawContactCryptoIdentity = contactCryptoIdentity.getIdentity()
+        self.rawOwnedCryptoIdentity = ownedCryptoIdentity.getIdentity()
         
         self.protocolInstance = protocolInstance
         
-        self.delegateManager = delegateManager
+    }
+    
+    
+    private func deleteProtocolInstanceWaitingForContactUpgradeToOneToOne() throws {
+        guard let managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        managedObjectContext.delete(self)
+    }
+    
+    
+    enum ObvError: Error {
+        case noContext
+        case unexpectedNilValue
+        case couldNotParseValue
     }
 
 }
@@ -89,16 +105,23 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
 
     private struct Predicate {
         enum Key: String {
-            case ownedCryptoIdentity = "ownedCryptoIdentity"
+            // Attributes
+            case messageToSendRawId = "messageToSendRawId"
+            case rawContactCryptoIdentity = "rawContactCryptoIdentity"
+            case rawOwnedCryptoIdentity = "rawOwnedCryptoIdentity"
+            // Relationships
             case protocolInstance = "protocolInstance"
-            case contactCryptoIdentity = "contactCryptoIdentity"
-            static var protocolInstanceUid: String { [protocolInstance.rawValue, ProtocolInstance.Predicate.Key.uid.rawValue].joined(separator: ".") }
+            static var protocolInstanceUid: String {
+                [
+                    protocolInstance.rawValue,
+                    ProtocolInstance.Predicate.Key.rawUID.rawValue,
+                ].joined(separator: ".") }
         }
         static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.ownedCryptoIdentity.rawValue, ownedCryptoIdentity)
+            NSPredicate(Key.rawOwnedCryptoIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
         }
         static func withContactCryptoIdentity(_ contactCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.contactCryptoIdentity.rawValue, contactCryptoIdentity)
+            NSPredicate(Key.rawContactCryptoIdentity, EqualToData: contactCryptoIdentity.getIdentity())
         }
         static func withAssociatedProtocolInstance(_ protocolInstance: ProtocolInstance) -> NSPredicate {
             NSPredicate(Key.protocolInstance, equalTo: protocolInstance)
@@ -106,69 +129,63 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
     }
     
     
-    static func getAll(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne> {
-        
+    static func getAll(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne> {
         let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
             Predicate.withContactCryptoIdentity(contactCryptoIdentity),
         ])
-
-        let items = try obvContext.fetch(request)
-        return Set(items.map { $0.delegateManager = delegateManager; return $0 })
-
+        let items = try context.fetch(request)
+        return Set(items)
     }
 
     
-    static func getAll(delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne> {
-        
+    static func getAll(within context: NSManagedObjectContext) throws -> Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne> {
         let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()
-        let items = try obvContext.fetch(request)
-        return Set(items.map { $0.delegateManager = delegateManager; return $0 })
-
+        let items = try context.fetch(request)
+        return Set(items)
     }
     
-    static func deleteAllRelatedToProtocolInstance(_ protocolInstance: ProtocolInstance, delegateManager: ObvProtocolDelegateManager) throws {
-        
-        guard let obvContext = protocolInstance.obvContext else {
-            throw Self.makeError(message: "The protocol instance has no obvContext in deleteAllRelatedToProtocolInstance(...)")
+    
+    static func deleteAllRelatedToProtocolInstance(_ protocolInstance: ProtocolInstance) throws {
+        guard let context = protocolInstance.managedObjectContext else {
+            throw ObvError.noContext
         }
-        
         let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()
         request.predicate = Predicate.withAssociatedProtocolInstance(protocolInstance)
-        let items = try obvContext.fetch(request)
+        request.fetchBatchSize = 1_000
+        request.propertiesToFetch = []
+        let items = try context.fetch(request)
         for item in items {
-            item.delegateManager = delegateManager
-            obvContext.delete(item)
+            try item.deleteProtocolInstanceWaitingForContactUpgradeToOneToOne()
         }
-
     }
+    
 
-    static func deleteRelatedToProtocolInstance(_ protocolInstance: ProtocolInstance, contactCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager) throws {
-        
-        guard let obvContext = protocolInstance.obvContext else {
-            throw Self.makeError(message: "The protocol instance has no obvContext in deleteRelatedToProtocolInstance(...)")
+    static func deleteRelatedToProtocolInstance(_ protocolInstance: ProtocolInstance, contactCryptoIdentity: ObvCryptoIdentity) throws {
+        guard let context = protocolInstance.managedObjectContext else {
+            throw ObvError.noContext
         }
-        
         let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withAssociatedProtocolInstance(protocolInstance),
             Predicate.withContactCryptoIdentity(contactCryptoIdentity),
         ])
-        let items = try obvContext.fetch(request)
+        request.fetchBatchSize = 1_000
+        request.propertiesToFetch = []
+        let items = try context.fetch(request)
         for item in items {
-            item.delegateManager = delegateManager
-            obvContext.delete(item)
+            try item.deleteProtocolInstanceWaitingForContactUpgradeToOneToOne()
         }
-        
     }
 
-    func getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel() -> GenericProtocolMessageToSend {
-        let message = GenericProtocolMessageToSend(channelType: .local(ownedIdentity: self.ownedCryptoIdentity),
-                                                   cryptoProtocolId: self.protocolInstance.cryptoProtocolId,
-                                                   protocolInstanceUid: self.protocolInstance.uid,
-                                                   protocolMessageRawId: self.messageToSendRawId,
-                                                   encodedInputs: [contactCryptoIdentity.obvEncode()])
+    
+    func getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel() throws -> GenericProtocolMessageToSend {
+        let message = try GenericProtocolMessageToSend(channelType: .local(ownedIdentity: self.ownedCryptoIdentity),
+                                                       cryptoProtocolId: self.protocolInstance.cryptoProtocolId,
+                                                       protocolInstanceUid: self.protocolInstance.uid,
+                                                       protocolMessageRawId: self.messageToSendRawId,
+                                                       encodedInputs: [contactCryptoIdentity.obvEncode()])
         return message
     }
 }

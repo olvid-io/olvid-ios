@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ import CallKit
 protocol CallProviderProtocol {
 
     /// We do *not* use the async way for reporting new incoming call. We had too much issues when calling this method on the `CXProvider` while in the background.
-    func reportNewIncomingCall(with UUID: UUID, update: CXCallUpdate,completion: @escaping (Error?) -> Void)
+    func reportNewIncomingCall(with UUID: UUID, update: CXCallUpdate, completion: @escaping @Sendable (Error?) -> Void)
 
     func reportOutgoingCall(with: UUID, startedConnectingAt: Date?)
     func reportOutgoingCall(with: UUID, connectedAt: Date?)

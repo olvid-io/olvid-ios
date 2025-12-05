@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,7 +39,7 @@ final class CreateChunksProgressesForAttachmentOperation: ContextualOperationWit
         
         do {
             
-            guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+            guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else {
                 return cancel(withReason: .attachmentNotFound)
             }
             

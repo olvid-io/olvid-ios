@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvTypes
 import ObvCrypto
 
 /// See also ``struct ObvRemoteOwnedDevice``.
-public struct ObvOwnedDevice: Hashable, CustomStringConvertible {
+public struct ObvOwnedDevice: Hashable, CustomStringConvertible, Sendable {
     
     public let identifier: Data
     public let ownedCryptoId: ObvCryptoId
@@ -31,7 +31,7 @@ public struct ObvOwnedDevice: Hashable, CustomStringConvertible {
     public let expirationDate: Date?
     public let latestRegistrationDate: Date?
 
-    public enum SecureChannelStatus: Equatable, Hashable {
+    public enum SecureChannelStatus: Equatable, Hashable, Sendable {
         case currentDevice
         case creationInProgress(preKeyAvailable: Bool)
         case created(preKeyAvailable: Bool)

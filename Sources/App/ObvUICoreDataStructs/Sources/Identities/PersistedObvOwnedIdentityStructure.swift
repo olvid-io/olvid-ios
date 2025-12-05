@@ -21,7 +21,7 @@ import Foundation
 import ObvTypes
 
 
-public struct PersistedObvOwnedIdentityStructure {
+public struct PersistedObvOwnedIdentityStructure: Sendable {
     
     public let cryptoId: ObvCryptoId
     public let fullDisplayName: String

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 import ObvCrypto
 import ObvEncoder
@@ -38,35 +38,49 @@ final class ContactIdentityDetailsTrusted: ContactIdentityDetails {
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { Self.makeError(message: message) }
 
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: ContactIdentityDetailsTrusted.logSubsystem, category: "ContactIdentityDetailsTrusted") }()
+    
+    private var isInsertedWhileRestoringSyncSnapshot = false
+
     // MARK: - Initializer
     
-    convenience init?(contactIdentity: ContactIdentity, identityCoreDetails: ObvIdentityCoreDetails, version: Int, delegateManager: ObvIdentityDelegateManager) {
+    convenience init?(contactIdentity: ContactIdentity, identityCoreDetails: ObvIdentityCoreDetails, version: Int) {
         self.init(contactIdentity: contactIdentity,
                   coreDetails: identityCoreDetails,
                   version: version,
                   photoServerKeyAndLabel: nil,
-                  entityName: ContactIdentityDetailsTrusted.entityName,
-                  delegateManager: delegateManager)
+                  entityName: ContactIdentityDetailsTrusted.entityName)
     }
 
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(backupItem: ContactIdentityDetailsTrustedBackupItem, within obvContext: ObvContext) {
+    fileprivate convenience init(backupItem: ContactIdentityDetailsTrustedBackupItem, within context: NSManagedObjectContext) {
         self.init(serializedIdentityCoreDetails: backupItem.serializedIdentityCoreDetails,
                   version: backupItem.version,
                   photoServerKeyAndLabel: backupItem.photoServerKeyAndLabel,
                   entityName: ContactIdentityDetailsTrusted.entityName,
-                  within: obvContext)
+                  within: context)
     }
     
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(snapshotNode: ContactIdentityDetailsTrustedSyncSnapShotNode, within obvContext: ObvContext) {
+    fileprivate convenience init(snapshotNode: ContactIdentityDetailsTrustedSyncSnapShotNode, within context: NSManagedObjectContext) {
         self.init(serializedIdentityCoreDetails: snapshotNode.serializedIdentityCoreDetails,
                   version: snapshotNode.version,
                   photoServerKeyAndLabel: snapshotNode.photoServerKeyAndLabel,
                   entityName: ContactIdentityDetailsTrusted.entityName,
-                  within: obvContext)
+                  within: context)
+        self.isInsertedWhileRestoringSyncSnapshot = true
+    }
+
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvContactIdentityDetailsTrustedObserver(_ newObserver: ContactIdentityDetailsTrustedObserver) async {
+        await observersHolder.addObserver(newObserver)
     }
 
 }
@@ -77,35 +91,28 @@ final class ContactIdentityDetailsTrusted: ContactIdentityDetails {
 extension ContactIdentityDetailsTrusted {
     
     /// This method should *only* be called from the `updateTrustedDetailsWithPublishedDetails` and the `refreshCertifiedByOwnKeycloakAndTrustedDetails` methods of the `ContactIdentity` entity.
-    func updateWithContactIdentityDetailsPublished(_ contactIdentityDetailsPublished: ContactIdentityDetailsPublished, delegateManager: ObvIdentityDelegateManager) throws {
-
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: "ContactIdentityDetailsTrusted")
+    func updateWithContactIdentityDetailsPublished(_ contactIdentityDetailsPublished: ContactIdentityDetailsPublished) throws {
 
         guard let managedObjectContext = self.managedObjectContext, contactIdentityDetailsPublished.managedObjectContext == managedObjectContext else {
             throw makeError(message: "Inappropriate context")
         }
         
         self.version = contactIdentityDetailsPublished.version
-        let identityPhotosDirectory = delegateManager.identityPhotosDirectory
         
-        if let publishedCoreDetails = contactIdentityDetailsPublished.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory)?.coreDetails,
-           let trustedCoreDetails = self.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory)?.coreDetails {
-            if publishedCoreDetails != trustedCoreDetails {
-                self.serializedIdentityCoreDetails = contactIdentityDetailsPublished.serializedIdentityCoreDetails
-            }
-        } else {
-            os_log("Could not update trusted details using published details", log: log, type: .fault)
-            assertionFailure()
+        let publishedCoreDetails = try contactIdentityDetailsPublished.getIdentityDetails().coreDetails
+        let trustedCoreDetails = try self.getIdentityDetails().coreDetails
+        if publishedCoreDetails != trustedCoreDetails {
+            self.serializedIdentityCoreDetails = contactIdentityDetailsPublished.serializedIdentityCoreDetails
         }
 
         self.photoServerKeyAndLabel = contactIdentityDetailsPublished.photoServerKeyAndLabel
 
-        let photoURLOfPublishedDetails = contactIdentityDetailsPublished.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
-        try setContactPhoto(with: photoURLOfPublishedDetails, delegateManager: delegateManager)
+        let photoURLOfPublishedDetails = try contactIdentityDetailsPublished.getPhotoURL()
+        try setContactPhoto(with: photoURLOfPublishedDetails)
     }
 
     // This method assumes that the signature on the signed details is valid. It replace the values of the trusted details with that found in the signed details
-    func update(with signedUserDetails: SignedObvKeycloakUserDetails, delegateManager: ObvIdentityDelegateManager) throws {
+    func update(with signedUserDetails: SignedObvKeycloakUserDetails) throws {
         let newSerializedIdentityCoreDetails = try signedUserDetails.getObvIdentityCoreDetails().jsonEncode()
         if self.serializedIdentityCoreDetails != newSerializedIdentityCoreDetails {
             self.serializedIdentityCoreDetails = newSerializedIdentityCoreDetails
@@ -118,35 +125,52 @@ extension ContactIdentityDetailsTrusted {
 }
 
 
+// MARK: - Convenience DB getters
+
+extension ContactIdentityDetailsTrusted {
+    
+    @nonobjc static func fetchRequest() -> NSFetchRequest<ContactIdentityDetailsTrusted> {
+        return NSFetchRequest<ContactIdentityDetailsTrusted>(entityName: ContactIdentityDetailsTrusted.entityName)
+    }
+
+    static func getFetchedResultsController(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<ContactIdentityDetailsTrusted> {
+        let request: NSFetchRequest<ContactIdentityDetailsTrusted> = ContactIdentityDetailsTrusted.fetchRequest()
+        request.predicate = ContactIdentityDetails.Predicate.withContactIdentifier(contactIdentifier)
+        request.sortDescriptors = []
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let frc = NSFetchedResultsController(
+            fetchRequest: request,
+            managedObjectContext: context,
+            sectionNameKeyPath: nil,
+            cacheName: nil)
+        return frc
+    }
+    
+}
+
+
 // MARK: - Reacting to changes
 
 extension ContactIdentityDetailsTrusted {
     
     override func didSave() {
         super.didSave()
-
-        let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: ContactIdentityDetailsTrusted.entityName)
-
-        guard let delegateManager = delegateManager else {
-            os_log("The delegate manager is not set", log: log, type: .fault)
-            return
+        
+        defer {
+            self.isInsertedWhileRestoringSyncSnapshot = false
         }
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
+        // We do not send any notification after inserting an object during a snapshot restore.
+        guard !isInsertedWhileRestoringSyncSnapshot else { assert(isInserted); return }
 
-        if !isDeleted, let ownedIdentity = contactIdentity.ownedIdentity {
+        if !isDeleted {
             
-            if let trustedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory), let contactCryptoIdentity = self.contactIdentity.cryptoIdentity {
-                let NotificationType = ObvIdentityNotification.NewTrustedContactIdentityDetails.self
-                let userInfo = [NotificationType.Key.contactCryptoIdentity: contactCryptoIdentity,
-                                NotificationType.Key.ownedCryptoIdentity: ownedIdentity.cryptoIdentity,
-                                NotificationType.Key.trustedIdentityDetails: trustedIdentityDetails] as [String: Any]
-                notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-            } else {
-                os_log("Could not notify about the new trusted contact identity details", log: log, type: .fault)
+            do {
+                let contactIdentity = try ObvContactIdentity(contactIdentity: self.contactIdentity)
+                Task { await Self.observersHolder.newTrustedContactIdentityDetails(contactIdentity: contactIdentity) }
+            } catch {
+                Self.logger.fault("Could not notify about the new trusted contact identity details")
                 assertionFailure()
             }
             
@@ -270,12 +294,12 @@ struct ContactIdentityDetailsTrustedBackupItem: Codable, Hashable {
 
     }
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-        let contactIdentityDetailsTrusted = ContactIdentityDetailsTrusted(backupItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout BackupItemObjectAssociations) throws {
+        let contactIdentityDetailsTrusted = ContactIdentityDetailsTrusted(backupItem: self, within: context)
         try associations.associate(contactIdentityDetailsTrusted, to: self)
     }
 
-    func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
 
@@ -387,13 +411,13 @@ struct ContactIdentityDetailsTrustedSyncSnapShotNode: ObvSyncSnapshotNode {
     }
     
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
-        let contactIdentityDetailsTrusted = ContactIdentityDetailsTrusted(snapshotNode: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let contactIdentityDetailsTrusted = ContactIdentityDetailsTrusted(snapshotNode: self, within: context)
         try associations.associate(contactIdentityDetailsTrusted, to: self)
     }
 
     
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
 
@@ -405,4 +429,39 @@ struct ContactIdentityDetailsTrustedSyncSnapShotNode: ObvSyncSnapshotNode {
         case couldNotParsePhotoServerKey
         case couldNotDecodePhotoServerLabel
     }
+}
+
+
+// MARK: - ContactIdentityDetailsTrusted observers
+
+protocol ContactIdentityDetailsTrustedObserver: AnyObject {
+    func newTrustedContactIdentityDetails(contactIdentity: ObvContactIdentity) async
+}
+
+
+private actor ObserversHolder: ContactIdentityDetailsTrustedObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactIdentityDetailsTrustedObserver?
+        init(value: ContactIdentityDetailsTrustedObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactIdentityDetailsTrustedObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func newTrustedContactIdentityDetails(contactIdentity: ObvContactIdentity) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.newTrustedContactIdentityDetails(contactIdentity: contactIdentity) }
+            }
+        }
+    }
+    
 }

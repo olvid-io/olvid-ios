@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,20 +19,24 @@
 
 import Foundation
 import ObvTypes
+import ObvAppTypes
 
 
-public enum ObvUICoreDataError: Error {
+public enum ObvUICoreDataError: Error, Sendable {
     
+    case cannotCreateEmptyPersistedMessageReceived
+    case cannotCreateEmptyPersistedMessageSent
+    case pollQuestionIsEmpty
     case unhandledCallReportKind
     case callReportKindIsNil
     case obvDialogIsNil
     case inconsistentOneToOneDiscussionIdentifier // ok
     case cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact
     case couldNotFindDiscussion
-    case couldNotFindDiscussionWithId(discussionId: DiscussionIdentifier)
+    //case couldNotFindDiscussionWithId(discussionId: ObvDiscussionIdentifier)
     case couldNotFindOwnedIdentity
     case couldNotFindGroupV1InDatabase(groupIdentifier: GroupV1Identifier)
-    case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
+    case couldNotFindGroupV2InDatabase(groupIdentifier: ObvGroupV2Identifier)
     case couldNotDetemineGroupV1
     case couldNotDetemineGroupV2
     case couldNotFindPersistedMessage
@@ -41,10 +45,10 @@ public enum ObvUICoreDataError: Error {
     case noContext
     case inappropriateContext
     case unexpectedFromContactIdentity
-    case cannotUpdateConfigurationOfOneToOneDiscussionFromNonOneToOneContact
+    //case cannotUpdateConfigurationOfOneToOneDiscussionFromNonOneToOneContact
     case atLeastOneOfOneToOneIdentifierAndGroupIdentifierIsExpectedToBeNil
-    case contactNeitherGroupOwnerNorPartOfGroupMembers
-    case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactIdentifier: ObvContactIdentifier)
+    //case contactNeitherGroupOwnerNorPartOfGroupMembers
+    case contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: ObvGroupIdentifier, contactCryptoId: ObvCryptoId)
     case unexpectedOwnedCryptoId
     case ownedDeviceNotFound
     case couldNotDetermineTheOneToOneDiscussion
@@ -70,8 +74,8 @@ public enum ObvUICoreDataError: Error {
     case persistedGroupV2AlreadyExists
     case couldNotExtractJPEGData
     case ownedIdentityIsNotPartOfThisGroup
-    case theInitiatorIsNotPartOfTheGroup
-    case theInitiatorIsNotAllowedToChangeSettings
+    //case theInitiatorIsNotPartOfTheGroup
+    //case theInitiatorIsNotAllowedToChangeSettings
     case theOwnedIdentityIsNoAllowedToChangeSettings
     case couldNotGetTrustedGroupDetails
     case ownedIdentityIsNil
@@ -156,22 +160,22 @@ public enum ObvUICoreDataError: Error {
     case tryingToUpdateMemberWithPersistedContactThatDoesNotHaveAppropriateAssociatedOwnedIdentity
     case couldNotGetAddedMemberCryptoId
     case noMessageIdentifierForThisMessageType
-    case discussionIsNil
+    //case discussionIsNil
     case unexpectedAttachmentNumber
     case stringParsingFailed
     case thisSpecificSystemMessageCannotBeDeleted
     case cannotGloballyDeleteSystemMessage
     case cannotGloballyDeleteWipedMessage
-    case wipeRequestedByNonGroupMember
-    case wipeRequestedByMemberNotAllowedToRemoteDelete
-    case persistedGroupV2DiscussionIsNil
+    //case wipeRequestedByNonGroupMember
+    //case wipeRequestedByMemberNotAllowedToRemoteDelete
+    //case persistedGroupV2DiscussionIsNil
     case deleteRequestMakesNoSenseAsGroupHasNoOtherMembers
     case ownedIdentityIsNotAllowedToDeleteThisMessage
-    case messageReceivedByMemberNotAllowedToSendMessage
+    //case messageReceivedByMemberNotAllowedToSendMessage
     case ownedIdentityIsNotAllowedToSendMessages
-    case updateRequestReceivedByMemberNotAllowedToToEditOrRemoteDeleteOwnMessages
+    //case updateRequestReceivedByMemberNotAllowedToToEditOrRemoteDeleteOwnMessages
     case ownedIdentityIsNotAllowedToEditOrRemoteDeleteOwnMessages
-    case requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo
+    //case requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo
     case ownedIdentityIsNotAllowedToDeleteDiscussion
     case couldNotParseGroupIdentifier
     case couldNotFindSourceFile
@@ -205,9 +209,22 @@ public enum ObvUICoreDataError: Error {
     case cannotSendWipedMessage
     case couldNotTurnPersistedMessageSentIntoAMessageJSON
     case contactHasNoCoreDetails
+    case uuidIsNil
+    case messageIsNotPollMessage
+    case cannotEditPollMessage
 
     public var errorDescription: String? {
         switch self {
+        case .cannotEditPollMessage:
+            return "Cannot edit poll message"
+        case .cannotCreateEmptyPersistedMessageReceived:
+            return "Cannot create empty PersistedMessageReceived"
+        case .cannotCreateEmptyPersistedMessageSent:
+            return "Cannot create empty PersistedMessageSent"
+        case .pollQuestionIsEmpty:
+            return "Poll question is empty"
+        case .uuidIsNil:
+            return "UUID is nil"
         case .contactHasNoCoreDetails:
             return "Contact has no core details"
         case .couldNotTurnPersistedMessageSentIntoAMessageJSON:
@@ -270,26 +287,26 @@ public enum ObvUICoreDataError: Error {
             return "Could not parse group identifier"
         case .ownedIdentityIsNotAllowedToDeleteDiscussion:
             return "Owned identity is not allowed to delete discussion"
-        case .requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo:
-            return "Request to delete all messages within this group discussion from contact not allowed to do so"
+//        case .requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo:
+//            return "Request to delete all messages within this group discussion from contact not allowed to do so"
         case .ownedIdentityIsNotAllowedToEditOrRemoteDeleteOwnMessages:
             return "Owned identity is not allowed to edit or remote-delete own message"
-        case .updateRequestReceivedByMemberNotAllowedToToEditOrRemoteDeleteOwnMessages:
-            return "Update request received by member not allowed to edit or remote-delete own messages"
+//        case .updateRequestReceivedByMemberNotAllowedToToEditOrRemoteDeleteOwnMessages:
+//            return "Update request received by member not allowed to edit or remote-delete own messages"
         case .ownedIdentityIsNotAllowedToSendMessages:
             return "Owned identity is not allowed to send messages"
-        case .messageReceivedByMemberNotAllowedToSendMessage:
-            return "Message received by member not allowed to send message"
+//        case .messageReceivedByMemberNotAllowedToSendMessage:
+//            return "Message received by member not allowed to send message"
         case .ownedIdentityIsNotAllowedToDeleteThisMessage:
             return "The owned identity is not allowed to delete this message"
         case .deleteRequestMakesNoSenseAsGroupHasNoOtherMembers:
             return "Delete request makes no sense as group has no other members"
-        case .persistedGroupV2DiscussionIsNil:
-            return "Persisted group v2 discussion is nil"
-        case .wipeRequestedByMemberNotAllowedToRemoteDelete:
-            return "Wip requested by member not allowed to delete"
-        case .wipeRequestedByNonGroupMember:
-            return "Wipe requested by non group member"
+//        case .persistedGroupV2DiscussionIsNil:
+//            return "Persisted group v2 discussion is nil"
+//        case .wipeRequestedByMemberNotAllowedToRemoteDelete:
+//            return "Wip requested by member not allowed to delete"
+//        case .wipeRequestedByNonGroupMember:
+//            return "Wipe requested by non group member"
         case .cannotGloballyDeleteWipedMessage:
             return "Cannot globally wipe system message"
         case .cannotGloballyDeleteSystemMessage:
@@ -300,8 +317,8 @@ public enum ObvUICoreDataError: Error {
             return "String parsing failed"
         case .unexpectedAttachmentNumber:
             return "Unexpected attachment number"
-        case .discussionIsNil:
-            return "Discussion is nil"
+//        case .discussionIsNil:
+//            return "Discussion is nil"
         case .noMessageIdentifierForThisMessageType:
             return "No message identifier for this message type"
         case .couldNotGetAddedMemberCryptoId:
@@ -466,10 +483,10 @@ public enum ObvUICoreDataError: Error {
             return "Could not get trusted group details"
         case .theOwnedIdentityIsNoAllowedToChangeSettings:
             return "The owned identity is not allowed to change settings"
-        case .theInitiatorIsNotAllowedToChangeSettings:
-            return "The initiator is not allowed to change settings"
-        case .theInitiatorIsNotPartOfTheGroup:
-            return "The initiator is not part of the group"
+//        case .theInitiatorIsNotAllowedToChangeSettings:
+//            return "The initiator is not allowed to change settings"
+//        case .theInitiatorIsNotPartOfTheGroup:
+//            return "The initiator is not part of the group"
         case .ownedIdentityIsNotPartOfThisGroup:
             return "Owned identity is not part of this group"
         case .couldNotExtractJPEGData:
@@ -514,8 +531,8 @@ public enum ObvUICoreDataError: Error {
             return "Cannot insert a message in a OneToOne discussion from a contact that is not OneToOne"
         case .couldNotFindDiscussion:
             return "Could not find discussion"
-        case .couldNotFindDiscussionWithId:
-            return "Could not find discussion given for the identifier"
+//        case .couldNotFindDiscussionWithId:
+//            return "Could not find discussion given for the identifier"
         case .couldNotFindOwnedIdentity:
             return "Could not find the owned identity corresponding to this contact"
         case .couldNotFindGroupV1InDatabase:
@@ -528,14 +545,14 @@ public enum ObvUICoreDataError: Error {
             return "Could not find PersistedMessageReceived"
         case .unexpectedFromContactIdentity:
             return "UnexpectedFromContactIdentity"
-        case .cannotUpdateConfigurationOfOneToOneDiscussionFromNonOneToOneContact:
-            return "Cannot update OneToOne discussion shared settings sent by a contact that is not OneToOne"
+//        case .cannotUpdateConfigurationOfOneToOneDiscussionFromNonOneToOneContact:
+//            return "Cannot update OneToOne discussion shared settings sent by a contact that is not OneToOne"
         case .atLeastOneOfOneToOneIdentifierAndGroupIdentifierIsExpectedToBeNil:
             return "We expect at least one of OneOfOneToOneIdentifier and GroupIdentifier to be nil"
-        case .contactNeitherGroupOwnerNorPartOfGroupMembers:
-            return "This contact is not the group owner nor part of the group members"
-        case .contactIsNotPartOfTheGroup:
-            return "The contact is not part of the group"
+//        case .contactNeitherGroupOwnerNorPartOfGroupMembers:
+//            return "This contact is not the group owner nor part of the group members"
+        case .contactIsNotPartOfGroupOrRequiresPermissions:
+            return "The contact is not part of the group or hasn't appropriate permissions"
         case .inappropriateContext:
             return "Inappropriate context"
         case .unexpectedOwnedCryptoId:
@@ -572,6 +589,8 @@ public enum ObvUICoreDataError: Error {
             return "location of type Send should not be updated"
         case .messageIsNotAssociatedToThisLocation:
             return "message is not associated to this location"
+        case .messageIsNotPollMessage:
+            return "message is not poll message"
         }
     }
 

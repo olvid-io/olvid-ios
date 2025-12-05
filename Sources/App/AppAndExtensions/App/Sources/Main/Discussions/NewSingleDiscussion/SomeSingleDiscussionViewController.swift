@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,12 +20,14 @@
 import UIKit
 import ObvTypes
 import ObvUICoreData
+import ObvAppTypes
 
 
 protocol SomeSingleDiscussionViewController: UIViewController {
+    var discussionId: ObvDiscussionIdentifier? { get } // Non-nil, unless the identifier cannot be determined, which may hapen with locked discussions
     var discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion> { get }
     var discussionPermanentID: DiscussionPermanentID { get }
     var currentOwnedCryptoId: ObvCryptoId { get }
     func addAttachmentFromAirDropFile(at url: URL)
-    func scrollTo(message: PersistedMessage)
+    func scrollTo(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>)
 }

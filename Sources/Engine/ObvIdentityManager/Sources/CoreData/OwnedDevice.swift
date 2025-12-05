@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,18 +19,18 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvCrypto
 import ObvTypes
 import OlvidUtils
 
 @objc(OwnedDevice)
-final class OwnedDevice: NSManagedObject, ObvManagedObject {
+final class OwnedDevice: NSManagedObject {
 
     private static let entityName = "OwnedDevice"
-    private static func makeError(message: String) -> Error { NSError(domain: "OwnedDevice", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-
+    
+    static weak var delegateManager: ObvIdentityDelegateManager?
     
     // MARK: Attributes
     
@@ -39,7 +39,10 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     @NSManaged private var latestRegistrationDate: Date?
     @NSManaged private(set) var name: String?
     @NSManaged private var rawCapabilities: String?
-    @NSManaged private(set) var uid: UID // Unique (not enforced)
+    @NSManaged private var rawUID: Data? // Non-optional in the model, unique (not enforced), raw value of an UID
+
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: OwnedDevice.logSubsystem, category: "OwnedDevice") }()
 
     // MARK: Relationships
     
@@ -47,28 +50,9 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     @NSManaged private var preKeysForCurrentDevice: Set<PreKeyForCurrentOwnedDevice> // Always empty for a remote owned device. New elements are added by calling ``static createPreKeyForCurrentOwnedDevice(forCurrentOwnedDevice:withExpirationTimestamp:prng:)`` on ``PreKeyForCurrentOwnedDevice``
     
     /// If this device the current device of an owned identity, then currentDeviceIdentity is not nil and remoteDeviceIdentity is nil. If this device is a remote device of an owned identity (thus the current device of this identity on some other physical device), then currentDeviceIdentity is nil and remoteDeviceIdentity is not nil. In both cases, one (and only one) of these two relationships is not nil. This is captured by the computed variable `identity`.
-    private(set) var currentDeviceIdentity: OwnedIdentity? {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.currentDeviceIdentity.rawValue) as! OwnedIdentity?
-            item?.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.currentDeviceIdentity.rawValue)
-        }
-    }
-    
-    private(set) var remoteDeviceIdentity: OwnedIdentity? {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.remoteDeviceIdentity.rawValue) as! OwnedIdentity?
-            item?.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.remoteDeviceIdentity.rawValue)
-        }
-    }
-    
+    @NSManaged private(set) var currentDeviceIdentity: OwnedIdentity?
+    @NSManaged private(set) var remoteDeviceIdentity: OwnedIdentity?
+
     private var isCurrentDevice: Bool {
         get throws {
             if currentDeviceIdentity != nil && remoteDeviceIdentity == nil {
@@ -87,14 +71,18 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     
     // MARK: Other variables
     
-    weak var obvContext: ObvContext?
-    weak var delegateManager: ObvIdentityDelegateManager?
+    var uid: UID {
+        get throws(ObvError) {
+            guard let rawUID else { assertionFailure(); throw .unexpectedNilValue }
+            guard let uid = UID(uid: rawUID) else { assertionFailure(); throw .couldNotParseValue }
+            return uid
+        }
+    }
+    
     var identity: OwnedIdentity? {
         if let currentDeviceIdentity {
-            currentDeviceIdentity.delegateManager = delegateManager
             return currentDeviceIdentity
         } else if let remoteDeviceIdentity {
-            remoteDeviceIdentity.delegateManager = delegateManager
             return remoteDeviceIdentity
         } else {
             // Happens if the device was just deleted
@@ -117,27 +105,26 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     // MARK: - Initializers
     
     /// This initializer creates the current device of the owned identity. It should only be called at the time we create an owned identity.
-    private convenience init?(ownedIdentity: OwnedIdentity, name: String, with prng: PRNGService, delegateManager: ObvIdentityDelegateManager) {
-        guard let obvContext = ownedIdentity.obvContext else {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: "OwnedDevice")
-            os_log("Could not get a context", log: log, type: .fault)
+    private convenience init?(ownedIdentity: OwnedIdentity, name: String, with prng: PRNGService) {
+        guard let context = ownedIdentity.managedObjectContext else {
+            Self.logger.fault("Could not get a context")
+            assertionFailure()
             return nil
         }
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         
         self.expirationDate = nil // Set later
         self.latestRegistrationDate = nil // Set later
         let trimmedName = name.trimmingWhitespacesAndNewlines()
         self.name = trimmedName.isEmpty ? nil : trimmedName
         self.rawCapabilities = nil // Set bellow
-        self.uid = UID.gen(with: prng)
+        self.rawUID = UID.gen(with: prng).raw
         
         self.currentDeviceIdentity = ownedIdentity
         self.remoteDeviceIdentity = nil
 
-        self.delegateManager = delegateManager
         self.createdDuringChannelCreation = false // As we are creating the current device
         
         let capabilitiesForCurrentDevice: Set<ObvCapability> = Set(ObvCapability.allCases.filter { capability in
@@ -152,48 +139,47 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     }
     
     
-    static func createCurrentOwnedDevice(ownedIdentity: OwnedIdentity, name: String, with prng: PRNGService, delegateManager: ObvIdentityDelegateManager) -> OwnedDevice? {
-        let currentOwnedDevice = Self.init(ownedIdentity: ownedIdentity, name: name, with: prng, delegateManager: delegateManager)
+    static func createCurrentOwnedDevice(ownedIdentity: OwnedIdentity, name: String, with prng: PRNGService) -> OwnedDevice? {
+        let currentOwnedDevice = Self.init(ownedIdentity: ownedIdentity, name: name, with: prng)
         return currentOwnedDevice
     }
 
     
     /// This device adds a remote device to the owned identity.
-    convenience init?(remoteDeviceUid: UID, ownedIdentity: OwnedIdentity, createdDuringChannelCreation: Bool, delegateManager: ObvIdentityDelegateManager) {
-        guard let obvContext = ownedIdentity.obvContext else {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: "OwnedDevice")
-            os_log("Could not get a context", log: log, type: .fault)
+    convenience init?(remoteDeviceUid: UID, ownedIdentity: OwnedIdentity, createdDuringChannelCreation: Bool) {
+        guard let context = ownedIdentity.managedObjectContext else {
+            Self.logger.fault("Could not get a context")
+            assertionFailure()
             return nil
         }
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         
         self.expirationDate = nil // Set later
         self.latestRegistrationDate = nil // Set later
         self.name = nil // Set later
         self.rawCapabilities = nil // Set later
-        self.uid = remoteDeviceUid
+        self.rawUID = remoteDeviceUid.raw
         
         self.currentDeviceIdentity = nil
         self.remoteDeviceIdentity = ownedIdentity
         
-        self.delegateManager = delegateManager
         self.createdDuringChannelCreation = createdDuringChannelCreation
     }
 
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreated in a second step
-    fileprivate convenience init(backupItem: OwnedDeviceBackupItem, within obvContext: ObvContext) {
+    fileprivate convenience init(backupItem: OwnedDeviceBackupItem, within context: NSManagedObjectContext) {
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         
         self.expirationDate = nil // Set later
         self.latestRegistrationDate = nil // Set bellow
         self.name = nil // Set later by the engine, using `setCurrentDeviceNameAfterBackupRestore(newName:)`, right after backup restore
         self.rawCapabilities = nil // Set later
-        self.uid = backupItem.uid
+        self.rawUID = backupItem.uid.raw
         
         self.createdDuringChannelCreation = false
         
@@ -210,17 +196,17 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     
 
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreated in a second step
-    fileprivate convenience init(snapshotItem: OwnedDeviceSnapshotItem, within obvContext: ObvContext) {
+    fileprivate convenience init(snapshotItem: OwnedDeviceSnapshotItem, within context: NSManagedObjectContext) {
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
                 
         self.expirationDate = nil // Set later
         self.latestRegistrationDate = nil // Set bellow
         let trimmedName = snapshotItem.customDeviceName.trimmingWhitespacesAndNewlines()
         self.name = trimmedName.isEmpty ? nil : trimmedName
         self.rawCapabilities = nil // Set later
-        self.uid = snapshotItem.uid
+        self.rawUID = snapshotItem.uid.raw
         
         self.createdDuringChannelCreation = false
         
@@ -244,13 +230,11 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     }
     
 
-    func updateThisDevice(with device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date, delegateManager: ObvIdentityDelegateManager) throws -> DevicePreKey? {
+    func updateThisDevice(with device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date) throws -> DevicePreKey? {
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: Self.entityName)
-
-        guard self.uid == device.uid else {
+        guard try self.uid == device.uid else {
             assertionFailure()
-            throw Self.makeError(message: "Unexpected UID")
+            throw ObvError.unexpectedUID
         }
 
         if self.expirationDate != device.expirationDate {
@@ -270,15 +254,12 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         if try self.isCurrentDevice {
             
             let preKeyToUploadForCurrentDevice = try updateThisCurrentOwnedDevicePreKey(device: device,
-                                                                                        serverCurrentTimestamp: serverCurrentTimestamp,
-                                                                                        delegateManager: delegateManager)
+                                                                                        serverCurrentTimestamp: serverCurrentTimestamp)
             return preKeyToUploadForCurrentDevice
                         
         } else {
             
-            updateThisRemoteOwnedDevicePreKey(device: device,
-                                              serverCurrentTimestamp: serverCurrentTimestamp,
-                                              log: log)
+            updateThisRemoteOwnedDevicePreKey(device: device, serverCurrentTimestamp: serverCurrentTimestamp)
             
             return nil
             
@@ -288,7 +269,7 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     
     
     /// Helper method for ``updateThisDevice(with:serverCurrentTimestamp:delegateManager:)``. It is called during the processing of a ``OwnedDeviceDiscoveryResult.Device`` in case the concerned device is a remote owned device.
-    private func updateThisRemoteOwnedDevicePreKey(device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date, log: OSLog) {
+    private func updateThisRemoteOwnedDevicePreKey(device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date) {
         
         deleteThisRemoteOwnedDevicePreKeyIfExpired(serverCurrentTimestamp: serverCurrentTimestamp)
         
@@ -307,14 +288,14 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
                         _ = try PreKeyForRemoteOwnedDevice(deviceBlobOnServer: deviceBlobOnServer, forRemoteOwnedDevice: self)
                     }
                 } catch {
-                    os_log("Failed to save preKey on server for a remote owned device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    Self.logger.fault("Failed to save preKey on server for a remote owned device: \(error.localizedDescription, privacy: .public)")
                     assertionFailure()
                 }
             } else {
                 do {
                     try self.preKeyForRemoteOwnedDevice?.deletePreKeyForRemoteOwnedDevice()
                 } catch {
-                    os_log("Failed to delete preKey on server for a remote owned device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    Self.logger.fault("Failed to delete preKey on server for a remote owned device: \(error.localizedDescription, privacy: .public)")
                     assertionFailure()
                 }
             }
@@ -330,7 +311,7 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     
     /// Helper method for ``updateThisDevice(with:serverCurrentTimestamp:delegateManager:)``. It is called during the processing of a ``OwnedDeviceDiscoveryResult.Device`` in case the concerned device is the current owned device.
     /// This method returns a `DevicePreKey` iff it should be uploaded to the server.
-    private func updateThisCurrentOwnedDevicePreKey(device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date, delegateManager: ObvIdentityDelegateManager) throws -> DevicePreKey? {
+    private func updateThisCurrentOwnedDevicePreKey(device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date) throws -> DevicePreKey? {
 
         // Note that we do not delete expired pre-keys for the current device. This is not performed during the processing of an owned device discovery, but only after a successful
         // not-truncated list on the server.
@@ -401,7 +382,16 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
             
         case .createPreKey:
             
-            let devicePreKey = try PreKeyForCurrentOwnedDevice.createPreKeyForCurrentOwnedDevice(forCurrentOwnedDevice: self, serverCurrentTimestamp: serverCurrentTimestamp, prng: delegateManager.prng)
+            guard let delegateManager = Self.delegateManager else {
+                assertionFailure()
+                throw ObvError.delegateManagerNotSet
+            }
+            
+            let devicePreKey = try PreKeyForCurrentOwnedDevice.createPreKeyForCurrentOwnedDevice(
+                forCurrentOwnedDevice: self,
+                serverCurrentTimestamp: serverCurrentTimestamp,
+                prng: delegateManager.prng)
+            
             return devicePreKey
 
         case .returnPreKey(devicePreKey: let devicePreKey):
@@ -434,10 +424,9 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     }
     
         
-    func deleteThisDevice(delegateManager: ObvIdentityDelegateManager) throws {
-        guard let context = managedObjectContext else { throw Self.makeError(message: "No context") }
-        ownedCryptoIdentityOnDeletion = identity?.cryptoIdentity
-        self.delegateManager = delegateManager
+    func deleteThisDevice() throws {
+        guard let context = managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        ownedCryptoIdentityOnDeletion = try? identity?.cryptoIdentity
         context.delete(self)
     }
     
@@ -492,6 +481,11 @@ extension OwnedDevice {
     
     enum ObvError: Error {
         case unexpectedValuesForCurrentDevice
+        case unexpectedNilValue
+        case couldNotParseValue
+        case noContext
+        case unexpectedUID
+        case delegateManagerNotSet
     }
     
 }
@@ -530,14 +524,16 @@ extension OwnedDevice {
     
     struct Predicate {
         enum Key: String {
-            case uid = "uid"
+            // Attributes
+            case latestChannelCreationPingTimestamp = "latestChannelCreationPingTimestamp"
             case rawCapabilities = "rawCapabilities"
+            case rawUID = "rawUID"
+            // Relationships
             case currentDeviceIdentity = "currentDeviceIdentity"
             case remoteDeviceIdentity = "remoteDeviceIdentity"
-            case latestChannelCreationPingTimestamp = "latestChannelCreationPingTimestamp"
         }
         static func withUid(_ uid: UID) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.uid.rawValue, uid)
+            NSPredicate(Key.rawUID, EqualToData: uid.raw)
         }
         fileprivate static func withLatestChannelCreationPingTimestamp(earlierThan date: Date) -> NSPredicate {
             NSCompoundPredicate(orPredicateWithSubpredicates: [
@@ -549,36 +545,36 @@ extension OwnedDevice {
 
     
     /// This class method returns an OwnedDevice, but only if it is the current device.
-    static func get(currentDeviceUid: UID, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> OwnedDevice? {
+    static func get(currentDeviceUid: UID, within context: NSManagedObjectContext) throws -> OwnedDevice? {
         let request: NSFetchRequest<OwnedDevice> = OwnedDevice.fetchRequest()
         request.predicate = Predicate.withUid(currentDeviceUid)
-        let item = (try obvContext.fetch(request)).first
+        let item = try context.fetch(request).first
         if item?.currentDeviceIdentity == nil {
             return nil
         }
-        item?.delegateManager = delegateManager
         return item
     }
 
     /// This class method returns an OwnedDevice, but only if it is *not* the current device.
-    static func get(remoteDeviceUid: UID, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> OwnedDevice? {
+    static func get(remoteDeviceUid: UID, within context: NSManagedObjectContext) throws -> OwnedDevice? {
         let request: NSFetchRequest<OwnedDevice> = OwnedDevice.fetchRequest()
         request.predicate = Predicate.withUid(remoteDeviceUid)
-        let item = (try obvContext.fetch(request)).first
+        let item = try context.fetch(request).first
         if item?.remoteDeviceIdentity == nil {
             return nil
         }
-        item?.delegateManager = delegateManager
         return item
     }
     
     
-    static func getAllOwnedRemoteDeviceUids(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
+    static func getAllOwnedRemoteDeviceUids(within context: NSManagedObjectContext) throws -> Set<ObliviousChannelIdentifier> {
         let request: NSFetchRequest<OwnedDevice> = OwnedDevice.fetchRequest()
-        let items = try obvContext.fetch(request)
-        let values: Set<ObliviousChannelIdentifier> = Set(items.compactMap {
-            guard let identity = $0.identity, identity.currentDeviceUid != $0.uid else { return nil }
-            return ObliviousChannelIdentifier(currentDeviceUid: identity.currentDeviceUid, remoteCryptoIdentity: identity.cryptoIdentity, remoteDeviceUid: $0.uid)
+        let items = try context.fetch(request)
+        let values: Set<ObliviousChannelIdentifier> = try Set(items.compactMap {
+            guard let identity = $0.identity, try identity.currentDeviceUid != $0.uid else { return nil }
+            return ObliviousChannelIdentifier(currentDeviceUid: try identity.currentDeviceUid,
+                                              remoteCryptoIdentity: try identity.cryptoIdentity,
+                                              remoteDeviceUid: try $0.uid)
         })
         return values
     }
@@ -589,9 +585,11 @@ extension OwnedDevice {
         request.predicate = Predicate.withLatestChannelCreationPingTimestamp(earlierThan: date)
         request.fetchBatchSize = 500
         let items = try context.fetch(request)
-        let values: Set<ObliviousChannelIdentifier> = Set(items.compactMap {
-            guard let identity = $0.identity, identity.currentDeviceUid != $0.uid else { return nil }
-            return ObliviousChannelIdentifier(currentDeviceUid: identity.currentDeviceUid, remoteCryptoIdentity: identity.cryptoIdentity, remoteDeviceUid: $0.uid)
+        let values: Set<ObliviousChannelIdentifier> = try Set(items.compactMap {
+            guard let identity = $0.identity, try identity.currentDeviceUid != $0.uid else { return nil }
+            return ObliviousChannelIdentifier(currentDeviceUid: try identity.currentDeviceUid,
+                                              remoteCryptoIdentity: try identity.cryptoIdentity,
+                                              remoteDeviceUid: try $0.uid)
         })
         return values
     }
@@ -617,37 +615,43 @@ extension OwnedDevice {
             changedKeys.removeAll()
         }
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog.init(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: OwnedDevice.entityName)
-            os_log("The delegate manager is not set (1) - Ok during a backup restore or when deleting the corresponding profile", log: log, type: .error)
-            return
-        }
-
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: OwnedDevice.entityName)
-
-        guard let flowId = obvContext?.flowId else {
-            os_log("The obvContext is not set", log: log, type: .fault)
+        guard let delegateManager = Self.delegateManager else {
+            Self.logger.error("The delegate manager is not set (1) - Ok during a backup restore or when deleting the corresponding profile")
             assertionFailure()
             return
         }
 
         if !isDeleted && changedKeys.contains(Predicate.Key.rawCapabilities.rawValue), let identity = self.identity {
             // We do *not* send the device's capabilities. Eventually, the app will request the capabilities of the owned identity that will compute her capabilities on the basis of the capabilities of all her owned devices.
-            ObvIdentityNotificationNew.ownedIdentityCapabilitiesWereUpdated(ownedIdentity: identity.cryptoIdentity, flowId: flowId)
-                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+            do {
+                ObvIdentityNotificationNew.ownedIdentityCapabilitiesWereUpdated(ownedIdentity: try identity.cryptoIdentity)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+            } catch {
+                assertionFailure()
+            }
         }
         
         if !isDeleted && !changedKeys.isEmpty, let identity = self.identity {
-            ObvIdentityNotificationNew.anOwnedDeviceWasUpdated(ownedCryptoId: identity.cryptoIdentity)
-                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+            do {
+                ObvIdentityNotificationNew.anOwnedDeviceWasUpdated(ownedCryptoId: try identity.cryptoIdentity)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+            } catch {
+                assertionFailure()
+            }
         }
         
         if isInserted {
-            if let remoteDeviceIdentity {
+            if let remoteDeviceIdentity, let remoteDeviceUid = try? self.uid {
                 assert(createdDuringChannelCreation != nil)
                 let createdDuringChannelCreation = self.createdDuringChannelCreation ?? false
-                ObvIdentityNotificationNew.newRemoteOwnedDevice(ownedCryptoId: remoteDeviceIdentity.cryptoIdentity, remoteDeviceUid: uid, createdDuringChannelCreation: createdDuringChannelCreation)
+                do {
+                    ObvIdentityNotificationNew.newRemoteOwnedDevice(ownedCryptoId: try remoteDeviceIdentity.cryptoIdentity,
+                                                                    remoteDeviceUid: remoteDeviceUid,
+                                                                    createdDuringChannelCreation: createdDuringChannelCreation)
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+                } catch {
+                    assertionFailure()
+                }
             }
         }
         
@@ -665,7 +669,9 @@ extension OwnedDevice {
 extension OwnedDevice {
     
     var backupItem: OwnedDeviceBackupItem {
-        return OwnedDeviceBackupItem(uid: self.uid)
+        get throws {
+            return OwnedDeviceBackupItem(uid: try self.uid)
+        }
     }
     
 }
@@ -697,14 +703,14 @@ struct OwnedDeviceBackupItem: Codable, Hashable {
         self.uid = uid
     }
     
-    func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
 
-    static func generateNewCurrentDevice(prng: PRNGService, within obvContext: ObvContext) -> OwnedDevice {
+    static func generateNewCurrentDevice(prng: PRNGService, within context: NSManagedObjectContext) -> OwnedDevice {
         let uid = UID.gen(with: prng)
         let dummyBackupItem = OwnedDeviceBackupItem(uid: uid)
-        let currentDevice = OwnedDevice(backupItem: dummyBackupItem, within: obvContext)
+        let currentDevice = OwnedDevice(backupItem: dummyBackupItem, within: context)
         return currentDevice
     }
     
@@ -726,10 +732,10 @@ struct OwnedDeviceSnapshotItem {
         self.customDeviceName = customDeviceName
     }
     
-    static func generateNewCurrentDevice(prng: PRNGService, customDeviceName: String, within obvContext: ObvContext) -> OwnedDevice {
+    static func generateNewCurrentDevice(prng: PRNGService, customDeviceName: String, within context: NSManagedObjectContext) -> OwnedDevice {
         let uid = UID.gen(with: prng)
         let dummySnapshotItem = Self.init(uid: uid, customDeviceName: customDeviceName)
-        return .init(snapshotItem: dummySnapshotItem, within: obvContext)
+        return .init(snapshotItem: dummySnapshotItem, within: context)
     }
     
 }

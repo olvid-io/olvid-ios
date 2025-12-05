@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import CoreData
 import ObvEncoder
 import ObvCrypto
 import OlvidUtils
@@ -65,11 +66,11 @@ public struct DeviceBlobOnServer: ObvCodable {
     }
     
     
-    public static func createDevicePreKeyToUploadOnServer(devicePreKey: DevicePreKey, deviceCapabilities: Set<ObvCapability>, ownedCryptoId: ObvCryptoIdentity, prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws -> Self {
+    public static func createDevicePreKeyToUploadOnServer(devicePreKey: DevicePreKey, deviceCapabilities: Set<ObvCapability>, ownedCryptoId: ObvCryptoIdentity, prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within context: NSManagedObjectContext) throws -> Self {
         let devicePreKeyEncoded = devicePreKey.obvEncode()
         let deviceBlob = DeviceBlob(devicePreKey: devicePreKey, deviceCapabilities: deviceCapabilities, devicePreKeyEncoded: devicePreKeyEncoded)
         let deviceBlobEncoded = deviceBlob.obvEncode()
-        let challengeResponse = try solveChallengeDelegate.solveChallenge(.devicePreKey(deviceBlobEncoded: deviceBlobEncoded.rawData), for: ownedCryptoId, using: prng, within: obvContext)
+        let challengeResponse = try solveChallengeDelegate.solveChallenge(.devicePreKey(deviceBlobEncoded: deviceBlobEncoded.rawData), for: ownedCryptoId, using: prng, within: context)
         return DeviceBlobOnServer(challengeResponse: challengeResponse, deviceBlob: deviceBlob, deviceBlobEncoded: deviceBlobEncoded)
     }
 

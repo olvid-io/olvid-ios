@@ -35,24 +35,22 @@ class StorageManagementDiscussionCellViewModel: StorageManagementDiscussionCellV
     }
     
     var formattedSize: String {
-        let totalByteCount = files.compactMap(\.totalByteCount).reduce(0, +)
-        
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = .useAll
         formatter.countStyle = .file
         formatter.includesUnit = true
         formatter.isAdaptive = true
         
-        return formatter.string(fromByteCount: totalByteCount)
+        return formatter.string(fromByteCount: size)
     }
     
     let discussion: PersistedDiscussion
     
-    let files: [FyleMessageJoinWithStatus]
+    let size: Int64
     
     init(discussion: PersistedDiscussion,
-         files: [FyleMessageJoinWithStatus]) {
+         size: Int64) {
         self.discussion = discussion
-        self.files = files
+        self.size = size
     }
 }

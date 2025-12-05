@@ -61,6 +61,10 @@ struct GroupTypeViewCellHeader: View {
         }
     }
     
+    private var accessibilityLabel: Text {
+        Text(title) + Text(verbatim: ",") + Text(description)
+    }
+    
     private var backgroundColor: Color {
         Color(.secondarySystemGroupedBackground)
     }
@@ -80,6 +84,8 @@ struct GroupTypeViewCellHeader: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(backgroundColor)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 

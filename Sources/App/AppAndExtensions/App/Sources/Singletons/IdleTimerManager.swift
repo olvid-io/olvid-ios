@@ -21,6 +21,7 @@ import UIKit
 
 
 /// This singleton centralizes all requests to disable/enable the app idle timer, preventing the system to put the device into a "sleep” state where the screen dims.
+@MainActor
 final class IdleTimerManager {
     
     static let shared = IdleTimerManager()

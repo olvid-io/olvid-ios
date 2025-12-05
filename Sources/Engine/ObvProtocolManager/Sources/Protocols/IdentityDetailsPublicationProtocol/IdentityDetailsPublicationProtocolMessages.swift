@@ -60,7 +60,7 @@ extension IdentityDetailsPublicationProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             self.version = try message.encodedInputs.obvDecode()
         }
         
@@ -82,7 +82,7 @@ extension IdentityDetailsPublicationProtocol {
         var encodedInputs: [ObvEncoded] { return [] }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
@@ -107,7 +107,7 @@ extension IdentityDetailsPublicationProtocol {
         }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }
@@ -137,7 +137,7 @@ extension IdentityDetailsPublicationProtocol {
         }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.obvDecode()
             self.ownedIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 @preconcurrency import ObvMetaManager
 import ObvCrypto
@@ -49,7 +49,31 @@ final class BootstrapWorker: @unchecked Sendable {
         self.outbox = outbox
     }
     
-    
+    func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {
+
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The Context Creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        internalQueue.addOperation { [weak self] in
+            delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.mainApp, flowId: flowId)
+            self?.rescheduleAllOutboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
+            self?.pruneOldOutboxMessages(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
+            self?.rePostOutboxMessageWasUploadedNotificationsAndTryToDeleteUploadedMessages(flowId: flowId, log: log, delegateManager: delegateManager)
+        }
+    }
+
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
 
         guard appType == .mainApp else { return }
@@ -76,12 +100,6 @@ final class BootstrapWorker: @unchecked Sendable {
         // We used to schedule these operations in `finalizeInitialization`. In order to speed up the boot process, we schedule them here instead
         internalQueue.addOperation { [weak self] in
             self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
-            if forTheFirstTime {
-                delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.mainApp, flowId: flowId)
-                self?.rescheduleAllOutboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
-                self?.pruneOldOutboxMessages(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
-                self?.rePostOutboxMessageWasUploadedNotificationsAndTryToDeleteUploadedMessages(flowId: flowId, log: log, delegateManager: delegateManager)
-            }
             // 2020-06-29 Added this to make sure we always send attachments
             delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.shareExtension, flowId: flowId)
         }
@@ -136,7 +154,7 @@ extension BootstrapWorker {
             
             let attachmentSessions: [OutboxAttachmentSession]
             do {
-                attachmentSessions = try OutboxAttachmentSession.getAllCreatedByAppType(appTypeCreator, within: obvContext)
+                attachmentSessions = try OutboxAttachmentSession.getAllCreatedByAppType(appTypeCreator, within: obvContext.context)
             } catch {
                 os_log("Could not invalidate and cancel old OutboxAttachmentSessions: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
@@ -146,7 +164,7 @@ extension BootstrapWorker {
                 let configuration = URLSessionConfiguration.background(withIdentifier: attachmentSession.sessionIdentifier)
                 let urlSession = URLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
                 urlSession.invalidateAndCancel()
-                obvContext.delete(attachmentSession)
+                obvContext.context.delete(attachmentSession)
             }
 
             do {
@@ -172,7 +190,7 @@ extension BootstrapWorker {
             // Perform a batch upload of messages without attachment
 
             do {
-                let serverURLs = try OutboxMessage.getAllServerURLsForMessagesToUpload(within: obvContext)
+                let serverURLs = try OutboxMessage.getAllServerURLsForMessagesToUpload(within: obvContext.context)
                 for serverURL in serverURLs {
                     Task {
                         try? await delegateManager.networkSendFlowDelegate.requestBatchUploadMessagesWithoutAttachment(serverURL: serverURL, flowId: flowId)
@@ -188,7 +206,7 @@ extension BootstrapWorker {
 
             let outboxMessageIdentifiers: [ObvMessageIdentifier]
             do {
-                let outboxMessages = try OutboxMessage.getAllMessagesToUploadWithAttachments(delegateManager: delegateManager, within: obvContext)
+                let outboxMessages = try OutboxMessage.getAllMessagesToUploadWithAttachments(within: obvContext.context)
                 outboxMessageIdentifiers = outboxMessages.compactMap { $0.messageId }
             } catch {
                 os_log("Could not reschedule existing OutboxMessages", log: log, type: .fault)
@@ -211,7 +229,7 @@ extension BootstrapWorker {
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             let dateInThePast = Date(timeIntervalSinceNow: -TimeInterval(days: 30))
             do {
-                try OutboxMessage.pruneOldOutboxMessages(createdEarlierThan: dateInThePast, delegateManager: delegateManager, log: log, within: obvContext)
+                try OutboxMessage.pruneOldOutboxMessages(createdEarlierThan: dateInThePast, log: log, within: obvContext.context)
                 try obvContext.save(logOnFailure: log)
             } catch {
                 os_log("Could not prune old OutboxMessages: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -293,7 +311,7 @@ extension BootstrapWorker {
 
         let deletedMessages: [DeletedOutboxMessage]
         do {
-            deletedMessages = try DeletedOutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)
+            deletedMessages = try DeletedOutboxMessage.getAll(within: obvContext.context)
         } catch {
             os_log("Could not get all deleted outbox messages", log: log, type: .fault)
             assertionFailure()
@@ -330,7 +348,7 @@ extension BootstrapWorker {
         contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
 
             do {
-                try DeletedOutboxMessage.batchDelete(messageId: messageIdentifier, within: obvContext)
+                try DeletedOutboxMessage.batchDelete(messageId: messageIdentifier, within: obvContext.context)
                 try obvContext.save(logOnFailure: log)
                 os_log("Just deleted one DeletedOutboxMessages with messageIdentifier: %{public}@", log: log, type: .info, messageIdentifier.debugDescription)
             } catch {
@@ -363,7 +381,7 @@ extension BootstrapWorker {
         contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
             
             do {
-                try DeletedOutboxMessage.batchDelete(withTimestampFromServerEarlierOrEqualTo: referenceDate, within: obvContext)
+                try DeletedOutboxMessage.batchDelete(withTimestampFromServerEarlierOrEqualTo: referenceDate, within: obvContext.context)
                 try obvContext.save(logOnFailure: log)
                 os_log("Just batch deleted all DeletedOutboxMessage entries inserted before %{public}@", log: log, type: .info, referenceDate.debugDescription)
             } catch {
@@ -388,7 +406,7 @@ extension BootstrapWorker {
         delegateManager.contextCreator?.performBackgroundTaskAndWait(flowId: flowId, { (obvContext) in
             let uploadedMessages: [OutboxMessage]
             do {
-                uploadedMessages = try OutboxMessage.getAllUploaded(delegateManager: delegateManager, within: obvContext)
+                uploadedMessages = try OutboxMessage.getAllUploaded(within: obvContext.context)
             } catch {
                 os_log("Could not get all uploaded messages", log: log, type: .fault)
                 assertionFailure()
@@ -470,7 +488,7 @@ extension BootstrapWorker {
             
             let existingMessageIds: Set<ObvMessageIdentifier>
             do {
-                let existingMessages = try OutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)
+                let existingMessages = try OutboxMessage.getAll(within: obvContext.context)
                 existingMessageIds = Set(existingMessages.compactMap({ $0.messageId }))
             } catch {
                 os_log("Could not clean outbox: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -508,14 +526,14 @@ extension BootstrapWorker {
         guard appType == .mainApp else { assertionFailure(); return }
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             do {
-                let sessionIdentifiers = try OutboxAttachmentSession.getSessionIdentifiersOfAllOrphanedOutboxAttachmentSession(within: obvContext)
+                let sessionIdentifiers = try OutboxAttachmentSession.getSessionIdentifiersOfAllOrphanedOutboxAttachmentSession(within: obvContext.context)
                 guard !sessionIdentifiers.isEmpty else { return }
                 for sessionIdentifier in sessionIdentifiers {
                     let configuration = URLSessionConfiguration.background(withIdentifier: sessionIdentifier)
                     let urlSession = URLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
                     urlSession.invalidateAndCancel()
                 }
-                try OutboxAttachmentSession.deleteAllOrphaned(within: obvContext)
+                try OutboxAttachmentSession.deleteAllOrphaned(within: obvContext.context)
                 try obvContext.save(logOnFailure: log)
             } catch {
                 os_log("Could not batch delete all orphaned OutboxAttachmentSession", log: log, type: .fault)
@@ -535,7 +553,7 @@ extension BootstrapWorker {
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             let chunks: [OutboxAttachmentChunk]
             do {
-                chunks = try OutboxAttachmentChunk.getAllOrphanedOutboxAttachmentChunk(with: obvContext)
+                chunks = try OutboxAttachmentChunk.getAllOrphanedOutboxAttachmentChunk(with: obvContext.context)
             } catch {
                 os_log("Could not delete orphaned chunks (1)", log: log, type: .fault)
                 return
@@ -549,7 +567,7 @@ extension BootstrapWorker {
                     os_log("Could not delete file of orphaned chunk", log: log, type: .fault)
                     // Continue anyway
                 }
-                obvContext.delete(chunk)
+                obvContext.context.delete(chunk)
             }
             do {
                 try obvContext.save(logOnFailure: log)
@@ -570,7 +588,7 @@ extension BootstrapWorker {
         guard appType == .mainApp else { assertionFailure(); return }
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             do {
-                try OutboxAttachment.deleteAllOrphanedAttachments(within: obvContext)
+                try OutboxAttachment.deleteAllOrphanedAttachments(within: obvContext.context)
                 try obvContext.save(logOnFailure: log)
             } catch let error {
                 os_log("Could not delete orphaned attachments: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -590,7 +608,7 @@ extension BootstrapWorker {
         guard appType == .mainApp else { assertionFailure(); return }
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             do {
-                try MessageHeader.deleteAllOrphanedHeaders(within: obvContext)
+                try MessageHeader.deleteAllOrphanedHeaders(within: obvContext.context)
                 try obvContext.save(logOnFailure: log)
             } catch {
                 os_log("Could not delete orphaned headers: %{public}@", log: log, type: .fault, error.localizedDescription)

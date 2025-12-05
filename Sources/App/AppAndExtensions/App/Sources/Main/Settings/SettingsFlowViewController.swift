@@ -21,12 +21,13 @@ import UIKit
 import ObvTypes
 import ObvEngine
 import ObvUICoreData
+import ObvAppTypes
 import ObvAppBackup
 import ObvCrypto
 import ObvDesignSystem
 
 
-final class SettingsFlowViewController: UINavigationController {
+final class SettingsFlowViewController: KeyboardNavigationController {
 
     private(set) var ownedCryptoId: ObvCryptoId!
     private(set) var obvEngine: ObvEngine!
@@ -71,9 +72,13 @@ extension SettingsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        navigationBar.standardAppearance = appearance
+        if #available(iOS 26, *) {
+            // We don't change the appearance under iOS 26
+        } else {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            navigationBar.standardAppearance = appearance
+        }
 
     }
     

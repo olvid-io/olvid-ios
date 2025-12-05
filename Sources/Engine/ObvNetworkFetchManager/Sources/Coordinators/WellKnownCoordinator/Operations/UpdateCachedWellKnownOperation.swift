@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,7 +48,7 @@ final class UpdateCachedWellKnownOperation: ContextualOperationWithSpecificReaso
             var isUpdated = false
 
             let newWellKnownJSON: WellKnownJSON?
-            if let currentWellKnown = try CachedWellKnown.getCachedWellKnown(for: server, within: obvContext) {
+            if let currentWellKnown = try CachedWellKnown.getCachedWellKnown(for: server, within: obvContext.context) {
                 if newWellKnownData == currentWellKnown.wellKnownData {
                     if let wellKnownJSON = currentWellKnown.wellKnownJSON {
                         self.cachedWellKnownJSON = (wellKnownJSON, false)
@@ -65,7 +65,7 @@ final class UpdateCachedWellKnownOperation: ContextualOperationWithSpecificReaso
                 }
                 newWellKnownJSON = currentWellKnown.wellKnownJSON
             } else {
-                guard let cachedWellKnown = CachedWellKnown(serverURL: server, wellKnownData: newWellKnownData, downloadTimestamp: Date(), within: obvContext) else {
+                guard let cachedWellKnown = CachedWellKnown.createCachedWellKnown(serverURL: server, wellKnownData: newWellKnownData, downloadTimestamp: Date(), within: obvContext.context) else {
                     return cancel(withReason: .couldNotCreateCachedWellKnownObject)
                 }
                 newWellKnownJSON = cachedWellKnown.wellKnownJSON

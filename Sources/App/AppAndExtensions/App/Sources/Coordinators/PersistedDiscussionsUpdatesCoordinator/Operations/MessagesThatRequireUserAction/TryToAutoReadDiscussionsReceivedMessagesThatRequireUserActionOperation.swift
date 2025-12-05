@@ -77,7 +77,7 @@ final class TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperati
 
             self.ownedIdentityHasAnotherReachableDevice = ownedIdentity.hasAnotherDeviceWhichIsReachable
             
-            guard OlvidUserActivitySingleton.shared.currentDiscussionPermanentID == discussionPermanentID else { return }
+            guard OlvidUserActivitySingleton.shared.currentDiscussionID?.permanentID == discussionPermanentID else { return }
 
             let dateWhenMessageWasRead = Date()
             

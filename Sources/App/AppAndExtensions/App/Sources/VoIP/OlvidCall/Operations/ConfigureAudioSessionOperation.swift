@@ -53,7 +53,7 @@ final class ConfigureAudioSessionOperation: OperationWithSpecificReasonForCancel
 
             
             let configuration = RTCAudioSessionConfiguration.webRTC()
-            configuration.categoryOptions = [.allowBluetooth, .allowBluetoothA2DP, .duckOthers]
+            configuration.categoryOptions = [.allowBluetoothHFP, .allowBluetoothA2DP, .duckOthers]
             try rtcAudioSession.setConfiguration(configuration)
             
             if ObvUICoreDataConstants.useCallKit {

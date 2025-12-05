@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23788" systemVersion="24F74" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="ObvAppInbox-v1">
+    <entity name="PersistedEncryptedReceivedReturnReceipt" representedClassName="PersistedEncryptedReceivedReturnReceipt" syncable="YES">
+        <attribute name="creationTimestamp" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="nonce" attributeType="Binary"/>
+        <attribute name="rawEncryptedPayload" attributeType="Binary"/>
+        <attribute name="rawOwnedIdentity" attributeType="Binary"/>
+        <attribute name="rawServerUID" attributeType="Binary"/>
+        <attribute name="receiptTimestamp" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+</model>

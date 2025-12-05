@@ -9,6 +9,9 @@ extension TargetDependency {
             public static let olvidUtils = TargetDependency.project(target: "OlvidUtils", path: .olvidPath("OlvidUtils", in: .shared))
             public static let obvCoreDataStack = TargetDependency.project(target: "ObvCoreDataStack", path: .olvidPath("ObvCoreDataStack", in: .shared))
             public static let obvNetworkStatus = TargetDependency.project(target: "ObvNetworkStatus", path: .olvidPath("ObvNetworkStatus", in: .shared))
+            public static let obvAccessibility = TargetDependency.project(target: "ObvAccessibility", path: .olvidPath("ObvAccessibility", in: .shared))
+            public static let obvOwnedIdentityChooser = TargetDependency.project(target: "ObvOwnedIdentityChooser", path: .olvidPath("ObvOwnedIdentityChooser", in: .shared))
+            public static let obvSharedDataSources = TargetDependency.project(target: "ObvSharedDataSources", path: .olvidPath("ObvSharedDataSources", in: .shared))
         }
         
         public struct Engine {
@@ -34,21 +37,35 @@ extension TargetDependency {
         }
         
         public struct App {
+            public static let obvSidebar = TargetDependency.project(target: "ObvSidebar", path: .olvidPath("ObvSidebar", in: .app))
             public static let obvSubscription = TargetDependency.project(target: "ObvSubscription", path: .olvidPath("ObvSubscription", in: .app))
             public static let obvOnboarding = TargetDependency.project(target: "ObvOnboarding", path: .olvidPath("ObvOnboarding", in: .app))
+            public static let obvPollFeature = TargetDependency.project(target: "ObvPollFeature", path: .olvidPath("ObvPollFeature", in: .app))
             public static let obvKeycloakManager = TargetDependency.project(target: "ObvKeycloakManager", path: .olvidPath("ObvKeycloakManager", in: .app))
             public static let obvAppTypes = TargetDependency.project(target: "ObvAppTypes", path: .olvidPath("ObvAppTypes", in: .app))
             public static let obvUICoreData = TargetDependency.project(target: "ObvUICoreData", path: .olvidPath("ObvUICoreData", in: .app))
             public static let obvLocation = TargetDependency.project(target: "ObvLocation", path: .olvidPath("ObvLocation", in: .app))
+            public static let obvLicenceActivationFlow = TargetDependency.project(target: "ObvLicenceActivationFlow", path: .olvidPath("ObvLicenceActivationFlow", in: .app))
+            public static let obvInvitationFlow = TargetDependency.project(target: "ObvInvitationFlow", path: .olvidPath("ObvInvitationFlow", in: .app))
             public static let obvAppBackup = TargetDependency.project(target: "ObvAppBackup", path: .olvidPath("ObvAppBackup", in: .app))
             public static let obvUICoreDataStructs = TargetDependency.project(target: "ObvUICoreDataStructs", path: .olvidPath("ObvUICoreDataStructs", in: .app))
             public static let obvAppCoreConstants = TargetDependency.project(target: "ObvAppCoreConstants", path: .olvidPath("ObvAppCoreConstants", in: .app))
+            public static let obvUIGroupV1 = TargetDependency.project(target: "ObvUIGroupV1", path: .olvidPath("ObvUIGroupV1", in: .app))
             public static let obvUIGroupV2 = TargetDependency.project(target: "ObvUIGroupV2", path: .olvidPath("ObvUIGroupV2", in: .app))
+            public static let obvAppNavigation = TargetDependency.project(target: "ObvAppNavigation", path: .olvidPath("ObvAppNavigation", in: .app))
+            public static let obvUIGroupSharedBetweenV1AndV2 = TargetDependency.project(target: "ObvUIGroupSharedBetweenV1AndV2", path: .olvidPath("ObvUIGroupSharedBetweenV1AndV2", in: .app))
+            public static let obvDiscussionsList = TargetDependency.project(target: "ObvDiscussionsList", path: .olvidPath("ObvDiscussionsList", in: .app))
+            public static let obvGroupsList = TargetDependency.project(target: "ObvGroupsList", path: .olvidPath("ObvGroupsList", in: .app))
+            public static let obvSingleDiscussion = TargetDependency.project(target: "ObvSingleDiscussion", path: .olvidPath("ObvSingleDiscussion", in: .app))
+            public static let obvProfilePictureBarButtonItem = TargetDependency.project(target: "ObvProfilePictureBarButtonItem", path: .olvidPath("ObvProfilePictureBarButtonItem", in: .app))
             public static let obvUI = TargetDependency.project(target: "ObvUI", path: .olvidPath("ObvUI", in: .app))
             public static let obvDesignSystem = TargetDependency.project(target: "ObvDesignSystem", path: .olvidPath("ObvDesignSystem", in: .app))
             public static let obvSettings = TargetDependency.project(target: "ObvSettings", path: .olvidPath("ObvSettings", in: .app))
             public static let obvAppDatabase = TargetDependency.project(target: "ObvAppDatabase", path: .olvidPath("ObvAppDatabase", in: .app))
             public static let obvSystemIcon = TargetDependency.project(target: "ObvSystemIcon", path: .olvidPath("ObvSystemIcon", in: .app))
+            public static let obvSingleContact = TargetDependency.project(target: "ObvSingleContact", path: .olvidPath("ObvSingleContact", in: .app))
+            public static let obvSingleOwnedIdentity = TargetDependency.project(target: "ObvSingleOwnedIdentity", path: .olvidPath("ObvSingleOwnedIdentity", in: .app))
+            public static let obvCells = TargetDependency.project(target: "ObvCells", path: .olvidPath("ObvCells", in: .app))
             public static let obvCommunicationInteractor = TargetDependency.project(target: "ObvCommunicationInteractor", path: .olvidPath("ObvCommunicationInteractor", in: .app))
             public struct Discussions {
                 public struct Mentions {
@@ -82,6 +99,11 @@ extension TargetDependency {
                 public static let database: TargetDependency = .project(target: "ObvUserNotificationsDatabase", path: .olvidPath("ObvUserNotifications", in: .app))
                 public static let sounds: TargetDependency = .project(target: "ObvUserNotificationsSounds", path: .olvidPath("ObvUserNotifications", in: .app))
                 public static let creator: TargetDependency = .project(target: "ObvUserNotificationsCreator", path: .olvidPath("ObvUserNotifications", in: .app))
+            }
+            public struct ObvAppInbox {
+                public static let types: TargetDependency = .project(target: "ObvAppInboxTypes", path: .olvidPath("ObvAppInbox", in: .app))
+                public static let database: TargetDependency = .project(target: "ObvAppInboxDatabase", path: .olvidPath("ObvAppInbox", in: .app))
+                public static let service: TargetDependency = .project(target: "ObvAppInboxService", path: .olvidPath("ObvAppInbox", in: .app))
             }
             public struct ThirdParty {
                 public static let confettiSwiftUI: TargetDependency = .project(target: "ConfettiSwiftUI", path: .olvidPath("ThirdParty/ConfettiSwiftUI", in: .app))

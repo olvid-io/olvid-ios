@@ -41,8 +41,6 @@ protocol OlvidCallViewModelProtocol: ObservableObject, BottomSheetViewModelProto
 
 
 protocol OlvidCallViewActionsProtocol: AcceptOrRejectButtonsViewActionsProtocol, BottomSheetViewActionsProtocol, SidebarViewActionsProtocol, DetailsViewActionsProtocol {
-    func callViewDidDisappear(uuidForCallKit: UUID) async
-    func callViewDidAppear(uuidForCallKit: UUID) async
 }
 
 
@@ -88,24 +86,12 @@ struct OlvidCallView<Model: OlvidCallViewModelProtocol>: View {
                     .onReceive(timer) { (_) in
                         refreshCallDuration()
                     }
-                    .onAppear {
-                        Task { await actions.callViewDidAppear(uuidForCallKit: model.uuidForCallKit) }
-                    }
-                    .onDisappear {
-                        Task { await actions.callViewDidDisappear(uuidForCallKit: model.uuidForCallKit) }
-                    }
                     .environment(\.callViewSafeAreaInsets, geometry.safeAreaInsets)
                     .environment(\.callViewRatioZoomCompensation, UIScreen.main.nativeScale != 0 ? UIScreen.main.scale / UIScreen.main.nativeScale : 1.0)
             } else {
                 OlvidCallViewForIOS(model: model, actions: actions, chooseParticipantsToAddAction: chooseParticipantsToAddAction, callDuration: $callDuration)
                     .onReceive(timer) { (_) in
                         refreshCallDuration()
-                    }
-                    .onAppear {
-                        Task { await actions.callViewDidAppear(uuidForCallKit: model.uuidForCallKit) }
-                    }
-                    .onDisappear {
-                        Task { await actions.callViewDidDisappear(uuidForCallKit: model.uuidForCallKit) }
                     }
                     .environment(\.callViewSafeAreaInsets, geometry.safeAreaInsets)
                     .environment(\.callViewRatioZoomCompensation, UIScreen.main.nativeScale != 0 ? UIScreen.main.scale / UIScreen.main.nativeScale : 1.0)

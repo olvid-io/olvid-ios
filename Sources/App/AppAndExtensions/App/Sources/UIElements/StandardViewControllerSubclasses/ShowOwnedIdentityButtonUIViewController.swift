@@ -19,7 +19,7 @@
 
 import UIKit
 import ObvEngine
-import os.log
+import OSLog
 import ObvTypes
 import Combine
 import OlvidUtils
@@ -27,9 +27,18 @@ import ObvUI
 import ObvUICoreData
 import ObvUIObvCircledInitials
 import ObvAppCoreConstants
+import ObvOwnedIdentityChooser
+import ObvSharedDataSources
+import ObvDesignSystem
 
 
-class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityChooserViewControllerDelegate {
+@MainActor
+protocol UnlockingHiddenProfileDelegate: AnyObject {
+    func showAlertForUnlockingHiddenOwnedIdentity()
+}
+
+
+class ShowOwnedIdentityButtonUIViewController: UIViewController {
     
     private(set) var currentOwnedCryptoId: ObvCryptoId
     let log: OSLog
@@ -37,14 +46,20 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
     private var observationTokens = [NSObjectProtocol]()
     private static func makeError(message: String) -> Error { NSError(domain: "ShowOwnedIdentityButtonUIViewController", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private var profilePictureBarButtonItem: ProfilePictureBarButtonItem?
+    private let avatarViewDataSource: ObvAvatarViewDataSource
+    private let ownedIdentityChooserViewDataSource: OwnedIdentityChooserViewDataSource
     
     private var viewDidLoadWasCalled = false
     private var barButtonItemToShowInsteadOfProfilePicture: UIBarButtonItem?
     
-    init(ownedCryptoId: ObvCryptoId, logCategory: String, barButtonItemToShowInsteadOfProfilePicture: UIBarButtonItem? = nil) {
+    weak var unlockingHiddenProfileDelegate: UnlockingHiddenProfileDelegate?
+    
+    init(ownedCryptoId: ObvCryptoId, logCategory: String, barButtonItemToShowInsteadOfProfilePicture: UIBarButtonItem? = nil, avatarViewDataSource: ObvAvatarViewDataSource, ownedIdentityChooserViewDataSource: OwnedIdentityChooserViewDataSource) {
         self.currentOwnedCryptoId = ownedCryptoId
         self.log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: logCategory)
         self.barButtonItemToShowInsteadOfProfilePicture = barButtonItemToShowInsteadOfProfilePicture
+        self.avatarViewDataSource = avatarViewDataSource
+        self.ownedIdentityChooserViewDataSource = ownedIdentityChooserViewDataSource
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -70,11 +85,15 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
         titleLabel.font = UIFont.systemFont(ofSize: 20.0, weight: .heavy)
         titleLabel.text = self.navigationItem.title
         self.navigationItem.titleView = titleLabel
-        if let appearance = self.navigationController?.navigationBar.standardAppearance.copy() {
-            appearance.configureWithTransparentBackground()
-            appearance.shadowColor = .clear
-            appearance.backgroundEffect = UIBlurEffect(style: .regular)
-            navigationItem.standardAppearance = appearance
+        if #available(iOS 26, *) {
+            // We don't change the appearance under iOS 26
+        } else {
+            if let appearance = self.navigationController?.navigationBar.standardAppearance.copy() {
+                appearance.configureWithTransparentBackground()
+                appearance.shadowColor = .clear
+                appearance.backgroundEffect = UIBlurEffect(style: .regular)
+                navigationItem.standardAppearance = appearance
+            }
         }
         
         if let barButtonItem = barButtonItemToShowInsteadOfProfilePicture {
@@ -84,14 +103,21 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
             profilePictureBarButtonItem.addTarget(self, action: #selector(ownedCircledInitialsBarButtonItemWasTapped), for: .touchUpInside)
             profilePictureBarButtonItem.setUILongPressGestureRecognizer(target: self, action: #selector(ownedCircledInitialsBarButtonItemWasLongPressed))
             profilePictureBarButtonItem.setUISwipeGestureRecognizer(target: self, action: #selector(ownedCircledInitialsBarButtonItemWasSwiped))
-            self.navigationItem.leftBarButtonItem = profilePictureBarButtonItem
+            if #available(iOS 26, *) {
+                profilePictureBarButtonItem.hidesSharedBackground = true
+                profilePictureBarButtonItem.sharesBackground = false
+            }
             observeChangesOfOwnedCircledInitialsConfiguration()
             if let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: currentOwnedCryptoId, within: ObvStack.shared.viewContext) {
                 profilePictureBarButtonItem.configureWith(ownedIdentity.circledInitialsConfiguration)
+                profilePictureBarButtonItem.accessibilityLabel = String(localized: "MY_OWN_IDS_CURRENT_IS_\(ownedIdentity.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName))",
+                                                                        comment: "Accessibility string for top bar button to change current identity.")
             } else {
+                profilePictureBarButtonItem.accessibilityLabel = String(localized: "MY_OWN_IDS")
                 assertionFailure()
             }
             self.profilePictureBarButtonItem = profilePictureBarButtonItem
+            self.navigationItem.leftBarButtonItem = profilePictureBarButtonItem
         }
         continuouslyUpdateTheRedDotOnTheProfilePictureView()
     }
@@ -99,8 +125,7 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
     
     // MARK: - Switching current owned identity
     
-    @MainActor
-    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) {
         self.currentOwnedCryptoId = newOwnedCryptoId
         guard let profilePictureBarButtonItem = navigationItem.leftBarButtonItem as? ProfilePictureBarButtonItem else { return }
         do {
@@ -164,27 +189,45 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
     // MARK: - Handling interaction with profile picture
     
     @objc func ownedCircledInitialsBarButtonItemWasTapped() {
+        
         assert(Thread.isMainThread)
-        let ownedIdentities: [PersistedObvOwnedIdentity]
-        do {
-            let notHiddenOwnedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext)
-            if let currentOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: currentOwnedCryptoId, within: ObvStack.shared.viewContext), currentOwnedIdentity.isHidden {
-                ownedIdentities = [currentOwnedIdentity] + notHiddenOwnedIdentities
-            } else {
-                ownedIdentities = notHiddenOwnedIdentities
-            }
-        } catch {
-            os_log("Could not get all owned identities: %{public}@", log: log, type: .fault)
-            assertionFailure()
-            return
+        
+        let ownedIdentityChooserVC = OwnedIdentityChooserViewController(
+            currentOwnedCryptoId: currentOwnedCryptoId,
+            actions: self,
+            dataSource: self.ownedIdentityChooserViewDataSource,
+            avatarViewDataSource: avatarViewDataSource,
+            configuration: .init(mode: .changeCurrentProfile,
+                                 explanation: nil,
+                                 title: "MY_PROFILES",
+                                 isEmbeddedInHostingController: true),
+            callbackOnViewDidDisappear: nil,
+            toggleToDismiss: .init(get: { false }, set: { [weak self] value in
+                guard value else { return }
+                (self?.presentedViewController as? OwnedIdentityChooserViewController)?.dismiss(animated: true)
+            }))
+        
+        // Presenting a popover on a toolbar item crashes under macOS26.
+        // We fix the issue by using the `.automatic` mode in that specific case.
+        if #available(iOS 26, *) {
+            #if targetEnvironment(macCatalyst)
+            ownedIdentityChooserVC.modalPresentationStyle = .automatic
+            #else
+            ownedIdentityChooserVC.modalPresentationStyle = .popover
+            #endif
+        } else {
+            ownedIdentityChooserVC.modalPresentationStyle = .popover
         }
-        let ownedIdentityChooserVC = OwnedIdentityChooserViewController(currentOwnedCryptoId: currentOwnedCryptoId, ownedIdentities: ownedIdentities, delegate: self)
-        ownedIdentityChooserVC.modalPresentationStyle = .popover
+
         if let popover = ownedIdentityChooserVC.popoverPresentationController {
             let sheet = popover.adaptiveSheetPresentationController
             sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 16.0
+            if #available(iOS 26.0, *) {
+                // Keep the default preferredCornerRadius
+            } else {
+                sheet.preferredCornerRadius = 16.0
+            }
             assert(profilePictureBarButtonItem != nil)
             if #available(iOS 16, *) {
                 popover.sourceItem = profilePictureBarButtonItem
@@ -192,13 +235,16 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
                 popover.barButtonItem = profilePictureBarButtonItem
             }
         }
+        
         present(ownedIdentityChooserVC, animated: true)
+        
     }
     
     
     @objc func ownedCircledInitialsBarButtonItemWasLongPressed() {
         assert(Thread.isMainThread)
-        showAlertForUnlockingHiddenOwnedIdentity()
+        guard let unlockingHiddenProfileDelegate else { assertionFailure(); return }
+        unlockingHiddenProfileDelegate.showAlertForUnlockingHiddenOwnedIdentity()
     }
     
     
@@ -229,46 +275,45 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
         
 
     }
+
+}
+
+
+// MARK: - Implementing OwnedIdentityChooserViewActionsProtocol
+
+extension ShowOwnedIdentityButtonUIViewController: OwnedIdentityChooserViewActionsProtocol {
     
-    
-    // MARK: - Unlocking hidden owned identity
-    
-    private func showAlertForUnlockingHiddenOwnedIdentity() {
-        let alert = UIAlertController(title: Strings.OpenHiddenProfileAlert.title,
-                                      message: Strings.OpenHiddenProfileAlert.message,
-                                      preferredStyle: .alert)
-        alert.addTextField { textField in
-            textField.passwordRules = UITextInputPasswordRules(descriptor: "minlength: \(ObvMessengerConstants.minimumLengthOfPasswordForHiddenProfiles);")
-            textField.text = ""
-            textField.isSecureTextEntry = true
-            textField.addTarget(self, action: #selector(self.textFieldForUnlockingHiddenProfileDidChange(textField:)), for: .editingChanged)
-        }
-        alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-        present(alert, animated: true)
-    }
-    
-    
-    @objc final private func textFieldForUnlockingHiddenProfileDidChange(textField: UITextField) {
-        guard let presentedAlert = presentedViewController as? UIAlertController else { return }
-        guard let presentedTextField = presentedAlert.textFields?.first else { return }
-        guard textField == presentedTextField else { return }
-        guard let currentText = textField.text, currentText.count >= ObvMessengerConstants.minimumLengthOfPasswordForHiddenProfiles else { return }
-        ObvStack.shared.performBackgroundTask { context in
-            do {
-                guard try PersistedObvOwnedIdentity.passwordCanUnlockSomeHiddenOwnedIdentity(password: currentText, within: context) else { return }
-            } catch {
-                assertionFailure(error.localizedDescription)
-                return
-            }
-            // If we reach this point, the current text is a proper password for unlocking a hidden owned identity
-            DispatchQueue.main.async {
-                presentedAlert.dismiss(animated: true)
-                ObvMessengerInternalNotification.userWantsToSwitchToOtherHiddenOwnedIdentity(password: currentText)
-                    .postOnDispatchQueue()
-            }
+    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
+        if currentOwnedCryptoId == chosenOwnedCryptoId {
+            await userWantsToEditCurrentOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
+        } else {
+            ObvMessengerInternalNotification.userWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
+                .postOnDispatchQueue()
         }
     }
     
+    
+    @MainActor
+    private func userWantsToEditCurrentOwnedIdentity(ownedCryptoId: ObvCryptoId) async {
+        guard currentOwnedCryptoId == ownedCryptoId else { assertionFailure(); return }
+        let deepLink = ObvDeepLink.myId(ownedCryptoId: currentOwnedCryptoId)
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+            .postOnDispatchQueue()
+    }
+
+    
+    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard currentOwnedCryptoId == currentOwnedCryptoId else { assertionFailure(); return }
+        let deepLink = ObvDeepLink.myId(ownedCryptoId: currentOwnedCryptoId)
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+            .postOnDispatchQueue()
+    }
+    
+    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView) async {
+        ObvMessengerInternalNotification.userWantsToAddOwnedProfile
+            .postOnDispatchQueue()
+    }
+        
 }
 
 
@@ -281,58 +326,6 @@ extension ShowOwnedIdentityButtonUIViewController: PersistedObvOwnedIdentityObse
     }
     
 }
-
-
-// MARK: - OwnedIdentityChooserViewControllerDelegate
-
-extension ShowOwnedIdentityButtonUIViewController {
-    
-    @MainActor func userUsedTheOwnedIdentityChooserViewControllerToChoose(ownedCryptoId: ObvCryptoId) async {
-        if currentOwnedCryptoId == ownedCryptoId {
-            await userWantsToEditCurrentOwnedIdentity(ownedCryptoId: ownedCryptoId)
-        } else {
-            ObvMessengerInternalNotification.userWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ownedCryptoId)
-                .postOnDispatchQueue()
-        }
-    }
-    
-    
-    @MainActor func userWantsToEditCurrentOwnedIdentity(ownedCryptoId: ObvCryptoId) async {
-        guard currentOwnedCryptoId == ownedCryptoId else { assertionFailure(); return }
-        let deepLink = ObvDeepLink.myId(ownedCryptoId: currentOwnedCryptoId)
-        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-            .postOnDispatchQueue()
-    }
-
-    
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityEdition: Bool {
-        true
-    }
-    
-    
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityCreation: Bool {
-        true
-    }
-
-    
-    var ownedIdentityChooserViewControllerExplanationString: String? {
-        return nil
-    }
-
-}
-
-
-// MARK: Strings
-
-extension ShowOwnedIdentityButtonUIViewController {
-    struct Strings {
-        struct OpenHiddenProfileAlert {
-            static let title = NSLocalizedString("OPEN_HIDDEN_PROFILE_ALERT_TITLE", comment: "")
-            static let message = NSLocalizedString("OPEN_HIDDEN_PROFILE_ALERT_MESSAGE", comment: "")
-        }
-    }
-}
-
 
 
 // MARK: - ProfilePictureBarButtonItem
@@ -354,9 +347,16 @@ fileprivate class ProfilePictureBarButtonItem: UIBarButtonItem {
         
         let buttonView = UIButton()
         buttonView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            buttonView.widthAnchor.constraint(equalTo: buttonView.heightAnchor),
-        ])
+        if #available(iOS 26, *) {
+            NSLayoutConstraint.activate([
+                buttonView.heightAnchor.constraint(equalToConstant: 44),
+                buttonView.widthAnchor.constraint(equalTo: buttonView.heightAnchor),
+            ])
+        } else {
+            NSLayoutConstraint.activate([
+                buttonView.widthAnchor.constraint(equalTo: buttonView.heightAnchor),
+            ])
+        }
         
         let profilePictureViewsContainer = UIView()
         profilePictureViewsContainer.translatesAutoresizingMaskIntoConstraints = false

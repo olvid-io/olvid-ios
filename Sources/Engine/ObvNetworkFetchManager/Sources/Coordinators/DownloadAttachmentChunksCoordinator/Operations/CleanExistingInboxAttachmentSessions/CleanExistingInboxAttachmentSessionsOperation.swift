@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -45,7 +45,7 @@ final class CleanExistingInboxAttachmentSessionsOperation: ContextualOperationWi
         
         do {
             
-            let attachmentSessions = try InboxAttachmentSession.getAll(within: obvContext)
+            let attachmentSessions = try InboxAttachmentSession.getAll(within: obvContext.context)
 
             for attachmentSession in attachmentSessions {
                 

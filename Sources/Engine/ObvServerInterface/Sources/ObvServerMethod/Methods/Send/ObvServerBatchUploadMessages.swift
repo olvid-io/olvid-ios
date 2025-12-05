@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvTypes
 import ObvCrypto
@@ -30,6 +30,7 @@ import ObvEncoder
 public final class ObvServerBatchUploadMessages: ObvServerDataMethod {
     
     static let log = OSLog(subsystem: "io.olvid.server.interface.ObvServerBatchUploadMessages", category: "ObvServerInterface")
+    static let logger = Logger(subsystem: "io.olvid.server.interface.ObvServerBatchUploadMessages", category: "ObvServerInterface")
 
     public let pathComponent = "/batchUploadMessages"
     
@@ -138,16 +139,18 @@ extension ObvServerBatchUploadMessages {
         case payloadTooLarge
     }
     
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {
+    public static func parseObvServerResponse(responseData: Data) -> PossibleReturnStatus? {
         
-        guard let (rawServerReturnedStatus, allListsOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
-            os_log("Could not parse the server response", log: log, type: .error)
+        guard let (rawServerReturnedStatus, allListsOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: Self.log) else {
+            Self.logger.error("Could not parse the server response")
+            ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] Could not parse the server response")
             assertionFailure()
             return nil
         }
         
         guard let serverReturnedStatus = PossibleReturnRawStatus(rawValue: rawServerReturnedStatus) else {
-            os_log("The returned server status is invalid", log: log, type: .error)
+            Self.logger.error("The returned server status is invalid")
+            ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] The returned server status is invalid")
             assertionFailure()
             return nil
         }
@@ -157,7 +160,8 @@ extension ObvServerBatchUploadMessages {
         case .ok:
             
             guard !allListsOfReturnedDatas.isEmpty else {
-                os_log("The server did not return the expected number of elements", log: log, type: .error)
+                Self.logger.error("The server did not return the expected number of elements")
+                ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] The server did not return the expected number of elements")
                 assertionFailure()
                 return nil
             }
@@ -167,31 +171,36 @@ extension ObvServerBatchUploadMessages {
             for encodedListOfReturnedData in allListsOfReturnedDatas {
                 
                 guard let listOfReturnedDatas = [ObvEncoded](encodedListOfReturnedData) else {
-                    os_log("Could not decode", log: log, type: .error)
+                    Self.logger.error("Could not decode")
+                    ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] Could not decode")
                     assertionFailure()
                     return nil
                 }
                 
                 guard listOfReturnedDatas.count == 3 else {
-                    os_log("The server did not return the expected number of elements", log: log, type: .error)
+                    Self.logger.error("The server did not return the expected number of elements")
+                    ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] The server did not return the expected number of elements")
                     assertionFailure()
                     return nil
                 }
 
                 guard let uidFromServer = UID(listOfReturnedDatas[0]) else {
-                    os_log("We could decode the UID returned by the server", log: log, type: .error)
+                    Self.logger.error("We could decode the UID returned by the server")
+                    ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] We could decode the UID returned by the server")
                     assertionFailure()
                     return nil
                 }
 
                 guard let nonce = Data(listOfReturnedDatas[1]) else {
-                    os_log("We could decode the nonce returned by the server", log: log, type: .error)
+                    Self.logger.error("We could decode the nonce returned by the server")
+                    ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] We could decode the nonce returned by the server")
                     assertionFailure()
                     return nil
                 }
 
                 guard let serverTimestampInMilliseconds = Int(listOfReturnedDatas[2]) else {
-                    os_log("We could decode the timestamp returned by the server", log: log, type: .error)
+                    Self.logger.error("We could decode the timestamp returned by the server")
+                    ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] We could decode the timestamp returned by the server")
                     assertionFailure()
                     return nil
                 }
@@ -200,16 +209,24 @@ extension ObvServerBatchUploadMessages {
                 returnedValues += [(uidFromServer, nonce, serverTimestamp)]
             }
             
+            Self.logger.debug("The server returned \(returnedValues.count) values")
+            ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] The server returned \(returnedValues.count) values")
+
             return .ok(returnedValues)
             
         case .payloadTooLarge:
             
+            Self.logger.fault("The server returned that the payload was too large")
+            ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] The server returned that the payload was too large")
             assertionFailure()
             
             return .payloadTooLarge
 
         case .generalError:
             
+            Self.logger.fault("The server returned a general error")
+            ObvDisplayableLogs.shared.log("⬆️[ObvServerBatchUploadMessages] The server returned a general error")
+
             assertionFailure()
             
             return .generalError

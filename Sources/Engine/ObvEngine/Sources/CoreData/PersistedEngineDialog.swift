@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,21 +18,20 @@
  */
 
 import Foundation
+import OSLog
 import CoreData
 import ObvTypes
 import ObvEncoder
 import ObvCrypto
 import OlvidUtils
-import os.log
 
 @objc(PersistedEngineDialog)
-final class PersistedEngineDialog: NSManagedObject, ObvManagedObject {
+final class PersistedEngineDialog: NSManagedObject {
     
     // MARK: Internal constants
     
     private static let entityName = "PersistedEngineDialog"
     private static let uuidKey = "uuid"
-    private static let encodedObvDialogKey = "encodedObvDialog"
     
     private static func makeError(message: String) -> Error {
         NSError(domain: "PersistedEngineDialog", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
@@ -41,48 +40,54 @@ final class PersistedEngineDialog: NSManagedObject, ObvManagedObject {
     // MARK: Attributes
     
     @NSManaged private(set) var uuid: UUID
-    private(set) var obvDialog: ObvDialog? {
-        get {
-            guard let encodedValue = kvoSafePrimitiveValue(forKey: PersistedEngineDialog.encodedObvDialogKey) as? ObvEncoded else { return nil }
+    @NSManaged private var rawEncodedObvDialog: Data? // Non-optional in the model, raw value of an encoded ObvDialog
+    
+    /// Expected to be non-nil, except when a dialog is obsolote (see below).
+    var obvDialog: ObvDialog? {
+        get throws(ObvError) {
+            guard let rawEncodedObvDialog else { assertionFailure(); throw .unexpectedNilValue }
+            guard let encodedValue = ObvEncoded(withRawData: rawEncodedObvDialog) else { assertionFailure(); throw .couldNotParseValue }
             return ObvDialog(encodedValue)
         }
-        set {
-            guard let newValue = newValue else { assertionFailure(); return }
-            guard let encodedValue = try? newValue.obvEncode() else { assertionFailure(); return }
-            kvoSafeSetPrimitiveValue(encodedValue, forKey: PersistedEngineDialog.encodedObvDialogKey)
-        }
     }
+    
     /// Returns `true` iff the serialized dialog cannot be deserialized, meaning that the type does not exist anymore in the current app version.
     /// This happened, e.g., when removing the dialog message telling the user that she accepted a group invite.
     var dialogIsObsolete: Bool {
-        self.obvDialog == nil
+        get throws(ObvError) {
+            try self.obvDialog == nil
+        }
     }
     
     // MARK: Other variables
     
-    weak var obvContext: ObvContext?
     weak var appNotificationCenter: NotificationCenter?
     private var notificationRelatedChanges: NotificationRelatedChanges = []
 
     // MARK: - Initializer
     
-    convenience init?(with obvDialog: ObvDialog, appNotificationCenter: NotificationCenter, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedEngineDialog.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    convenience init(with obvDialog: ObvDialog, appNotificationCenter: NotificationCenter, within context: NSManagedObjectContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedEngineDialog.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.uuid = obvDialog.uuid
-        self.obvDialog = obvDialog
+        self.rawEncodedObvDialog = try obvDialog.obvEncode().rawData
         self.appNotificationCenter = appNotificationCenter
     }
 
     func delete() throws {
         guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context")}
         self.uuidOnDeletion = self.uuid
-        self.ownedCryptoIdOnDeletion = self.obvDialog?.ownedCryptoId
+        self.ownedCryptoIdOnDeletion = try? self.obvDialog?.ownedCryptoId
         context.delete(self)
     }
     
     private var uuidOnDeletion: UUID?
     private var ownedCryptoIdOnDeletion: ObvCryptoId?
+    
+    enum ObvError: Error {
+        case unexpectedNilValue
+        case couldNotParseValue
+    }
     
 }
 
@@ -95,7 +100,7 @@ extension PersistedEngineDialog {
         guard self.uuid == obvDialog.uuid else {
             throw Self.makeError(message: "Could not get obvDialog's uuid")
         }
-        self.obvDialog = obvDialog
+        self.rawEncodedObvDialog = try obvDialog.obvEncode().rawData
         notificationRelatedChanges.insert(.obvDialog)
     }
     
@@ -108,22 +113,22 @@ extension PersistedEngineDialog {
         return NSFetchRequest<PersistedEngineDialog>(entityName: PersistedEngineDialog.entityName)
     }
     
-    class func getAll(appNotificationCenter: NotificationCenter, within obvContext: ObvContext) throws -> Set<PersistedEngineDialog> {
+    class func getAll(appNotificationCenter: NotificationCenter, within context: NSManagedObjectContext) throws -> Set<PersistedEngineDialog> {
         let request: NSFetchRequest<PersistedEngineDialog> = PersistedEngineDialog.fetchRequest()
-        let values = try obvContext.fetch(request)
+        let values = try context.fetch(request)
         return Set(values.map { $0.appNotificationCenter = appNotificationCenter; return $0 })
     }
 
-    class func get(uid: UUID, appNotificationCenter: NotificationCenter, within obvContext: ObvContext) throws -> PersistedEngineDialog? {
+    class func get(uid: UUID, appNotificationCenter: NotificationCenter, within context: NSManagedObjectContext) throws -> PersistedEngineDialog? {
         let request: NSFetchRequest<PersistedEngineDialog> = PersistedEngineDialog.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@", uuidKey, uid as CVarArg)
-        let item = (try obvContext.fetch(request)).first
+        let item = try context.fetch(request).first
         item?.appNotificationCenter = appNotificationCenter
         return item
     }
  
-    static func deletePersistedDialog(uid: UUID, appNotificationCenter: NotificationCenter, within obvContext: ObvContext) throws {
-        if let dialog = try get(uid: uid, appNotificationCenter: appNotificationCenter, within: obvContext) {
+    static func deletePersistedDialog(uid: UUID, appNotificationCenter: NotificationCenter, within context: NSManagedObjectContext) throws {
+        if let dialog = try get(uid: uid, appNotificationCenter: appNotificationCenter, within: context) {
             try dialog.delete()
         }
     }
@@ -149,7 +154,7 @@ extension PersistedEngineDialog {
                 self.uuidOnDeletion = self.uuid
             }
             if self.ownedCryptoIdOnDeletion == nil {
-                self.ownedCryptoIdOnDeletion = self.obvDialog?.ownedCryptoId
+                self.ownedCryptoIdOnDeletion = try? self.obvDialog?.ownedCryptoId
             }
 
         }
@@ -171,7 +176,7 @@ extension PersistedEngineDialog {
 
         if isInserted || notificationRelatedChanges.contains(.obvDialog) {
             // We do not export the uuid since it is already included in the obvDialog struct
-            guard let obvDialog = self.obvDialog else { assertionFailure(); return }
+            guard let obvDialog = try? self.obvDialog else { assertionFailure(); return }
             ObvEngineNotificationNew.newUserDialogToPresent(obvDialog: obvDialog)
                 .postOnBackgroundQueue(within: appNotificationCenter)
         }

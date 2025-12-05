@@ -130,36 +130,44 @@ extension UID {
     }
 }
 
+// Implementing Identifiable
+
+extension UID: Identifiable {
+    public var id: Data {
+        self.raw
+    }
+}
+
 // Implementing a ValueTransformer for UID
 
-public class UIDTransformer: ValueTransformer {
-    
-    override public class func transformedValueClass() -> AnyClass {
-        return UID.self
-    }
-    
-    override public class func allowsReverseTransformation() -> Bool {
-        return true
-    }
-
-    
-    /// Turn an UID into a Data object. This method never fails.
-    override public func transformedValue(_ value: Any?) -> Any? {
-        let uid = value as! UID
-        return uid.raw
-    }
-    
-    /// Try to turn a Data object back into a UID. This method can return nil.
-    override public func reverseTransformedValue(_ value: Any?) -> Any? {
-        guard let data = value as? Data else { return nil }
-        return UID(uid: data)
-    }
-    
-}
-
-public extension NSValueTransformerName {
-    static let uidTransformerName = NSValueTransformerName(rawValue: "UIDTransformer")
-}
+//public class UIDTransformer: ValueTransformer {
+//    
+//    override public class func transformedValueClass() -> AnyClass {
+//        return UID.self
+//    }
+//    
+//    override public class func allowsReverseTransformation() -> Bool {
+//        return true
+//    }
+//
+//    
+//    /// Turn an UID into a Data object. This method never fails.
+//    override public func transformedValue(_ value: Any?) -> Any? {
+//        let uid = value as! UID
+//        return uid.raw
+//    }
+//    
+//    /// Try to turn a Data object back into a UID. This method can return nil.
+//    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+//        guard let data = value as? Data else { return nil }
+//        return UID(uid: data)
+//    }
+//    
+//}
+//
+//public extension NSValueTransformerName {
+//    static let uidTransformerName = NSValueTransformerName(rawValue: "UIDTransformer")
+//}
 
 
 extension UID: Codable {

@@ -27,10 +27,10 @@ extension PersistedCallLogItem {
         guard let context = self.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         let direction: PersistedCallLogItemStructure.Direction = self.isIncoming ? .incoming : .outgoing
         guard let ownedCryptoId else { assertionFailure(); throw ObvUICoreDataError.ownedIdentityIsNil }
-        guard let discussionId = obvDiscussionIdentifier?.toDiscussionIdentifier() else { assertionFailure(); throw ObvUICoreDataError.discussionIsNil }
+        guard let discussionId = obvDiscussionIdentifier?.toDiscussionIdentifier() else { assertionFailure(); throw ObvUICoreDataError.couldNotFindDiscussion }
         guard let persistedDiscussion = try PersistedDiscussion.getPersistedDiscussion(ownedCryptoId: ownedCryptoId, discussionId: discussionId, within: context) else {
             assertionFailure()
-            throw ObvUICoreDataError.discussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         let otherParticipants = try self.logContacts.map({ try $0.toStructure() })
         guard let callReportKind = self.callReportKind?.toPersistedCallLogItemStructureCallReportKind() else {

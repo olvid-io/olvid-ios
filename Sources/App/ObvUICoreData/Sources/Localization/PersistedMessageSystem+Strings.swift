@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,7 +32,7 @@ extension PersistedMessageSystem {
     
     struct Strings {
         
-        static let contactWasIntroducedToAnotherContact = { (discussionContactDisplayName: String?, otherContactDisplayName: String?) in
+        nonisolated(unsafe) static let contactWasIntroducedToAnotherContact = { (discussionContactDisplayName: String?, otherContactDisplayName: String?) in
             switch (discussionContactDisplayName, otherContactDisplayName) {
             case (.some(let discussionContactDisplayName), .some(let otherContactDisplayName)):
                 return String.localizedStringWithFormat(NSLocalizedString("YOU_INTRODUCED_%@_TO_%@", bundle: Bundle(for: PersistedMessageSystem.self), comment: ""), discussionContactDisplayName, otherContactDisplayName)
@@ -46,7 +46,7 @@ extension PersistedMessageSystem {
         }
         
         static let ownedIdentityDidCaptureSensitiveMessages = NSLocalizedString("YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE", comment: "")
-        static let contactIdentityDidCaptureSensitiveMessages: (String?) -> String = { (contactDisplayName: String?) in
+        nonisolated(unsafe)  static let contactIdentityDidCaptureSensitiveMessages: (String?) -> String = { (contactDisplayName: String?) in
             if let contactDisplayName {
                 return String.localizedStringWithFormat(NSLocalizedString("CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_%@", comment: ""), contactDisplayName)
             } else {
@@ -59,7 +59,7 @@ extension PersistedMessageSystem {
 
         static let membersOfGroupV2WereUpdated = NSLocalizedString("MEMBERS_OF_GROUP_V2_WERE_UPDATED_SYSTEM_MESSAGE", comment: "")
         
-        static let contactJoinedGroup: (String, String?) -> String = { (contactDisplayName: String, dateString: String?) in
+        nonisolated(unsafe) static let contactJoinedGroup: (String, String?) -> String = { (contactDisplayName: String, dateString: String?) in
             if let dateString = dateString {
                 return String.localizedStringWithFormat(NSLocalizedString("%@_ACCEPTED_TO_JOIN_THIS_GROUP_AT_%@", comment: "System message displayed within a group discussion"), contactDisplayName, dateString)
             } else {
@@ -67,7 +67,7 @@ extension PersistedMessageSystem {
             }
         }
         
-        static let contactLeftGroup: (String, String?) -> String = { (contactDisplayName: String, dateString: String?) in
+        nonisolated(unsafe) static let contactLeftGroup: (String, String?) -> String = { (contactDisplayName: String, dateString: String?) in
             if let dateString = dateString {
                 return String.localizedStringWithFormat(NSLocalizedString("%@_LEFT_THIS_GROUP_AT_%@", comment: "System message displayed within a group discussion"), contactDisplayName, dateString)
             } else {
@@ -75,7 +75,7 @@ extension PersistedMessageSystem {
             }
         }
         
-        static let numberOfNewMessages = { (count: Int) in
+        nonisolated(unsafe) static let numberOfNewMessages = { (count: Int) in
             return String.localizedStringWithFormat(NSLocalizedString("count new messages", comment: "Number of new messages"), count)
         }
 
@@ -111,72 +111,72 @@ extension PersistedMessageSystem {
             return result
         }
 
-        static let missedIncomingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let missedIncomingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("MISSED_CALL", comment: ""))
         }
 
-        static let filteredIncomingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let filteredIncomingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("MISSED_CALL_FILTERED", comment: ""))
         }
         
-        static let answeredOnOtherDevice = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let answeredOnOtherDevice = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("ANSWERED_ON_OTHER_DEVICE", comment: ""))
         }
 
-        static let rejectedOnOtherDevice = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let rejectedOnOtherDevice = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("REJECTED_ON_OTHER_DEVICE", comment: ""))
         }
         
-        static let rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("REJECTED_INCOMING_CALL_AS_RECEIVE_CALL_SETTINGS_IS_FALSE", comment: ""))
         }
 
-        static let acceptedOutgoingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let acceptedOutgoingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("ACCEPTED_OUTGOING_CALL", comment: ""))
         }
 
-        static let acceptedIncomingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let acceptedIncomingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("ACCEPTED_INCOMING_CALL", comment: ""))
         }
 
-        static let rejectedOutgoingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let rejectedOutgoingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("REJECTED_OUTGOING_CALL", comment: ""))
         }
 
-        static let rejectedIncomingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let rejectedIncomingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("REJECTED_INCOMING_CALL", comment: ""))
         }
 
-        static let busyOutgoingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let busyOutgoingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("BUSY_OUTGOING_CALL", comment: ""))
         }
 
-        static let unansweredOutgoingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let unansweredOutgoingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("UNANSWERED_OUTGOING_CALL", comment: ""))
         }
 
-        static let uncompletedOutgoingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let uncompletedOutgoingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("UNCOMPLETED_OUTGOING_CALL", comment: ""))
         }
 
-        static let anyIncomingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let anyIncomingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("ANY_INCOMING_CALL", comment: ""))
         }
 
-        static let anyOutgoingCall = { (content: CallMessageContent) in
+        nonisolated(unsafe) static let anyOutgoingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("ANY_OUTGOING_CALL", comment: ""))
         }
@@ -191,7 +191,7 @@ extension PersistedMessageSystem {
             return String.localizedStringWithFormat(NSLocalizedString("CONTACT_%@_IS_ONE_TO_ONE_AGAIN", comment: ""), contactName)
         }
 
-        static let rejectedIncomingCallBecauseOfDeniedRecordPermission = { (content: CallMessageContent) -> String in
+        nonisolated(unsafe) static let rejectedIncomingCallBecauseOfDeniedRecordPermission = { (content: CallMessageContent) -> String in
             let title: String
             switch AVAudioSession.sharedInstance().recordPermission {
             case .undetermined:
@@ -209,7 +209,7 @@ extension PersistedMessageSystem {
 
         static let updatedDiscussionSettings =  NSLocalizedString("DISCUSSION_SHARED_SETTINGS_WERE_UPDATED", comment: "")
         
-        static let discussionWasRemotelyWiped: (String, String?) -> String = { (contactDisplayName: String, dateString: String?) in
+        nonisolated(unsafe) static let discussionWasRemotelyWiped: (String, String?) -> String = { (contactDisplayName: String, dateString: String?) in
             if let dateString = dateString {
                 return String.localizedStringWithFormat(NSLocalizedString("This discussion was remotely wiped by %@ on %@", comment: "System message displayed within a group discussion"), contactDisplayName, dateString)
             } else {

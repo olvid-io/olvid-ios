@@ -22,7 +22,7 @@ import SwiftUI
 
 public extension Image {
     
-    init(symbolIcon icon: any SymbolIcon) {
+    init(symbolIcon icon: any SymbolIcon, isDecorative: Bool = false) {
         if let customIcon = icon as? CustomIcon {
             self.init(customIcon: customIcon)
         } else if let systemIcon = icon as? SystemIcon {
@@ -33,12 +33,20 @@ public extension Image {
         }
     }
 
-    init(systemIcon: SystemIcon) {
-        self.init(systemName: systemIcon.name)
+    init(systemIcon: SystemIcon, isDecorative: Bool = false) {
+        if isDecorative {
+            self.init(decorative: systemIcon.name)
+        } else {
+            self.init(systemName: systemIcon.name)
+        }
     }
     
-    init(customIcon: CustomIcon) {
-        self.init(customIcon.name, bundle: Bundle(for: LocalizableClassForObvSystemIconBundle.self))
+    init(customIcon: CustomIcon, isDecorative: Bool = false) {
+        if isDecorative {
+            self.init(decorative: customIcon.name, bundle: ObvSystemIconResources.bundle)
+        } else {
+            self.init(customIcon.name, bundle: ObvSystemIconResources.bundle)
+        }
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import Foundation
 import ObvUserNotificationsSounds
 
 
-public struct PersistedDiscussionLocalConfigurationStructure {
+public struct PersistedDiscussionLocalConfigurationStructure: Sendable {
 
     public let notificationSound: NotificationSound?
     public let performInteractionDonation: Bool
@@ -41,7 +41,7 @@ public struct PersistedDiscussionLocalConfigurationStructure {
     }
 
     
-    public enum DiscussionMentionNotificationMode: CaseIterable, Hashable {
+    public enum DiscussionMentionNotificationMode: CaseIterable, Hashable, Sendable {
         /// Nothing specified, uses the default setting
         case globalDefault
         /// Never be notified when mentioned

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,8 +62,8 @@ extension KeycloakContactAdditionProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.contactIdentity = try message.encodedInputs[0].obvDecode()
             self.signedContactDetails = try message.encodedInputs[1].obvDecode()
         }
@@ -94,8 +94,8 @@ extension KeycloakContactAdditionProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard let inputs = ChildToParentProtocolMessageInputs(message.encodedInputs) else { assertionFailure(); throw Self.makeError(message: "Could not obtain child inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard let inputs = ChildToParentProtocolMessageInputs(try message.encodedInputs) else { assertionFailure(); throw Self.makeError(message: "Could not obtain child inputs") }
             childToParentProtocolMessageInputs = inputs
             deviceUidsSentState = try DeviceDiscoveryForRemoteIdentityProtocol.DeviceUidsReceivedState(childToParentProtocolMessageInputs.childProtocolInstanceEncodedReachedState)
         }
@@ -124,8 +124,8 @@ extension KeycloakContactAdditionProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 5 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.keycloakServerURL = try encodedElements[1].obvDecode()
@@ -167,8 +167,8 @@ extension KeycloakContactAdditionProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.signedContactDetails = try encodedElements[1].obvDecode()
@@ -201,8 +201,8 @@ extension KeycloakContactAdditionProtocol {
         var encodedInputs: [ObvEncoded] { [] }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             self.userNotRevoked = try encodedElements[0].obvDecode()
         }
@@ -227,8 +227,8 @@ extension KeycloakContactAdditionProtocol {
         var encodedInputs: [ObvEncoded] { [accepted.obvEncode()] }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             self.accepted = try encodedElements[0].obvDecode()
         }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 
 
-public struct PersistedMessageAbstractStructure {
+public struct PersistedMessageAbstractStructure: Sendable {
 
     let readOnce: Bool
     let visibilityDuration: TimeInterval?
@@ -63,7 +63,7 @@ public struct PersistedMessageAbstractStructure {
 }
 
 
-public struct RepliedToMessageStructure {
+public struct RepliedToMessageStructure: Sendable {
     
     public let doesMentionOwnedIdentity: Bool
     public let isPersistedMessageSent: Bool

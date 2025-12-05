@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvTypes
@@ -27,10 +28,13 @@ import ObvCrypto
 
 
 @objc(ContactGroupV2Member)
-final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+final class ContactGroupV2Member: NSManagedObject, ObvErrorMaker {
 
     private static let entityName = "ContactGroupV2Member"
     static let errorDomain = "ContactGroupV2Member"
+    static weak var delegateManager: ObvIdentityDelegateManager?
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: ContactGroupV2Member.logSubsystem, category: "ContactGroupV2Member") }()
 
     // Attributes
  
@@ -46,9 +50,7 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
     
     private(set) var contactGroup: ContactGroupV2? {
         get {
-            let value = self.rawContactGroup
-            value?.obvContext = obvContext
-            return value
+            self.rawContactGroup
         }
         set {
             guard let newValue = newValue else { assertionFailure(); return }
@@ -58,9 +60,7 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
     
     fileprivate var contactIdentity: ContactIdentity? {
         get {
-            let value = self.rawContactIdentity
-            value?.obvContext = obvContext
-            return value
+            self.rawContactIdentity
         }
         set {
             guard let newValue = newValue else { assertionFailure(); return }
@@ -74,12 +74,14 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
 
     // Other variables
 
-    weak var obvContext: ObvContext?
     private var changedKeys = Set<String>()
 
     var identityAndPermissionsAndDetails: GroupV2.IdentityAndPermissionsAndDetails? {
         guard let contactIdentity = contactIdentity else { assertionFailure(); return nil }
-        let coreDetails = contactIdentity.publishedIdentityDetails?.serializedIdentityCoreDetails ?? contactIdentity.trustedIdentityDetails.serializedIdentityCoreDetails
+        guard let coreDetails = contactIdentity.publishedIdentityDetails?.serializedIdentityCoreDetails ?? contactIdentity.trustedIdentityDetails?.serializedIdentityCoreDetails else {
+            assertionFailure("We always expect non-nil trusted details")
+            return nil
+        }
         guard let contactCryptoId = contactIdentity.cryptoIdentity else { assertionFailure(); return nil }
         return GroupV2.IdentityAndPermissionsAndDetails(identity: contactCryptoId,
                                                         rawPermissions: allRawPermissions,
@@ -89,10 +91,10 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
 
     // MARK: - Initializer
     
-    private convenience init(rawPermissions: Set<String>, groupInvitationNonce: Data, rawContactGroup: ContactGroupV2, rawContactIdentity: ContactIdentity, within obvContext: ObvContext) {
+    private convenience init(rawPermissions: Set<String>, groupInvitationNonce: Data, rawContactGroup: ContactGroupV2, rawContactIdentity: ContactIdentity, within context: NSManagedObjectContext) {
 
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Member.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Member.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
 
         self.setRawPermissions(newRawPermissions: rawPermissions)
         self.groupInvitationNonce = groupInvitationNonce
@@ -100,24 +102,22 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
         self.rawContactGroup = rawContactGroup
         self.rawContactIdentity = rawContactIdentity
         
-        self.obvContext = obvContext
-        
     }
     
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(backupItem: ContactGroupV2MemberBackupItem, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Member.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(backupItem: ContactGroupV2MemberBackupItem, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Member.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.groupInvitationNonce = backupItem.groupInvitationNonce
         self.rawPermissions = backupItem.rawPermissions.joined(separator: String(Self.separatorForPermissions))
     }
 
     
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(snapshotItem: ContactGroupV2MemberSyncSnapshotItem, within obvContext: ObvContext) throws {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Member.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(snapshotItem: ContactGroupV2MemberSyncSnapshotItem, within context: NSManagedObjectContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Member.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         guard let groupInvitationNonce = snapshotItem.groupInvitationNonce else {
             assertionFailure()
             throw ContactGroupV2MemberSyncSnapshotItem.ObvError.tryingToRestoreIncompleteNode
@@ -129,15 +129,15 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
     
     /// Shall only be called from a ContactGroupV2 instance (that must check that this member does not exist yet)
     static func createMember(from contact: ContactIdentity, inContactGroup group: ContactGroupV2, rawPermissions: Set<String>, groupInvitationNonce: Data) throws {
-        guard contact.obvContext == group.obvContext else { throw Self.makeError(message: "Cannot insert member as the contexts do not match") }
-        guard let obvContext = group.obvContext else { throw Self.makeError(message: "Cannot insert member as the group has no ObvContext") }
-        _ = self.init(rawPermissions: rawPermissions, groupInvitationNonce: groupInvitationNonce, rawContactGroup: group, rawContactIdentity: contact, within: obvContext)
+        guard contact.managedObjectContext == group.managedObjectContext else { throw Self.makeError(message: "Cannot insert member as the contexts do not match") }
+        guard let context = group.managedObjectContext else { throw Self.makeError(message: "Cannot insert member as the group has no context") }
+        _ = self.init(rawPermissions: rawPermissions, groupInvitationNonce: groupInvitationNonce, rawContactGroup: group, rawContactIdentity: contact, within: context)
     }
      
     
     func delete() throws {
-        guard let obvContext = obvContext else { throw Self.makeError(message: "Could not delete member as we cannot find ObvContext") }
-        obvContext.delete(self)
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not delete member as we cannot find context") }
+        context.delete(self)
     }
     
     
@@ -228,7 +228,7 @@ extension ContactGroupV2Member {
                 previousBackedUpProfileSnapShotIsObsolete = false
             }
             if previousBackedUpProfileSnapShotIsObsolete {
-                if let ownedCryptoIdentity = self.rawContactGroup?.ownedIdentity?.cryptoIdentity {
+                if let ownedCryptoIdentity = try? self.rawContactGroup?.ownedIdentity?.cryptoIdentity {
                     let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
                     Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2MemberChanged(ownedCryptoId: ownedCryptoId) }
                 } else {
@@ -292,18 +292,18 @@ struct ContactGroupV2MemberBackupItem: Codable, Hashable, ObvErrorMaker {
         self.contactIdentity = try values.decode(Data.self, forKey: .contactIdentity)
     }
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-        let contactGroupV2Member = ContactGroupV2Member(backupItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout BackupItemObjectAssociations) throws {
+        let contactGroupV2Member = ContactGroupV2Member(backupItem: self, within: context)
         try associations.associate(contactGroupV2Member, to: self)
     }
     
-    func restoreRelationships(associations: BackupItemObjectAssociations, ownedIdentity: Data, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, ownedIdentity: Data, within context: NSManagedObjectContext) throws {
 
-        let contactGroupV2Member: ContactGroupV2Member = try associations.getObject(associatedTo: self, within: obvContext)
+        let contactGroupV2Member: ContactGroupV2Member = try associations.getObject(associatedTo: self, within: context)
 
         // Restore the rawContactIdentity relationship by searching the context for the first registered ContactIdentity that has has the appropriate primary key (owned identity and contact identity).
         
-        let allcontactIdentities = Set(obvContext.registeredObjects.compactMap({ $0 as? ContactIdentity }))
+        let allcontactIdentities = Set(context.registeredObjects.compactMap({ $0 as? ContactIdentity }))
         let appropriateContact = allcontactIdentities.first(where: {
             $0.ownedIdentityIdentity == ownedIdentity && $0.identity == self.contactIdentity
         })
@@ -364,15 +364,15 @@ struct ContactGroupV2MemberSyncSnapshotItem: Codable, Hashable, Identifiable, Se
     }
     
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
-        let contactGroupV2Member = try ContactGroupV2Member(snapshotItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let contactGroupV2Member = try ContactGroupV2Member(snapshotItem: self, within: context)
         try associations.associate(contactGroupV2Member, to: self)
     }
     
     
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, ownedIdentity: Data, cryptoIdentity: ObvCryptoIdentity, contactIdentities: [ObvCryptoIdentity: ContactIdentity], within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, ownedIdentity: Data, cryptoIdentity: ObvCryptoIdentity, contactIdentities: [ObvCryptoIdentity: ContactIdentity], within context: NSManagedObjectContext) throws {
 
-        let contactGroupV2Member: ContactGroupV2Member = try associations.getObject(associatedTo: self, within: obvContext)
+        let contactGroupV2Member: ContactGroupV2Member = try associations.getObject(associatedTo: self, within: context)
 
         guard let contactIdentity = contactIdentities[cryptoIdentity] else {
             throw ObvError.couldNotFindContactAssociatedToGroupV2Member

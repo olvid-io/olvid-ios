@@ -36,7 +36,7 @@ struct StorageManagementView<Model: StorageManagementViewModelProtocol>: View {
         
         if let chartModel = model.chartModel, let largestFilesModel = model.largestFilesModel, let sentByMeModel = model.sentByMeModel {
         
-            if model.files.isEmpty {
+            if model.sizesPerDiscussions.isEmpty {
                 
                 ObvContentUnavailableView(title: String(localized: "STORAGE_MANAGEMENT_CONTENT_UNAVAILABLE_TITLE"),
                                           systemIcon: .externaldriveFill,
@@ -88,7 +88,7 @@ struct StorageManagementView<Model: StorageManagementViewModelProtocol>: View {
                     if !model.discussionsSorted.isEmpty {
                         Section {
                             ForEach(model.discussionsSorted, id: \.self) { discussion in
-                                StorageManagementDiscussionCellView(model: StorageManagementDiscussionCellViewModel(discussion: discussion, files: model.filesPerDiscussions[discussion] ?? []))
+                                StorageManagementDiscussionCellView(model: StorageManagementDiscussionCellViewModel(discussion: discussion, size: model.sizesPerDiscussions[discussion] ?? 0))
                                     .contentShape(Rectangle())
                                     .onTapGesture {
                                         model.goToDiscussion(discussion)
@@ -180,9 +180,13 @@ struct StorageManagementView<Model: StorageManagementViewModelProtocol>: View {
 private struct CloseButton: View {
     
     var body: some View {
-        Image(systemIcon: .xmarkCircleFill)
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(Color.secondary)
-            .font(.system(size: 22))
+        if #available(iOS 26, *) {
+            Image(systemIcon: .xmark)
+        } else {
+            Image(systemIcon: .xmarkCircleFill)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Color.secondary)
+                .font(.system(size: 22))
+        }
     }
 }

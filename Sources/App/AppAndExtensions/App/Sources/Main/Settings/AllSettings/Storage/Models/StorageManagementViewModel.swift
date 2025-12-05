@@ -23,6 +23,7 @@ import ObvUICoreData
 import Combine
 import CoreData
 import ObvTypes
+import ObvAppTypes
 
 @available(iOS 17.0, *)
 @Observable
@@ -30,7 +31,7 @@ class StorageManagementViewModel: StorageManagementViewModelProtocol {
 
     static private let minThresholdForLargestFiles: Int64 = 5_000_000 // 5 MB
     
-    private(set) var files: [FyleMessageJoinWithStatus] = []
+//    private(set) var files: [FyleMessageJoinWithStatus] = []
     
     var chartModel: StorageManagementChartViewModel?
     
@@ -62,34 +63,23 @@ class StorageManagementViewModel: StorageManagementViewModelProtocol {
         return formatter.string(fromByteCount: Self.minThresholdForLargestFiles)
     }
     
-    var filesPerDiscussions: [PersistedDiscussion: [FyleMessageJoinWithStatus]] {
-        
-        let filesInDiscussion = files.filter { $0.message?.discussion != nil }
-        
-        let result = Dictionary(grouping: filesInDiscussion) { file in
-            file.message!.discussion!
-        }
-        
-        return result
-    }
+    var sizesPerDiscussions: [PersistedDiscussion: Int64] = [:]
  
     var discussionsSorted: [PersistedDiscussion] {
         switch self.discussionSortOrder {
         case .size:
-            filesPerDiscussions.keys.sorted { lhs, rhs in
-                let lhFiles = filesPerDiscussions[lhs] ?? []
-                let rhFiles = filesPerDiscussions[rhs] ?? []
+            sizesPerDiscussions.keys.sorted { lhs, rhs in
+                let lhSizes = sizesPerDiscussions[lhs] ?? 0
+                let rhSizes = sizesPerDiscussions[rhs] ?? 0
                 
-                let lhTotalByteCount = lhFiles.reduce(0) { $0 + $1.totalByteCount }
-                let rhTotalByteCount = rhFiles.reduce(0) { $0 + $1.totalByteCount }
-                return discussionSortDirection.compare(lhs: lhTotalByteCount, rhs: rhTotalByteCount)
+                return discussionSortDirection.compare(lhs: lhSizes, rhs: rhSizes)
             }
         case .name:
-            filesPerDiscussions.keys.sorted(by: { discussionSortDirection.compare(lhs: $0.title, rhs: $1.title ) })
+            sizesPerDiscussions.keys.sorted(by: { discussionSortDirection.compare(lhs: $0.title, rhs: $1.title ) })
         case .date:
-            filesPerDiscussions.keys.sorted(by: { discussionSortDirection.compare(lhs: $0.timestampOfLastMessage, rhs: $1.timestampOfLastMessage) })
+            sizesPerDiscussions.keys.sorted(by: { discussionSortDirection.compare(lhs: $0.sortDate ?? .distantPast, rhs: $1.sortDate ?? .distantPast) })
         default:
-            Array(filesPerDiscussions.keys)
+            Array(sizesPerDiscussions.keys)
         }
     }
     
@@ -134,14 +124,95 @@ class StorageManagementViewModel: StorageManagementViewModelProtocol {
                                      model: viewModel))
     }
     
-
+    private func fetchSizesPerDiscussionsSent() async throws -> [TypeSafeManagedObjectID<PersistedDiscussion>: Int64] {
+        
+        let sizesPerDiscussionsSentfetchRequest = SentFyleMessageJoinWithStatus.getAllDiscussionsWithSentFyleMessageJoinWithStatusDownloadedTotalByteCount(for: ownedCryptoId)
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[TypeSafeManagedObjectID<PersistedDiscussion>: Int64], any Error>) in
+            
+            ObvStack.shared.performBackgroundTask { context in
+                
+                do {
+                    let sentResults = try context.fetch(sizesPerDiscussionsSentfetchRequest) as? [[String: AnyObject]] ?? []
+                    
+                    var sumOfTotalByteCountSentForDiscussionWithObjectID = [TypeSafeManagedObjectID<PersistedDiscussion>: Int64]()
+                    for result in sentResults {
+                        guard let discussionObjectID = result["sentMessage.discussion"] as? NSManagedObjectID else { assertionFailure(); continue }
+                        guard let sumOfTotalByteCount = result["sumOfTotalByteCount"] as? Int64 else { assertionFailure(); continue }
+                        sumOfTotalByteCountSentForDiscussionWithObjectID[TypeSafeManagedObjectID<PersistedDiscussion>(objectID: discussionObjectID)] = sumOfTotalByteCount
+                    }
+                    
+                    return continuation.resume(returning: sumOfTotalByteCountSentForDiscussionWithObjectID)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    private func fetchSizesPerDiscussionsReceived() async throws -> [TypeSafeManagedObjectID<PersistedDiscussion>: Int64] {
+        
+        let sizesPerDiscussionsReceivedfetchRequest = ReceivedFyleMessageJoinWithStatus.getAllDiscussionsWithReceivedFyleMessageJoinWithStatusDownloadedTotalByteCount(for: ownedCryptoId)
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[TypeSafeManagedObjectID<PersistedDiscussion>: Int64], any Error>) in
+            
+            ObvStack.shared.performBackgroundTask { context in
+                
+                do {
+                    let sentResults = try context.fetch(sizesPerDiscussionsReceivedfetchRequest) as? [[String: AnyObject]] ?? []
+                    
+                    var sumOfTotalByteCountReceivedForDiscussionWithObjectID = [TypeSafeManagedObjectID<PersistedDiscussion>: Int64]()
+                    for result in sentResults {
+                        guard let discussionObjectID = result["receivedMessage.discussion"] as? NSManagedObjectID else { assertionFailure(); continue }
+                        guard let sumOfTotalByteCount = result["sumOfTotalByteCount"] as? Int64 else { assertionFailure(); continue }
+                        sumOfTotalByteCountReceivedForDiscussionWithObjectID[TypeSafeManagedObjectID<PersistedDiscussion>(objectID: discussionObjectID)] = sumOfTotalByteCount
+                    }
+                    
+                    return continuation.resume(returning: sumOfTotalByteCountReceivedForDiscussionWithObjectID)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    @MainActor
+    private func fetchSizesPerDiscussions() async throws -> [PersistedDiscussion: Int64] {
+        
+        var sizesPerDiscussionsObjectID: [TypeSafeManagedObjectID<PersistedDiscussion>: Int64] = [:]
+        
+        let sumOfTotalByteCountSentForDiscussionWithObjectID = try await self.fetchSizesPerDiscussionsSent()
+        
+        let sumOfTotalByteCountReceivedForDiscussionWithObjectID = try await self.fetchSizesPerDiscussionsReceived()
+        
+        for (discussionObjectID, sumOfTotalByteCount) in sumOfTotalByteCountSentForDiscussionWithObjectID {
+            sizesPerDiscussionsObjectID[discussionObjectID] = (sizesPerDiscussionsObjectID[discussionObjectID] ?? 0) + sumOfTotalByteCount
+        }
+        
+        for (discussionObjectID, sumOfTotalByteCount) in sumOfTotalByteCountReceivedForDiscussionWithObjectID {
+            sizesPerDiscussionsObjectID[discussionObjectID] = (sizesPerDiscussionsObjectID[discussionObjectID] ?? 0) + sumOfTotalByteCount
+        }
+        
+        var sizesPerDiscussions: [PersistedDiscussion: Int64] = [:]
+        for (discussionObjectID, sumOfTotalByteCount) in sizesPerDiscussionsObjectID {
+            guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { continue }
+            sizesPerDiscussions[discussion] = sumOfTotalByteCount
+        }
+        
+        return sizesPerDiscussions
+    }
+    
+    
     @MainActor
     func onTaskForChartModel() async {
-        let allFetchRequestStream: FetchRequestStream<FyleMessageJoinWithStatus> = StorageFetchRequest.all.fetchRequestStream(for: ownedCryptoId)
-        for await files in allFetchRequestStream.stream {
+
+        let allFilesFetchRequestStream: FetchRequestStream<FyleMessageJoinWithStatus> = StorageFetchRequest.all.fetchRequestStream(for: ownedCryptoId)
+        
+        for await _ in allFilesFetchRequestStream.stream {
+            self.sizesPerDiscussions = (try? await fetchSizesPerDiscussions()) ?? [:]
+            
             withAnimation {
-                self.files = files
-                self.chartModel = StorageManagementChartViewModel(filesPerDiscussions: filesPerDiscussions)
+                self.chartModel = StorageManagementChartViewModel(sizesPerDiscussions: sizesPerDiscussions)
             }
         }
     }
@@ -174,11 +245,11 @@ class StorageManagementViewModel: StorageManagementViewModelProtocol {
 extension StorageManagementViewModel: Identifiable, Equatable, Hashable {
     
     static func == (lhs: StorageManagementViewModel, rhs: StorageManagementViewModel) -> Bool {
-        return lhs.files == rhs.files
+        return lhs.sizesPerDiscussions.keys == rhs.sizesPerDiscussions.keys
     }
     
     func hash(into hasher: inout Hasher) {
-        hasher.combine(files)
+        hasher.combine(Array(sizesPerDiscussions.keys))
     }
 }
 

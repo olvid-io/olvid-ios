@@ -106,7 +106,17 @@ public final class SendUnprocessedPersistedMessageSentOperation: ContextualOpera
                         
             // Construct the return receipts, payload, etc.
             
-            let returnReceiptElements: ObvReturnReceiptElements = obvEngine.generateReturnReceiptElements()
+            let returnReceiptElements: ObvReturnReceiptElements
+            if let previousReturnReceiptElements = persistedMessageSent.unsortedRecipientsInfos.first?.elements {
+                // The message was already sent to some recipients, and we are now sending it to the remaining (or a subset of the remaining) recipients.
+                // We skip generating new `ObvReturnReceiptElements`. This ensures our other owned devices can still decrypt return receipts from all recipients.
+                returnReceiptElements = previousReturnReceiptElements
+            } else {
+                // This occurs when the message has not yet been sent to any recipients (which always happens at least once per message).
+                // The `ObvReturnReceiptElements` generated here are shared with our other owned devices.
+                // This is why we avoid generating new ones in the other case (since they would not be sent to our other owned devices).
+                returnReceiptElements = obvEngine.generateReturnReceiptElements()
+            }
 
             let messagePayload: Data
             do {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,9 @@ import SwiftUI
 import ObvUICoreData
 import ObvDesignSystem
 import ObvSettings
+import ObvOwnedIdentityChooser
+import ObvTypes
+import ObvSharedDataSources
 
 
 private enum ActiveSheet: Identifiable {
@@ -81,28 +84,50 @@ struct ShareView: View {
     
     private var topBarView: some View {
         HStack {
-            Button(action: {
-                model.userWantsToCloseView()
-            }) {
-                Image(systemIcon: .xmarkCircleFill)
-                    .font(Font.system(size: 24, weight: .semibold, design: .default))
-                    .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
+            if #available(iOS 26, *) {
+                Button(action: {
+                    model.userWantsToCloseView()
+                }) {
+                    Image(systemIcon: .xmark)
+                }
+                .buttonStyle(.glass)
+                .disabled(model.messageIsSending)
+            } else {
+                Button(action: {
+                    model.userWantsToCloseView()
+                }) {
+                    Image(systemIcon: .xmarkCircleFill)
+                        .font(Font.system(size: 24, weight: .semibold, design: .default))
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
+                }
+                .disabled(model.messageIsSending)
             }
-            .disabled(model.messageIsSending)
+            
             Spacer()
             Image("badge")
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 30, height: 30)
             Spacer()
-            Button(action: {
-                isFocused = false
-                model.userWantsToSendMessages(to: model.selectedDiscussions)
-            }) {
-                Image(systemIcon: .paperplaneFill)
-                    .font(Font.system(size: 24, weight: .semibold, design: .default))
+            if #available(iOS 26, *) {
+                Button(action: {
+                    isFocused = false
+                    model.userWantsToSendMessages(to: model.selectedDiscussions)
+                }) {
+                    Image(systemIcon: .paperplaneFill)
+                }
+                .buttonStyle(.glassProminent)
+                .disabled(!model.userCanSendsMessages || model.messageIsSending)
+            } else {
+                Button(action: {
+                    isFocused = false
+                    model.userWantsToSendMessages(to: model.selectedDiscussions)
+                }) {
+                    Image(systemIcon: .paperplaneFill)
+                        .font(Font.system(size: 24, weight: .semibold, design: .default))
+                }
+                .disabled(!model.userCanSendsMessages || model.messageIsSending)
             }
-            .disabled(!model.userCanSendsMessages || model.messageIsSending)
         }
     }
     
@@ -210,10 +235,15 @@ struct ShareView: View {
     }
     
     private var ownedIdentityChooserView: some View {
-        OwnedIdentityChooserView(currentOwnedCryptoId: model.selectedOwnedIdentity.cryptoId,
-                                 ownedIdentities: model.allOwnedIdentities,
-                                 delegate: model,
-                                 cancelBarButtonAction: { activeSheet = nil })
+        OwnedIdentityChooserView(
+            currentOwnedCryptoId: model.selectedOwnedIdentity.cryptoId,
+            actions: model,
+            dataSource: OwnedIdentityChooserViewAppDataSource(viewContext: model.viewContext, anyContext: model.viewContext),
+            avatarViewDataSource: ObvAvatarViewAppDataSource(delegate: model),
+            configuration: .init(mode: .selectProfile,
+                                 explanation: nil,
+                                 title: String(localized: "MY_PROFILES")),
+            toggleToDismiss: .constant(false))
     }
     
     
@@ -228,4 +258,33 @@ struct ShareView: View {
             }))
         }
     }
+}
+
+
+// MARK: - Implementing OwnedIdentityChooserViewActionsProtocol
+
+extension ShareViewModel: OwnedIdentityChooserViewActionsProtocol {
+    
+    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
+        guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: chosenOwnedCryptoId, within: viewContext) else {
+            Self.logger.error("Could not find owned identity")
+            return
+        }
+        do {
+            try await setSelectedOwnedIdentity(to: ownedIdentity)
+        } catch {
+            Self.logger.error("Could not select chosen owned identity: \(error, privacy: .public)")
+            return
+        }
+    }
+    
+    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
+        assertionFailure("Unexpected as we configured the OwnedIdentityChooserView in selectProfile mode")
+    }
+    
+    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView) async {
+        assertionFailure("Unexpected as we configured the OwnedIdentityChooserView in selectProfile mode")
+    }
+    
+    
 }

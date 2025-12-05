@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -62,7 +62,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             remoteIdentity = try message.encodedInputs.obvDecode()
         }
         
@@ -87,8 +87,8 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         // Initializers
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             guard let result = ServerResponseContactDeviceDiscoveryResult(encodedElements[0]) else { assertionFailure(); throw Self.makeError(message: "Failed to parse ServerResponseContactDeviceDiscoveryResult")}
             self.contactDeviceDiscoveryResult = result

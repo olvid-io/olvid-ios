@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -50,7 +50,7 @@ protocol ConcreteCryptoProtocol: CustomStringConvertible {
     
     // The following protocol requirement are implemented in the following protocol extension
     
-    init?(protocolInstance: ProtocolInstance, prng: PRNGService)
+    init?(protocolInstance: ProtocolInstance, prng: PRNGService, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext)
     func getConcreteProtocolMessage(from: ReceivedMessage) -> ConcreteProtocolMessage?
     func getConcreteStepToExecute(message: ConcreteProtocolMessage) -> ConcreteProtocolStep?
     
@@ -63,22 +63,26 @@ protocol ConcreteCryptoProtocol: CustomStringConvertible {
 
 extension ConcreteCryptoProtocol {
     
-    init?(protocolInstance: ProtocolInstance, prng: PRNGService) {
+    init?(protocolInstance: ProtocolInstance, prng: PRNGService, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) {
+        guard protocolInstance.managedObjectContext == obvContext.context else {
+            assertionFailure()
+            return nil
+        }
         guard let currentStateId = Self.stateId(fromRawValue: protocolInstance.currentStateRawId) else {
             return nil
         }
-        guard let currentState = currentStateId.getConcreteProtocolState(fromEncodedState: protocolInstance.encodedCurrentState) else {
+        guard let currentState = try? currentStateId.getConcreteProtocolState(fromEncodedState: protocolInstance.encodedCurrentState) else {
             return nil
         }
-        guard let delegateManager = protocolInstance.delegateManager else {
+        guard let instanceUid = try? protocolInstance.uid else {
             return nil
         }
-        guard let obvContext = protocolInstance.obvContext else {
+        guard let ownedCryptoIdentity = try? protocolInstance.ownedCryptoIdentity else {
             return nil
         }
-        self.init(instanceUid: protocolInstance.uid,
+        self.init(instanceUid: instanceUid,
                   currentState: currentState,
-                  ownedCryptoIdentity: protocolInstance.ownedCryptoIdentity,
+                  ownedCryptoIdentity: ownedCryptoIdentity,
                   delegateManager: delegateManager,
                   prng: prng,
                   within: obvContext)

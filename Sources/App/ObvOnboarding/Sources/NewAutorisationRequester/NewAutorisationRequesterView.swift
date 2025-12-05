@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import SwiftUI
 import ObvSystemIcon
+import ObvDesignSystem
 
 
 protocol NewAutorisationRequesterViewActionsProtocol: AnyObject {
@@ -31,39 +32,12 @@ public struct NewAutorisationRequesterView: View {
     let autorisationCategory: NewAutorisationRequesterViewController.AutorisationCategory
     let actions: NewAutorisationRequesterViewActionsProtocol
 
-    private var textBodyKey: LocalizedStringKey {
+    private var textTitle: String {
         switch autorisationCategory {
         case .localNotifications:
-            return "SUBSCRIBING_TO_USER_NOTIFICATIONS_EXPLANATION"
+            return String(localizedInThisBundle: "TITLE_NEVER_MISS_A_MESSAGE")
         case .recordPermission:
-            return "EXPLANATION_WHY_RECORD_PERMISSION_IS_IMPORTANT"
-        }
-    }
-    
-    private var textTitleKey: LocalizedStringKey {
-        switch autorisationCategory {
-        case .localNotifications:
-            return "TITLE_NEVER_MISS_A_MESSAGE"
-        case .recordPermission:
-            return "TITLE_NEVER_MISS_A_SECURE_CALL"
-        }
-    }
-    
-    private var buttonTitleKey: LocalizedStringKey {
-        switch autorisationCategory {
-        case .localNotifications:
-            return "BUTON_TITLE_ACTIVATE_NOTIFICATION"
-        case .recordPermission:
-            return "BUTON_TITLE_REQUEST_RECORD_PERMISSION"
-        }
-    }
-    
-    private var buttonSystemIcon: SystemIcon {
-        switch autorisationCategory {
-        case .localNotifications:
-            return .envelopeBadge
-        case .recordPermission:
-            return .mic
+            return String(localizedInThisBundle: "TITLE_NEVER_MISS_A_SECURE_CALL")
         }
     }
     
@@ -88,41 +62,63 @@ public struct NewAutorisationRequesterView: View {
         }
     }
     
+    @ViewBuilder
+    private var texts: some View {
+        let columns = [GridItem(.fixed(30)), GridItem(.flexible())]
+        LazyVGrid(columns: columns, alignment: .leading) {
+            
+            switch autorisationCategory {
+            case .localNotifications:
+                
+                ExplanationImage(systemIcon: .textBubbleFill, color: .purple)
+                ExplanationText(text: String(localizedInThisBundle: "LOCAL_NOTIFICATIONS_TEXT_1"))
+                    .padding(.bottom)
+
+                ExplanationImage(systemIcon: .personCropCircleBadgePlus, color: .yellow)
+                ExplanationText(text: String(localizedInThisBundle: "LOCAL_NOTIFICATIONS_TEXT_2"))
+                    .padding(.bottom)
+
+                ExplanationImage(systemIcon: .gearshapeFill, color: .green)
+                ExplanationText(text: String(localizedInThisBundle: "LOCAL_NOTIFICATIONS_TEXT_3"))
+                    .padding(.bottom)
+                
+            case .recordPermission:
+                
+                ExplanationImage(systemIcon: .phoneFill, color: .purple)
+                ExplanationText(text: String(localizedInThisBundle: "RECORD_PERMISSION_TEXT_1"))
+                    .padding(.bottom)
+                
+                ExplanationImage(systemIcon: .micFill, color: .yellow)
+                ExplanationText(text: String(localizedInThisBundle: "RECORD_PERMISSION_TEXT_2"))
+                    .padding(.bottom)
+                
+                ExplanationImage(systemIcon: .checkmarkShieldFill, color: .green)
+                ExplanationText(text: String(localizedInThisBundle: "RECORD_PERMISSION_TEXT_3"))
+                    .padding(.bottom)
+                
+            }
+            
+
+        }
+        .font(.body)
+    }
+    
     public var body: some View {
         VStack {
             
             ScrollView {
-                
                 VStack {
                     
-                    Image("badge-for-onboarding", bundle: nil)
-                        .resizable()
-                        .frame(width: 60, height: 60, alignment: .center)
-                        .padding()
-                    Text(textTitleKey)
-                        .font(.title)
-                        .multilineTextAlignment(.center)
-                    
-                    Text(textBodyKey)
-                        .frame(minWidth: .none,
-                               maxWidth: .infinity,
-                               minHeight: .none,
-                               idealHeight: .none,
-                               maxHeight: .none,
-                               alignment: .center)
-                        .font(.body)
-                        .padding()
-                    
-                    Button(action: userTappedAllowButton) {
-                        Label(buttonTitleKey, systemIcon: buttonSystemIcon)
-                            .foregroundStyle(.white)
-                            .padding()
-                    }
-                    .background(Color(UIColor.systemGreen))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    
-                }
+                    ObvHeaderView(title: textTitle, subtitle: nil)
+                        .padding(.bottom, 20)
 
+                    texts
+                        .padding()
+            
+                    MainButton(autorisationCategory: autorisationCategory, action: userTappedAllowButton)
+                        .padding()
+
+                }
             }
             
             // Show a "skip" button bellow the scroll view
@@ -133,6 +129,7 @@ public struct NewAutorisationRequesterView: View {
                 HStack {
                     Spacer()
                     Button("MAYBE_LATER".localizedInThisBundle, action: userTappedSkipButton)
+                        .font(.callout)
                 }
                 .padding(.horizontal)
                 .padding(.bottom)
@@ -144,23 +141,122 @@ public struct NewAutorisationRequesterView: View {
 }
 
 
-struct NewAutorisationRequesterView_Previews: PreviewProvider {
+// MARK: - Internal view for main button
+
+private struct MainButton: View {
     
-    private final class ActionsForPreviews: NewAutorisationRequesterViewActionsProtocol {
-        func requestAutorisation(now: Bool, for autorisationCategory: NewAutorisationRequesterViewController.AutorisationCategory) async {}
-    }
-    
-    private static let actions = ActionsForPreviews()
-    
-    static var previews: some View {
-        Group {
-            NewAutorisationRequesterView(autorisationCategory: .recordPermission, actions: actions)
-            NewAutorisationRequesterView(autorisationCategory: .recordPermission, actions: actions)
-                .environment(\.locale, .init(identifier: "fr"))
-            NewAutorisationRequesterView(autorisationCategory: .localNotifications, actions: actions)
-            NewAutorisationRequesterView(autorisationCategory: .localNotifications, actions: actions)
-                .environment(\.locale, .init(identifier: "fr"))
+    let autorisationCategory: NewAutorisationRequesterViewController.AutorisationCategory
+    let action: () -> Void
+
+    private var title: String {
+        switch autorisationCategory {
+        case .localNotifications:
+            return String(localizedInThisBundle: "BUTON_TITLE_ACTIVATE_NOTIFICATION")
+        case .recordPermission:
+            return String(localizedInThisBundle: "BUTON_TITLE_REQUEST_RECORD_PERMISSION")
         }
     }
+    
+    private var icon: SystemIcon {
+        switch autorisationCategory {
+        case .localNotifications:
+            return .envelopeBadge
+        case .recordPermission:
+            return .mic
+        }
+    }
+    
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            Button(action: action) {
+                Label(title: { Text(title) }, icon: { Image(systemIcon: icon) })
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.glassProminent)
+            .buttonSizing(.flexible)
+            .tint(.green)
+        } else {
+            Button(action: action) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Label(title: { Text(title) }, icon: { Image(systemIcon: icon) })
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 6)
+                    Spacer(minLength: 0)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+        }
+    }
+    
 }
 
+
+// MARK: - Internal view
+
+private struct ExplanationImage: View {
+ 
+    let systemIcon: SystemIcon
+    let color: Color
+    
+    var body: some View {
+        VStack {
+            Image(systemIcon: systemIcon)
+                .foregroundColor(color)
+            Spacer(minLength: 0)
+        }
+    }
+    
+}
+
+// MARK: - Internal view
+
+private struct ExplanationText: View {
+    
+    let text: String
+    
+    var body: some View {
+        VStack {
+            HStack {
+                Text(text)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+    
+}
+
+#if DEBUG
+
+
+@MainActor
+private final class ActionsForPreviews: NewAutorisationRequesterViewActionsProtocol {
+    func requestAutorisation(now: Bool, for autorisationCategory: NewAutorisationRequesterViewController.AutorisationCategory) async {}
+}
+
+@MainActor
+private let actions = ActionsForPreviews()
+
+#Preview("Record (en)") {
+    NewAutorisationRequesterView(autorisationCategory: .recordPermission, actions: actions)
+}
+
+#Preview("Record (fr)") {
+    NewAutorisationRequesterView(autorisationCategory: .recordPermission, actions: actions)
+        .environment(\.locale, .init(identifier: "fr"))
+}
+
+#Preview("Notifications (en)") {
+    NewAutorisationRequesterView(autorisationCategory: .localNotifications, actions: actions)
+}
+
+#Preview("Notifications (fr)") {
+    NewAutorisationRequesterView(autorisationCategory: .localNotifications, actions: actions)
+        .environment(\.locale, .init(identifier: "fr"))
+}
+
+
+#endif

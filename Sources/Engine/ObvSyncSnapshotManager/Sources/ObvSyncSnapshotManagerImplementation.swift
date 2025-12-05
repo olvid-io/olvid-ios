@@ -57,6 +57,12 @@ public final class ObvSyncSnapshotManagerImplementation: ObvSyncSnapshotDelegate
     }
     
     
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {
+        assert(appSnapshotableObject != nil, "registerAppSnapshotableObject(_:) should have been called by now")
+        assert(identitySnapshotableObject != nil, "registerIdentitySnapshotableObject(_:) should have been called by now")
+    }
+    
+    
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
         assert(appSnapshotableObject != nil, "registerAppSnapshotableObject(_:) should have been called by now")
         assert(identitySnapshotableObject != nil, "registerIdentitySnapshotableObject(_:) should have been called by now")

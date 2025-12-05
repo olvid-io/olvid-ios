@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ import ObvEncoder
 
 /// This structure is used within the protocol allowing to publish group details.
 /// The equivalent structure under Android is called JsonGroupDetailsWithVersionAndPhoto.
-public struct GroupDetailsElements: Equatable {
+public struct GroupDetailsElements: Equatable, Sendable {
 
     public let version: Int
     public let coreDetails: ObvGroupCoreDetails
@@ -90,7 +90,7 @@ extension GroupDetailsElements: Codable {
 }
 
 /// This structure is used to communicate group details informations between the protocol manager and the identity manager.
-public struct GroupDetailsElementsWithPhoto {
+public struct GroupDetailsElementsWithPhoto: Sendable {
 
     public let groupDetailsElements: GroupDetailsElements
     public let photoURL: URL?

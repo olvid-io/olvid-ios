@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,7 +36,7 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
     // MARK: Attributes
 
     @NSManaged public private(set) var couldNotBeSentToServer: Bool // Set to true if the engine could not send message during 30 days
-    @NSManaged public private(set) var messageIdentifierFromEngine: Data?
+    @NSManaged public private(set) var messageIdentifierFromEngine: Data? // Set to 0x55 when the associated message was sent from another owned device
     @NSManaged private var recipientIdentity: Data
     @NSManaged private(set) var returnReceiptKey: Data?
     @NSManaged private var returnReceiptNonce: Data?
@@ -60,7 +60,7 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
     
     public func getRecipient() throws -> PersistedObvContactIdentity? {
         guard let discussion = messageSent.discussion else {
-            throw ObvUICoreDataError.discussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         guard let ownedIdentity = discussion.ownedIdentity else {
             os_log("Could not find owned identity. This is ok if it has just been deleted.", log: Self.log, type: .error)
@@ -86,6 +86,13 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
     public var returnReceiptElements: (nonce: Data, key: Data)? {
         return (self.returnReceiptNonce, self.returnReceiptKey) as? (Data, Data) ?? nil
     }
+    
+    
+    public var elements: ObvReturnReceiptElements? {
+        guard let returnReceiptNonce, let returnReceiptKey else { return nil }
+        return .init(nonce: returnReceiptNonce, key: returnReceiptKey)
+    }
+    
 
     /// We consider that a message and its attachments are sent when the message is received by the server (i.e., `timestampMessageSent` is not `nil`)
     /// and the attachments have been fully received by the server (i.e., `timestampAllAttachmentsSent` is not `nil`).
@@ -111,7 +118,7 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
         _ = try ObvCryptoId(identity: recipientIdentity)
         
         self.couldNotBeSentToServer = false
-        self.messageIdentifierFromEngine = nil
+        self.messageIdentifierFromEngine = nil // Note that in case of a message sent from another owned device, we will soon call `func setValuesReceivedFromAnotherOwnedDevice(...)`
         self.recipientIdentity = recipientIdentity
         self.returnReceiptKey = nil
         self.returnReceiptNonce = nil
@@ -143,6 +150,19 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
         self.messageIdentifierFromEngine = messageIdentifierFromEngine
         self.returnReceiptNonce = elements.nonce
         self.returnReceiptKey = elements.key
+        self.messageSent.refreshStatus()
+    }
+    
+    
+    func setValuesReceivedFromAnotherOwnedDevice(returnReceiptJSON: ReturnReceiptJSON, messageUploadTimestampFromServer: Date) {
+        // 2025-09-01: Fixed a bug in macOS 13 where setting an empty `Data()` object was incorrectly treated as `NULL`.
+        // This caused messages sent from other owned devices to be mistakenly identified as originating from the current device,
+        // resulting in the message being resent and received twice by the recipient.
+        self.messageIdentifierFromEngine = Data(repeating: 0x55, count: 1)
+        self.returnReceiptNonce = returnReceiptJSON.elements.nonce
+        self.returnReceiptKey = returnReceiptJSON.elements.key
+        // The following method call sets `timestampMessageSent` and `timestampAllAttachmentsSent`.
+        self.messageWasSentNoLaterThan(messageUploadTimestampFromServer, alsoMarkAttachmentsAsSent: true)
         self.messageSent.refreshStatus()
     }
     
@@ -450,10 +470,9 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
                 messageSentToRefresh = infos.messageSent
             }
             
-            // If a message was delivered to a recipient, we know we should mark all the attachments as "sent" (i.e., complete)
-
-            if let messageSentToRefresh {
-                let joins = messageSentToRefresh.markAllFyleMessageJoinWithStatusesAsComplete()
+            // If a message was delivered to a recipient, and if the message is sent from the current device, we know we should mark all the attachments as "sent" (i.e., complete)
+            if let messageSentToRefresh, messageSentToRefresh.isSentFromCurrentDevice {
+                let joins = messageSentToRefresh.markAllFyleMessageJoinWithStatusesAsFullyUploadedByCurrentDevice()
                 markAsCompleteAllSentFyleMessageJoinWithStatusOfRefreshedMessage = !joins.filter({ $0.hasChanges }).isEmpty
             }
                         
@@ -607,7 +626,7 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
             let messageSentToRefresh = try PersistedMessageSent.getPersistedMessageSent(objectID: messageSent, within: context)
             messageSentToRefresh?.setStatusOnApplyingHintOnPersistedMessageSentRecipientInfos(newStatus: newStatus)
             if hints.markAsCompleteAllSentFyleMessageJoinWithStatusOfRefreshedMessage {
-                _ = messageSentToRefresh?.markAllFyleMessageJoinWithStatusesAsComplete()
+                _ = messageSentToRefresh?.markAllFyleMessageJoinWithStatusesAsFullyUploadedByCurrentDevice()
             }
         }
         

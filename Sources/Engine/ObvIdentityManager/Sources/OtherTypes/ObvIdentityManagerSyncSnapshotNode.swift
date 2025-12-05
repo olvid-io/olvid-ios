@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,9 +42,9 @@ struct ObvIdentityManagerSyncSnapshotNode: ObvSyncSnapshotNode, Codable {
     private static let defaultDomain: Set<CodingKeys> = Set(CodingKeys.allCases.filter({ $0 != .domain }))
     
     
-    init(ownedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+    init(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         self.ownedCryptoIdentity = ownedCryptoIdentity
-        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, within: obvContext.context) else {
             throw ObvError.couldNotFindOwnedIdentity
         }
         self.ownedIdentityNode = try ownedIdentity.syncSnapshotNode
@@ -75,8 +75,8 @@ struct ObvIdentityManagerSyncSnapshotNode: ObvSyncSnapshotNode, Codable {
     
     func restore(prng: PRNGService, customDeviceName: String, delegateManager: ObvIdentityDelegateManager, allowOwnedIdentityToExistInDatabase: Bool, within obvContext: ObvContext) throws {
         var associations = SnapshotNodeManagedObjectAssociations()
-        try ownedIdentityNode.restoreInstance(cryptoIdentity: ownedCryptoIdentity, allowOwnedIdentityToExistInDatabase: allowOwnedIdentityToExistInDatabase, within: obvContext, associations: &associations)
-        try ownedIdentityNode.restoreRelationships(associations: associations, prng: prng, customDeviceName: customDeviceName, delegateManager: delegateManager, within: obvContext)
+        try ownedIdentityNode.restoreInstance(cryptoIdentity: ownedCryptoIdentity, allowOwnedIdentityToExistInDatabase: allowOwnedIdentityToExistInDatabase, within: obvContext.context, associations: &associations)
+        try ownedIdentityNode.restoreRelationships(associations: associations, prng: prng, customDeviceName: customDeviceName, within: obvContext.context)
     }
     
     

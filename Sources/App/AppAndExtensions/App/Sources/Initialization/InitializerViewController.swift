@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,10 +24,11 @@ import ObvUI
 
 final class InitializerViewController: UIViewController {
     
-    private var activityIndicatorView = UIActivityIndicatorView(style: .large)
     private let exportRunningLogButton = UIButton()
     private var progressView: UIProgressView?
     private var observationTokens = [NSObjectProtocol]()
+    
+    private var disableRequestIdentifier: UUID?
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
         if view?.window?.isKeyWindow == true {
@@ -52,11 +53,6 @@ final class InitializerViewController: UIViewController {
         launchViewController.view.translatesAutoresizingMaskIntoConstraints = false
         self.view.pinAllSidesToSides(of: launchViewController.view)
         
-        self.view.addSubview(activityIndicatorView)
-        activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
-        activityIndicatorView.hidesWhenStopped = true
-        activityIndicatorView.color = .white
-        
         self.view.addSubview(exportRunningLogButton)
         exportRunningLogButton.translatesAutoresizingMaskIntoConstraints = false
         let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 30.0, weight: .bold)
@@ -68,15 +64,32 @@ final class InitializerViewController: UIViewController {
         setupConstraints()
         
         observeDatabaseMigrationNotifications()
-        showSpinnerAfterCertainTime()
+        showExportRunningLogButtonAfterCertainTime()
         
+    }
+    
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        let newDisableRequestIdentifier = IdleTimerManager.shared.disableIdleTimer()
+        if let disableRequestIdentifier {
+            IdleTimerManager.shared.enableIdleTimer(disableRequestIdentifier: disableRequestIdentifier)
+        }
+        disableRequestIdentifier = newDisableRequestIdentifier
+    }
+    
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        if let disableRequestIdentifier {
+            IdleTimerManager.shared.enableIdleTimer(disableRequestIdentifier: disableRequestIdentifier)
+        }
+        disableRequestIdentifier = nil
     }
     
     
     private func setupConstraints() {
         let constraints = [
-            self.view.centerXAnchor.constraint(equalTo: activityIndicatorView.centerXAnchor),
-            self.view.centerYAnchor.constraint(equalTo: activityIndicatorView.centerYAnchor),
             self.view.safeAreaLayoutGuide.trailingAnchor.constraint(equalTo: exportRunningLogButton.trailingAnchor, constant: 16),
             self.view.safeAreaLayoutGuide.bottomAnchor.constraint(equalTo: exportRunningLogButton.bottomAnchor, constant: 16),
         ]
@@ -84,23 +97,15 @@ final class InitializerViewController: UIViewController {
     }
 
     
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        // 2023-08-03 Commenting this out, to prevent the camera VC to be dismissed. Not clear why this was here"
-        // presentedViewController?.dismiss(animated: true)
-    }
-
-    
     // MARK: - Spinner and export logs
     
-    private var neverShowActivityIndicator = false
+    private var neverShowExportRunningLogButton = false
 
-    private func showSpinnerAfterCertainTime() {
+    private func showExportRunningLogButtonAfterCertainTime() {
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(45)) { [weak self] in
             guard let _self = self else { return }
-            guard !_self.neverShowActivityIndicator else { return }
+            guard !_self.neverShowExportRunningLogButton else { return }
             UIView.animate(withDuration: 0.3) {
-                self?.activityIndicatorView.startAnimating()
                 self?.exportRunningLogButton.alpha = 1
             }
         }
@@ -109,8 +114,7 @@ final class InitializerViewController: UIViewController {
     
     /// If the app is initialized successfully, we don't need to show the spiner nor the export log button ever again.
     func appInitializationSucceeded() {
-        neverShowActivityIndicator = true
-        activityIndicatorView.stopAnimating()
+        neverShowExportRunningLogButton = true
         exportRunningLogButton.alpha = 0
         progressView?.isHidden = true
     }

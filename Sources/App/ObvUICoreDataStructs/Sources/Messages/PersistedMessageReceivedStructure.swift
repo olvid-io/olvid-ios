@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvTypes
 import ObvAppTypes
 
 
-public struct PersistedMessageReceivedStructure {
+public struct PersistedMessageReceivedStructure: Sendable {
     
     public let textBody: String?
     public let messageIdentifierFromEngine: Data

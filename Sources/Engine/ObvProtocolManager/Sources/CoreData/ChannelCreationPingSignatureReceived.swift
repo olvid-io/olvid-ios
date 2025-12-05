@@ -25,7 +25,7 @@ import OlvidUtils
 
 
 @objc(ChannelCreationPingSignatureReceived)
-final class ChannelCreationPingSignatureReceived: NSManagedObject, ObvManagedObject {
+final class ChannelCreationPingSignatureReceived: NSManagedObject {
         
     // MARK: Internal constants
 
@@ -43,18 +43,28 @@ final class ChannelCreationPingSignatureReceived: NSManagedObject, ObvManagedObj
         set { rawOwnedIdentity = newValue.getIdentity() }
     }
     
-    weak var obvContext: ObvContext?
-
     // MARK: - Initializer
 
-    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within obvContext: ObvContext) {
+    /// 2025-08-27: ok
+    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within context: NSManagedObjectContext) {
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: ChannelCreationPingSignatureReceived.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: ChannelCreationPingSignatureReceived.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
 
         self.ownedIdentity = ownedCryptoIdentity
         self.signature = signature
         
+    }
+ 
+    
+    private func deleteChannelCreationPingSignatureReceived() throws {
+        guard let managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        managedObjectContext.delete(self)
+    }
+    
+    
+    enum ObvError: Error {
+        case noContext
     }
     
 }
@@ -81,38 +91,38 @@ extension ChannelCreationPingSignatureReceived {
         }
     }
     
-    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within obvContext: ObvContext) throws -> Bool {
+    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<ChannelCreationPingSignatureReceived> = ChannelCreationPingSignatureReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
             Predicate.withSignature(signature),
         ])
-        let count = try obvContext.count(for: request)
+        let count = try context.count(for: request)
         return count > 0
     }
     
-    static func deleteAllAssociatedWithOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func deleteAllAssociatedWithOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<ChannelCreationPingSignatureReceived> = ChannelCreationPingSignatureReceived.fetchRequest()
         request.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
         request.fetchBatchSize = 100
         request.includesPropertyValues = false
-        let items = try obvContext.fetch(request)
+        let items = try context.fetch(request)
         for item in items {
-            obvContext.delete(item)
+            try item.deleteChannelCreationPingSignatureReceived()
         }
     }
     
-    static func batchDeleteAllChannelCreationPingSignatureReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func batchDeleteAllChannelCreationPingSignatureReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: ChannelCreationPingSignatureReceived.entityName)
         fetchRequest.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 import UIKit
 
-public enum NotificationSound: String, Sound, CaseIterable {
+public enum NotificationSound: String, Sound, CaseIterable, Sendable {
     case none = ""
     case system = "SYSTEM"
 

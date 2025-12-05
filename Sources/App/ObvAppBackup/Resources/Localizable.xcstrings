@@ -3,16 +3,53 @@
   "strings" : {
     "" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : ""
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
         }
-      }
+      },
+      "shouldTranslate" : false
     },
     "%lld_BACKUPED_PROFILES_FOUND" : {
       "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ein gesichertes Profil gefunden"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld gesicherte Profile gefunden"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Keine gesicherten Profile gefunden"
+                }
+              }
+            }
+          }
+        },
         "en" : {
           "variations" : {
             "plural" : {
@@ -32,6 +69,30 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "No backuped profile found"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Se encontró 1 perfil respaldado"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Se encontraron %lld perfiles respaldados"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No se encontraron perfiles respaldados"
                 }
               }
             }
@@ -60,11 +121,59 @@
               }
             }
           }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un profilo di backup trovato"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld profili di backup trovati"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nessun profilo di backup trovato"
+                }
+              }
+            }
+          }
         }
       }
     },
     "%lld_BACKUPS_FOUND" : {
       "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ein Backup gefunden"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Backups gefunden"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Kein Backup gefunden"
+                }
+              }
+            }
+          }
+        },
         "en" : {
           "variations" : {
             "plural" : {
@@ -84,6 +193,30 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "No backup found"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Se encontró una copia de seguridad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld copias de seguridad encontradas"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No se encontraron copias de seguridad"
                 }
               }
             }
@@ -112,11 +245,59 @@
               }
             }
           }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un backup trovato"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld backup trovati"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nessun backup trovato"
+                }
+              }
+            }
+          }
         }
       }
     },
     "%lld_CONTACTS" : {
       "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ein Kontakt"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Kontakte"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Keine Kontakte"
+                }
+              }
+            }
+          }
+        },
         "en" : {
           "variations" : {
             "plural" : {
@@ -136,6 +317,30 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "No contacts"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un contacto"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld contactos"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sin contactos"
                 }
               }
             }
@@ -164,11 +369,59 @@
               }
             }
           }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un contatto"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld contatti"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nessun contatto"
+                }
+              }
+            }
+          }
         }
       }
     },
     "%lld_GROUPS" : {
       "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Eine Gruppe"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Gruppen"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Keine Gruppen"
+                }
+              }
+            }
+          }
+        },
         "en" : {
           "variations" : {
             "plural" : {
@@ -188,6 +441,30 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "No groups"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un grupo"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld grupos"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ningún grupo"
                 }
               }
             }
@@ -216,15 +493,51 @@
               }
             }
           }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un gruppo"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld gruppi"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nessun gruppo"
+                }
+              }
+            }
+          }
         }
       }
     },
     "ACTIVATE_AUTOMATIC_BACKUPS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatische Backups aktivieren"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enable automatic backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar copias de seguridad automáticas"
           }
         },
         "fr" : {
@@ -232,15 +545,33 @@
             "state" : "translated",
             "value" : "Activer les sauvegardes automatiques"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abilita backup automatici"
+          }
         }
       }
     },
     "ADD_DEVICE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Gerät hinzufügen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Add a device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir un dispositivo"
           }
         },
         "fr" : {
@@ -248,15 +579,33 @@
             "state" : "translated",
             "value" : "Ajouter un appareil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi un dispositivo"
+          }
         }
       }
     },
     "ADVANCED_SETTINGS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erweiterte Einstellungen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Advanced settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuración avanzada"
           }
         },
         "fr" : {
@@ -264,15 +613,33 @@
             "state" : "translated",
             "value" : "Paramètres avancés"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impostazioni avanzate"
+          }
         }
       }
     },
     "AN_ERROR_OCCURED" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Fehler ist aufgetreten"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "An error occurred"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocurrió un error"
           }
         },
         "fr" : {
@@ -280,15 +647,33 @@
             "state" : "translated",
             "value" : "Une erreur est survenue"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si è verificato un errore"
+          }
         }
       }
     },
     "AUTHENTICATION_REQUIRED_TO_SHOW_YOUR_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte authentifizieren Sie sich, um Ihren Backup-Schlüssel anzuzeigen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Please authenticate so see you backup key."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por favor, autentícate para ver tu clave de respaldo."
           }
         },
         "fr" : {
@@ -296,15 +681,33 @@
             "state" : "translated",
             "value" : "Veuillez vous authentifier pour afficher votre clé de sauvegarde."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si prega di autenticarsi per visualizzare la chiave di backup."
+          }
         }
       }
     },
     "AUTOMATIC_BACKUP_SUCCESSFULLY_ACTIVATED" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backups wurden erfolgreich aktiviert!"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backups were successfully activated!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Las copias de seguridad se activaron correctamente!"
           }
         },
         "fr" : {
@@ -312,15 +715,33 @@
             "state" : "translated",
             "value" : "Les sauvegardes ont été activées avec succès !"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I backup sono stati attivati correttamente!"
+          }
         }
       }
     },
     "AVAILABLE_BACKUPED_PROFILES_FOR_THIS_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verfügbare gesicherte Profile für diesen Schlüssel"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Available backuped profiles for this key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfiles de respaldo disponibles para esta clave"
           }
         },
         "fr" : {
@@ -328,15 +749,33 @@
             "state" : "translated",
             "value" : "Sauvegardes disponibles pour cette clé"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profili di backup disponibili per questa chiave"
+          }
         }
       }
     },
     "BACKED_UP_PROFILES" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesicherte Profile"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backed up profiles"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfiles respaldados"
           }
         },
         "fr" : {
@@ -344,15 +783,33 @@
             "state" : "translated",
             "value" : "Profils sauvegardés"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profili salvati"
+          }
         }
       }
     },
     "BACKED_UP_PROFILES_ACROSS_DEVICE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf allen Geräten"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Across devices"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En todos los dispositivos"
           }
         },
         "fr" : {
@@ -360,15 +817,33 @@
             "state" : "translated",
             "value" : "Par profil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su tutti i dispositivi"
+          }
         }
       }
     },
     "BACKED_UP_PROFILES_PER_DEVICE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro Gerät"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Per device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por dispositivo"
           }
         },
         "fr" : {
@@ -376,15 +851,33 @@
             "state" : "translated",
             "value" : "Par appareil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per dispositivo"
+          }
         }
       }
     },
     "BACKUP" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherung"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backup"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia de seguridad"
           }
         },
         "fr" : {
@@ -392,15 +885,33 @@
             "state" : "translated",
             "value" : "Sauvegarde"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup"
+          }
         }
       }
     },
     "BACKUP_MODE_BODY_KEYCHAIN" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die auf diesem Gerät vorhandenen Profile werden automatisch gesichert. Die Backups werden verschlüsselt und dann auf den Servern von Olvid gespeichert. Der Verschlüsselungsschlüssel wird im iCloud-Schlüsselbund gespeichert und auf all Ihren Geräten synchronisiert."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The profiles present on this device are automatically backed up. Backups are encrypted and then stored on Olvid's servers. The encryption key is saved in the iCloud keychain and synchronized across your devices."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los perfiles presentes en este dispositivo se respaldan automáticamente. Los respaldos están encriptados y luego se almacenan en los servidores de Olvid. La clave de encriptación se guarda en el llavero de iCloud y se sincroniza entre tus dispositivos."
           }
         },
         "fr" : {
@@ -408,15 +919,33 @@
             "state" : "translated",
             "value" : "Les profils présents sur cet appareil sont sauvegardés automatiquement. Les sauvegardes sont chiffrées puis stockées sur les serveurs d'Olvid. La clé de chiffrement est enregistrée dans le trousseau iCloud et synchronisée entre vos différents appareils."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I profili presenti su questo dispositivo vengono automaticamente salvati in backup. I backup sono crittografati e poi archiviati sui server di Olvid. La chiave di crittografia viene salvata nel portachiavi iCloud e sincronizzata su tutti i tuoi dispositivi."
+          }
         }
       }
     },
     "BACKUP_MODE_BODY_MANUAL" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die auf diesem Gerät vorhandenen Profile werden automatisch gesichert. Die Backups werden verschlüsselt und dann auf den Servern von Olvid gespeichert. Sie müssen den Verschlüsselungsschlüssel aufschreiben und sicher aufbewahren."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The profiles present on this device are automatically backed up. Backups are encrypted and then stored on Olvid's servers. You will have to write down the encryption key and keep it in a safe place."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los perfiles presentes en este dispositivo se respaldan automáticamente. Los respaldos están encriptados y luego se almacenan en los servidores de Olvid. Deberás anotar la clave de encriptación y guardarla en un lugar seguro."
           }
         },
         "fr" : {
@@ -424,15 +953,33 @@
             "state" : "translated",
             "value" : "Les profils présents sur cet appareil sont sauvegardés automatiquement. Les sauvegardes sont chiffrées puis stockées sur les serveurs d'Olvid. Vous devrez noter la clé de chiffrement et la conserver en lieu sûr."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I profili presenti su questo dispositivo vengono automaticamente salvati su backup. I backup sono crittografati e poi memorizzati sui server di Olvid. Dovrai annotare la chiave di crittografia e conservarla in un luogo sicuro."
+          }
         }
       }
     },
     "BACKUP_MODE_BODY_NO_BACKUP" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die auf diesem Gerät vorhandenen Profile werden niemals gesichert. Der Verlust des Zugriffs auf dieses Gerät kann daher zum endgültigen Verlust der Profile führen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The profiles present on this device are never backed up. Consequently, losing access to this device may result in the definitive loss of the profiles."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los perfiles presentes en este dispositivo nunca se respaldan. En consecuencia, perder el acceso a este dispositivo podría resultar en la pérdida definitiva de los perfiles."
           }
         },
         "fr" : {
@@ -440,15 +987,33 @@
             "state" : "translated",
             "value" : "Les profils présents sur cet appareil ne sont jamais sauvegardés. La perte d'accès à cet appareil peut donc entraîner une perte définitive des profils."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I profili presenti su questo dispositivo non vengono mai salvati su backup. Di conseguenza, la perdita di accesso a questo dispositivo potrebbe comportare la perdita definitiva dei profili."
+          }
         }
       }
     },
     "BACKUP_MODE_TITLE_KEYCHAIN" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatische Backups und Schlüsselverwaltung"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Automatic backups and key management"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copias de seguridad automáticas y gestión de claves"
           }
         },
         "fr" : {
@@ -456,15 +1021,33 @@
             "state" : "translated",
             "value" : "Sauvegardes et gestion de la clé automatiques"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup automatici e gestione delle chiavi"
+          }
         }
       }
     },
     "BACKUP_MODE_TITLE_MANUAL" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatische Backups, aber manuelle Schlüsselverwaltung"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Automatic backups but manual key management"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copias de seguridad automáticas, pero gestión manual de claves"
           }
         },
         "fr" : {
@@ -472,15 +1055,33 @@
             "state" : "translated",
             "value" : "Sauvegardes automatiques mais gestion manuelle de la clé"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup automatici, ma gestione manuale delle chiavi"
+          }
         }
       }
     },
     "BACKUP_MODE_TITLE_NO_BACKUP" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Backups"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin copias de seguridad"
           }
         },
         "fr" : {
@@ -488,15 +1089,33 @@
             "state" : "translated",
             "value" : "Aucune sauvegarde"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun backup"
+          }
         }
       }
     },
     "BACKUP_MY_PROFILE_ON_ICLOUD" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherung für iCloud-Schlüsselbund (empfohlen)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backup to iCloud Keychain (recommended)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respaldar en iCloud Keychain (recomendado)"
           }
         },
         "fr" : {
@@ -504,15 +1123,33 @@
             "state" : "translated",
             "value" : "Sauvegarder sur trousseau iCloud (recommandé)"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esegui il backup su iCloud Keychain (consigliato)"
+          }
         }
       }
     },
     "BACKUPS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherungen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copias de seguridad"
           }
         },
         "fr" : {
@@ -520,11 +1157,41 @@
             "state" : "translated",
             "value" : "Sauvegardes"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup"
+          }
         }
       }
     },
     "BY_RESTORING_YOUR_PROFILE_%@_YOU_WILL_DEACTIVATE_OTHER_%lld_DEVICES" : {
       "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Durch das Wiederherstellen Ihres Profils %1$@ auf diesem Gerät wird Ihr altes Gerät deaktiviert:"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Durch das Wiederherstellen Ihres Profils %1$@ auf diesem Gerät werden Ihre %2$lld alten Geräte deaktiviert:"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Durch das Wiederherstellen Ihres Profils %1$@ auf diesem Gerät wird Ihr altes Gerät deaktiviert:"
+                }
+              }
+            }
+          }
+        },
         "en" : {
           "variations" : {
             "plural" : {
@@ -544,6 +1211,30 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "By restoring your profile %1$@ on this device, you will deactivate your old device:"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Al restaurar tu perfil %1$@ en este dispositivo, desactivarás tu dispositivo anterior:"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Al restaurar tu perfil %1$@ en este dispositivo, desactivarás tus %2$lld dispositivos anteriores:"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Al restaurar tu perfil %1$@ en este dispositivo, desactivarás tu dispositivo anterior:"
                 }
               }
             }
@@ -572,15 +1263,51 @@
               }
             }
           }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ripristinando il tuo profilo %1$@ su questo dispositivo, disattiverai il tuo vecchio dispositivo:"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ripristinando il tuo profilo %1$@ su questo dispositivo, disattiverai i tuoi %2$lld vecchi dispositivi:"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ripristinando il tuo profilo %1$@ su questo dispositivo, disattiverai il tuo vecchio dispositivo:"
+                }
+              }
+            }
+          }
         }
       }
     },
     "CANCEL" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbrechen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
           }
         },
         "fr" : {
@@ -588,15 +1315,33 @@
             "state" : "translated",
             "value" : "Annuler"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla"
+          }
         }
       }
     },
     "CHOOSE_BETWEEN_MANUAL_AND_ICLOUD_BACKUPS_DURING_ONBOARDING" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standardmäßig werden Backups automatisch verwaltet. Bitte erkunden Sie die erweiterten Einstellungen, um eine andere Option auszuwählen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "By default, backups will be managed automatically. Please explore the advanced settings to choose another option."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por defecto, las copias de seguridad se gestionarán automáticamente. Consulta la configuración avanzada para elegir otra opción."
           }
         },
         "fr" : {
@@ -604,15 +1349,33 @@
             "state" : "translated",
             "value" : "Par défaut, vos sauvegardes seront effectuées automatiquement. Pour choisir une autre option, rendez-vous dans les paramètres avancés."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per impostazione predefinita, i backup saranno gestiti automaticamente. Esplora le impostazioni avanzate per scegliere un'altra opzione."
+          }
         }
       }
     },
     "CHOOSE_BETWEEN_MANUAL_AND_ICLOUD_BACKUPS_WHILE_MIGRATING" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standardmäßig werden Backups automatisch erstellt (Sie müssen keinen Backup-Schlüssel mehr notieren). Bitte erkunden Sie die erweiterten Einstellungen, um eine andere Option auszuwählen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "By default, backups will be automatically performed (no need to write a backup key down anymore). Please explore the advanced settings to choose another option."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por defecto, las copias de seguridad se realizarán automáticamente (ya no es necesario anotar una clave de copia de seguridad). Consulta la configuración avanzada para elegir otra opción."
           }
         },
         "fr" : {
@@ -620,15 +1383,33 @@
             "state" : "translated",
             "value" : "Par défaut, vos sauvegardes seront effectuées automatiquement (plus besoin de noter de clé sauvegarde). Pour choisir une autre option, rendez-vous dans les paramètres avancés."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per impostazione predefinita, i backup verranno eseguiti automaticamente (non è più necessario memorizzare una chiave di backup). Esplora le impostazioni avanzate per scegliere un'altra opzione."
+          }
         }
       }
     },
     "CONFIRM_RESET_ALL_TITLE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sind Sie sicher? Dieser Vorgang kann nicht rückgängig gemacht werden."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Are you sure? This operation is irreversible."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Estás seguro? Esta operación es irreversible."
           }
         },
         "fr" : {
@@ -636,15 +1417,33 @@
             "state" : "translated",
             "value" : "Êtes-vous sûr ? Cette opération est irréversible."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sei sicuro? Questa operazione è irreversibile."
+          }
         }
       }
     },
     "COPY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schlüssel kopieren"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copy the key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar la clave"
           }
         },
         "fr" : {
@@ -652,15 +1451,33 @@
             "state" : "translated",
             "value" : "Copier la clé"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia la chiave"
+          }
         }
       }
     },
     "COPY_ERROR_TO_PASTEBOARD" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fehler beim Kopieren in die Zwischenablage"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copy error to clipboard"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error al copiar al portapapeles"
           }
         },
         "fr" : {
@@ -668,15 +1485,33 @@
             "state" : "translated",
             "value" : "Copier l'erreur dans le presse-papiers"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Errore copia negli appunti"
+          }
         }
       }
     },
     "DELETE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar"
           }
         },
         "fr" : {
@@ -684,15 +1519,33 @@
             "state" : "translated",
             "value" : "Supprimer"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina"
+          }
         }
       }
     },
     "DELETING" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen…"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Deleting…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminando…"
           }
         },
         "fr" : {
@@ -700,15 +1553,33 @@
             "state" : "translated",
             "value" : "Suppression…"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminazione in corso…"
+          }
         }
       }
     },
     "DISPLAY_YOUR_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mein Backup-Schlüssel"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "My backup key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mi clave de respaldo"
           }
         },
         "fr" : {
@@ -716,15 +1587,33 @@
             "state" : "translated",
             "value" : "Ma clé de sauvegarde"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mia chiave di backup"
+          }
         }
       }
     },
     "ENTER_A_BACKUP_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib einen Backup-Schlüssel ein"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter a backup key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce una clave de respaldo"
           }
         },
         "fr" : {
@@ -732,31 +1621,33 @@
             "state" : "translated",
             "value" : "Saisissez une clé de sauvegarde"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci una chiave di backup"
+          }
         }
       }
     },
     "ENTER_BACKUP_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib einen Backup-Schlüssel ein"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter a backup key"
           }
         },
-        "fr" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Saisir une clé de sauvegarde"
-          }
-        }
-      }
-    },
-    "ENTER_DEVICE_BACKUP_SEED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter backup key"
+            "value" : "Introduce una clave de respaldo"
           }
         },
         "fr" : {
@@ -764,15 +1655,67 @@
             "state" : "translated",
             "value" : "Saisir une clé de sauvegarde"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci una chiave di backup"
+          }
+        }
+      }
+    },
+    "ENTER_DEVICE_BACKUP_SEED" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib den Backup-Schlüssel ein"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter backup key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce la clave de respaldo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisir une clé de sauvegarde"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci la chiave di backup"
+          }
         }
       }
     },
     "ERASE_AND_GENERATE_COMPROMISED_KEY_EXPLANATION" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn Sie glauben, dass dieser Geräte-Backup-Schlüssel gestohlen oder kompromittiert wurde, aber noch nicht ausgenutzt wurde, können Sie ihn löschen und einen neuen generieren."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "If you believe this device backup key was stolen or compromised, but not yet exploited, you can erase it and generate a new one."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si cree que la clave de respaldo de este dispositivo ha sido robada o comprometida, pero aún no explotada, puede borrarla y generar una nueva."
           }
         },
         "fr" : {
@@ -780,15 +1723,33 @@
             "state" : "translated",
             "value" : "Si vous pensez que la clé de sauvegarde de cet appareil a été volée ou compromise, mais pas encore exploitée, vous pouvez la supprimer et en générer une nouvelle."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se ritieni che la chiave di backup di questo dispositivo sia stata rubata o compromessa, ma non ancora sfruttata, puoi cancellarla e generarne una nuova."
+          }
         }
       }
     },
     "ERASE_AND_GENERATE_NEW_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen und neuen Schlüssel generieren"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Erase and generate a new key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borrar y generar una nueva clave"
           }
         },
         "fr" : {
@@ -796,15 +1757,33 @@
             "state" : "translated",
             "value" : "Effacer et générer une nouvelle clé"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancella e genera una nuova chiave"
+          }
         }
       }
     },
     "ERASE_AND_GENERATE_NEW_KEY_CONFIRMATION_TITLE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sind Sie sicher, dass Sie den Schlüssel löschen und einen neuen generieren möchten?"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Are you sure you wish to erase and generate a new key?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Estás seguro de que deseas borrar y generar una nueva clave?"
           }
         },
         "fr" : {
@@ -812,15 +1791,33 @@
             "state" : "translated",
             "value" : "Confirmez-vous vouloir effacer et générer une nouvelle clé ?"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sei sicuro di voler cancellare e generare una nuova chiave?"
+          }
         }
       }
     },
     "FAILED_TO_RESET_ALL_%@" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fehler beim Zurücksetzen aller: %@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Failed to reset all: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo restablecer todo: %@"
           }
         },
         "fr" : {
@@ -828,15 +1825,33 @@
             "state" : "translated",
             "value" : "La réinitialisation a échoué : %@"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile resettare tutto: %@"
+          }
         }
       }
     },
     "FROM_DEVICE_%@" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Von *%@*"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "From *%@*"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De *%@*"
           }
         },
         "fr" : {
@@ -844,15 +1859,33 @@
             "state" : "translated",
             "value" : "Depuis *%@*"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Da *%@*"
+          }
         }
       }
     },
     "FROM_THIS_DEVICE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Gerät"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "This device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo"
           }
         },
         "fr" : {
@@ -860,15 +1893,33 @@
             "state" : "translated",
             "value" : "Cet appareil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo dispositivo"
+          }
         }
       }
     },
     "HINT" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinweis"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hint"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pista"
           }
         },
         "fr" : {
@@ -876,15 +1927,33 @@
             "state" : "translated",
             "value" : "Astuce"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggerimento"
+          }
         }
       }
     },
     "ICLOUD_KEYCHAIN_INFORMATION_[LEARN_MORE](_)" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der iCloud-Schlüsselbund schützt Ihre Informationen mit End-to-End-Verschlüsselung. [Mehr erfahren…](_)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "iCloud Keychain protects your information with end-to-end encryption. [Learn more…](_)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Llavero de iCloud protege tu información con cifrado de extremo a extremo. [Más información…](_)"
           }
         },
         "fr" : {
@@ -892,15 +1961,33 @@
             "state" : "translated",
             "value" : "Le trousseau iCloud protège vos informations par un chiffrement de bout en bout. [En savoir plus…](_)"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Portachiavi iCloud protegge le tue informazioni con la crittografia end-to-end. [Scopri di più…](_)"
+          }
         }
       }
     },
     "IS_ON_THIS_DEVICE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bereits aktiv"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Already active"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya activo"
           }
         },
         "fr" : {
@@ -908,15 +1995,33 @@
             "state" : "translated",
             "value" : "Dejà actif"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Già attivo"
+          }
         }
       }
     },
     "ITS_NOTED" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zur Kenntnis genommen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "It's duly noted"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomado nota"
           }
         },
         "fr" : {
@@ -924,15 +2029,33 @@
             "state" : "translated",
             "value" : "C’est bien noté"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preso atto."
+          }
         }
       }
     },
     "KEEP_THEM_ALL_WITH_OLVID_PLUS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behalte sie alle mit Olvid+"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keep them all with Olvid+"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manténlos todos con Olvid+"
           }
         },
         "fr" : {
@@ -940,15 +2063,33 @@
             "state" : "translated",
             "value" : "Les garder tous avec Olvid+"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conservali tutti con Olvid+"
+          }
         }
       }
     },
     "LEARN_MORE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mehr erfahren"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Learn more"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más información"
           }
         },
         "fr" : {
@@ -956,15 +2097,33 @@
             "state" : "translated",
             "value" : "En savoir plus"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scopri di più"
+          }
         }
       }
     },
     "LIST_OF_AVAILABLE_BACKUPED_PROFILES" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verfügbare gesicherte Profile"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Available backed up profiles"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfiles con copia de seguridad disponibles"
           }
         },
         "fr" : {
@@ -972,15 +2131,33 @@
             "state" : "translated",
             "value" : "Sauvegardes de profils disponibles"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profili di backup disponibili"
+          }
         }
       }
     },
     "MAIL_BODY_COULD_NOT_RESTORE_PROFILE_ERROR_%@" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hallo Olvid!\n\nIch konnte mein Profil nicht wiederherstellen. Könntest du dir dieses Problem bitte ansehen? Hier ist der Fehler:\n\n%@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hello Olvid!\n\nI could not restore my profile. Could you please look into this issue? Here is the error:\n\n%@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Hola Olvid!\n\nNo he podido restaurar mi perfil. ¿Podrías echar un vistazo a este problema? Aquí tienes el error:\n\n%@"
           }
         },
         "fr" : {
@@ -988,15 +2165,33 @@
             "state" : "translated",
             "value" : "Bonjour Olvid !\n\nJe n'ai pas pu restaurer mon profil. Pourriez-vous étudier la question ? Voici l'erreur :\n\n%@"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ciao Olvid!\n\nNon sono riuscito a ripristinare il mio profilo. Potresti controllare questo problema? Ecco l'errore:\n\n%@"
+          }
         }
       }
     },
     "MAIL_SUBJECT_COULD_NOT_RESTORE_PROFILE_ERROR" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ich konnte mein Profil nicht wiederherstellen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "I could not restore my profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pude restaurar mi perfil"
           }
         },
         "fr" : {
@@ -1004,15 +2199,33 @@
             "state" : "translated",
             "value" : "Il n'a pas été possible de restorer mon profil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non sono riuscito a ripristinare il mio profilo"
+          }
         }
       }
     },
     "MAKE_BACKUP_NOW" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jetzt sichern"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backup now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respaldar ahora"
           }
         },
         "fr" : {
@@ -1020,15 +2233,33 @@
             "state" : "translated",
             "value" : "Sauvegarder maintenant"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esegui backup ora"
+          }
         }
       }
     },
     "MANAGE_BACKUPS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup-Einstellungen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Manage backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Administrar copias de seguridad"
           }
         },
         "fr" : {
@@ -1036,47 +2267,101 @@
             "state" : "translated",
             "value" : "Gérer les sauvegardes"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestisci backup"
+          }
         }
       }
     },
     "MULTIPLE_DEVICE_HINT_NO_SUBSCRIPTION" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nutze Olvid auf mehreren Geräten. Du kannst dein Konto ohne Schlüssel von deinen anderen Geräten wiederherstellen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Use Olvid on multiple devices. You can restore your account without a key from your other devices."
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Olvid en varios dispositivos. Puedes restaurar tu cuenta sin una clave desde tus otros dispositivos."
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utilisez Olvid sur plusieurs appareils. Vous pourrez restaurer votre compte, sans clé, depuis vos autres appareils. "
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Olvid su più dispositivi. Puoi ripristinare il tuo account senza una chiave dai tuoi altri dispositivi."
           }
         }
       }
     },
     "MULTIPLE_DEVICE_HINT_SUBSCRIBED_MULTIPLE_DEVICES" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nutze Olvid auf mehreren Geräten. Du kannst dein Konto ohne Schlüssel von deinen anderen Geräten wiederherstellen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Use Olvid on multiple devices. You can restore your account without a key from your other devices."
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Olvid en múltiples dispositivos. Puedes restaurar tu cuenta sin una clave desde tus otros dispositivos."
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utilisez Olvid sur plusieurs appareils. Vous pourrez restaurer votre compte, sans clé, depuis vos autres appareils. "
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Olvid su più dispositivi. Puoi ripristinare il tuo account senza una chiave dai tuoi altri dispositivi."
           }
         }
       }
     },
     "MULTIPLE_DEVICE_HINT_SUBSCRIBED_ONE_DEVICE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nutze Olvid auf mehreren Geräten. Du kannst dein Konto ohne Schlüssel von deinen anderen Geräten wiederherstellen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Use Olvid on multiple devices. You can restore your account without a key from your other devices."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Olvid en múltiples dispositivos. Puedes restaurar tu cuenta sin una clave desde tus otros dispositivos."
           }
         },
         "fr" : {
@@ -1084,15 +2369,33 @@
             "state" : "translated",
             "value" : "Utilisez Olvid sur plusieurs appareils. Vous pourrez restaurer votre compte, sans clé, depuis vos autres appareils. "
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Olvid su più dispositivi. Puoi ripristinare il tuo account senza una chiave dai tuoi altri dispositivi."
+          }
         }
       }
     },
     "NO_BACKUP_FOUND" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Backup gefunden."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No backup found."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró ninguna copia de seguridad."
           }
         },
         "fr" : {
@@ -1100,18 +2403,42 @@
             "state" : "translated",
             "value" : "Aucune sauvegarde trouvée."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun backup trovato."
+          }
         }
       }
     },
     "OK" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ok"
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De acuerdo"
+          }
+        },
         "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ok"
@@ -1121,10 +2448,22 @@
     },
     "ONE_MOMENT_PLEASE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einen Moment bitte…"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "One moment please…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un momento, por favor…"
           }
         },
         "fr" : {
@@ -1132,15 +2471,33 @@
             "state" : "translated",
             "value" : "Un moment…"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un momento, prego…"
+          }
         }
       }
     },
     "OPEN_PROFILE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Profil öffnen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open this profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir este perfil"
           }
         },
         "fr" : {
@@ -1148,15 +2505,33 @@
             "state" : "translated",
             "value" : "Ouvrir le profil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri questo profilo"
+          }
         }
       }
     },
     "OTHER_DEVICE_BACKUPS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile von einem anderen Gerät gesichert"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Profiles backed up by another device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfiles respaldados por otro dispositivo"
           }
         },
         "fr" : {
@@ -1164,15 +2539,33 @@
             "state" : "translated",
             "value" : "Profils sauvegardés par un autre appareil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profili salvati su un altro dispositivo"
+          }
         }
       }
     },
     "PLEASE_WAIT_WHILE_WE_LOAD_THE_BACKUPS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir suchen nach Ihren Backups"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We are looking for your backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estamos buscando tus copias de seguridad"
           }
         },
         "fr" : {
@@ -1180,15 +2573,33 @@
             "state" : "translated",
             "value" : "Nous recherchons vos sauvegardes"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stiamo cercando i tuoi backup"
+          }
         }
       }
     },
     "PLEASE_WAIT_WHILE_WE_RESTORE_YOUR_PROFILE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir stellen dein Profil wieder her."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We are restoring your profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estamos restaurando tu perfil"
           }
         },
         "fr" : {
@@ -1196,15 +2607,33 @@
             "state" : "translated",
             "value" : "Nous restaurons votre profil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stiamo ripristinando il tuo profilo"
+          }
         }
       }
     },
     "PROFILE_RESTORATION_FAILED_BODY_%@" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte versuchen Sie es erneut. Sollte das Problem weiterhin bestehen, senden Sie uns bitte die folgende Fehlermeldung an [%@](mailto:%@). Wir werden unser Bestes tun, um Ihnen zu helfen!"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Please try again. If the problem persists, please send the following error to [%@](mailto:%@). We will do our best to help you out!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por favor, inténtalo de nuevo. Si el problema persiste, envía el siguiente error a [%@](mailto:%@). Haremos todo lo posible para ayudarte."
           }
         },
         "fr" : {
@@ -1212,15 +2641,33 @@
             "state" : "translated",
             "value" : "Veuillez essayer à nouveau. Si le problème persiste, n'hésitez pas à envoyer l'erreur ci-dessous à [%@](mailto:%@). Nous ferons tout notre possible pour vous aider !"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si prega di riprovare. Se il problema persiste, inviare il seguente errore a [%@](mailto:%@). Faremo del nostro meglio per aiutarla!"
+          }
         }
       }
     },
     "PROFILE_RESTORATION_FAILED_SUBTITLE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aber bitte versuche es noch einmal"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "But please try again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pero por favor, inténtalo de nuevo"
           }
         },
         "fr" : {
@@ -1228,15 +2675,33 @@
             "state" : "translated",
             "value" : "Mais n'hésitez pas à essayer à nouveau"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ma per favore riprova"
+          }
         }
       }
     },
     "PROFILE_RESTORATION_FAILED_TITLE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir konnten dein Profil nicht wiederherstellen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We could not restore your profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos restaurar tu perfil"
           }
         },
         "fr" : {
@@ -1244,15 +2709,33 @@
             "state" : "translated",
             "value" : "Il n'a pas été possible de restaurer votre profil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non siamo riusciti a ripristinare il tuo profilo"
+          }
         }
       }
     },
     "PROFILE_RESTORED" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Profil wurde wiederhergestellt!"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your profile is restored!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Tu perfil ha sido restaurado!"
           }
         },
         "fr" : {
@@ -1260,15 +2743,33 @@
             "state" : "translated",
             "value" : "Votre profil est restauré !"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo profilo è stato ripristinato!"
+          }
         }
       }
     },
     "RECOMMENDED" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empfohlen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recommended"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recomendado"
           }
         },
         "fr" : {
@@ -1276,15 +2777,33 @@
             "state" : "translated",
             "value" : "Recommandée"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Consigliati"
+          }
         }
       }
     },
     "REMIND_ME_LATER" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erinnere mich später"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Remind me later"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recordarme más tarde"
           }
         },
         "fr" : {
@@ -1292,15 +2811,33 @@
             "state" : "translated",
             "value" : "Me le rappeler plus tard"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ricordamelo più tardi"
+          }
         }
       }
     },
     "RESET" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alles zurücksetzen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reset all"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer todo"
           }
         },
         "fr" : {
@@ -1308,15 +2845,33 @@
             "state" : "translated",
             "value" : "Tout réinitialiser"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina tutto"
+          }
         }
       }
     },
     "RESET_BUTTON_EXPLANATION" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setzt die aktuelle Konfiguration der Gerätesicherung auf den Ausgangszustand zurück. Folgende Schritte werden ausgeführt:"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Resets this device backup configuration back to its initial state. The following steps will be performed:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaura la configuración de copia de seguridad de este dispositivo a su estado inicial. Se realizarán los siguientes pasos:"
           }
         },
         "fr" : {
@@ -1324,15 +2879,33 @@
             "state" : "translated",
             "value" : "Réinitialise la configuration de sauvegarde de cet appareil à son état initial. Les étapes suivantes seront effectuées :"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina la configurazione del backup di questo dispositivo al suo stato iniziale. Verranno eseguite le seguenti operazioni:"
+          }
         }
       }
     },
     "RESET_BUTTON_EXPLANATION_EXPLANATION_STEP_1" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Geräte-Backup-Schlüssel löschen (und bei Existenz aus dem iCloud-Schlüsselbund entfernen)."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete this device backup key (and remove it from the iCloud keychain if it exists)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar esta copia de seguridad de dispositivo (y eliminarla del llavero de iCloud si existe)."
           }
         },
         "fr" : {
@@ -1340,15 +2913,33 @@
             "state" : "translated",
             "value" : "Supprime la clé de sauvegarde de cet appareil (y compris du trousseau iCloud si elle s'y trouve)."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina questa chiave di backup del dispositivo (e rimuovila dal Portachiavi iCloud se esiste)."
+          }
         }
       }
     },
     "RESET_BUTTON_EXPLANATION_EXPLANATION_STEP_2" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lösche alle verschlüsselten Backups, die von diesem Gerät in der Cloud erstellt wurden."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete all the encrypted backups made by this device from the cloud."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar todas las copias de seguridad encriptadas realizadas por este dispositivo desde la nube."
           }
         },
         "fr" : {
@@ -1356,15 +2947,33 @@
             "state" : "translated",
             "value" : "Supprime toutes les sauvegardes chiffrées effectuées par cet appareil."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina tutti i backup crittografati effettuati da questo dispositivo dal cloud."
+          }
         }
       }
     },
     "RESTORE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiederherstellen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar"
           }
         },
         "fr" : {
@@ -1372,15 +2981,33 @@
             "state" : "translated",
             "value" : "Restaurer"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina"
+          }
         }
       }
     },
     "RESTORE_ANOTHER_PROFILE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anderes Profil wiederherstellen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore another profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar otro perfil"
           }
         },
         "fr" : {
@@ -1388,15 +3015,33 @@
             "state" : "translated",
             "value" : "Restaurer un autre profil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina un altro profilo"
+          }
         }
       }
     },
     "RESTORE_AUTOMATICALLY_FROM_ICLOUD_KEYCHAIN" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch von iCloud Keychain wiederherstellen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore automatically from iCloud Keychain"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar automáticamente desde iCloud Keychain"
           }
         },
         "fr" : {
@@ -1404,15 +3049,33 @@
             "state" : "translated",
             "value" : "Restaurer automatiquement depuis le trousseau iCloud"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina automaticamente da Portachiavi iCloud"
+          }
         }
       }
     },
     "RESTORE_MY_PROFILE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mein Profil wiederherstellen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore my profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar mi perfil"
           }
         },
         "fr" : {
@@ -1420,15 +3083,33 @@
             "state" : "translated",
             "value" : "Restaurer mon profil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina il mio profilo"
+          }
         }
       }
     },
     "RESTORE_ONE_OF_YOUR_BACKUPS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stellen wir eines deiner Backups wieder her"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Let’s restore one of your backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar una de tus copias de seguridad"
           }
         },
         "fr" : {
@@ -1436,15 +3117,33 @@
             "state" : "translated",
             "value" : "Restaurons une de vos sauvegardes"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristiniamo uno dei tuoi backup"
+          }
         }
       }
     },
     "RESTORE_THIS_OLD_BACKUP" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses alte Backup wiederherstellen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore this old backup"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar esta copia de seguridad antigua"
           }
         },
         "fr" : {
@@ -1452,15 +3151,33 @@
             "state" : "translated",
             "value" : "Restaurer cette ancienne sauvegarde"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina questo vecchio backup"
+          }
         }
       }
     },
     "RESTORING" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiederherstellen…"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restoring…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurando…"
           }
         },
         "fr" : {
@@ -1468,15 +3185,33 @@
             "state" : "translated",
             "value" : "Restauration…"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristino..."
+          }
         }
       }
     },
     "SEARCH_BACKUP_MANUALLY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup manuell suchen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search for backup manually"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar copia de seguridad manualmente"
           }
         },
         "fr" : {
@@ -1484,15 +3219,33 @@
             "state" : "translated",
             "value" : "Rechercher une sauvegarde manuellement"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerca manualmente il backup"
+          }
         }
       }
     },
     "SECURITY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherheit"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Security"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguridad"
           }
         },
         "fr" : {
@@ -1500,15 +3253,33 @@
             "state" : "translated",
             "value" : "Sécurité"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicurezza"
+          }
         }
       }
     },
     "SECURITY_EXPLANATION" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre Profil-Backups sind verschlüsselt."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your profiles backups are encrypted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus copias de seguridad de perfil están encriptadas."
           }
         },
         "fr" : {
@@ -1516,15 +3287,33 @@
             "state" : "translated",
             "value" : "Vos sauvegardes sont chiffrées."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I tuoi backup del profilo sono crittografati."
+          }
         }
       }
     },
     "SEND_ERROR_BY_EMAIL" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Senden Sie den Fehler per E-Mail"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send error by email"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar error por correo electrónico"
           }
         },
         "fr" : {
@@ -1532,15 +3321,33 @@
             "state" : "translated",
             "value" : "Envoyer l'erreur par mail"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segnala l'errore via email"
+          }
         }
       }
     },
     "SHOW_BACKUP_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meinen Schlüssel anzeigen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show my key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar mi clave"
           }
         },
         "fr" : {
@@ -1548,15 +3355,33 @@
             "state" : "translated",
             "value" : "Afficher ma clé"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra la mia chiave"
+          }
         }
       }
     },
     "SHOW_MY_NEW_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeige meinen neuen Schlüssel an"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Display my new key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar mi nueva clave"
           }
         },
         "fr" : {
@@ -1564,15 +3389,33 @@
             "state" : "translated",
             "value" : "Afficher ma nouvelle clé"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra la mia nuova chiave"
+          }
         }
       }
     },
     "SINCE_YOU_HAVE_A_MULTIDEVICE_SUBSRIPTION_ALL_YOUR_PREVIOUS_DEVICES_WILL_STAY_ACTIVE_YOU_CAN_RESTORE_YOUR_PROFILE_%@" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfekt! Du kannst dein Profil %@ sicher wiederherstellen. Alle deine vorherigen Geräte funktionieren wie zuvor."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Perfect! You can safely restore your profile %@. All your previous devices will continue to work as before."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Perfecto! Puedes restaurar tu perfil %@ de forma segura. Todos tus dispositivos anteriores seguirán funcionando como antes."
           }
         },
         "fr" : {
@@ -1580,15 +3423,33 @@
             "state" : "translated",
             "value" : "Parfait ! Vous pouvez restaurer votre profil %@. Tous vos appareils précédents continueront de fonctionner comme avant."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfetto! Puoi ripristinare in sicurezza il tuo profilo %@. Tutti i tuoi dispositivi precedenti continueranno a funzionare come prima."
+          }
         }
       }
     },
     "STOLEN_OR_COMPROMISED_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestohlener oder kompromittierter Schlüssel"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stolen or compromised key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clave robada o comprometida"
           }
         },
         "fr" : {
@@ -1596,31 +3457,67 @@
             "state" : "translated",
             "value" : "Clé volée ou compromise"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiave rubata o compromessa"
+          }
         }
       }
     },
     "SUBSCRIBE_TO_OLVID_PLUS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid+ abonnieren"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscribe Olvid+"
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suscríbete a Olvid+"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Souscrire Olvid+"
+            "value" : "S’abonner à Olvid+"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iscriviti a Olvid+"
           }
         }
       }
     },
     "THIS_BACKUP_KEY_CAN_BE_FOUND_IN_SETTINGS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du findest den Schlüssel später auch in deinen Einstellungen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "You also will be able to find the key later in your settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "También podrás encontrar la clave más adelante en tu configuración."
           }
         },
         "fr" : {
@@ -1628,15 +3525,33 @@
             "state" : "translated",
             "value" : "Vous pourrez retrouver cette clé plus tard dans les paramètres."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Potrai anche ritrovare la chiave nelle tue impostazioni."
+          }
         }
       }
     },
     "THIS_BACKUP_KEY_WILL_BE_REQUIRED" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Schlüssel wird benötigt, wenn Sie die Profile dieses Geräts auf ein Gerät ohne Zugriff auf den iCloud-Schlüsselbund wiederherstellen möchten oder dauerhaft den Zugriff auf Ihr iCloud-Konto verlieren."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "This key will be required if you wish to restore the profiles of this device onto a device without access to iCloud Keychain or if you permanently lose access to your iCloud account."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta clave será necesaria si deseas restaurar los perfiles de este dispositivo en un dispositivo que no tenga acceso a iCloud Keychain o si pierdes permanentemente el acceso a tu cuenta de iCloud."
           }
         },
         "fr" : {
@@ -1644,15 +3559,33 @@
             "state" : "translated",
             "value" : "Cette clé sera nécessaire si vous voulez restaurer les profils de cet appareil  sur un appareil n’ayant pas accès au trousseau iCloud, ou si vous perdez définitivement accès à votre compte iCloud."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa chiave sarà richiesta se desideri ripristinare i profili di questo dispositivo su un dispositivo senza accesso a iCloud Keychain o se perdi permanentemente l'accesso al tuo account iCloud."
+          }
         }
       }
     },
     "THIS_DEVICE_BACKUPS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile, die auf diesem Gerät gesichert wurden"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Profiles backed up by this device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfiles respaldados por este dispositivo"
           }
         },
         "fr" : {
@@ -1660,15 +3593,33 @@
             "state" : "translated",
             "value" : "Profils sauvegardés par cet appareil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profili salvati su questo dispositivo"
+          }
         }
       }
     },
     "TRY_AGAIN_LATER" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte versuche es später noch einmal"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Please try again later"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por favor, inténtalo de nuevo más tarde"
           }
         },
         "fr" : {
@@ -1676,15 +3627,33 @@
             "state" : "translated",
             "value" : "Veuillez essayer plus tard"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riprova più tardi"
+          }
         }
       }
     },
     "VALIDATE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bestätigen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Validate"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validar"
           }
         },
         "fr" : {
@@ -1692,15 +3661,33 @@
             "state" : "translated",
             "value" : "Valider"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Convalida"
+          }
         }
       }
     },
     "WE_COULD_NOT_ACTIVATE_BACKUPS_PLEASE_TRY_AGAIN" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir konnten Ihre Backups nicht aktivieren. Bitte versuchen Sie es später erneut."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We could not activate your backups. Please try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos activar tus copias de seguridad. Por favor, inténtalo de nuevo más tarde."
           }
         },
         "fr" : {
@@ -1708,15 +3695,33 @@
             "state" : "translated",
             "value" : "Nous n’avons pas réussi à activer vos sauvegardes. Veuillez essayer à nouveau plus tard."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non siamo riusciti ad attivare i tuoi backup. Riprova più tardi."
+          }
         }
       }
     },
     "WE_COULD_NOT_CHANGE_ICLOUD_KEYCHAIN_SETTING" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir konnten die Einstellung \"Backup zu iCloud Keychain\" nicht ändern."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We could not change the \"Backup to iCloud Keychain\" setting"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos cambiar la configuración de \"Guardar en el Llavero de iCloud\""
           }
         },
         "fr" : {
@@ -1724,15 +3729,33 @@
             "state" : "translated",
             "value" : "Le paramètre de sauvegarde vers le trousseau iCloud n’a pas pu être modifié"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non siamo riusciti a modificare l'impostazione \"Backup a Portachiavi iCloud\""
+          }
         }
       }
     },
     "WE_COULD_NOT_DEACTIVATE_BACKUPS_PLEASE_TRY_AGAIN" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir konnten deine Backups nicht deaktivieren. Bitte versuche es später erneut."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We could not deactivate your backups. Please try again later"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos desactivar tus copias de seguridad. Por favor, inténtalo de nuevo más tarde."
           }
         },
         "fr" : {
@@ -1740,15 +3763,33 @@
             "state" : "translated",
             "value" : "Nous n’avons pas pu désactiver vos sauvegardes. Nous n’avons pas réussi à activer vos sauvegardes. Veuillez essayer à nouveau plus tard."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non siamo riusciti a disattivare i tuoi backup. Riprova più tardi."
+          }
         }
       }
     },
     "WE_COULD_NOT_DELETE_THIS_PROFILE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir konnten dieses Backup nicht löschen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We could not delete this backup"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos eliminar esta copia de seguridad"
           }
         },
         "fr" : {
@@ -1756,15 +3797,33 @@
             "state" : "translated",
             "value" : "Nous n’avons pas pu supprimer cette sauvegarde"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non siamo riusciti a eliminare questo backup"
+          }
         }
       }
     },
     "WE_COULD_NOT_FIND_ANY_BACKUP_FOR_THIS_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir konnten keine Sicherung mit dem angegebenen Sicherungsschlüssel finden. Bitte stellen Sie sicher, dass Sie den korrekten Sicherungsschlüssel eingegeben haben und versuchen Sie es erneut."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We were unable to locate a backup associated with the provided backup key. Please ensure you have entered the correct backup key and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos encontrar una copia de seguridad asociada con la clave de copia de seguridad proporcionada. Asegúrate de haber ingresado la clave correcta e inténtalo de nuevo."
           }
         },
         "fr" : {
@@ -1772,15 +3831,33 @@
             "state" : "translated",
             "value" : "Nous n'avons pas pu trouver de sauvegarde associée à la clé de sauvegarde fournie. Veuillez vous assurer d'avoir saisi la bonne clé de sauvegarde et réessayez."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non siamo riusciti a trovare un backup associato alla chiave di backup fornita. Assicurati di aver inserito la chiave corretta e riprova."
+          }
         }
       }
     },
     "WE_COULD_NOT_FIND_ANY_BACKUP_FOR_THIS_KEY_SO_[RESTORE_LEGACY](_)" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir konnten keine Sicherung finden, die dem angegebenen Sicherungsschlüssel entspricht. Bitte stellen Sie sicher, dass Sie den korrekten Sicherungsschlüssel eingegeben haben und versuchen Sie es erneut. Sie können auch versuchen, [von einer alten Sicherung wiederherzustellen](_)."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We were unable to locate a backup associated with the provided backup key. Please ensure you have entered the correct backup key and try again. You may also try [restoring from a legacy backup](_)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos encontrar una copia de seguridad asociada con la clave de respaldo proporcionada. Por favor, asegúrese de haber ingresado la clave de respaldo correcta e inténtelo de nuevo. También puede intentar [restaurar desde una copia de seguridad anterior](_)."
           }
         },
         "fr" : {
@@ -1788,15 +3865,33 @@
             "state" : "translated",
             "value" : "Nous n'avons pas pu trouver de sauvegarde associée à la clé de sauvegarde fournie. Veuillez vous assurer d'avoir saisi la bonne clé de sauvegarde et réessayez. Vous pouvez également essayer de [restaurer une sauvegarde « ancienne génération »](_)."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non siamo stati in grado di trovare un backup associato alla chiave di backup fornita. Assicurati di aver inserito la chiave corretta e riprova. Puoi anche provare a [ripristinare da un backup legacy](_)."
+          }
         }
       }
     },
     "WE_COULD_NOT_RESTORE_THIS_PROFILE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir konnten dein Profil nicht wiederherstellen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We could not restore your profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos restaurar tu perfil"
           }
         },
         "fr" : {
@@ -1804,15 +3899,33 @@
             "state" : "translated",
             "value" : "Nous n’avons pas réussi à restaurer votre profil"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non siamo riusciti a ripristinare il tuo profilo"
+          }
         }
       }
     },
     "WHICH_PROFILE_BACKUP_DO_YOU_WISH_TO_RESTORE" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welches Backup möchtest du wiederherstellen?"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Which backup do you want to restore?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Qué copia de seguridad quieres restaurar?"
           }
         },
         "fr" : {
@@ -1820,15 +3933,33 @@
             "state" : "translated",
             "value" : "Quelle sauvegarde souhaitez-vous restaurer ?"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Da quale backup vuoi ripristinare?"
+          }
         }
       }
     },
     "YOU_CAN_CHOOSE_ACTIVE_DEVICE_AFTER_RESTORATION" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach der Wiederherstellung können Sie in Ihren Profileinstellungen auswählen, welches Gerät aktiv bleiben soll."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "After the restoration, you will be able to choose which device to keep active from your profile settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Después de la restauración, podrás elegir qué dispositivo mantener activo desde la configuración de tu perfil."
           }
         },
         "fr" : {
@@ -1836,15 +3967,33 @@
             "state" : "translated",
             "value" : "Après la restauration, vous pourrez choisir quel appareil garder actif depuis les réglages de votre profil."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dopo il ripristino, potrai scegliere quale dispositivo mantenere attivo dalle impostazioni del tuo profilo."
+          }
         }
       }
     },
     "YOU_REQUESTED_THE_RESTORATION_OF_AN_OLD_BACKUP" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Achtung, ein aktuelleres Backup ist verfügbar!"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Caution, a more recent backup is available!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Precaución, hay una copia de seguridad más reciente disponible!"
           }
         },
         "fr" : {
@@ -1852,15 +4001,33 @@
             "state" : "translated",
             "value" : "Attention, il existe une sauvegarde plus récente !"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attenzione, è disponibile un backup più recente!"
+          }
         }
       }
     },
     "YOUR_BACKUP_EXPLANATION" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit Backups können Sie Ihre Profile und Kontakte wiederherstellen, selbst wenn Sie den Zugriff auf Ihr Gerät verlieren."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backups allow to restore your profiles and contacts even if you lose access to your device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las copias de seguridad permiten restaurar tus perfiles y contactos incluso si pierdes el acceso a tu dispositivo."
           }
         },
         "fr" : {
@@ -1868,15 +4035,33 @@
             "state" : "translated",
             "value" : "Sauvegarder permet de restaurer vos profils et contacts même si vous perdez  l’accès à votre appareil."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I backup permettono di ripristinare i tuoi profili e contatti anche in caso di perdita di accesso al dispositivo."
+          }
         }
       }
     },
     "YOUR_BACKUP_WARNING" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte beachten Sie, dass Nachrichten und Anhänge **nicht gesichert** werden und **nicht wiederhergestellt** werden können."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Please note that messages and attachments are **not backed up** and will **not be restored**."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten en cuenta que los mensajes y archivos adjuntos **no se respaldan** y **no se restaurarán**."
           }
         },
         "fr" : {
@@ -1884,15 +4069,33 @@
             "state" : "translated",
             "value" : "Attention, les messages et pièces jointes ne sont **pas sauvegardés** et ne seront **pas restaurés**."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si prega di notare che messaggi e allegati **non vengono salvati** e **non saranno ripristinati**."
+          }
         }
       }
     },
     "YOUR_BACKUPS" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre Backups"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus copias de seguridad"
           }
         },
         "fr" : {
@@ -1900,21 +4103,45 @@
             "state" : "translated",
             "value" : "Vos sauvegardes"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I tuoi backup"
+          }
         }
       }
     },
     "YOUR_KEY" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Schlüssel"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your key"
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu clave"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre clé"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La tua chiave"
           }
         }
       }

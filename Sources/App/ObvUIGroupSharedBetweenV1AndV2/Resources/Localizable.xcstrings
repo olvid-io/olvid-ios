@@ -1,0 +1,3569 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          }
+        }
+      },
+      "shouldTranslate": false
+    },
+    "%lld_OF_THE_GROUP_MEMBERS_ARE_NOT_PART_OF_YOUR_CONTACTS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eines der Gruppenmitglieder ist noch nicht in deinen Kontakten."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld der Gruppenmitglieder sind noch nicht in deinen Kontakten."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "One of the group members is not part of your contacts yet."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld of the group members are not part of your contacts yet."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Uno de los miembros del grupo aún no está en tus contactos."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld de los miembros del grupo aún no están en tus contactos."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un membre du groupe ne fait pas encore partie de vos contacts."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld membres du groupe ne font pas encore partie de vos contacts."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un membro del gruppo non è ancora tra i tuoi contatti."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld membri del gruppo non sono ancora tra i tuoi contatti."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld_OF_THE_GROUP_MEMBERS_ARE_NOT_PART_OF_YOUR_CONTACTS_BUT_YOU_CANNOT_INVITE_THEM_UNTIL_THEY_ACCEPT_THE_GROUP_INVITATION": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eines der Gruppenmitglieder ist nicht in Ihren Kontakten. Sobald sie die Gruppenmitgliedschaft annehmen, können Sie sie mit einem Tippen ☝️ zu Ihren Kontakten hinzufügen."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld der Gruppenmitglieder sind nicht in Ihren Kontakten. Sobald sie die Gruppenmitgliedschaft annehmen, können Sie sie mit einem Tippen ☝️ zu Ihren Kontakten hinzufügen."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "One of the group members is not part of your contacts. Once they accept the group invitation, you will be able to invite them to join your contacts in one tap ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld of the group members are not part of your contacts. Once they accept the group invitation, you will be able to invite them to join your contacts in one tap ☝️."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Uno de los miembros del grupo no está en tus contactos. Una vez que acepten la invitación al grupo, podrás invitarlos a unirse a tus contactos con un solo toque ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld de los miembros del grupo no están en tus contactos. Una vez que acepten la invitación al grupo, podrás invitarlos a unirse a tus contactos con un solo toque ☝️."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un des membres du groupe ne fait pas partie de vos contacts. Lorsqu’il aura accepté l’invitation au groupe, vous pourrez facilement l’inviter à rejoindre vos contact ✌️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld des membres du groupe ne font pas partie de vos contacts. Lorsqu’ils auront accepté l’invitation au groupe, vous pourrez facilement les inviter à rejoindre vos contact ✌️."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Uno dei membri del gruppo non è tra i tuoi contatti. Una volta che accetterà l'invito al gruppo, potrai invitarlo ad aggiungersi ai tuoi contatti con un semplice tocco ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld dei membri del gruppo non sono tra i tuoi contatti. Una volta che avranno accettato l'invito al gruppo, potrai invitarli ad aggiungersi ai tuoi contatti con un semplice tocco ☝️."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld_OF_THE_GROUP_MEMBERS_ARE_NOT_PART_OF_YOUR_CONTACTS_BUT_YOU_CAN_INVITE_THEM": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ein Mitglied der Gruppe ist noch nicht in deinen Kontakten, aber du kannst es mit einem Tippen einladen ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Gruppenmitglieder sind noch nicht in deinen Kontakten, aber du kannst sie mit einem Tippen einladen ☝️."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "One of the group member is not part of your contacts yet, but you can invite them in one tap ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld group members are not part of your contacts yet, but you can invite them in one tap ☝️."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Uno de los miembros del grupo aún no está en tus contactos, pero puedes invitarlos con un solo toque ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miembros del grupo aún no están en tus contactos, pero puedes invitarlos con un solo toque ☝️."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un membre du groupe ne fait pas encore partie de vos contacts. Mais vous pouvez l’inviter facilement ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld membres du groupe ne font pas encore partie de vos contacts. Mais vous pouvez facilement les inviter ☝️."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un membro del gruppo non è ancora tra i tuoi contatti, ma puoi invitarlo con un semplice tocco ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld membri del gruppo non sono ancora tra i tuoi contatti, ma puoi invitarli con un semplice tocco ☝️."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ACCEPT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akzeptieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accetta"
+          }
+        }
+      }
+    },
+    "ADD_%lld_USERS_TO_THE_GROUP_CREATION": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eine Gruppe mit diesem Nutzer erstellen"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eine Gruppe mit diesen %lld Nutzern erstellen"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eine Gruppe ohne weitere Mitglieder erstellen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Create a group with this user"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Create a group with these %lld users"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Create a group with no other member"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Crear un grupo con este usuario"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Crear un grupo con estos %lld usuarios"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Crear un grupo sin más miembros"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Créer un groupe avec cet utilisateur"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Créer un groupe avec ces %lld utilisateurs"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Créer un groupe sans autre membre"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Crea un gruppo con questo utente"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Crea un gruppo con questi %lld utenti"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Crea un gruppo senza altri membri"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ADD_%lld_USERS_TO_THE_GROUP_EDITION": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Benutzer zur Gruppe hinzufügen"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Benutzer zur Gruppe hinzufügen"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bitte wähle einen Benutzer aus, um ihn zur Gruppe hinzuzufügen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Add the user to the group"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Add the %lld users to the group"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Please select a user to add to the group"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Añadir el usuario al grupo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Añadir a los %lld usuarios al grupo"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Por favor, selecciona un usuario para añadir al grupo"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ajouter l’utilisateur au groupe"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ajouter les %lld utilisateurs au groupe"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Veuillez choisir un utilisateur à ajouter au groupe"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aggiungi l'utente al gruppo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aggiungi %lld utenti al gruppo"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Seleziona un utente da aggiungere al gruppo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ADD_GROUP_MEMBERS_TO_YOUR_CONTACTS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Füge Gruppenteilnehmer zu deinen Kontakten hinzu"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add group members to your contacts"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade los miembros del grupo a tus contactos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter les membres du groupe à vos contacts"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiungi i membri del gruppo ai tuoi contatti"
+          }
+        }
+      }
+    },
+    "ADD_MEMBERS_TO_THIS_GROUP_BUTTON_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitglieder hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir miembros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter des membres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiungi membri"
+          }
+        }
+      }
+    },
+    "ADMIN": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amministratore"
+          }
+        }
+      }
+    },
+    "ADMINS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admins"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admins"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administradores"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admins"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amministratori"
+          }
+        }
+      }
+    },
+    "ALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutti"
+          }
+        }
+      }
+    },
+    "ALL_THE_GROUP_MEMBERS_ARE_PART_OF_YOUR_CONTACTS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Gruppenmitglieder sind bereits in Ihren Kontakten gespeichert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All the group members are already part of your contacts."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos los miembros del grupo ya están en tus contactos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les membres du groupe font déjà partie de vos contacts."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutti i membri del gruppo sono già presenti tra i tuoi contatti."
+          }
+        }
+      }
+    },
+    "ALL_YOUR_CONTACTS_ARE_ALREADY_PART_OF_THIS_GROUP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle deine Kontakte sind bereits Teil dieser Gruppe ☺️."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All your contacts are already part of this group ☺️."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos tus contactos ya forman parte de este grupo ☺️."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous vos contacts font déjà partie de ce groupe ☺️."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutti i tuoi contatti fanno già parte di questo gruppo ☺️."
+          }
+        }
+      }
+    },
+    "ARE_YOU_SURE_YOU_WANT_TO_CANCEL_THIS_ONE_TO_ONE_INVITATION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Möchten Sie diese Einladung abbrechen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do you want to cancel this invitation?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Quieres cancelar esta invitación?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voulez-vous annuler cette invitation ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vuoi annullare questo invito?"
+          }
+        }
+      }
+    },
+    "ARE_YOU_SURE_YOU_WANT_TO_REMOVE_THE_%lld_SELECTED_MEMBERS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sind Sie sicher, dass Sie dieses Mitglied aus der Gruppe entfernen möchten?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sind Sie sicher, dass Sie diese %lld Mitglieder aus der Gruppe entfernen möchten?"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Are you sure you want to remove this member from the group?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Are you sure you want to remove these %lld members from the group?"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Estás seguro de que quieres eliminar a este miembro del grupo?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Estás seguro de que quieres eliminar a estos %lld miembros del grupo?"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Êtes-vous sûr de vouloir retirer ce membre du groupe ?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Êtes-vous sûr de vouloir retirer ces %lldmembres du groupe ?"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sei sicuro di voler rimuovere questo membro dal gruppo?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sei sicuro di voler rimuovere questi %lld membri dal gruppo?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ARE_YOU_SURE_YOU_WANT_TO_SEND_ONE_TO_ONE_INVITATION_TO_%lld_USERS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sind Sie sicher, dass Sie diesen Benutzer einladen möchten?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sind Sie sicher, dass Sie diese %lld Benutzer einladen möchten?"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Are you sure you want to invite this user?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Are you sure you want to invite these %lld users?"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Estás seguro de que quieres invitar a este usuario?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Estás seguro de que quieres invitar a estos %lld usuarios?"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Êtes-vous sûr de vouloir inviter cet utilisateur ?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Êtes-vous sûr de vouloir inviter ces %lld utilisateurs ?"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sei sicuro di voler invitare questo utente?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sei sicuro di voler invitare questi %lld utenti?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "BUTTON_TITLE_ONE_TO_ONE_INVITATION_SENT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladung gesendet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitation sent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitación enviada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitation envoyée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invito inviato"
+          }
+        }
+      }
+    },
+    "BUTTON_TITLE_SEND_ONE_TO_ONE_INVITATION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invita"
+          }
+        }
+      }
+    },
+    "CANCEL_ONE_TO_ONE_INVITATION_BUTTON_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladung widerrufen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel the invitation"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar la invitación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler l’invitation"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulla l'invito"
+          }
+        }
+      }
+    },
+    "CHOOSE_A_GROUP_PHOTO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle ein Gruppenfoto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a group photo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige una foto de grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir une photo de groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scegli una foto di gruppo"
+          }
+        }
+      }
+    },
+    "EDIT_GROUP_DETAILS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppendetails bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit group details"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar detalles del grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éditer les détails du groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifica dettagli gruppo"
+          }
+        }
+      }
+    },
+    "ENTER_GROUP_DETAILS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuer Name und Beschreibung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New name and description"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo nombre y descripción"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveaux nom et description"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuovo nome e descrizione"
+          }
+        }
+      }
+    },
+    "GROUP_DESCRIPTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppenbeschreibung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group description"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descripción del grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Description du groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descrizione gruppo"
+          }
+        }
+      }
+    },
+    "GROUP_MEMBERS_ADD": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitglieder hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir miembros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter des membres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiungi membri"
+          }
+        }
+      }
+    },
+    "GROUP_MEMBERS_REMOVE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitglieder entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar miembros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer des membres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rimuovi membri"
+          }
+        }
+      }
+    },
+    "GROUP_MEMBERS_TITLE_%lld": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppenmitglieder (%lld)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group members (%lld)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Miembros del grupo (%lld)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membres du groupe (%lld)"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membri del gruppo (%lld)"
+          }
+        }
+      }
+    },
+    "GROUP_MEMBERS_TITLE_WHEN_NO_OTHER_MEMBER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du bist der einzige Teilnehmer in dieser Gruppe."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're the only member in this group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eres el único miembro de este grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous êtes le seul membre de ce groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sei l'unico membro di questo gruppo"
+          }
+        }
+      }
+    },
+    "GROUP_NAME": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppenname"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group name"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom du groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome gruppo"
+          }
+        }
+      }
+    },
+    "GROUP_UPDATE_IN_PROGRESS_EXPLANATION_BODY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Update dieser Gruppe ist gerade im Gange. Bitte warte, bis es abgeschlossen ist, bevor du weitere Änderungen vornimmst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An update of this group is in progress. Please wait until it is done to make further modifications."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se está actualizando este grupo. Por favor, espere a que termine para realizar más modificaciones."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une mise à jour du groupe est en cours. Merci de patienter jusqu'à son terme pour faire de nouvelles modifications."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un aggiornamento di questo gruppo è in corso. Si prega di attendere il completamento prima di apportare ulteriori modifiche."
+          }
+        }
+      }
+    },
+    "GROUP_UPDATE_IN_PROGRESS_EXPLANATION_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird aktualisiert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update in progress"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualización en curso"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour en cours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiornamento in corso"
+          }
+        }
+      }
+    },
+    "IMAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bild"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Immagine"
+          }
+        }
+      }
+    },
+    "INVITE_THEM_ALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lade sie alle ein"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite them all"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invítalos a todos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les inviter tous"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitali tutti"
+          }
+        }
+      }
+    },
+    "IS_ADMIN": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrator"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amministratore"
+          }
+        }
+      }
+    },
+    "IS_NOT_ADMIN": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Admin"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not admin"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No es administrador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas admin"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non amministratore"
+          }
+        }
+      }
+    },
+    "NO_CONTACT_FOUND_MATCHING_YOUR_SEARCH": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Kontakt gefunden 😔."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No contact found 🥲."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró ningún contacto 🙁."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun contact trouvé 🥲."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun contatto trovato 😔."
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_CHOOSE_PICTURE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotobibliothek"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo library"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biblioteca de fotos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Librairie de photos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libreria foto"
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_CHOOSE_PICTURE_FROM_DOCUMENT_PICKER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_REMOVE_PICTURE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove the photo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar la foto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer la photo"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rimuovi la foto"
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_RESTORE_PICTURE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veröffentlichtes Foto wiederherstellen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore the published photo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar la foto publicada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurer la photo publiée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ripristina la foto pubblicata"
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_TAKE_PICTURE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mache ein Foto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take a photo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomar una foto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prendre une photo"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scatta una foto"
+          }
+        }
+      }
+    },
+    "PENDING": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausstehend"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendiente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa"
+          }
+        }
+      }
+    },
+    "PUBLISH_CHANGES": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Änderungen übernehmen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publish changes"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publicar cambios"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publier les changements"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pubblica modifiche"
+          }
+        }
+      }
+    },
+    "PUBLISH_GROUP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppe veröffentlichen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publish group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publicar grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publier le groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crea gruppo"
+          }
+        }
+      }
+    },
+    "REMOVE_%lld_MEMBERS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Mitglied entfernen"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Mitglieder entfernen"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ausgewählte Mitglieder entfernen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Remove the member"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Remove the %lld members"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Remove the selected members"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eliminar al miembro"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eliminar a %lld miembros"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eliminar a los miembros seleccionados"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer le membre"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer les %lld membres"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer les membres sélectionnés"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovi il membro"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovi i %lld membri"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovi i membri selezionati"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "REMOVE_GROUP_MEMBER_BUTTON_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rimuovi"
+          }
+        }
+      }
+    },
+    "REPLACE_GROUP_PHOTO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppenfoto ersetzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace the group photo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reemplazar la foto del grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacer la photo de groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sostituisci la foto del gruppo"
+          }
+        }
+      }
+    },
+    "SEND_THE_%lld_ONE_TO_ONE_INVITATIONS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sende die Einladung"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sende die %lld Einladungen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Send the invitation"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Send the %lld invitations"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Enviar la invitación"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Enviar las %lld invitaciones"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Envoyer l’invitation"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Envoyer les %lld invitations"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Invia l'invito"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Invia %lld inviti"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "SHOW_ALL_GROUP_MEMBERS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar todo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir tout"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra tutto"
+          }
+        }
+      }
+    },
+    "SHOW_ALL_GROUP_MEMBERS_OR_RESTRICT_TO_ADMINS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Gruppenmitglieder anzeigen oder auf Admins beschränken"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all group members or restrict to admins"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar a todos los miembros del grupo o restringir a los administradores"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir tous les membres ou se restreindre aux administrateurs"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra tutti i membri del gruppo o limita agli amministratori"
+          }
+        }
+      }
+    },
+    "SHOW_ME": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeig es mir"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show me"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muéstrame"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir plus"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrami"
+          }
+        }
+      }
+    },
+    "Search": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerca"
+          }
+        }
+      }
+    },
+    "TAP_TO_ACCEPT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen zum Akzeptieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to accept"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para aceptar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taper pour accepter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca per accettare"
+          }
+        }
+      }
+    },
+    "THE_FOLLOWING_%lld_GROUP_MEMBERS_ARE_ALREADY_PART_OF_YOUR_CONTACTS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Folgendes Gruppenmitglied ist bereits in Ihren Kontakten."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Folgende %lld Gruppenmitglieder sind bereits in Ihren Kontakten."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The following group member is already part of your contacts."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The following %lld group members are already part of your contacts."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "El siguiente miembro del grupo ya está en tus contactos."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Los siguientes %lld miembros del grupo ya están en tus contactos."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Le membre suivant fait déjà partie de vos contacts."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Les %lld membres suivants font déjà partie de vos contacts."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Il seguente membro del gruppo è già presente nei tuoi contatti."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "I seguenti %lld membri del gruppo sono già presenti nei tuoi contatti."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "THE_FOLLOWING_%lld_GROUP_MEMBERS_ARE_NOT_YET_PART_OF_YOUR_CONTACTS_AND_MUST_ACCEPT_GROUP_INVITATION": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Das folgende Gruppenmitglied ist nicht Teil Ihrer Kontakte. Sobald es die Gruppeneinladung annimmt, können Sie es mit einem Tippen einladen, Ihren Kontakten hinzuzufügen ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Die folgenden %lld Gruppenmitglieder sind nicht Teil Ihrer Kontakte. Sobald sie die Gruppeneinladung annimmt, können Sie sie mit einem Tippen einladen, Ihren Kontakten hinzuzufügen ☝️."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The following group member is not part of your contacts. Once they accept the group invitation, you will be able to invite them to join your contacts in one tap ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The following %lld group members are not part of your contacts. Once they accept the group invitation, you will be able to invite them to join your contacts in one tap ☝️."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "El siguiente miembro del grupo no está en tus contactos. Una vez que acepte la invitación al grupo, podrás invitarlo a unirse a tus contactos con un solo toque ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Los siguientes %lld miembros del grupo no están en tus contactos. Una vez que acepten la invitación al grupo, podrás invitarlos a unirse a tus contactos con un solo toque ☝️."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Le membre du groupe ci-dessous ne fait pas partie de vos contacts. Lorsqu’il aura accepté l’invitation au groupe, vous pourrez facilement l’inviter à rejoindre vos contact ✌️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Les %lld membres du groupe ci-dessous ne font pas partie de vos contacts. Lorsqu’ils auront accepté l’invitation au groupe, vous pourrez facilement les inviter à rejoindre vos contact ✌️."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Il seguente membro del gruppo non è tra i tuoi contatti. Una volta che avrà accettato l'invito al gruppo, potrai invitarlo ad aggiungere ai tuoi contatti con un semplice tocco ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "I seguenti %lld membri del gruppo non sono tra i tuoi contatti. Una volta che avranno accettato l'invito al gruppo, potrai invitarli ad aggiungere ai tuoi contatti con un semplice tocco ☝️."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "THE_FOLLOWING_%lld_GROUP_MEMBERS_ARE_NOT_YET_PART_OF_YOUR_CONTACTS_BUT_YOU_CAN_INVITE_THEM": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Das folgende Gruppenmitglied ist noch nicht Teil deiner Kontakte, aber du kannst es mit einem Tippen einladen ☝️. Es muss lediglich deine Einladung akzeptieren, ein Austausch von Codes ist nicht erforderlich 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Die folgenden %lld Gruppenmitglieder sind noch nicht Teil deiner Kontakte, aber du kannst sie mit einem Tippen einladen ☝️. Sie müssen lediglich deine Einladung akzeptieren, ein Austausch von Codes ist nicht erforderlich 😉."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The following group member is not part of your contacts yet, but you can invite them in one tap ☝️. They will just need to accept your invitation, no need to exchange codes 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The following %lld group members are not part of your contacts yet, but you can invite them in one tap ☝️. They will just need to accept your invitation, no need to exchange codes 😉."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "El siguiente miembro del grupo aún no está en tus contactos, pero puedes invitarlo con un solo toque ☝️. Solo necesitará aceptar tu invitación, no es necesario intercambiar códigos 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Los siguientes %lld miembros del grupo aún no están en tus contactos, pero puedes invitarlos con un solo toque ☝️. Solo necesitarán aceptar tu invitación, no es necesario intercambiar códigos 😉."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Le membre du groupe ci-dessous ne fait pas encore partie de vos contacts, mais vous l’y inviter facilement ☝️. Il lui suffira d’accepter votre invitation, sans besoin d’échanger de code 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Les %lld membres du groupe ci-dessous ne font pas encore partie de vos contacts, mais vous les y inviter facilement ☝️. Il leur suffit d’accepter votre invitation, sans besoin d’échanger de code 😉."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Il seguente membro del gruppo non è ancora tra i tuoi contatti, ma puoi invitarlo con un semplice tocco ☝️. Dovrà solo accettare il tuo invito, non c'è bisogno di scambiarsi codici 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "I seguenti %lld membri del gruppo non sono ancora tra i tuoi contatti, ma puoi invitarli con un semplice tocco ☝️. Dovranno solo accettare il tuo invito, non c'è bisogno di scambiarsi codici 😉."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "THE_GROUP_DESCRIPTION_AND_PHOTO_WERE_UPDATED_AS_FOLLOWS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgende Änderungen wurden an der Gruppenbeschreibung und dem Foto vorgenommen:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following updates have been made to the group description and photo:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han realizado las siguientes actualizaciones a la descripción y foto del grupo:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les mises à jour suivantes ont été apportées à la description et à la photo du groupe :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sono state apportate le seguenti modifiche alla descrizione e alla foto del gruppo:"
+          }
+        }
+      }
+    },
+    "THE_GROUP_DESCRIPTION_WAS_UPDATED_AS_FOLLOWS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgende Änderung wurde an der Gruppenbeschreibung vorgenommen:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following update has been made to the group description:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se ha realizado la siguiente actualización a la descripción del grupo:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La mise à jour suivante a été apportée à la description du groupe :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "È stata apportata la seguente modifica alla descrizione del gruppo:"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_AND_DESCRIPTION_WERE_UPDATED_AS_FOLLOWS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgende Änderungen wurden am Gruppennamen und der Beschreibung vorgenommen:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following updates have been made to the group name and description:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han realizado las siguientes actualizaciones al nombre y la descripción del grupo:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les mises à jour suivantes ont été apportées au nom et à la description du groupe :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sono state apportate le seguenti modifiche al nome e alla descrizione del gruppo:"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_AND_PHOTO_WERE_UPDATED_AS_FOLLOWS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgende Änderungen wurden am Gruppennamen und -foto vorgenommen:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following updates have been made to the group name and photo:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han realizado las siguientes actualizaciones al nombre y la foto del grupo:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les mises à jour suivantes ont été apportées au nom et à la photo du groupe :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sono state apportate le seguenti modifiche al nome e alla foto del gruppo:"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_DESCRIPTION_AND_PHOTO_WERE_UPDATED_AS_FOLLOWS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgende Änderungen wurden am Gruppennamen, der Beschreibung und dem Foto vorgenommen:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following updates have been made to the group name, description, and photo:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han realizado las siguientes actualizaciones al nombre, descripción y foto del grupo:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les mises à jour suivantes ont été apportées au nom, à la description et à la photo du groupe :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sono state apportate le seguenti modifiche al nome, alla descrizione e alla foto del gruppo:"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_DESCRIPTION_OR_PHOTO_WERE_UPDATED_AS_FOLLOWS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgende Änderungen wurden an der Gruppe vorgenommen:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following updates have been made to the group:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han realizado las siguientes actualizaciones en el grupo:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La mise à jour suivante a été apportée au groupe :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sono state apportate le seguenti modifiche al gruppo:"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_WAS_UPDATED_AS_FOLLOWS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgende Änderung wurde am Gruppennamen vorgenommen:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following update has been made to the group name:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se ha realizado la siguiente actualización al nombre del grupo:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La mise à jour suivante a été apportée au nom du groupe :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "È stato apportato il seguente aggiornamento al nome del gruppo:"
+          }
+        }
+      }
+    },
+    "THE_GROUP_PHOTO_WAS_UPDATED_AS_FOLLOWS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgendes Update wurde am Gruppenfoto vorgenommen:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following update has been made to the group photo:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se ha realizado la siguiente actualización a la foto del grupo:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La mise à jour suivante a été apportée à la photo du groupe :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "È stata apportata la seguente modifica alla foto del gruppo:"
+          }
+        }
+      }
+    },
+    "THE_REMAINING_%lld_MUST_ACCEPT_THE_GROUP_INVITATION_BEFORE_YOU_CAN_ADD_THEM": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Die verbleibende Person muss die Gruppen-Einladung annehmen, bevor du sie einladen kannst."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Die verbleibenden %lld Personen müssen die Gruppen-Einladung annehmen, bevor du sie einladen kannst."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The remaining one must accept the group invitation before you can invite them."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The remaining %lld must accept the group invitation before you can invite them."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "La persona restante debe aceptar la invitación al grupo antes de que puedas invitarla."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Las %lld personas restantes deben aceptar la invitación al grupo antes de que puedas invitarlas."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Le dernier doit accepter l’invitation au groupe avant que vous ne puissiez l’ajouter."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Les %lld derniers doivent accepter l’invitation au groupe avant que vous ne puissiez les ajouter."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "La persona rimanente deve accettare l'invito al gruppo prima che tu possa invitarla."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Le %lld persone rimanenti devono accettare l'invito al gruppo prima che tu possa invitarle."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "TITLE_ADD_GROUP_MEMBERS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitglieder hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir miembros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter des membres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiungi membri"
+          }
+        }
+      }
+    },
+    "TITLE_GROUP_MEMBERS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppenmitglieder"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Miembros del grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membres du groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membri del gruppo"
+          }
+        }
+      }
+    },
+    "TITLE_MANAGE_GROUP_MEMBERS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitglieder verwalten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrar miembros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gérer les membres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestisci membri"
+          }
+        }
+      }
+    },
+    "TITLE_REMOVE_GROUP_MEMBERS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitglieder entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar miembros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer des membres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rimuovi membri"
+          }
+        }
+      }
+    },
+    "TO_REFLECT_THESE_CHANGES_ON_YOUR_DEVICE_YOU_NEED_TO_ACCEPT_THEM": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damit diese Updates auf Ihrem Gerät wirksam werden, müssen Sie diese akzeptieren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For these updates to take effect on your device, please accept them."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para que estas actualizaciones surtan efecto en tu dispositivo, por favor acéptalas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour que ces mises à jour prennent effet sur votre appareil, veuillez les accepter."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per applicare questi aggiornamenti al tuo dispositivo, accettali."
+          }
+        }
+      }
+    },
+    "VALIDATION_REQUIRED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Validierung erforderlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Validation required"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se requiere validación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Validation requise"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Validazione richiesta"
+          }
+        }
+      }
+    },
+    "YOU": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tú"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu"
+          }
+        }
+      }
+    },
+    "YOU_ALREADY_INVITED_%lld_OF_THESE_MEMBERS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Du hast bereits einen dieser Mitglieder eingeladen."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Du hast bereits %lld dieser Mitglieder eingeladen."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "You already invited one of these members."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "You already invited %lld of these members."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ya invitaste a uno de estos miembros."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ya invitaste a %lld de estos miembros."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Vous avez déjà invité un de ces membres."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Vous avez déjà invité %lld de ces membres."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hai già invitato uno di questi membri."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hai già invitato %lld di questi membri."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "YOU_ALREADY_INVITED_ALL_THESE_MEMBERS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast bereits alle diese Mitglieder eingeladen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You already invited all these members."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya invitaste a todos estos miembros."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez déjà invité tous ces membres."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai già invitato tutti questi membri."
+          }
+        }
+      }
+    },
+    "YOU_ALREADY_INVITED_THIS_MEMBER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast dieses Mitglied bereits eingeladen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You already invited this member."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya invitaste a este miembro."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez déjà invité ce membre."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai già invitato questo membro."
+          }
+        }
+      }
+    },
+    "YOU_CAN_INVITE_%lld_OF_THEM_NOW": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Du kannst eine/n davon mit einem Tippen zu deinen Kontakten hinzufügen ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Du kannst %lld davon mit einem Tippen zu deinen Kontakten hinzufügen ☝️."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "You can invite one of them to join your contacts in one tap ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "You can invite %lld of them to join you contacts in one tap ☝️."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Puedes invitar a uno de ellos a unirse a tus contactos con un solo toque ➕."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Puedes invitar a %lld de ellos a unirse a tus contactos con un solo toque ➕."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Vous pouvez facilement inviter l’un d’entre eux à rejoindre vos contacts ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Vous pouvez facilement inviter %lld d’entre eux à rejoindre vos contacts ☝️."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Puoi invitare uno di loro ad aggiungere ai tuoi contatti con un solo tocco ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Puoi invitare %lld di loro ad aggiungere ai tuoi contatti con un solo tocco ☝️."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -41,7 +41,7 @@ public struct InitialCircleView: View {
             
         }
         
-        public struct Colors: Sendable {
+        public struct Colors: Sendable, Equatable {
             let background: UIColor
             let foreground: UIColor
             
@@ -84,6 +84,8 @@ public struct InitialCircleView: View {
         case .personBadgePlus: return 2
         case .personFillBadgeMinus: return 2
         case .personFillBadgePlus: return 2
+        case .personBust: return 2
+        case .personBustFill: return 2
         }
     }
     

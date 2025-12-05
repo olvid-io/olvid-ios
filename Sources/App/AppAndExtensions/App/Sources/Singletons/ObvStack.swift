@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,7 @@ final class ObvStack {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    private static var _shared: CoreDataStack<ObvMessengerPersistentContainer>!
+    nonisolated(unsafe) private static var _shared: CoreDataStack<ObvMessengerPersistentContainer>!
     
     static func initSharedInstance(transactionAuthor: String, runningLog: RunningLogError, enableMigrations: Bool) throws {
         guard _shared == nil else { return }

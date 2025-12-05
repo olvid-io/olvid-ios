@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvServerInterface
@@ -28,13 +28,9 @@ import ObvCrypto
 final class SaveReturnedServerValuesForBatchUploadedMessagesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
     
     let valuesToSave: [(uploadedMessage: ObvServerBatchUploadMessages.MessageToUpload, serverReturnedValues: (uidFromServer: UID, nonce: Data, timestampFromServer: Date))]
-    let delegateManager: ObvNetworkSendDelegateManager
-    let log: OSLog
     
-    init(valuesToSave: [(uploadedMessage: ObvServerBatchUploadMessages.MessageToUpload, serverReturnedValues: (uidFromServer: UID, nonce: Data, timestampFromServer: Date))], delegateManager: ObvNetworkSendDelegateManager, log: OSLog) {
+    init(valuesToSave: [(uploadedMessage: ObvServerBatchUploadMessages.MessageToUpload, serverReturnedValues: (uidFromServer: UID, nonce: Data, timestampFromServer: Date))]) {
         self.valuesToSave = valuesToSave
-        self.delegateManager = delegateManager
-        self.log = log
         super.init()
     }
     
@@ -44,13 +40,12 @@ final class SaveReturnedServerValuesForBatchUploadedMessagesOperation: Contextua
          
             do {
                 
-                let outboxMessage = try OutboxMessage.get(messageId: uploadedMessage.messageId, delegateManager: delegateManager, within: obvContext)
+                let outboxMessage = try OutboxMessage.get(messageId: uploadedMessage.messageId, within: obvContext.context)
                 guard let outboxMessage else { assertionFailure(); continue }
                 
                 outboxMessage.setAcknowledged(withMessageUidFromServer: serverReturnedValues.uidFromServer,
                                               nonceFromServer: serverReturnedValues.nonce,
-                                              andTimeStampFromServer: serverReturnedValues.timestampFromServer,
-                                              log: log)
+                                              andTimeStampFromServer: serverReturnedValues.timestampFromServer)
 
                 
             } catch {

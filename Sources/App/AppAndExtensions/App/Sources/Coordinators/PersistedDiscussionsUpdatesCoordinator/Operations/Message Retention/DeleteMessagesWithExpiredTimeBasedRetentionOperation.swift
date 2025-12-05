@@ -52,7 +52,7 @@ final class DeleteMessagesWithExpiredTimeBasedRetentionOperation: OperationWithS
                     }
                     allDiscussions = [discussion]
                 } else {
-                    allDiscussions = try PersistedDiscussion.getAllSortedByTimestampOfLastMessageForAllOwnedIdentities(within: context)
+                    allDiscussions = try PersistedDiscussion.getAllSortedBySortDateForAllOwnedIdentities(within: context)
                 }
             } catch {
                 return cancel(withReason: .coreDataError(error: error))

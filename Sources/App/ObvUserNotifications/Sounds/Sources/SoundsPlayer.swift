@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,12 +31,12 @@ extension Sound {
 
 
 @MainActor
-public final class SoundsPlayer<S: Sound>: NSObject, AVAudioPlayerDelegate {
+public final class SoundsPlayer<S: Sound>: NSObject {
 
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: SoundsPlayer.self))
     private var currentAudioPlayer: AVAudioPlayer?
     private var soundCurrentlyPlaying: S?
-    private var categoryToRestore: AVAudioSession.Category?
+    private let obvAVAudioPlayerDelegate = ObvAVAudioPlayerDelegate()
 
     private lazy var feedbackGenerator: UINotificationFeedbackGenerator = {
         UINotificationFeedbackGenerator()
@@ -96,7 +96,7 @@ public final class SoundsPlayer<S: Sound>: NSObject, AVAudioPlayerDelegate {
         }
         if let category = category {
             do {
-                categoryToRestore = AVAudioSession.sharedInstance().category
+                obvAVAudioPlayerDelegate.setCategoryToRestore(to: AVAudioSession.sharedInstance().category)
                 try AVAudioSession.sharedInstance().setCategory(category, mode: .default, options: [])
             } catch let error {
                 os_log("🎵 Error in AVAudioSession %{public}@", log: self.log, type: .info, error.localizedDescription)
@@ -105,7 +105,7 @@ public final class SoundsPlayer<S: Sound>: NSObject, AVAudioPlayerDelegate {
         guard let currentAudioPlayer else { return }
         os_log("🎵 Play %{public}@", log: self.log, type: .info, filename)
         currentAudioPlayer.currentTime = 0
-        currentAudioPlayer.delegate = self
+        currentAudioPlayer.delegate = self.obvAVAudioPlayerDelegate
         self.soundCurrentlyPlaying = sound
         currentAudioPlayer.play()
         if let feedback = sound.feedback {
@@ -133,26 +133,34 @@ public final class SoundsPlayer<S: Sound>: NSObject, AVAudioPlayerDelegate {
     }
 
     
-    // AVAudioPlayerDelegate
-    
-    public nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { [weak self] in
-            await self?.restorePreviousShareAudioSessionCategory()
-        }
+    enum ObvError: Error {
+        case fileDoesNotExist
     }
     
+}
+
+
+// MARK: - Private AVAudioPlayerDelegate
+
+private final class ObvAVAudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
     
-    private func restorePreviousShareAudioSessionCategory() {
+    private let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: "SoundsPlayer"))
+    private var categoryToRestore: AVAudioSession.Category?
+    
+    fileprivate func setCategoryToRestore(to newCategoryToRestore: AVAudioSession.Category?) {
+        self.categoryToRestore = newCategoryToRestore
+    }
+    
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         guard let categoryToRestore = self.categoryToRestore else { return }
+        defer { self.categoryToRestore = nil }
         do {
             try AVAudioSession.sharedInstance().setCategory(categoryToRestore, mode: .default, options: [])
         } catch {
             assertionFailure()
-            os_log("Could not restore the previous share audio session category", log: log, type: .fault)
+            logger.fault("Could not restore the previous share audio session category: \(error.localizedDescription)")
+            assertionFailure()
         }
     }
     
-    enum ObvError: Error {
-        case fileDoesNotExist
-    }
 }

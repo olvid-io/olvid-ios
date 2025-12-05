@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,10 +20,11 @@
 
 import Foundation
 import OlvidUtils
-import os.log
+import OSLog
 import ObvTypes
 import ObvUICoreData
 import CoreData
+import ObvAppCoreConstants
 
 
 final class HideOwnedIdentityOperation: ContextualOperationWithSpecificReasonForCancel<HideOwnedIdentityOperationReasonForCancel>, @unchecked Sendable {
@@ -39,7 +40,7 @@ final class HideOwnedIdentityOperation: ContextualOperationWithSpecificReasonFor
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard password.count >= ObvMessengerConstants.minimumLengthOfPasswordForHiddenProfiles else {
+        guard password.count >= ObvAppCoreConstants.minimumLengthOfPasswordForHiddenProfiles else {
             return cancel(withReason: .passwordTooShort)
         }
         

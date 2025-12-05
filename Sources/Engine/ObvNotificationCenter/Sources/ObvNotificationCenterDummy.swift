@@ -88,7 +88,7 @@ public final class ObvNotificationCenterDummy: ObvNotificationDelegate {
     public func fulfill(requiredDelegate: AnyObject, forDelegateType: ObvEngineDelegateType) throws {}
     
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {}
-    
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     // MARK: - Notification names for which we should not generate a log within this dummy implementation

@@ -201,7 +201,7 @@ extension StorageManagementFileListView {
                 if model.isSelectionEnabled {
                     Text("Cancel")
                 } else {
-                    Image(systemIcon: .trash)
+                    Text("SELECT")
                 }
             }
         }

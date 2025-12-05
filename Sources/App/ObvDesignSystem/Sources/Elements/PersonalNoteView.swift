@@ -63,10 +63,16 @@ public struct PersonalNoteStaticView: View {
                     .foregroundColor(.secondary)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localizedInThisBundle: "PERSONAL_NOTE") + (personalNote ?? ""))
     }
     
 }
 
+
+#if DEBUG
+
+// MARK: - Previews
 
 struct PersonalNoteView_Previews: PreviewProvider {
     
@@ -88,3 +94,5 @@ struct PersonalNoteView_Previews: PreviewProvider {
     }
     
 }
+
+#endif

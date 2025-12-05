@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 @preconcurrency import os.log
 
-// Note: we mark os.log as @preconcurrency to silent a warning in logExecutionDuration(log:). Quick and dirty.
+// Note: we mark os.log as @preconcurrency to silence a warning in logExecutionDuration(log:). Quick and dirty.
 
 
 public final class CompositionOfOneContextualOperation<ReasonForCancelType1: LocalizedErrorWithLogType>: OperationWithSpecificReasonForCancel<CompositionOfOneContextualOperationReasonForCancel<ReasonForCancelType1>>, @unchecked Sendable {

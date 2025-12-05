@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,11 +19,12 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvUICoreData
 import ObvTypes
 import ObvAppCoreConstants
+import ObvAppTypes
 
 ///
 /// This operation allows reading of an ephemeral received message that requires user action (e.g. tap) before displaying its content, but only if appropriate.
@@ -37,7 +38,7 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Contex
 
     enum Input {
         case requestedOnCurrentDevice(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier)
-        case requestedOnAnotherOwnedDevice(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier, messageUploadTimestampFromServer: Date)
+        case requestedOnAnotherOwnedDevice(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier, messageUploadTimestampFromServer: Date, obvDiscussionIdentifier: ObvDiscussionIdentifier)
     }
     
     let input: Input
@@ -49,7 +50,7 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Contex
     
     var ownedCryptoId: ObvCryptoId? {
         switch input {
-        case .requestedOnAnotherOwnedDevice(ownedCryptoId: let ownedCryptoId, discussionId: _, messageId: _, messageUploadTimestampFromServer: _):
+        case .requestedOnAnotherOwnedDevice(ownedCryptoId: let ownedCryptoId, discussionId: _, messageId: _, messageUploadTimestampFromServer: _, obvDiscussionIdentifier: _):
             return ownedCryptoId
         case .requestedOnCurrentDevice(ownedCryptoId: let ownedCryptoId, discussionId: _, messageId: _):
             return ownedCryptoId
@@ -60,8 +61,10 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Contex
 
     
     enum Result {
-        case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
         case processed
+        case couldNotFindActiveDiscussionInDatabase(discussionIdentifier: ObvDiscussionIdentifier)
+        case couldNotFindMessageInDatabase(messageIdentifier: ObvMessageAppIdentifier)
+        case contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: ObvGroupIdentifier, contactCryptoId: ObvCryptoId)
     }
 
     private(set) var result: Result?
@@ -69,31 +72,47 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Contex
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
 
-        do {
-            
-            let ownedCryptoId: ObvCryptoId
-            let discussionId: DiscussionIdentifier
-            let messageId: ReceivedMessageIdentifier
-            let dateWhenMessageWasRead: Date
-            let shouldSendLimitedVisibilityMessageOpenedJSON: Bool
-            let requestedOnAnotherOwnedDevice: Bool
-            switch input {
-            case .requestedOnCurrentDevice(let _ownedCryptoId, let _discussionId, let _messageId):
-                ownedCryptoId = _ownedCryptoId
-                discussionId = _discussionId
-                messageId = _messageId
-                dateWhenMessageWasRead = Date()
-                shouldSendLimitedVisibilityMessageOpenedJSON = true
-                requestedOnAnotherOwnedDevice = false
-            case .requestedOnAnotherOwnedDevice(let _ownedCryptoId, let _discussionId, let _messageId, let messageUploadTimestampFromServer):
-                ownedCryptoId = _ownedCryptoId
-                discussionId = _discussionId
-                messageId = _messageId
-                dateWhenMessageWasRead = messageUploadTimestampFromServer
-                shouldSendLimitedVisibilityMessageOpenedJSON = false
-                requestedOnAnotherOwnedDevice = true
+        let ownedCryptoId: ObvCryptoId
+        let discussionId: DiscussionIdentifier
+        let messageId: ReceivedMessageIdentifier
+        let dateWhenMessageWasRead: Date
+        let shouldSendLimitedVisibilityMessageOpenedJSON: Bool
+        let requestedOnAnotherOwnedDevice: Bool
+        let discussionIdentifier: ObvDiscussionIdentifier? // Set iff the request comes from another owned device
+        let obvMessageIdentifier: ObvMessageAppIdentifier? // Set iff the request comes from another owned device
+        switch input {
+        case .requestedOnCurrentDevice(let _ownedCryptoId, let _discussionId, let _messageId):
+            ownedCryptoId = _ownedCryptoId
+            discussionId = _discussionId
+            messageId = _messageId
+            dateWhenMessageWasRead = Date()
+            shouldSendLimitedVisibilityMessageOpenedJSON = true
+            requestedOnAnotherOwnedDevice = false
+            discussionIdentifier = nil
+            obvMessageIdentifier = nil
+        case .requestedOnAnotherOwnedDevice(let _ownedCryptoId, let _discussionId, let _messageId, let messageUploadTimestampFromServer, obvDiscussionIdentifier: let _obvDiscussionIdentifier):
+            ownedCryptoId = _ownedCryptoId
+            discussionId = _discussionId
+            messageId = _messageId
+            dateWhenMessageWasRead = messageUploadTimestampFromServer
+            shouldSendLimitedVisibilityMessageOpenedJSON = false
+            requestedOnAnotherOwnedDevice = true
+            discussionIdentifier = _obvDiscussionIdentifier
+            switch messageId {
+            case .objectID:
+                assertionFailure()
+                return cancel(withReason: .unexpectedMessageId)
+            case .authorIdentifier(let writerIdentifier):
+                obvMessageIdentifier = ObvMessageAppIdentifier.received(
+                    discussionIdentifier: _obvDiscussionIdentifier,
+                    senderIdentifier: writerIdentifier.senderIdentifier,
+                    senderThreadIdentifier: writerIdentifier.senderThreadIdentifier,
+                    senderSequenceNumber: writerIdentifier.senderSequenceNumber)
             }
-            
+        }
+
+        do {
+                        
             guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindOwnedIdentity)
             }
@@ -165,39 +184,89 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Contex
             result = .processed
             
         } catch {
-            if let error = error as? ObvUICoreDataError {
+            // Note that discussionIdentifier is no-nil iff the request comes from another owned device,
+            // which is the only case when we might want to keep the request for later in case of error.
+            if let error = error as? ObvUICoreDataError, let discussionIdentifier {
                 switch error {
-                case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
-                    result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
-                    return
-                case .couldNotFindDiscussionWithId(discussionId: let discussionId):
-                    switch discussionId {
-                    case .groupV2(let id):
-                        switch id {
-                        case .groupV2Identifier(let groupIdentifier):
-                            result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
-                            return
-                        case .objectID:
-                            assertionFailure()
-                            return cancel(withReason: .coreDataError(error: error))
-                        }
-                    case .oneToOne, .groupV1:
+                    
+                case .couldNotFindPersistedMessage, .couldNotFindPersistedMessageReceived:
+                    
+                    // This only occurs when the message comes from another owned device. In that case `obvMessageIdentifier`
+                    // is not nil.
+                    if let obvMessageIdentifier {
+                        return result = .couldNotFindMessageInDatabase(messageIdentifier: obvMessageIdentifier)
+                    } else {
                         assertionFailure()
-                        return cancel(withReason: .coreDataError(error: error))
+                        return
                     }
+                    
+                case .couldNotFindDiscussion,
+                        .cannotChangeShareConfigurationOfLockedDiscussion,
+                        .cannotChangeShareConfigurationOfPreDiscussion:
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
+                case .couldNotFindGroupV1InDatabase:
+                    // If a group does not exist, any associated discussion also cannot exist.
+                    // Therefore, return a `couldNotFindActiveDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created,
+                    // which occurs automatically upon group creation.
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
+                case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
+                    // If a group does not exist, any associated discussion also cannot exist.
+                    // Therefore, return a `couldNotFindActiveDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created,
+                    // which occurs automatically upon group creation.
+                    assert(discussionIdentifier == ObvDiscussionIdentifier.groupV2(id: groupIdentifier))
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
+                case .couldNotFindContactWithId(contactIdentifier: let contactIdentifier):
+                    // This can happen if the owned identity performed a mutual scan with the contact from another owned device.
+                    // In the case the received information concerns:
+                    // - a one2one discussion:
+                    // If a contact does not exist, any associated discussion also cannot exist.
+                    // Therefore, return a `couldNotFindActiveDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created,
+                    // which occurs automatically upon contact creation.
+                    // - a group discussion:
+                    // To the contrary of the previous case, the discussion with the contact might never be
+                    // created (e.g., when the contact is added to the group by another administrator). So we
+                    // return a `contactIsNotPartOfGroupOrRequiresPermissions` result.
+                    if let obvGroupIdentifier = discussionIdentifier.obvGroupIdentifier {
+                        // Group discussion
+                        return result = .contactIsNotPartOfGroupOrRequiresPermissions(
+                            groupIdentifier: obvGroupIdentifier,
+                            contactCryptoId: contactIdentifier.contactCryptoId)
+                    } else {
+                        // One2one discussion
+                        return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+                    }
+
+                case .couldNotFindOneToOneContactWithId(contactIdentifier: let contactIdentifier):
+                    // This can happen when receiving a shared config from a contact who just accepted
+                    // our invitation to be a oneToOne contact. We should not fail as this case is handled:
+                    // we will soon turn her into a oneToOne contact, and thus,
+                    // send her back our own shared config for the discussion.
+                    // Upon receiving our discussion shared settings, she will
+                    // again send us back her shared settings if required.
+                    //
+                    // If a contact is not one-to-one, any associated discussion is locked, or cannot exist.
+                    // Therefore, return a `couldNotFindDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created, or if the existing discussion
+                    // status is set to active again.
+                    let discussionIdentifier = ObvDiscussionIdentifier.oneToOne(id: contactIdentifier)
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
+                case .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
+                    assert(groupIdentifier == discussionIdentifier.obvGroupIdentifier)
+                    return result = .contactIsNotPartOfGroupOrRequiresPermissions(
+                        groupIdentifier: groupIdentifier,
+                        contactCryptoId: contactCryptoId)
+
                 default:
                     assertionFailure()
                     return cancel(withReason: .coreDataError(error: error))
-                }
-            } else if let error = error as? ObvUICoreDataError {
-                switch error {
-                case .couldNotFindPersistedMessage, .couldNotFindPersistedMessageSent, .couldNotFindPersistedMessageReceived:
-                    // This can happen for a read once message, if it has already been deleted
-                    result = .processed
-                    return
-                default:
-                    assertionFailure()
-                    return cancel(withReason: .coreDataError(error: error))
+                    
                 }
             } else {
                 assertionFailure()
@@ -213,12 +282,14 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Contex
         case coreDataError(error: Error)
         case couldNotAllowReading
         case couldNotFindOwnedIdentity
+        case unexpectedMessageId
         
         var logType: OSLogType {
             switch self {
             case .coreDataError,
                     .couldNotAllowReading,
-                    .couldNotFindOwnedIdentity:
+                    .couldNotFindOwnedIdentity,
+                    .unexpectedMessageId:
                 return .fault
             case .messageDoesNotExist:
                 return .info
@@ -235,6 +306,8 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Contex
                 return "Could not allow reading"
             case .couldNotFindOwnedIdentity:
                 return "Could not find owned identity"
+            case .unexpectedMessageId:
+                return "Unexpected message ID"
             }
         }
         

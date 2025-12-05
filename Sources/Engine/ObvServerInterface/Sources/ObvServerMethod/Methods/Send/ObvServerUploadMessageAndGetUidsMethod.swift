@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvCrypto
 import ObvTypes
 import ObvEncoder
@@ -27,7 +27,7 @@ import OlvidUtils
 
 public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
     
-    static let log = OSLog(subsystem: "io.olvid.server.interface.ObvServerUploadMessageAndGetUidsMethod", category: "ObvServerInterface")
+    static let logger = Logger(subsystem: "io.olvid.server.interface.ObvServerUploadMessageAndGetUidsMethod", category: "ObvServerInterface")
     
     public let pathComponent = "/uploadMessageAndGetUids"
     
@@ -62,9 +62,16 @@ public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
         self.isVoipMessageForStartingCall = isVoipMessageForStartingCall
     }
     
-    public enum PossibleReturnStatus: UInt8 {
+    private enum PossibleReturnRawStatus: UInt8 {
         case ok = 0x00
+        case payloadTooLarge = 0x18
         case generalError = 0xff
+    }
+    
+    public enum PossibleReturnStatus {
+        case ok(idFromServer: UID, nonce: Data, timestampFromServer: Date, signedURLs: [[URL]])
+        case payloadTooLarge
+        case generalError
     }
     
     lazy public var dataToSend: Data? = {
@@ -84,7 +91,8 @@ public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
         }
         
         if let encryptedExtendedMessagePayload = self.encryptedExtendedMessagePayload, encryptedExtendedMessagePayload.count >= maxMessageExtendedContentLenghtForServer {
-            os_log("The encrypted extended message payload is too large and will be ignored: %{public}d > %{public}d", log: ObvServerUploadMessageAndGetUidsMethod.log, type: .error, encryptedExtendedMessagePayload.count, maxMessageExtendedContentLenghtForServer)
+            let maxMessageExtendedContentLenghtForServer = self.maxMessageExtendedContentLenghtForServer
+            Self.logger.error("The encrypted extended message payload is too large and will be ignored: \(encryptedExtendedMessagePayload.count) > \(maxMessageExtendedContentLenghtForServer)")
             assertionFailure()
         }
         
@@ -110,14 +118,14 @@ public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
     }()
     
     
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, (idFromServer: UID, nonce: Data, timestampFromServer: Date, signedURLs: [[URL]])?)? {
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {
         
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
             return nil
         }
         
-        guard let serverReturnedStatus = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else {
+        guard let serverReturnedStatus = PossibleReturnRawStatus(rawValue: rawServerReturnedStatus) else {
             os_log("The returned server status is invalid", log: log, type: .error)
             return nil
         }
@@ -161,12 +169,18 @@ public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
                 }
             }
             
-            return (serverReturnedStatus, (uidFromServer, nonce, serverTimestamp, signedURLs))
+            return .ok(idFromServer: uidFromServer, nonce: nonce, timestampFromServer: serverTimestamp, signedURLs: signedURLs)
+            
+        case .payloadTooLarge:
+            
+            os_log("The server reported that the message payload is too large", log: log, type: .error)
+            return .payloadTooLarge
+
             
         case .generalError:
             
             os_log("The server reported a general error", log: log, type: .error)
-            return (serverReturnedStatus, nil)
+            return .generalError
             
         }
         

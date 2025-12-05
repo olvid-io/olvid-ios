@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import CoreData
 import PhotosUI
 import Combine
 import MobileCoreServices
-import os.log
+import OSLog
 import VisionKit
 import PDFKit
 import SwiftUI
@@ -37,6 +37,7 @@ import ObvDesignSystem
 import ObvAppCoreConstants
 import ObvLocation
 import ObvAppTypes
+import ObvTypes
 
 /// Namespace for everything `NewComposeMessageView` related
 enum NewComposeMessageViewTypes {
@@ -80,6 +81,8 @@ enum NewComposeMessageViewTypes {
 }
 
 protocol NewComposeMessageViewDelegate: UIViewController {
+    
+    func userWantsToDisplayContactIntroductionScreen(_ newComposeMessageView: NewComposeMessageView, contactIdentifier: ObvContactIdentifier)
 
     /// Method called when the shortcuts view will be displayed, used in conjunction with ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerGeometryPlacementSiblingView(_:)`` and ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerSuperview(_:)``
     ///
@@ -106,10 +109,10 @@ protocol NewComposeMessageViewDelegate: UIViewController {
     func newComposeMessageViewWantsToRemovePreview(_ newComposeMessageView: NewComposeMessageView)
     
     /// Called when the user taps the paperplane button to send a message
-    func userWantsToSendDraft(_ newComposeMessageView: NewComposeMessageView, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToSendDraft(_ newComposeMessageView: NewComposeMessageView, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
     
-    func userWantsToAddAttachmentsToDraft(_ newComposeMessageView: NewComposeMessageView, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws
-    func userWantsToAddAttachmentsToDraftFromURLs(_ newComposeMessageView: NewComposeMessageView, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws
+    func userWantsToAddAttachmentsToDraft(_ newComposeMessageView: NewComposeMessageView, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
+    func userWantsToAddAttachmentsToDraftFromURLs(_ newComposeMessageView: NewComposeMessageView, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
  
     func userWantsToUpdateDraftBodyAndMentions(_ newComposeMessageView: NewComposeMessageView, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
     func userWantsToRemoveReplyToMessage(_ newComposeMessageView: NewComposeMessageView, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
@@ -117,6 +120,8 @@ protocol NewComposeMessageViewDelegate: UIViewController {
     func userWantsToUpdateDraftExpiration(_ newComposeMessageView: NewComposeMessageView, draftObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDraft>, value: ObvUICoreData.PersistedDiscussionSharedConfigurationValue?) async throws
 
     func userWantsToShowMapToSendOrShareLocationContinuously(_ newComposeMessageView: NewComposeMessageView, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    
+    func userWantsToCreatePoll(_ newComposeMessageView: NewComposeMessageView, discussionIdentifier: ObvDiscussionIdentifier) async throws
 
 }
 
@@ -149,6 +154,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     private(set) lazy var mainContentView = UIView()
     private var mainContentViewHeight: CGFloat?
 
+    private let loadItemProviderHelper = LoadItemProviderHelper()
+    
     private let multipleButtonsStackView = UIStackView()
     let textViewForTyping: AutoGrowingTextView
     private let padding = CGFloat(8)
@@ -160,6 +167,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     private var cameraButton: UIButton!
     private var scannerButton: UIButton!
     private var locationButton: UIButton!
+    private var pollButton: UIButton!
     private var microButton: UIButton!
     private var trashCircleButton: UIButton!
     private var introduceButton: UIButton?
@@ -171,7 +179,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     private let sendButtonsHolder = UIView()
     private let sendButtonAnimator = UIViewPropertyAnimator(duration: 0.5, dampingRatio: 0.5)
     private let textPlaceholder = UILabel()
-    private let durationLabel = UILabel()
+    private var audioWaveFormRecorderView: UIView!
     private let replyToView: ReplyToView
 
     private var lastScreenWidthConsideredForMultipleButtonsStackView = CGFloat.zero
@@ -232,9 +240,6 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     private var currentFreezeProgress: Progress?
     private var freezableButtons = [UIButton]()
     private var notificationTokens = [NSObjectProtocol]()
-
-    private var recordDurationTimer: Timer?
-    private let durationFormatter = AudioDurationFormatter()
 
     weak var delegate: NewComposeMessageViewDelegate? {
         didSet {
@@ -308,6 +313,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
             return paperclipButton
         case .introduceThisContact:
             return introduceButton
+        case .createPoll:
+            return pollButton
         }
     }
     
@@ -351,6 +358,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
                 .shootPhotoOrMovie,
                 .chooseImageFromLibrary,
                 .choseFile:
+            return true
+        case .createPoll:
             return true
         case .shareLocation:
             return true
@@ -396,6 +405,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
                 self?.introduceButtonTapped()
             case .shareLocation:
                 Task { [weak self] in await self?.shareLocationButtonTapped() }
+            case .createPoll:
+                Task { [weak self] in await self?.createPollButtonTapped() }
             }
         }
     }
@@ -488,7 +499,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     /// This allows to hide early animation glitches of this view when entering the discussion.
     private func unhideSelf() {
         if currentState != .initial && self.alpha != 1.0 {
-            UIViewPropertyAnimator.runningPropertyAnimator(withDuration: 0.2, delay: 0) { [weak self] in
+            // 2025-09-18 UIViewPropertyAnimator.runningPropertyAnimator removed due to recurring crash under iOS 26
+            UIView.animate(withDuration: 0.2) { [weak self] in
                 self?.alpha = 1.0
             }
         }
@@ -607,7 +619,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
             image: plusActionImage,
             state: .on,
             handler: { _ in })
-        instantiateAndConfigureButton(button: &plusCircleButton, uiAction: plusAction)
+        instantiateAndConfigureButton(button: &plusCircleButton, uiAction: plusAction, accessibilityLabel: String(localized: "MORE"))
         
         // Configure the remaining action buttons
         
@@ -615,7 +627,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
             guard isActionAvailable(for: action) else { continue }
             switch action {
             case .composeMessageSettings:
-                instantiateAndConfigureButton(button: &composeMessageSettingsButton, uiAction: uiAction(for: action))
+                instantiateAndConfigureButton(button: &composeMessageSettingsButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "SETTINGS"))
             }
         }
 
@@ -623,27 +635,30 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
             guard isActionAvailable(for: action) else { continue }
             switch action {
             case .oneTimeEphemeralMessage:
-                instantiateAndConfigureButton(button: &flameFillButton, uiAction: uiAction(for: action))
+                instantiateAndConfigureButton(button: &flameFillButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "EPHEMERAL_MESSAGE"))
             case .scanDocument:
-                instantiateAndConfigureButton(button: &scannerButton, uiAction: uiAction(for: action))
+                instantiateAndConfigureButton(button: &scannerButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "SCAN_DOCUMENT"))
             case .shootPhotoOrMovie:
-                instantiateAndConfigureButton(button: &cameraButton, uiAction: uiAction(for: action))
+                instantiateAndConfigureButton(button: &cameraButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "CAMERA"))
             case .chooseImageFromLibrary:
-                instantiateAndConfigureButton(button: &photoButton, uiAction: uiAction(for: action))
+                instantiateAndConfigureButton(button: &photoButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "IMAGE_FROM_LIBRARY"))
             case .choseFile:
-                instantiateAndConfigureButton(button: &paperclipButton, uiAction: uiAction(for: action))
+                instantiateAndConfigureButton(button: &paperclipButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "FILE"))
             case .introduceThisContact:
-                instantiateAndConfigureButton(button: &introduceButton, uiAction: uiAction(for: action))
+                instantiateAndConfigureButton(button: &introduceButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "INTRODUCE_THIS_CONTACT"))
             case .shareLocation:
-                instantiateAndConfigureButton(button: &locationButton, uiAction: uiAction(for: action))
+                instantiateAndConfigureButton(button: &locationButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "SHARE_YOUR_LOCATION"))
+            case .createPoll:
+                instantiateAndConfigureButton(button: &pollButton, uiAction: uiAction(for: action), accessibilityLabel: String(localized: "CREATE_POLL"))
             }
         }
-                
+
         // Configure the chevron button
         
         let chevron = UIImage(systemIcon: .chevronRightCircle, withConfiguration: symbolConfig)!
         chevronButton = UIButton.systemButton(with: chevron, target: self, action: #selector(chevronButtonTapped))
         chevronButton.translatesAutoresizingMaskIntoConstraints = false
+        chevronButton.accessibilityLabel = String(localized: "MORE")
         mainContentView.addSubview(chevronButton)
         freezableButtons.append(chevronButton)
         constrainSizeOfButton(chevronButton)
@@ -662,6 +677,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         mainContentView.addSubview(textFieldBubble)
         textFieldBubble.translatesAutoresizingMaskIntoConstraints = false
         textFieldBubble.backgroundColor = .systemFill
+        textFieldBubble.accessibilityLabel = NSLocalizedString("COMPOSE_MESSAGE", comment: "")
+        textFieldBubble.accessibilityTraits = .allowsDirectInteraction
         
         textFieldBubble.addSubview(textViewForTyping)
         textViewForTyping.translatesAutoresizingMaskIntoConstraints = false
@@ -677,12 +694,19 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         textPlaceholder.textColor = .secondaryLabel
         textPlaceholder.lineBreakMode = .byTruncatingTail
         textPlaceholder.numberOfLines = 1
-
-        textFieldBubble.addSubview(durationLabel)
-        durationLabel.translatesAutoresizingMaskIntoConstraints = false
-        durationLabel.font = textViewForTyping.font
-        durationLabel.textColor = .white
-
+        textPlaceholder.accessibilityLabel = NSLocalizedString("COMPOSE_MESSAGE", comment: "")
+        textPlaceholder.accessibilityTraits = .allowsDirectInteraction
+        
+        do {
+            let hostingController = UIHostingController(rootView: AudioWaveFormRecorderView())
+            hostingController.sizingOptions = .intrinsicContentSize
+            guard let audioWaveFormRecorderView = hostingController.view else { assertionFailure(); return }
+            textFieldBubble.addSubview(audioWaveFormRecorderView)
+            audioWaveFormRecorderView.backgroundColor = .clear
+            audioWaveFormRecorderView.translatesAutoresizingMaskIntoConstraints = false
+            self.audioWaveFormRecorderView = audioWaveFormRecorderView
+        }
+        
         let micro = UIImage(systemIcon: .micFill, withConfiguration: symbolConfig)!
         microButton = UIButton.systemButton(with: micro, target: self, action: #selector(microButtonTapped))
         microButton.tintColor = AppTheme.shared.colorScheme.olvidLight
@@ -690,6 +714,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         microButton.translatesAutoresizingMaskIntoConstraints = false
         freezableButtons.append(microButton)
         constrainSizeOfButton(microButton)
+        microButton.accessibilityLabel = NSLocalizedString("VOICE_MESSAGE", comment: "")
         
         // Configure the send buttons holder, and the emoji and send buttons
         
@@ -698,6 +723,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
 
         let paperplane = UIImage(systemIcon: .paperplaneFill, withConfiguration: symbolConfig)!
         paperplaneButton = UIButton.systemButton(with: paperplane, target: self, action: #selector(paperplaneButtonTapped))
+        paperplaneButton.accessibilityLabel = NSLocalizedString("SEND_MESSAGE", comment: "")
         sendButtonsHolder.addSubview(paperplaneButton)
         paperplaneButton.translatesAutoresizingMaskIntoConstraints = false
         freezableButtons.append(paperplaneButton)
@@ -737,7 +763,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         // Configure the initial state
         
         let newState: State
-        if let body = draft.body, !body.isEmpty {
+        if let body = draft.body, !body.trimmingWhitespacesAndNewlines().isEmpty {
             newState = .multipleButtonsWithText
 
             let mentionedUsers = draft
@@ -769,13 +795,30 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         if currentFreezeId != nil {
             localFreeze()
         }
-
+            
+        self.accessibilityElements = [
+            textPlaceholder,
+            textViewForTyping,
+            paperplaneButton,
+            chevronButton,
+            microButton,
+            emojiButton,
+            locationButton,
+            flameFillButton,
+            cameraButton,
+            photoButton,
+            paperclipButton,
+            introduceButton,
+            composeMessageSettingsButton,
+            plusCircleButton
+        ].compactMap { $0 as Any }
+        
     }
 
     private func configureEmojiButton() {
         let defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton ?? ObvMessengerConstants.defaultEmoji
         let emojiButtonTitle = draft.discussion.localConfiguration.defaultEmoji ?? defaultEmojiButton
-
+        emojiButton.accessibilityLabel = emojiButtonTitle
         emojiButton.setTitle(emojiButtonTitle, for: .normal)
     }
 
@@ -870,7 +913,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     }
     
     
-    private func instantiateAndConfigureButton(button: inout UIButton?, uiAction: UIAction?) {
+    private func instantiateAndConfigureButton(button: inout UIButton?, uiAction: UIAction?, accessibilityLabel: String) {
         button = UIButton(type: .system, primaryAction: uiAction)
         button?.setTitle(nil, for: .normal)
         multipleButtonsStackView.addArrangedSubview(button!)
@@ -879,6 +922,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         constrainSizeOfButton(button!)
         button!.setContentCompressionResistancePriority(.required, for: .horizontal)
         button!.setContentCompressionResistancePriority(.required, for: .vertical)
+        button!.accessibilityLabel = accessibilityLabel
     }
     
     
@@ -949,11 +993,11 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
 
             previewComposeView.topAnchor.constraint(equalTo: topAnchor),
             previewComposeView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
-            previewComposeView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            previewComposeView.leadingAnchor.constraint(equalTo: self.safeAreaLayoutGuide.leadingAnchor),
             
             attachmentsCollectionViewController.view.trailingAnchor.constraint(equalTo: self.trailingAnchor),
             attachmentsCollectionViewController.view.bottomAnchor.constraint(equalTo: mainContentView.safeAreaLayoutGuide.bottomAnchor),
-            attachmentsCollectionViewController.view.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            attachmentsCollectionViewController.view.leadingAnchor.constraint(equalTo: self.safeAreaLayoutGuide.leadingAnchor),
             
         ]
         NSLayoutConstraint.activate(constraints)
@@ -1012,11 +1056,13 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
                     trashCircleButton.trailingAnchor.constraint(equalTo: textFieldBubble.leadingAnchor),
                     microButton.centerYAnchor.constraint(equalTo: textFieldBubble.centerYAnchor),
                     microButton.trailingAnchor.constraint(equalTo: textFieldBubble.trailingAnchor),
-                    durationLabel.leadingAnchor.constraint(equalTo: textFieldBubble.leadingAnchor, constant: padding),
-                    durationLabel.centerYAnchor.constraint(equalTo: textFieldBubble.centerYAnchor),
+                    audioWaveFormRecorderView.leadingAnchor.constraint(equalTo: textFieldBubble.leadingAnchor, constant: padding),
+                    audioWaveFormRecorderView.trailingAnchor.constraint(equalTo: microButton.leadingAnchor),
+                    audioWaveFormRecorderView.topAnchor.constraint(equalTo: textFieldBubble.topAnchor),
+                    audioWaveFormRecorderView.bottomAnchor.constraint(equalTo: textFieldBubble.bottomAnchor),
                 ]
                 viewsToShowForState[state] = [
-                    trashCircleButton, microButton, durationLabel
+                    trashCircleButton, microButton, audioWaveFormRecorderView
                 ]
             }
         }
@@ -1171,10 +1217,19 @@ extension NewComposeMessageView {
         freezableButtons.forEach({ $0.isEnabled = false })
         textViewForTyping.lookLikeNotEditable()
     }
+    
+    
+    private var multipleButtonsWithTextOrMultipleButtonsWithoutText: State {
+        if textViewForTyping.hasText && !textViewForTyping.textStorage.string.trimmingWhitespacesAndNewlines().isEmpty {
+            return .multipleButtonsWithText
+        } else {
+            return .multipleButtonsWithoutText
+        }
+    }
 
 
     /// Exclusively called by the `CompositionViewFreezeManager` or from one of the other "unfreeze" methods called by this singleton.
-    func unfreeze(withFreezeId freezeId: UUID, success: Bool) {
+    func unfreeze(withFreezeId freezeId: UUID) {
         assert(Thread.isMainThread)
         guard currentFreezeId == freezeId else { assertionFailure(); return }
         currentFreezeId = nil
@@ -1182,7 +1237,7 @@ extension NewComposeMessageView {
         if currentState == .typing {
             newState = .typing
         } else {
-            newState = textViewForTyping.hasText ? .multipleButtonsWithText : .multipleButtonsWithoutText
+            newState = multipleButtonsWithTextOrMultipleButtonsWithoutText
         }
         switchToState(newState: newState, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues) { [weak self] in
             guard let _self = self else { return }
@@ -1197,26 +1252,26 @@ extension NewComposeMessageView {
     }
     
     
-    func unfreezeAfterDraftToSendWasReset(_ sentDraftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, freezeId: UUID) {
+    func unfreezeAfterDraftToSendWasReset(_ sentDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>, freezeId: UUID) {
         assert(Thread.isMainThread)
-        guard (try? draft.objectPermanentID) == sentDraftPermanentID else { return }
+        guard draft.typedObjectID == sentDraftObjectID else { return }
         textViewForTyping.attributedText = nil
         textViewForTyping.resetTextInput()
         textPlaceholder.isHidden = false
-        unfreeze(withFreezeId: freezeId, success: true)
+        unfreeze(withFreezeId: freezeId)
     }
 
     
-    func unfreezeAfterDraftCouldNotBeSent(_ sentDraftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, freezeId: UUID) {
+    func unfreezeAfterDraftCouldNotBeSent(_ sentDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>, freezeId: UUID) {
         assert(Thread.isMainThread)
-        guard (try? draft.objectPermanentID) == sentDraftPermanentID else { return }
-        unfreeze(withFreezeId: freezeId, success: false)
+        guard draft.typedObjectID == sentDraftObjectID else { return }
+        unfreeze(withFreezeId: freezeId)
     }
     
     
-    func newFreezeProgressAvailable(_ sentDraftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, freezeId: UUID, progress: Progress) {
+    func newFreezeProgressAvailable(_ sentDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>, freezeId: UUID, progress: Progress) {
         assert(Thread.isMainThread)
-        guard (try? draft.objectPermanentID) == sentDraftPermanentID else { return }
+        guard draft.typedObjectID == sentDraftObjectID else { return }
         guard currentFreezeId == freezeId else { return }
         delegateViewController?.showHUD(type: .progress(progress: progress))
     }
@@ -1245,10 +1300,8 @@ extension NewComposeMessageView {
     private func introduceButtonTapped() {
         switch try? draft.discussion.kind {
         case .oneToOne(withContactIdentity: let contactIdentity):
-            guard let contactObjectID = contactIdentity?.typedObjectID else { return }
-            guard let viewController = self.delegate else { return }
-            ObvMessengerInternalNotification.userWantsToDisplayContactIntroductionScreen(contactObjectID: contactObjectID, viewController: viewController)
-                .postOnDispatchQueue()
+            guard let contactIdentifier = try? contactIdentity?.obvContactIdentifier else { return }
+            delegate?.userWantsToDisplayContactIntroductionScreen(self, contactIdentifier: contactIdentifier)
         case .groupV1, .groupV2, .none:
             assertionFailure()
         }
@@ -1344,6 +1397,22 @@ extension NewComposeMessageView {
         }
     }
     
+    private func createPollButtonTapped() async {
+        
+        guard let discussionIdentifier = draft.discussion.discussionIdentifier else { assertionFailure(); return }
+
+        animatedEndEditing { [weak self] _ in
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    try await delegate?.userWantsToCreatePoll(self, discussionIdentifier: discussionIdentifier)
+                } catch {
+                    assertionFailure()
+                }
+            }
+        }
+    }
+    
     
     func switchToAppropriateRecordingState() {
         if ObvAudioRecorder.shared.isRecording {
@@ -1383,16 +1452,6 @@ extension NewComposeMessageView {
                         os_log("🎤 Start Recording", log: log, type: .info)
                         DispatchQueue.main.async { [weak self] in
                             self?.switchToAppropriateRecordingState()
-                            self?.recordDurationTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { timer in
-                                assert(Thread.isMainThread)
-                                guard ObvAudioRecorder.shared.isRecording else {
-                                    timer.invalidate()
-                                    self?.recordDurationTimer = nil
-                                    return
-                                }
-                                guard let duration = ObvAudioRecorder.shared.duration else { return }
-                                self?.durationLabel.text = _self.durationFormatter.string(from: duration)
-                            }
                         }
                         return
                     case .failure(let error):
@@ -1419,27 +1478,27 @@ extension NewComposeMessageView {
     
     private func stopRecordingAudioMessage() {
         assert(Thread.isMainThread)
+        defer { switchToAppropriateRecordingState() }
         guard ObvAudioRecorder.shared.isRecording else { return }
-        guard let draftPermanentID = try? draft.objectPermanentID else { assertionFailure(); return }
+        let draftObjectID = draft.typedObjectID
+        
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        ObvAudioRecorder.shared.stopRecording { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success(let url):
-                Task { [weak self] in
-                    guard let self else { return }
-                    do {
-                        try await delegate?.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: [url])
-                        do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
-                    } catch {
-                        do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
-                    }
-                }
-                switchToAppropriateRecordingState()
-            case .failure(let error):
-                os_log("🎤 Failed to record: %{public}@", log: log, type: .fault, error.localizedDescription)
-                cancelRecordButtonTapped()
+        delegateViewController?.showHUD(type: .spinner)
+        
+        let url: URL
+        do {
+            url = try ObvAudioRecorder.shared.stopRecording()
+        } catch {
+            os_log("🎤 Failed to record: %{public}@", log: log, type: .fault, error.localizedDescription)
+            cancelRecordButtonTapped()
+            return
+        }
+        Task {
+            defer {
+                delegateViewController?.hideHUD()
+                do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
             }
+            try? await addAttachments(fileURLs: [url])
         }
     }
     
@@ -1520,7 +1579,7 @@ extension NewComposeMessageView {
 
     @objc func chevronButtonTapped() {
         assert(currentState == .typing)
-        let newState: State = textViewForTyping.hasText ? .multipleButtonsWithText : .multipleButtonsWithoutText
+        let newState: State = multipleButtonsWithTextOrMultipleButtonsWithoutText
         switchToState(newState: newState, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues, completionForSendButton: nil)
     }
     
@@ -1538,34 +1597,31 @@ extension NewComposeMessageView {
     
     
     @objc func paperplaneButtonTapped() {
-        guard let draftPermanentID = try? draft.objectPermanentID else { assertionFailure(); return }
+        let draftObjectID = draft.typedObjectID
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         switch currentState {
         case .initial:
-            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
+            do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
             return
         case .recording:
+            defer { switchToAppropriateRecordingState() }
             let textBody = textViewForTyping.textStorage.string
             if ObvAudioRecorder.shared.isRecording {
-                ObvAudioRecorder.shared.stopRecording { [weak self] result in
-                    guard let _self = self else { return }
-                    switch result {
-                    case .success(let url):
-                        Task { [weak self] in
-                            guard let self else { return }
-                            do {
-                                try await delegate?.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: [url])
-                                try await sendUserWantsToSendDraftNotification(draftPermanentID: draftPermanentID, with: textBody, mentions: mentionsSubject.value)
-                                CompositionViewFreezeManager.shared.processDraftToSendWasReset(draftPermanentID: draftPermanentID)
-                            } catch {
-                                CompositionViewFreezeManager.shared.processDraftCouldNotBeSent(draftPermanentID: draftPermanentID)
-                            }
-                        }
-                    case .failure(let error):
-                        os_log("🎤 Failed to record: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
-                    }
-                    DispatchQueue.main.async {
-                        _self.switchToAppropriateRecordingState()
+                let url: URL
+                do {
+                    url = try ObvAudioRecorder.shared.stopRecording()
+                } catch {
+                    os_log("🎤 Failed to record: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+                    return
+                }
+                Task { [weak self] in
+                    guard let self else { return }
+                    do {
+                        try await addAttachments(fileURLs: [url])
+                        try await sendUserWantsToSendDraftNotification(draftObjectID: draftObjectID, with: textBody, mentions: mentionsSubject.value)
+                        CompositionViewFreezeManager.shared.processDraftToSendWasReset(draftObjectID: draftObjectID)
+                    } catch {
+                        CompositionViewFreezeManager.shared.processDraftCouldNotBeSent(draftObjectID: draftObjectID)
                     }
                 }
             }
@@ -1573,10 +1629,10 @@ extension NewComposeMessageView {
             let textBody = textViewForTyping.textStorage.string
             Task {
                 do {
-                    try await sendUserWantsToSendDraftNotification(draftPermanentID: draftPermanentID, with: textBody, mentions: mentionsSubject.value)
-                    CompositionViewFreezeManager.shared.processDraftToSendWasReset(draftPermanentID: draftPermanentID)
+                    try await sendUserWantsToSendDraftNotification(draftObjectID: draftObjectID, with: textBody, mentions: mentionsSubject.value)
+                    CompositionViewFreezeManager.shared.processDraftToSendWasReset(draftObjectID: draftObjectID)
                 } catch {
-                    CompositionViewFreezeManager.shared.processDraftCouldNotBeSent(draftPermanentID: draftPermanentID)
+                    CompositionViewFreezeManager.shared.processDraftCouldNotBeSent(draftObjectID: draftObjectID)
                 }
             }
 
@@ -1597,7 +1653,7 @@ extension NewComposeMessageView {
     }
 
     private func emojiButtonTapped(numberOfTimes: Int) {
-        guard let draftPermanentID = try? draft.objectPermanentID else { assertionFailure(); return }
+        let draftObjectID = draft.typedObjectID
         guard textViewForTyping.textStorage.string.trimmingWhitespacesAndNewlines().isEmpty else { return } // This happens if the user is really fast
         guard let buttonTitle = emojiButton.title(for: .normal) else { return }
         guard buttonTitle.isSingleEmoji else { return }
@@ -1605,19 +1661,19 @@ extension NewComposeMessageView {
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         Task {
             do {
-                try await sendUserWantsToSendDraftNotification(draftPermanentID: draftPermanentID, with: textBody, mentions: mentionsSubject.value)
-                CompositionViewFreezeManager.shared.processDraftToSendWasReset(draftPermanentID: draftPermanentID)
+                try await sendUserWantsToSendDraftNotification(draftObjectID: draftObjectID, with: textBody, mentions: mentionsSubject.value)
+                CompositionViewFreezeManager.shared.processDraftToSendWasReset(draftObjectID: draftObjectID)
             } catch {
-                CompositionViewFreezeManager.shared.processDraftCouldNotBeSent(draftPermanentID: draftPermanentID)
+                CompositionViewFreezeManager.shared.processDraftCouldNotBeSent(draftObjectID: draftObjectID)
             }
         }
     }
 
     
-    private func sendUserWantsToSendDraftNotification(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, with textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    private func sendUserWantsToSendDraftNotification(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, with textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
         shortcutsView.configure(with: [], animated: true)
         currentDraftId = UUID()
-        try await delegate?.userWantsToSendDraft(self, draftPermanentID: draftPermanentID, textBody: textBody, mentions: Set(mentions))
+        try await delegate?.userWantsToSendDraft(self, draftObjectID: draftObjectID, textBody: textBody, mentions: Set(mentions))
     }
 
 }
@@ -1882,7 +1938,8 @@ extension NewComposeMessageView {
         case .typing:
             textFieldBubble.backgroundColor = .systemFill
         case .recording:
-            textFieldBubble.backgroundColor = AppTheme.shared.colorScheme.olvidLight
+//            textFieldBubble.backgroundColor = AppTheme.shared.colorScheme.olvidLight
+            textFieldBubble.backgroundColor = .systemFill
         }
         flameFillButton.tintColor = draft.hasSomeExpiration ? .red : .systemBlue
     }
@@ -2038,7 +2095,7 @@ extension NewComposeMessageView {
         if currentState == .recording {
             newState = .recording
         } else {
-            newState = textViewForTyping.hasText ? .multipleButtonsWithText : .multipleButtonsWithoutText
+            newState = multipleButtonsWithTextOrMultipleButtonsWithoutText
         }
         switchToState(newState: newState, newAttachmentsState: evaluateNewAttachmentState(), animationValues: animationValues, completionForSendButton: nil)
 
@@ -2143,9 +2200,24 @@ extension NewComposeMessageView {
 extension NewComposeMessageView: AutoGrowingTextViewDelegate {
     
     func userPastedItemProviders(in autoGrowingTextView: AutoGrowingTextView, itemProviders: [NSItemProvider]) {
+
         guard autoGrowingTextView == self.textViewForTyping else { assertionFailure(); return }
+        let draftObjectID = draft.typedObjectID
+
+        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
+        delegateViewController?.showHUD(type: .spinner)
+
         Task {
-            await addAttachments(from: itemProviders)
+            defer {
+                delegateViewController?.hideHUD()
+                do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
+            }
+            do {
+                try await addAttachments(itemProviders: itemProviders, source: .paste)
+            } catch {
+                Self.logger.fault("Could not add attachments: \(error)")
+                assertionFailure()
+            }
         }
     }
 
@@ -2327,19 +2399,26 @@ extension NewComposeMessageView {
 extension NewComposeMessageView: PHPickerViewControllerDelegate {
     
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        
         picker.dismiss(animated: true)
         guard !results.isEmpty else { return }
-        guard let draftPermanentID = try? draft.objectPermanentID else { assertionFailure(); return }
+
+        let draftObjectID = draft.typedObjectID
+
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         delegateViewController?.showHUD(type: .spinner)
+
         let itemProviders = results.map { $0.itemProvider }
-        Task { [weak self] in
-            guard let self else { return }
+        
+        Task {
+            defer {
+                delegateViewController?.hideHUD()
+                do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
+            }
             do {
-                try await delegate?.userWantsToAddAttachmentsToDraft(self, draftPermanentID: draftPermanentID, itemProviders: itemProviders)
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
+                try await self.addAttachments(itemProviders: itemProviders, source: .photoPicker)
             } catch {
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
+                Self.logger.fault("Could not picker results as attachment: \(error, privacy: .public)")
             }
         }
     }
@@ -2353,120 +2432,122 @@ extension NewComposeMessageView: PHPickerViewControllerDelegate {
 extension NewComposeMessageView: UIDocumentPickerDelegate {
     
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        addAttachments(from: urls)
+
+        let draftObjectID = draft.typedObjectID
+
+        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
+        delegateViewController?.showHUD(type: .spinner)
+
+        Task {
+            defer {
+                delegateViewController?.hideHUD()
+                do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
+            }
+            try? await addAttachments(fileURLs: urls)
+        }
+        
     }
     
 }
+
 
 // MARK: - Append attachments
+
 extension NewComposeMessageView {
-    /// Appends an array of [file] `URL`s to the current draft
-    /// - Parameters:
-    ///   - fileURLs: An array of attachments to append
-    func addAttachments(from fileURLs: [URL]) {
+    
+    
+    func addAttachmentsDroppedInDiscussion(itemProviders: [NSItemProvider]) {
+
+        let draftObjectID = draft.typedObjectID
+
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         delegateViewController?.showHUD(type: .spinner)
-        guard let draftPermanentID = try? draft.objectPermanentID else { assertionFailure(); return }
-        Task { [weak self] in
-            guard let self else { return }
+
+        Task {
+            defer {
+                delegateViewController?.hideHUD()
+                do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
+            }
             do {
-                try await delegate?.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: fileURLs)
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
+                try await addAttachments(itemProviders: itemProviders, source: .dragAndDrop)
             } catch {
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
+                Self.logger.fault("Could not add attachments from item providers: \(error.localizedDescription, privacy: .public)")
+                assertionFailure()
             }
-        }
-    }
-
-    /// Appends an array of `NSItemProvider`s to the current draft, either as text pasted in the text view, or as attachments.
-    /// - Parameters:
-    ///   - itemProviders: An array of item providers to append
-    func addAttachments(from itemProviders: [NSItemProvider], attachTextItems: Bool = false) async {
-
-        guard let draftPermanentID = try? draft.objectPermanentID else { assertionFailure(); return }
-
-        // Split the received itemProviders in two lists:
-        // - One for the items we want to paste as text in the text view
-        // - One for the items we want to add as attachments
-        
-        let itemProvidersToPaste = itemProviders.filter {
-            if $0.obvRegisteredContentTypes.contains(where: { ($0.conforms(to: .text) && !attachTextItems) || $0.conforms(to: .webInternetLocation) } ) {
-                return true
-            } else if $0.obvRegisteredContentTypes.contains(where: { $0.conforms(to: .chromiumInitiatedDrag) }) && $0.obvRegisteredContentTypes.contains(where: { $0.conforms(to: .utf8PlainText) }) {
-                // Special rule when an URL is dropped in a discussion from Chrome
-                return true
-            } else {
-                return false
-            }
-        }
-        let itemProvidersToAttach = itemProviders.filter {
-            !itemProvidersToPaste.contains($0)
-        }
-
-        // Process the item providers that we want to paste as text (i.e. Strings and URLs)
-        
-        if !itemProvidersToPaste.isEmpty {
-            
-            itemProvidersToPaste.forEach { itemProviderToPaste in
-                let textViewForTyping = self.textViewForTyping
-                
-                let op1 = LoadItemProviderOperation(itemProviderOrItemURL: .itemProvider(itemProvider: itemProviderToPaste), progressAvailable: { _ in })
-                let op2 = BlockOperation {
-                    guard let loadedItemProvider = op1.loadedItemProvider else { assertionFailure(); return }
-                    let textToPaste: String
-                    switch loadedItemProvider {
-                    case .file:
-                        assertionFailure()
-                        return
-                    case .url(content: let url):
-                        textToPaste = url.absoluteString
-                    case .text(content: let text):
-                        textToPaste = text
-                    }
-                    DispatchQueue.main.async {
-                        if let selectedTextRange = textViewForTyping.selectedTextRange {
-                            textViewForTyping.replace(selectedTextRange, withText: textToPaste)
-                        } else {
-                            textViewForTyping.text.append(contentsOf: textToPaste)
-                        }
-                    }
-                }
-                
-                op2.addDependency(op1)
-                queueForLoadingItemProvidersToPaste.addOperations([op1, op2], waitUntilFinished: false)
-
-            }
-            
-        }
-        
-        // Process the item providers we want to add as attachments
-  
-        guard !itemProvidersToAttach.isEmpty else { return }
-        
-        delegateViewController?.showHUD(type: .spinner)
-        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        do {
-            try await delegate?.userWantsToAddAttachmentsToDraft(self, draftPermanentID: draftPermanentID, itemProviders: itemProviders)
-            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
-        } catch {
-            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
         }
         
     }
+
     
-}
-
-// MARK: - AirDrop files
-
-
-extension NewComposeMessageView {
-
     func addAttachmentFromAirDropFile(at fileURL: URL) {
-        addAttachments(from: [fileURL])
+        
+        let draftObjectID = draft.typedObjectID
+
+        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
+        delegateViewController?.showHUD(type: .spinner)
+
+        Task {
+            defer {
+                delegateViewController?.hideHUD()
+                do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
+            }
+            try? await addAttachments(fileURLs: [fileURL])
+        }
+    }
+
+    
+    /// Adds attachments to the draft, either by embedding them in the text or attaching them as separate files.
+    ///
+    /// This method is triggered in the following scenarios:
+    /// - When the user pastes an attachment into the `AutoGrowingTextView`.
+    /// - When the user selects photos using a `PHPickerViewController`.
+    /// - When the user drops attachments into the discussion view (typically on macOS).
+    ///
+    /// The method delegates the heavy lifting of loading attachments from `NSItemProviders` to its delegate.
+    /// The delegate is responsible for creating the attachments, adding them to the draft, and returning the loaded `NSItemProviders`
+    /// that should be pasted into the text view.
+    private func addAttachments(itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws {
+
+        let draftObjectID = draft.typedObjectID
+        guard let delegate = self.delegate else { assertionFailure(); return }
+        
+        let loadedItemProvidersToPaste: [LoadedItemProviderToPaste] = try await delegate.userWantsToAddAttachmentsToDraft(self, draftObjectID: draftObjectID, itemProviders: itemProviders, source: source)
+
+        for loadedItemProviderToPaste in loadedItemProvidersToPaste {
+            if let selectedTextRange = textViewForTyping.selectedTextRange {
+                textViewForTyping.replace(selectedTextRange, withText: loadedItemProviderToPaste.textToPaste)
+            } else {
+                textViewForTyping.text.append(contentsOf: loadedItemProviderToPaste.textToPaste)
+            }
+        }
+
     }
     
-}
 
+    /// Adds attachments to the draft by attaching them as separate files.
+    ///
+    /// This method is triggered in the following scenarios:
+    /// - When the user selects documents using a `UIDocumentPickerViewController`.
+    /// - When the user uses AirDrop to add a file to a discussion.
+    /// - When the user adds images using the `UIImagePickerController`
+    /// - When the user stops an audio voice recording.
+    /// - When the user scans a document with a `VNDocumentCameraViewController`
+    /// - When the user sends a message while an audio recording was in progress.
+    private func addAttachments(fileURLs: [URL]) async throws {
+
+        let draftObjectID = draft.typedObjectID
+        guard let delegate = self.delegate else { assertionFailure(); return }
+
+        do {
+            try await delegate.userWantsToAddAttachmentsToDraftFromURLs(self, draftObjectID: draftObjectID, urls: fileURLs)
+        } catch {
+            Self.logger.fault("Could not add attachments to draft: \(error.localizedDescription, privacy: .public)")
+            throw error
+        }
+        
+    }
+
+}
 
 
 // MARK: - UIImagePickerControllerDelegate (For the Camera, not used for photos coming from the library)
@@ -2477,23 +2558,26 @@ extension NewComposeMessageView: UIImagePickerControllerDelegate, UINavigationCo
         
         picker.dismiss(animated: true)
         delegateViewController?.showHUD(type: .progress(progress: nil))
+        let draftObjectID = draft.typedObjectID
+
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        guard let draftPermanentID = try? draft.objectPermanentID else { assertionFailure(); return }
+        delegateViewController?.showHUD(type: .spinner)
 
         let dateFormatter = self.dateFormatter
-        let log = self.log
         
-
-        DispatchQueue(label: "Queue for processing the UIImagePickerController result").async {
+        Task {
             
+            defer {
+                delegateViewController?.hideHUD()
+                do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
+            }
+
             // Fow now, we only authorize images and videos
             
             guard let chosenMediaType = info[.mediaType] as? String else {
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                 return
             }
             guard ([UTType.image, .movie].map(\.identifier)).contains(chosenMediaType) else {
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                 return
             }
             
@@ -2515,49 +2599,28 @@ extension NewComposeMessageView: UIImagePickerControllerDelegate, UINavigationCo
                 do {
                     try FileManager.default.copyItem(at: url, to: localURL)
                 } catch {
-                    os_log("Could not copy file provided by the Photo picker to a local URL: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    Self.logger.fault("Could not copy file provided by the Photo picker to a local URL: \(error.localizedDescription, privacy: .public)")
                     assertionFailure()
-                    do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                     return
                 }
                 assert(!localURL.path.contains("PluginKitPlugin")) // This is a particular case, but we know the loading won't work in that case
-                
-                Task { [weak self] in
-                    guard let self else { return }
-                    do {
-                        try await delegate?.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: [localURL])
-                        do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
-                    } catch {
-                        do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
-                    }
-                }
+                try? await self.addAttachments(fileURLs: [localURL])
             } else if let originalImage = info[.originalImage] as? UIImage {
                 let fileExtension = UTType.jpeg.preferredFilenameExtension ?? "jpeg"
-                let name = "Photo @ \(dateFormatter.string(from: Date()))"
+                let name = "Photo @ \(dateFormatter.string(from: Date.now))"
                 let tempFileName = [name, fileExtension].joined(separator: ".")
                 let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
                 guard let pickedImageJpegData = originalImage.jpegData(compressionQuality: 1.0) else {
-                    do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                     return
                 }
                 do {
                     try pickedImageJpegData.write(to: url)
                 } catch let error {
-                    os_log("Could not save file to temp location: %@", log: log, type: .error, error.localizedDescription)
-                    do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
+                    Self.logger.fault("Could not save file to temp location: \(error.localizedDescription, privacy: .public)")
                     return
                 }
-                Task { [weak self] in
-                    guard let self else { return }
-                    do {
-                        try await delegate?.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: [url])
-                        do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
-                    } catch {
-                        do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
-                    }
-                }
+                try? await self.addAttachments(fileURLs: [url])
             } else {
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                 assertionFailure()
             }
             
@@ -2583,22 +2646,21 @@ extension NewComposeMessageView: VNDocumentCameraViewControllerDelegate {
 
         let dateFormatter = self.dateFormatter
         
-        guard let draftPermanentID = try? draft.objectPermanentID else { assertionFailure(); return }
+        let draftObjectID = draft.typedObjectID
         
-        delegateViewController?.showHUD(type: .spinner)
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
+        delegateViewController?.showHUD(type: .spinner)
 
-        Task { [weak self] in
-            
-            guard let self else { return }
+        Task {
+            defer {
+                delegateViewController?.hideHUD()
+                do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID) } catch { assertionFailure() }
+            }
 
             let pdfDocument = PDFDocument()
             for pageNumber in 0..<scan.pageCount {
                 let image = scan.imageOfPage(at: pageNumber)
-                guard let pdfPage = PDFPage(image: image) else {
-                    do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
-                    return
-                }
+                guard let pdfPage = PDFPage(image: image) else { return }
                 pdfDocument.insert(pdfPage, at: pageNumber)
             }
             
@@ -2606,17 +2668,9 @@ extension NewComposeMessageView: VNDocumentCameraViewControllerDelegate {
             let name = "Scan @ \(dateFormatter.string(from: Date()))"
             let tempFileName = [name, UTType.pdf.preferredFilenameExtension ?? "pdf"].joined(separator: ".")
             let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
-            guard pdfDocument.write(to: url) else {
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
-                return
-            }
+            guard pdfDocument.write(to: url) else { return }
 
-            do {
-                try await delegate?.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: [url])
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
-            } catch {
-                do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
-            }
+            try? await self.addAttachments(fileURLs: [url])
 
         }
         

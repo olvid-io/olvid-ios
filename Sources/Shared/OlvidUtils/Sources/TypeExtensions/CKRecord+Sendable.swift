@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,6 +27,6 @@ extension CKRecord: @unchecked @retroactive Sendable {
     
 }
 
-extension [CKRecord]?: @unchecked Sendable {
-    
-}
+//extension [CKRecord]?: @unchecked Sendable {
+//    
+//}

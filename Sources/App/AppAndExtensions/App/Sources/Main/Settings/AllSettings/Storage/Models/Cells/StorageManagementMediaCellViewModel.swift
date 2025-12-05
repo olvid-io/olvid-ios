@@ -156,3 +156,28 @@ extension FyleMessageJoinWithStatus.FyleMessageJoinType {
     }
     
 }
+
+@available(iOS 17.0, *)
+@Observable
+class EmptyStorageManagementMediaCellViewModel: StorageManagementMediaCellViewModelProtocol {
+    
+    fileprivate static let minFileSize = CGSize(width: 100, height: 100)
+    
+    var image: Image?
+    
+    var duration: String?
+
+    var placeHolderImage: Image { return Image(systemIcon: .photo) }
+    
+    var expirationIndicatorIcon: Image?
+    
+    var formattedSize: String = ""
+    
+    var icon: Image?
+    
+    var isSelected: Bool = false
+    
+    func onTask() async throws { }
+    
+}
+

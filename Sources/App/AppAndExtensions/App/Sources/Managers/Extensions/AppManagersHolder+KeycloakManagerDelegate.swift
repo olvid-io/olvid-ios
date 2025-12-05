@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,12 +49,12 @@ extension AppManagersHolder: KeycloakManagerDelegate {
         return try self.obvEngine.getOwnedIdentities(restrictToActive: restrictToActive)
     }
     
-    func addKeycloakContact(with ownedCryptoId: ObvCryptoId, signedContactDetails: SignedObvKeycloakUserDetails) throws {
-        try self.obvEngine.addKeycloakContact(with: ownedCryptoId, signedContactDetails: signedContactDetails)
+    func addKeycloakContact(with ownedCryptoId: ObvCryptoId, signedContactDetails: SignedObvKeycloakUserDetails) async throws {
+        try await self.obvEngine.addKeycloakContact(with: ownedCryptoId, signedContactDetails: signedContactDetails)
     }
     
-    func getOwnedIdentityKeycloakState(with ownedCryptoId: ObvCryptoId) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedObvKeycloakUserDetails?) {
-        return try self.obvEngine.getOwnedIdentityKeycloakState(with: ownedCryptoId)
+    func getOwnedIdentityKeycloakState(with ownedCryptoId: ObvCryptoId) async throws -> ObvKeycloakStateAndUserDetails? {
+        return try await self.obvEngine.getOwnedIdentityKeycloakState(with: ownedCryptoId)
     }
     
     func setOwnedIdentityKeycloakSignatureKey(ownedCryptoId: ObvCryptoId, keycloakServersignatureVerificationKey: ObvJWK?) throws {
@@ -85,12 +85,13 @@ extension AppManagersHolder: KeycloakManagerDelegate {
         try self.obvEngine.updateKeycloakRevocationList(ownedCryptoId: ownedCryptoId, latestRevocationListTimestamp: latestRevocationListTimestamp, signedRevocations: signedRevocations)
     }
     
-    func updateKeycloakGroups(ownedCryptoId: ObvCryptoId, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date) throws {
-        return try self.obvEngine.updateKeycloakGroups(ownedCryptoId: ownedCryptoId,
-                                                       signedGroupBlobs: signedGroupBlobs,
-                                                       signedGroupDeletions: signedGroupDeletions,
-                                                       signedGroupKicks: signedGroupKicks,
-                                                       keycloakCurrentTimestamp: keycloakCurrentTimestamp)
+    func updateKeycloakGroups(ownedCryptoId: ObvCryptoId, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date) async throws {
+        return try await self.obvEngine.updateKeycloakGroups(
+            ownedCryptoId: ownedCryptoId,
+            signedGroupBlobs: signedGroupBlobs,
+            signedGroupDeletions: signedGroupDeletions,
+            signedGroupKicks: signedGroupKicks,
+            keycloakCurrentTimestamp: keycloakCurrentTimestamp)
     }
     
     func getOwnedIdentity(with cryptoId: ObvCryptoId) throws -> ObvOwnedIdentity {

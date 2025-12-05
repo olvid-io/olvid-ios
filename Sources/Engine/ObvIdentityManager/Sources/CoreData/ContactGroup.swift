@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,131 +19,98 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 @preconcurrency import ObvCrypto
 import ObvMetaManager
 import OlvidUtils
 
 @objc(ContactGroup)
-class ContactGroup: NSManagedObject, ObvManagedObject {
+class ContactGroup: NSManagedObject {
     
     // MARK: Internal constants
     
     private static let entityName = "ContactGroup"
     private static let errorDomain = String(describing: ContactGroup.self)
-    static let groupUidKey = "groupUid"
-    static let groupMembersKey = "groupMembers"
-    static let ownedIdentityKey = "ownedIdentity"
-    static let pendingGroupMembersKey = "pendingGroupMembers"
-    static let publishedDetailsKey = "publishedDetails"
 
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { Self.makeError(message: message) }
 
+    static weak var delegateManager: ObvIdentityDelegateManager?
+    
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: ContactGroup.logSubsystem, category: "ContactGroup") }()
+
     // MARK: Attributes
     
-    @NSManaged private(set) var groupUid: UID // Primary key
     @NSManaged private(set) var groupMembersVersion: Int
+    @NSManaged private(set) var rawGroupUid: Data? // Primary key, non-optional in the model, raw value of an UID
     
     // MARK: Relationships
     
-    private(set) var groupMembers: Set<ContactIdentity> {
-        get {
-            let items = kvoSafePrimitiveValue(forKey: ContactGroup.groupMembersKey) as! Set<ContactIdentity>
-            for item in items { item.obvContext = self.obvContext }
-            return items
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: ContactGroup.groupMembersKey)
-        }
-    }
-
-    private(set) var ownedIdentity: OwnedIdentity {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: ContactGroup.ownedIdentityKey) as! OwnedIdentity
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: ContactGroup.ownedIdentityKey)
-        }
-    }
-
-    private(set) var pendingGroupMembers: Set<PendingGroupMember> {
-        get {
-            let items = kvoSafePrimitiveValue(forKey: ContactGroup.pendingGroupMembersKey) as! Set<PendingGroupMember>
-            for item in items { item.obvContext = self.obvContext }
-            return items
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: ContactGroup.pendingGroupMembersKey)
-        }
-    }
-
-    // Shall *not* be set outside of the subclasses of this class.
-    private(set) var publishedDetails: ContactGroupDetailsPublished {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: ContactGroup.publishedDetailsKey) as! ContactGroupDetailsPublished
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: ContactGroup.publishedDetailsKey)
-        }
-    }
+    @NSManaged private(set) var groupMembers: Set<ContactIdentity>
+    @NSManaged private(set) var ownedIdentity: OwnedIdentity
+    @NSManaged private(set) var pendingGroupMembers: Set<PendingGroupMember>
+    @NSManaged private(set) var publishedDetails: ContactGroupDetailsPublished // Shall *not* be set outside of the subclasses of this class.
 
     // MARK: Other variables
     
-    weak var delegateManager: ObvIdentityDelegateManager?
-    weak var obvContext: ObvContext?
+    var groupUid: UID {
+        get throws(ObvError) {
+            guard let rawGroupUid else { assertionFailure(); throw .unexpectedNilValue }
+            guard let groupUid = UID(uid: rawGroupUid) else { assertionFailure(); throw .couldNotParseValue }
+            return groupUid
+        }
+    }
+    
     private var ownedIdentityCryptoIdentityOnDeletion: ObvCryptoIdentity?
     private var groupOwnerCryptoIdentityOnDeletion: ObvCryptoIdentity?
+    private var groupUidOnDeletion: UID?
     private var notificationRelatedChanges: NotificationRelatedChanges = []
     private var labelToDelete: UID?
     private var changedKeys = Set<String>()
+
+    private(set) var isInsertedWhileRestoringSyncSnapshotOrBackup = false
 
     // MARK: - Initializer
     
     /// This initializer shall only be called from the intializer of one of concrete subclasses of `ContactGroup`.
     ///
-    convenience init(groupInformationWithPhoto: GroupInformationWithPhoto, ownedIdentity: OwnedIdentity, groupMembers: Set<ObvCryptoIdentity>, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, delegateManager: ObvIdentityDelegateManager, forEntityName entityName: String) throws {
+    convenience init(groupInformationWithPhoto: GroupInformationWithPhoto, ownedIdentity: OwnedIdentity, groupMembers: Set<ObvCryptoIdentity>, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, forEntityName entityName: String) throws {
         
-        guard let obvContext = ownedIdentity.obvContext else {
+        guard let context = ownedIdentity.managedObjectContext else {
             throw ObvIdentityManagerError.contextIsNil
         }
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         
-        self.groupUid = groupInformationWithPhoto.groupUid
+        self.rawGroupUid = groupInformationWithPhoto.groupUid.raw
         self.groupMembersVersion = 0
         
         self.groupMembers = Set<ContactIdentity>()
         for groupMember in groupMembers {
-            guard let contact = try ContactIdentity.get(contactIdentity: groupMember, ownedIdentity: ownedIdentity.cryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            guard let contact = try ContactIdentity.get(contactIdentity: groupMember, ownedIdentity: ownedIdentity.cryptoIdentity, within: context) else {
                 throw ObvIdentityManagerError.cryptoIdentityIsNotContact
             }
             self.groupMembers.insert(contact)
         }
         self.ownedIdentity = ownedIdentity
-        self.pendingGroupMembers = Set(try pendingGroupMembers.map { try PendingGroupMember(contactGroup: self, cryptoIdentityWithCoreDetails: $0, delegateManager: delegateManager) })
+        self.pendingGroupMembers = Set(try pendingGroupMembers.map { try PendingGroupMember(contactGroup: self, cryptoIdentityWithCoreDetails: $0) })
         let groupDetailsElementsWithPhoto = groupInformationWithPhoto.groupDetailsElementsWithPhoto
         self.publishedDetails = try ContactGroupDetailsPublished(contactGroup: self,
-                                                                 groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                                                                 delegateManager: delegateManager)
-        
-        self.delegateManager = delegateManager
-        
+                                                                 groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto)
+                
     }
     
     
-    /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    convenience init(groupMembersVersion: Int, groupUid: UID, forEntityName entityName: String, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    /// Used *exclusively* during a backup restore or a snapshot restore for creating an instance, relatioships are recreater in a second step
+    convenience init(groupMembersVersion: Int, groupUid: UID, forEntityName entityName: String, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.groupMembersVersion = groupMembersVersion
-        self.groupUid = groupUid
+        self.rawGroupUid = groupUid.raw
+        self.isInsertedWhileRestoringSyncSnapshotOrBackup = true
     }
     
     func restoreRelationshipsOfContactGroup(groupMembers: Set<ContactIdentity>, pendingGroupMembers: Set<PendingGroupMember>, publishedDetails: ContactGroupDetailsPublished) {
@@ -164,30 +131,38 @@ class ContactGroup: NSManagedObject, ObvManagedObject {
 
 }
 
+
+// MARK: - Errors
+
+extension ContactGroup {
+    
+    enum ObvError: Error {
+        case unexpectedNilValue
+        case couldNotParseValue
+    }
+    
+}
+
 // MARK: - Convenience methods
 
 extension ContactGroup {
     
-    func getPendingGroupMembersWithCoreDetails() -> Set<CryptoIdentityWithCoreDetails> {
+    func getPendingGroupMembersWithCoreDetails() throws -> Set<CryptoIdentityWithCoreDetails> {
         
-        let pendingGroupMembersWithCoreDetails = pendingGroupMembers.map {
-            return CryptoIdentityWithCoreDetails(cryptoIdentity: $0.cryptoIdentity, coreDetails: $0.identityCoreDetails)
+        let pendingGroupMembersWithCoreDetails = try pendingGroupMembers.map {
+            return CryptoIdentityWithCoreDetails(cryptoIdentity: try $0.cryptoIdentity, coreDetails: $0.identityCoreDetails)
         }
         
         return Set(pendingGroupMembersWithCoreDetails)
     }
     
     // This method is used both for joined and owned contact groups
-    func updateDetailsPublished(with groupDetailsElements: GroupDetailsElements, delegateManager: ObvIdentityDelegateManager) throws {
+    func updateDetailsPublished(with groupDetailsElements: GroupDetailsElements) throws {
 
         if groupDetailsElements.version <= self.publishedDetails.version { return }
         
         guard groupDetailsElements.version > self.publishedDetails.version else {
             throw ObvIdentityManagerError.invalidGroupDetailsVersion
-        }
-        
-        guard let obvContext = self.obvContext else {
-            throw ObvIdentityManagerError.contextIsNil
         }
         
         let oldPublishedDetails = self.publishedDetails
@@ -197,7 +172,7 @@ extension ContactGroup {
             if oldPublishedDetails.photoServerKeyAndLabel == nil {
                 groupDetailsElementsWithPhoto = GroupDetailsElementsWithPhoto(groupDetailsElements: groupDetailsElements, photoURL: nil)
             } else {
-                let photoURL = publishedDetails.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+                let photoURL = try publishedDetails.getPhotoURL()
                 groupDetailsElementsWithPhoto = GroupDetailsElementsWithPhoto(groupDetailsElements: groupDetailsElements, photoURL: photoURL)
             }
         } else {
@@ -205,20 +180,19 @@ extension ContactGroup {
             groupDetailsElementsWithPhoto = GroupDetailsElementsWithPhoto(groupDetailsElements: groupDetailsElements, photoURL: nil)
         }
         self.publishedDetails = try ContactGroupDetailsPublished(contactGroup: self,
-                                                                 groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                                                                 delegateManager: delegateManager)
-        try oldPublishedDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
+                                                                 groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto)
+        try oldPublishedDetails.delete()
 
         notificationRelatedChanges.insert(.publishedDetails)
 
     }
     
     
-    func getGroupStructure(identityPhotosDirectory: URL) throws -> GroupStructure {
+    func getGroupStructure() throws -> GroupStructure {
         if let ownedGroup = self as? ContactGroupOwned {
-            return try ownedGroup.getOwnedGroupStructure(identityPhotosDirectory: identityPhotosDirectory)
+            return try ownedGroup.getOwnedGroupStructure()
         } else if let joinedGroup = self as? ContactGroupJoined {
-            return try joinedGroup.getJoinedGroupStructure(identityPhotosDirectory: identityPhotosDirectory)
+            return try joinedGroup.getJoinedGroupStructure()
         } else {
             throw makeError(message: "Unknown ContactGroup subclass. This is a bug.")
         }
@@ -256,19 +230,19 @@ extension ContactGroup {
             throw ObvIdentityManagerError.groupIsNotOwned
         }
 
-        guard self.obvContext == contactIdentity.obvContext else {
+        guard self.managedObjectContext == contactIdentity.managedObjectContext else {
             throw ObvIdentityManagerError.contextMismatch
         }
         
-        guard let obvContext = self.obvContext else {
+        guard let context = self.managedObjectContext else {
             throw ObvIdentityManagerError.contextIsNil
         }
 
         // Remove the pending member from the list of pending group members
         
-        if let pendingMemberObject = self.pendingGroupMembers.filter({ $0.cryptoIdentity == contactIdentity.cryptoIdentity }).first {
+        if let pendingMemberObject = try self.pendingGroupMembers.filter({ try $0.cryptoIdentity == contactIdentity.cryptoIdentity }).first {
             self.pendingGroupMembers.remove(pendingMemberObject)
-            obvContext.delete(pendingMemberObject)
+            context.delete(pendingMemberObject)
         }
 
         // Add this contact to the group members
@@ -281,10 +255,6 @@ extension ContactGroup {
     }
     
     func transferGroupMemberToPendingMembersForGroupOwned(contactCryptoIdentity: ObvCryptoIdentity) throws {
-        
-        guard let delegateManager = self.delegateManager else {
-            throw ObvIdentityManagerError.delegateManagerIsNotSet
-        }
         
         guard self is ContactGroupOwned else {
             throw ObvIdentityManagerError.groupIsNotOwned
@@ -299,7 +269,7 @@ extension ContactGroup {
         
         // Add this contact to the pending members (note that this call increments the members version)
 
-        try (self as! ContactGroupOwned).add(newPendingMembers: Set([contactCryptoIdentity]), delegateManager: delegateManager)
+        try (self as! ContactGroupOwned).add(newPendingMembers: Set([contactCryptoIdentity]))
         
         notificationRelatedChanges.insert(.pendingMembersAndGroupMembers)
 
@@ -316,23 +286,15 @@ extension ContactGroup {
             guard groupMembersVersion > self.groupMembersVersion else { return }
         }
 
-        guard let obvContext = self.obvContext else {
+        guard let context = self.managedObjectContext else {
             throw ObvIdentityManagerError.contextIsNil
         }
         
         let currentPendingMembersToDelete = self.pendingGroupMembers.subtracting(newVersionOfPendingMembers)
         for pendingMemberToDelete in currentPendingMembersToDelete {
-            obvContext.delete(pendingMemberToDelete)
+            context.delete(pendingMemberToDelete)
         }
         
-        // In order to avoid an error within the logs, we set the delegateManager on all past and new group members
-        for member in self.groupMembers {
-            member.delegateManager = self.delegateManager
-        }
-        for member in newVersionOfGroupMembers {
-            member.delegateManager = self.delegateManager
-        }
-
         self.groupMembers = newVersionOfGroupMembers
         self.pendingGroupMembers = newVersionOfPendingMembers
         if let groupMembersVersion {
@@ -354,12 +316,25 @@ extension ContactGroup {
         enum Key: String {
             // Attributes
             case groupMembersVersion = "groupMembersVersion"
-            case groupUid = "groupUid"
+            case rawGroupUid = "rawGroupUid"
             // Relationships
             case groupMembers = "groupMembers"
             case ownedIdentity = "ownedIdentity"
             case pendingGroupMembers = "pendingGroupMembers"
             case publishedDetails = "publishedDetails"
+        }
+        static func withOwnedIdentity(_ ownedIdentity: OwnedIdentity) -> NSPredicate {
+            NSPredicate(Key.ownedIdentity, equalTo: ownedIdentity)
+        }
+        static func whereGroupMembersContain(_ contactIdentity: ContactIdentity) -> NSPredicate {
+            NSPredicate(Key.groupMembers, contains: contactIdentity)
+        }
+        static func withGroupUid(_ groupUid: UID) -> NSPredicate {
+            NSPredicate(Key.rawGroupUid, EqualToData: groupUid.raw)
+        }
+        static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            let key = [Key.ownedIdentity.rawValue, OwnedIdentity.Predicate.Key.rawCryptoIdentity.rawValue].joined(separator: ".")
+            return NSPredicate(key, EqualToData: ownedCryptoId.getIdentity())
         }
     }
 
@@ -368,25 +343,24 @@ extension ContactGroup {
     }
     
     
-    static func getAll(ownedIdentity: OwnedIdentity, delegateManager: ObvIdentityDelegateManager) throws -> Set<ContactGroup> {
-        guard let obvContext = ownedIdentity.obvContext else { throw Self.makeError(message: "Could not find context") }
+    static func getAll(ownedIdentity: OwnedIdentity) throws -> Set<ContactGroup> {
+        guard let context = ownedIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<ContactGroup> = ContactGroup.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", ContactGroup.ownedIdentityKey, ownedIdentity)
-        let items = (try obvContext.fetch(request))
-        items.forEach { $0.delegateManager = delegateManager }
+        request.predicate = Predicate.withOwnedIdentity(ownedIdentity)
+        let items = try context.fetch(request)
         return Set(items)
     }
  
     
-    static func getAllContactGroupWhereGroupMembersContainTheContact(_ contactIdentity: ContactIdentity, delegateManager: ObvIdentityDelegateManager) throws -> Set<ContactGroup> {
-        guard let obvContext = contactIdentity.obvContext else { throw Self.makeError(message: "Could not find context") }
+    static func getAllContactGroupWhereGroupMembersContainTheContact(_ contactIdentity: ContactIdentity) throws -> Set<ContactGroup> {
+        guard let context = contactIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         guard let ownedIdentity = contactIdentity.ownedIdentity else { throw Self.makeError(message: "Could not find owned identity associated to contact") }
         let request: NSFetchRequest<ContactGroup> = ContactGroup.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %@ IN %K",
-                                        ContactGroup.ownedIdentityKey, ownedIdentity,
-                                        contactIdentity, ContactGroup.groupMembersKey)
-        let items = (try obvContext.fetch(request))
-        items.forEach { $0.delegateManager = delegateManager }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedIdentity(ownedIdentity),
+            Predicate.whereGroupMembersContain(contactIdentity),
+        ])
+        let items = try context.fetch(request)
         return Set(items)
     }
 
@@ -409,12 +383,13 @@ extension ContactGroup {
         // This code shall *not* be move into the willSave() method, as, on deletion, self.ownedIdentity does not seem to be always available there.
         guard let managedObjectContext else { assertionFailure(); return }
         guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
-        ownedIdentityCryptoIdentityOnDeletion = ownedIdentity.cryptoIdentity
+        ownedIdentityCryptoIdentityOnDeletion = try? ownedIdentity.cryptoIdentity
         if let groupJoined = self as? ContactGroupJoined {
             groupOwnerCryptoIdentityOnDeletion = groupJoined.groupOwner.cryptoIdentity
         } else {
-            groupOwnerCryptoIdentityOnDeletion = ownedIdentity.cryptoIdentity
+            groupOwnerCryptoIdentityOnDeletion = try? ownedIdentity.cryptoIdentity
         }
+        groupUidOnDeletion = try? self.groupUid
         labelToDelete = publishedDetails.photoServerLabel
     }
     
@@ -433,33 +408,43 @@ extension ContactGroup {
         defer {
             notificationRelatedChanges = []
             changedKeys.removeAll()
+            isInsertedWhileRestoringSyncSnapshotOrBackup = false
         }
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog.init(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: String(describing: Self.self))
-            os_log("The delegate manager is not set (2)", log: log, type: .fault)
+        guard let delegateManager = Self.delegateManager else {
+            Self.logger.fault("The delegate manager is not set (2)")
+            assertionFailure()
             return
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: String(describing: Self.self))
-        
         if isInserted {
             
+            // We do not send any notification after inserting an object during a snapshot restore or a backup restore
+            guard !isInsertedWhileRestoringSyncSnapshotOrBackup else { assert(isInserted); return }
+
             if let joinedGroup = self as? ContactGroupJoined, let groupOwnerCryptoIdentity = joinedGroup.groupOwner.cryptoIdentity {
                 
-                let NotificationType = ObvIdentityNotification.NewContactGroupJoined.self
-                let userInfo = [NotificationType.Key.groupUid: self.groupUid,
-                                NotificationType.Key.groupOwner: groupOwnerCryptoIdentity,
-                                NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
-                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                
+                do {
+                    let NotificationType = ObvIdentityNotification.NewContactGroupJoined.self
+                    let userInfo = [NotificationType.Key.groupUid: try self.groupUid,
+                                    NotificationType.Key.groupOwner: groupOwnerCryptoIdentity,
+                                    NotificationType.Key.ownedIdentity: try self.ownedIdentity.cryptoIdentity] as [String: Any]
+                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                } catch {
+                    assertionFailure()
+                }
+
             } else if self is ContactGroupOwned {
                 
-                let NotificationType = ObvIdentityNotification.NewContactGroupOwned.self
-                let userInfo = [NotificationType.Key.groupUid: self.groupUid,
-                                NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
-                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                
+                do {
+                    let NotificationType = ObvIdentityNotification.NewContactGroupOwned.self
+                    let userInfo = [NotificationType.Key.groupUid: try self.groupUid,
+                                    NotificationType.Key.ownedIdentity: try self.ownedIdentity.cryptoIdentity] as [String: Any]
+                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                } catch {
+                    assertionFailure()
+                }
+
             } else {
                 
                 assertionFailure()
@@ -471,11 +456,15 @@ extension ContactGroup {
         
         if isDeleted {
             
-            let NotificationType = ObvIdentityNotification.ContactGroupDeleted.self
-            let userInfo = [NotificationType.Key.groupUid: self.groupUid,
-                            NotificationType.Key.groupOwner: groupOwnerCryptoIdentityOnDeletion!,
-                            NotificationType.Key.ownedIdentity: ownedIdentityCryptoIdentityOnDeletion!] as [String: Any]
-            delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+            if let groupUidOnDeletion, let groupOwnerCryptoIdentityOnDeletion, let ownedIdentityCryptoIdentityOnDeletion {
+                let NotificationType = ObvIdentityNotification.ContactGroupDeleted.self
+                let userInfo = [NotificationType.Key.groupUid: groupUidOnDeletion,
+                                NotificationType.Key.groupOwner: groupOwnerCryptoIdentityOnDeletion,
+                                NotificationType.Key.ownedIdentity: ownedIdentityCryptoIdentityOnDeletion] as [String: Any]
+                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+            } else {
+                assertionFailure()
+            }
             
         } else {
             
@@ -483,29 +472,41 @@ extension ContactGroup {
                 
                 if let groupOwned = self as? ContactGroupOwned {
                     
-                    let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedPublishedDetails.self
-                    let userInfo = [NotificationType.Key.groupUid: groupOwned.groupUid,
-                                    NotificationType.Key.ownedIdentity: groupOwned.ownedIdentity.cryptoIdentity] as [String: Any]
-                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                    
+                    do {
+                        let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedPublishedDetails.self
+                        let userInfo = [NotificationType.Key.groupUid: try groupOwned.groupUid,
+                                        NotificationType.Key.ownedIdentity: try groupOwned.ownedIdentity.cryptoIdentity] as [String: Any]
+                        delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    } catch {
+                        assertionFailure()
+                    }
+
                 } else if let groupJoined = self as? ContactGroupJoined, let groupOwner = groupJoined.groupOwner.cryptoIdentity {
                     
-                    let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedPublishedDetails.self
-                    let userInfo = [NotificationType.Key.groupUid: groupJoined.groupUid,
-                                    NotificationType.Key.groupOwner: groupOwner,
-                                    NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
-                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                    
+                    do {
+                        let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedPublishedDetails.self
+                        let userInfo = [NotificationType.Key.groupUid: try groupJoined.groupUid,
+                                        NotificationType.Key.groupOwner: groupOwner,
+                                        NotificationType.Key.ownedIdentity: try self.ownedIdentity.cryptoIdentity] as [String: Any]
+                        delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    } catch {
+                        assertionFailure()
+                    }
+
                 }
                 
             }
             
             if notificationRelatedChanges.contains(.publishedDetails) || isDeleted {
                 if isDeleted { assert(ownedIdentityCryptoIdentityOnDeletion != nil) }
-                let ownedCryptoId = ownedIdentityCryptoIdentityOnDeletion ?? ownedIdentity.cryptoIdentity
                 if let labelToDelete = self.labelToDelete {
-                    ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoId, label: labelToDelete)
-                        .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+                    do {
+                        let ownedCryptoId = try ownedIdentityCryptoIdentityOnDeletion ?? ownedIdentity.cryptoIdentity
+                        ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoId, label: labelToDelete)
+                            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+                    } catch {
+                        assertionFailure()
+                    }
                 }
             }
             
@@ -513,20 +514,28 @@ extension ContactGroup {
             if notificationRelatedChanges.contains(.pendingMembersAndGroupMembers) {
                 
                 if let groupOwned = self as? ContactGroupOwned {
-                    
-                    let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedPendingMembersAndGroupMembers.self
-                    let userInfo = [NotificationType.Key.groupUid: groupOwned.groupUid,
-                                    NotificationType.Key.ownedIdentity: groupOwned.ownedIdentity.cryptoIdentity] as [String: Any]
-                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                    
+
+                    do {
+                        let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedPendingMembersAndGroupMembers.self
+                        let userInfo = [NotificationType.Key.groupUid: try groupOwned.groupUid,
+                                        NotificationType.Key.ownedIdentity: try groupOwned.ownedIdentity.cryptoIdentity] as [String: Any]
+                        delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    } catch {
+                        assertionFailure()
+                    }
+
                 } else if let groupJoined = self as? ContactGroupJoined, let groupOwner = groupJoined.groupOwner.cryptoIdentity {
-                    
-                    let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedPendingMembersAndGroupMembers.self
-                    let userInfo = [NotificationType.Key.groupUid: groupJoined.groupUid,
-                                    NotificationType.Key.groupOwner: groupOwner,
-                                    NotificationType.Key.ownedIdentity: groupJoined.ownedIdentity.cryptoIdentity] as [String: Any]
-                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                    
+
+                    do {
+                        let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedPendingMembersAndGroupMembers.self
+                        let userInfo = [NotificationType.Key.groupUid: try groupJoined.groupUid,
+                                        NotificationType.Key.groupOwner: groupOwner,
+                                        NotificationType.Key.ownedIdentity: try groupJoined.ownedIdentity.cryptoIdentity] as [String: Any]
+                        delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    } catch {
+                        assertionFailure()
+                    }
+
                 }
                 
             }
@@ -535,12 +544,7 @@ extension ContactGroup {
         
         // Send a backupableManagerDatabaseContentChanged notification
         do {
-            guard let flowId = obvContext?.flowId else {
-                os_log("Could not notify that this backupable manager database content changed", log: log, type: .fault)
-                assertionFailure()
-                return
-            }
-            ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
+            ObvBackupNotification.backupableManagerDatabaseContentChanged
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
@@ -561,9 +565,13 @@ extension ContactGroup {
                 previousBackedUpProfileSnapShotIsObsolete = false
             }
             if previousBackedUpProfileSnapShotIsObsolete {
-                let cryptoIdentity = self.ownedIdentity.cryptoIdentity
-                let ownedCryptoId = ObvCryptoId(cryptoIdentity: cryptoIdentity)
-                Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupChanged(ownedCryptoId: ownedCryptoId) }
+                do {
+                    let cryptoIdentity = try self.ownedIdentity.cryptoIdentity
+                    let ownedCryptoId = ObvCryptoId(cryptoIdentity: cryptoIdentity)
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupChanged(ownedCryptoId: ownedCryptoId) }
+                } catch {
+                    assertionFailure()
+                }
             }
         }
 
@@ -576,12 +584,13 @@ extension ContactGroup {
 extension ContactGroup {
     
     var groupV1Identifier: GroupV1Identifier? {
-        let groupUid = self.groupUid
+        guard let groupUid = try? self.groupUid else { assertionFailure(); return nil }
         if let groupJoined = self as? ContactGroupJoined {
             guard let groupOwner = groupJoined.groupOwner.cryptoIdentity else { assertionFailure(); return nil }
             return .init(groupUid: groupUid, groupOwner: ObvCryptoId(cryptoIdentity: groupOwner))
         } else if self is ContactGroupOwned {
-            return .init(groupUid: groupUid, groupOwner: ObvCryptoId(cryptoIdentity: ownedIdentity.cryptoIdentity))
+            guard let groupOwner = try? ObvCryptoId(cryptoIdentity: ownedIdentity.cryptoIdentity) else { assertionFailure(); return nil }
+            return .init(groupUid: groupUid, groupOwner: groupOwner)
         } else {
             assertionFailure()
             return nil
@@ -597,12 +606,14 @@ extension ContactGroup {
 extension ContactGroup {
     
     var syncSnapshot: ContactGroupSyncSnapshotNode {
-        .init(groupMembersVersion: groupMembersVersion,
-              groupMembers: groupMembers,
-              pendingGroupMembers: pendingGroupMembers,
-              publishedDetails: publishedDetails,
-              trustedDetails: (self as? ContactGroupJoined)?.trustedDetails, 
-              latestDetails: (self as? ContactGroupOwned)?.latestDetails)
+        get throws {
+            try .init(groupMembersVersion: groupMembersVersion,
+                      groupMembers: groupMembers,
+                      pendingGroupMembers: pendingGroupMembers,
+                      publishedDetails: publishedDetails,
+                      trustedDetails: (self as? ContactGroupJoined)?.trustedDetails,
+                      latestDetails: (self as? ContactGroupOwned)?.latestDetails)
+        }
     }
 
 }
@@ -634,7 +645,7 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
     private static let defaultDomainForGroupJoined = Set(CodingKeys.allCases.filter({ $0 != .domain }))
 
 
-    fileprivate init(groupMembersVersion: Int, groupMembers: Set<ContactIdentity>, pendingGroupMembers: Set<PendingGroupMember>, publishedDetails: ContactGroupDetailsPublished, trustedDetails: ContactGroupDetailsTrusted?, latestDetails: ContactGroupDetailsLatest?) {
+    fileprivate init(groupMembersVersion: Int, groupMembers: Set<ContactIdentity>, pendingGroupMembers: Set<PendingGroupMember>, publishedDetails: ContactGroupDetailsPublished, trustedDetails: ContactGroupDetailsTrusted?, latestDetails: ContactGroupDetailsLatest?) throws {
         self.publishedDetails = publishedDetails.syncSnapshot
         if let trustedDetails, trustedDetails.version != publishedDetails.version {
             self.trustedDetails = trustedDetails.syncSnapshot
@@ -645,7 +656,7 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
         self.groupMembersVersion = groupMembersVersion
         self.groupMembers = Set(groupMembers.compactMap({ $0.cryptoIdentity }))
         do {
-            let pairs: [(ObvCryptoIdentity, PendingGroupMemberSyncSnapshotItem)] = pendingGroupMembers.map { ($0.cryptoIdentity, $0.syncSnapshot) }
+            let pairs: [(ObvCryptoIdentity, PendingGroupMemberSyncSnapshotItem)] = try pendingGroupMembers.map { (try $0.cryptoIdentity, $0.syncSnapshot) }
             self.pendingGroupMembers = Dictionary(pairs, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
         }
         self.domain = Self.defaultDomainForGroupJoined
@@ -695,7 +706,7 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
     }
 
 
-    func restoreInstance(within obvContext: ObvContext, ownedCryptoIdentity: ObvCryptoIdentity, groupV1Identifier: GroupV1Identifier, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+    func restoreInstance(within context: NSManagedObjectContext, ownedCryptoIdentity: ObvCryptoIdentity, groupV1Identifier: GroupV1Identifier, associations: inout SnapshotNodeManagedObjectAssociations) throws {
         
         let minimumDomain: Set<CodingKeys>
         do {
@@ -724,11 +735,11 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
                 throw ObvError.tryingToRestoreIncompleteNode
             }
             
-            let contactGroupOwned = try ContactGroupOwned(snapshotNode: self, groupUid: groupV1Identifier.groupUid, within: obvContext)
+            let contactGroupOwned = try ContactGroupOwned(snapshotNode: self, groupUid: groupV1Identifier.groupUid, within: context)
             try associations.associate(contactGroupOwned, to: self)
             
-            try publishedDetails.restoreContactGroupDetailsPublishedInstance(within: obvContext, associations: &associations)
-            try latestDetails.restoreContactGroupDetailsLatestInstance(within: obvContext, associations: &associations)
+            try publishedDetails.restoreContactGroupDetailsPublishedInstance(within: context, associations: &associations)
+            try latestDetails.restoreContactGroupDetailsLatestInstance(within: context, associations: &associations)
             
         } else {
             
@@ -738,11 +749,11 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
                 throw ObvError.tryingToRestoreIncompleteNode
             }
 
-            let contactGroupJoined = try ContactGroupJoined(snapshotNode: self, groupUid: groupV1Identifier.groupUid, within: obvContext)
+            let contactGroupJoined = try ContactGroupJoined(snapshotNode: self, groupUid: groupV1Identifier.groupUid, within: context)
             try associations.associate(contactGroupJoined, to: self)
             
-            try publishedDetails.restoreContactGroupDetailsPublishedInstance(within: obvContext, associations: &associations)
-            try trustedDetails.restoreContactGroupDetailsTrustedInstance(within: obvContext, associations: &associations)
+            try publishedDetails.restoreContactGroupDetailsPublishedInstance(within: context, associations: &associations)
+            try trustedDetails.restoreContactGroupDetailsTrustedInstance(within: context, associations: &associations)
 
         }
         
@@ -752,16 +763,16 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
         
         if domain.contains(.pendingGroupMembers) {
             try pendingGroupMembers.forEach { (cryptoIdentity, snapshotItem) in
-                try snapshotItem.restoreInstance(within: obvContext, cryptoIdentity: cryptoIdentity, associations: &associations)
+                try snapshotItem.restoreInstance(within: context, cryptoIdentity: cryptoIdentity, associations: &associations)
             }
         }
         
     }
     
 
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, groupV1Identifier: GroupV1Identifier, contactIdentities: [ObvCryptoIdentity: ContactIdentity], within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, groupV1Identifier: GroupV1Identifier, contactIdentities: [ObvCryptoIdentity: ContactIdentity], within context: NSManagedObjectContext) throws {
         
-        let contactGroup: ContactGroup = try associations.getObject(associatedTo: self, within: obvContext)
+        let contactGroup: ContactGroup = try associations.getObject(associatedTo: self, within: context)
         
         // Restore the relationships of this instance
         
@@ -772,7 +783,7 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
             return contactIdentity
         })
         
-        let pendingGroupMembers: Set<PendingGroupMember> = Set(try self.pendingGroupMembers.values.map { try associations.getObject(associatedTo: $0, within: obvContext) })
+        let pendingGroupMembers: Set<PendingGroupMember> = Set(try self.pendingGroupMembers.values.map { try associations.getObject(associatedTo: $0, within: context) })
 
         if let contactGroupOwned = contactGroup as? ContactGroupOwned {
             
@@ -782,8 +793,8 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
                 throw ObvError.tryingToRestoreIncompleteNode
             }
 
-            let contactGroupDetailsPublished: ContactGroupDetailsPublished = try associations.getObject(associatedTo: publishedDetails, within: obvContext)
-            let contactGroupDetailsLatest: ContactGroupDetailsLatest = try associations.getObject(associatedTo: latestDetails, within: obvContext)
+            let contactGroupDetailsPublished: ContactGroupDetailsPublished = try associations.getObject(associatedTo: publishedDetails, within: context)
+            let contactGroupDetailsLatest: ContactGroupDetailsLatest = try associations.getObject(associatedTo: latestDetails, within: context)
 
             contactGroupOwned.restoreRelationshipsOfContactGroupOwned(
                 latestDetails: contactGroupDetailsLatest,
@@ -793,8 +804,8 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
 
             // Restore the relationships of this instance relationships
 
-            try publishedDetails.restoreRelationships(associations: associations, within: obvContext)
-            try latestDetails.restoreRelationships(associations: associations, within: obvContext)
+            try publishedDetails.restoreRelationships(associations: associations, within: context)
+            try latestDetails.restoreRelationships(associations: associations, within: context)
 
         } else if let contactGroupJoined = contactGroup as? ContactGroupJoined {
             
@@ -804,8 +815,8 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
                 throw ObvError.tryingToRestoreIncompleteNode
             }
 
-            let contactGroupDetailsPublished: ContactGroupDetailsPublished = try associations.getObject(associatedTo: publishedDetails, within: obvContext)
-            let contactGroupDetailsTrusted: ContactGroupDetailsTrusted = try associations.getObject(associatedTo: trustedDetails, within: obvContext)
+            let contactGroupDetailsPublished: ContactGroupDetailsPublished = try associations.getObject(associatedTo: publishedDetails, within: context)
+            let contactGroupDetailsTrusted: ContactGroupDetailsTrusted = try associations.getObject(associatedTo: trustedDetails, within: context)
 
             guard let groupOwner = contactIdentities[groupV1Identifier.groupOwner.cryptoIdentity] else {
                 assertionFailure()
@@ -821,13 +832,13 @@ struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
 
             // Restore the relationships of this instance relationships
 
-            try publishedDetails.restoreRelationships(associations: associations, within: obvContext)
-            try trustedDetails.restoreRelationships(associations: associations, within: obvContext)
+            try publishedDetails.restoreRelationships(associations: associations, within: context)
+            try trustedDetails.restoreRelationships(associations: associations, within: context)
 
         }
 
         try self.pendingGroupMembers.forEach { (cryptoIdentity, pendingMemberNode) in
-            try pendingMemberNode.restoreRelationships(associations: associations, within: obvContext)
+            try pendingMemberNode.restoreRelationships(associations: associations, within: context)
         }
 
     }

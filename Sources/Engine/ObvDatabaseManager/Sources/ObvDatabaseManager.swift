@@ -52,6 +52,8 @@ public final class ObvDatabaseManager: ObvCreateContextDelegate {
 
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvDatabaseManager")
 
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
+    
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     // MARK: - Initializer

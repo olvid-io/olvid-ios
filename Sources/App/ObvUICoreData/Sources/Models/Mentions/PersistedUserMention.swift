@@ -149,7 +149,7 @@ public class PersistedUserMention: NSManagedObject {
         guard let discussion else {
             assertionFailure()
             // We cannot determine the discussion, the rawMentionnedIdentity value alone is not enough to determine the exact identity that is mentionned
-            throw ObvUICoreDataError.discussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         // Given the discussion, we can try to return an appropriate MentionableIdentity
         return try getMentionableIdentityInDiscussion(discussion)

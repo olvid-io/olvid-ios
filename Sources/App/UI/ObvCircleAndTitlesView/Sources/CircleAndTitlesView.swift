@@ -20,6 +20,7 @@
 
 import SwiftUI
 import ObvSystemIcon
+import ObvAccessibility
 
 public enum CircleAndTitlesDisplayMode {
     case normal
@@ -88,6 +89,16 @@ public struct CircleAndTitlesView: View {
                   circleDiameter: circleDiameter)
         }
         
+        var imageAvailable: Bool { content.profilePictureViewModelContent.profilePicture != nil }
+        
+        var accessibilityLabel: String {
+            if imageAvailable {
+                return String(localizedInThisBundle: "\(content.displayNameForHeader)_IMAGE_AVAILABLE")
+            } else {
+                return String(localizedInThisBundle: "\(content.displayNameForHeader)_IMAGE_NOT_AVAILABLE")
+            }
+        }
+        
     }
     
     let model: Model
@@ -112,7 +123,7 @@ public struct CircleAndTitlesView: View {
             if case .header = model.displayMode {
                 ProfilePictureView(model: model.profilePictureViewModel)
                     .onTapGesture {
-                        guard model.content.profilePictureViewModelContent.profilePicture != nil else {
+                        guard model.imageAvailable else {
                             profilePictureFullScreenIsPresented = false
                             return
                         }
@@ -123,6 +134,7 @@ public struct CircleAndTitlesView: View {
                             .background(BackgroundBlurView()
                                 .edgesIgnoringSafeArea(.all))
                     }
+                    .obvAccessibilityHint("TAP_TO_SHOW_IMAGE", isEnabled: model.imageAvailable)
             } else {
                 ProfilePictureView(model: model.profilePictureViewModel)
             }
@@ -143,26 +155,30 @@ public struct CircleAndTitlesView: View {
 
     
     public var body: some View {
-        switch model.displayMode {
-        case .normal, .small:
-            HStack(alignment: model.alignment, spacing: 16) {
-                pictureView
-                TextView(model: model.content.textViewModel)
-            }
-        case .header:
-            VStack(spacing: 8) {
-                pictureView
-                Text(model.content.displayNameForHeader)
-                    .font(.system(.largeTitle, design: .rounded))
-                    .fontWeight(.semibold)
-                    .multilineTextAlignment(.center)
-                if let subtitle = model.content.textViewModel.subtitle {
-                    Text(subtitle)
-                        .font(.system(.title2))
+        Group {
+            switch model.displayMode {
+            case .normal, .small:
+                HStack(alignment: model.alignment, spacing: 16) {
+                    pictureView
+                    TextView(model: model.content.textViewModel)
+                }
+            case .header:
+                VStack(spacing: 8) {
+                    pictureView
+                    Text(model.content.displayNameForHeader)
+                        .font(.system(.largeTitle, design: .rounded))
+                        .fontWeight(.semibold)
                         .multilineTextAlignment(.center)
+                    if let subtitle = model.content.textViewModel.subtitle {
+                        Text(subtitle)
+                            .font(.system(.title2))
+                            .multilineTextAlignment(.center)
+                    }
                 }
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(model.accessibilityLabel)
     }
 }
 

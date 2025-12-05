@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvTypes
@@ -28,10 +29,15 @@ import ObvJWS
 
 
 @objc(ContactGroupV2PendingMember)
-final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+final class ContactGroupV2PendingMember: NSManagedObject, ObvErrorMaker {
 
+    static weak var delegateManager: ObvIdentityDelegateManager?
+    
     private static let entityName = "ContactGroupV2PendingMember"
     static let errorDomain = "ContactGroupV2PendingMember"
+
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: ContactGroupV2PendingMember.logSubsystem, category: "ContactGroupV2PendingMember") }()
 
     // Attributes
  
@@ -59,9 +65,7 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
     
     var contactGroup: ContactGroupV2? {
         get {
-            assert(obvContext != nil)
             guard let rawContactGroup = self.rawContactGroup else { return nil }
-            rawContactGroup.obvContext = obvContext
             return rawContactGroup
         }
         set {
@@ -72,9 +76,7 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
     
     // Other variables
 
-    weak var obvContext: ObvContext?
     private var isRestoringBackup = false
-    var delegateManager: ObvIdentityDelegateManager?
     private var changedKeys = Set<String>()
 
     var identityAndPermissionsAndDetails: GroupV2.IdentityAndPermissionsAndDetails? {
@@ -93,12 +95,12 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
     
     // MARK: - Initializer
     
-    private convenience init(identity: ObvCryptoIdentity, rawPermissions: Set<String>, serializedIdentityCoreDetails: Data, groupInvitationNonce: Data, contactGroup: ContactGroupV2, delegateManager: ObvIdentityDelegateManager) throws {
+    private convenience init(identity: ObvCryptoIdentity, rawPermissions: Set<String>, serializedIdentityCoreDetails: Data, groupInvitationNonce: Data, contactGroup: ContactGroupV2) throws {
 
-        guard let obvContext = contactGroup.obvContext else { assertionFailure(); throw Self.makeError(message: "Cannot find context") }
+        guard let context = contactGroup.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Cannot find context") }
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2PendingMember.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2PendingMember.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
 
         self.cryptoIdentity = identity
         self.setRawPermissions(newRawPermissions: rawPermissions)
@@ -107,29 +109,25 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
         
         self.contactGroup = contactGroup
 
-        self.obvContext = obvContext
-        self.delegateManager = delegateManager
-
     }
 
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(backupItem: ContactGroupV2PendingMemberBackupItem, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2PendingMember.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(backupItem: ContactGroupV2PendingMemberBackupItem, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2PendingMember.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.groupInvitationNonce = backupItem.groupInvitationNonce
         self.rawIdentity = backupItem.rawIdentity
         self.rawPermissions = backupItem.rawPermissions.joined(separator: String(Self.separatorForPermissions))
         self.serializedIdentityCoreDetails = backupItem.serializedIdentityCoreDetails
         self.isRestoringBackup = true
-        self.delegateManager = nil
     }
 
     
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(snapshotNode: ContactGroupV2PendingMemberSyncSnapshotItem, cryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2PendingMember.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(snapshotNode: ContactGroupV2PendingMemberSyncSnapshotItem, cryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2PendingMember.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         guard let groupInvitationNonce = snapshotNode.groupInvitationNonce else {
             assertionFailure()
             throw ContactGroupV2PendingMemberSyncSnapshotItem.ObvError.tryingToRestoreIncompleteNode
@@ -143,33 +141,30 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
         }
         self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
         self.isRestoringBackup = true
-        self.delegateManager = nil
     }
 
     
-    static func createAllPendingMembers(from otherGroupMembers: Set<GroupV2.IdentityAndPermissionsAndDetails>, in contactGroup: ContactGroupV2, delegateManager: ObvIdentityDelegateManager) throws -> Set<ContactGroupV2PendingMember> {
+    static func createAllPendingMembers(from otherGroupMembers: Set<GroupV2.IdentityAndPermissionsAndDetails>, in contactGroup: ContactGroupV2) throws -> Set<ContactGroupV2PendingMember> {
         try Set(otherGroupMembers.map { member in
             try ContactGroupV2PendingMember(identity: member.identity,
                                             rawPermissions: member.rawPermissions,
                                             serializedIdentityCoreDetails: member.serializedIdentityCoreDetails,
                                             groupInvitationNonce: member.groupInvitationNonce,
-                                            contactGroup: contactGroup,
-                                            delegateManager: delegateManager)
+                                            contactGroup: contactGroup)
         })
     }
 
     
-    static func createPendingMember(from member: GroupV2.IdentityAndPermissionsAndDetails, in contactGroup: ContactGroupV2, delegateManager: ObvIdentityDelegateManager) throws {
+    static func createPendingMember(from member: GroupV2.IdentityAndPermissionsAndDetails, in contactGroup: ContactGroupV2) throws {
         _ = try Self.init(identity: member.identity,
                           rawPermissions: member.rawPermissions,
                           serializedIdentityCoreDetails: member.serializedIdentityCoreDetails,
                           groupInvitationNonce: member.groupInvitationNonce,
-                          contactGroup: contactGroup,
-                          delegateManager: delegateManager)
+                          contactGroup: contactGroup)
     }
     
     
-    static func createPendingMember(from member: GroupV2.KeycloakGroupMemberAndPermissions, in contactGroup: ContactGroupV2, validatingSignaturesWith jwks: ObvJWKSet, delegateManager: ObvIdentityDelegateManager) throws {
+    static func createPendingMember(from member: GroupV2.KeycloakGroupMemberAndPermissions, in contactGroup: ContactGroupV2, validatingSignaturesWith jwks: ObvJWKSet) throws {
 
         let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(member.signedUserDetails, with: jwks).signedUserDetails
         let obvIdentityCoreDetails = try signedObvKeycloakUserDetails.toObvIdentityCoreDetails() // These details contain the signedUserDetails
@@ -179,16 +174,14 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
                           rawPermissions: member.rawPermissions,
                           serializedIdentityCoreDetails: serializedIdentityCoreDetails,
                           groupInvitationNonce: member.groupInvitationNonce,
-                          contactGroup: contactGroup,
-                          delegateManager: delegateManager)
+                          contactGroup: contactGroup)
         
     }
 
     
-    func delete(delegateManager: ObvIdentityDelegateManager) throws {
-        guard let obvContext = obvContext else { throw Self.makeError(message: "Could not delete pending member as we cannot find ObvContext") }
-        self.delegateManager = delegateManager
-        obvContext.delete(self)
+    func delete() throws {
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not delete pending member as we cannot find context") }
+        context.delete(self)
     }
     
     
@@ -301,7 +294,7 @@ extension ContactGroupV2PendingMember {
     /// When re-sending group v2 keys after a channel creation with a contact device, we also want to look for the groups where this contact is a pending member.
     static func getPendingMemberEntriesCorrespondingToContactIdentity(_ contactIdentity: ObvCryptoIdentity, of ownedIdentity: OwnedIdentity) throws -> Set<ContactGroupV2PendingMember> {
         
-        guard let obvContext = ownedIdentity.obvContext else { assertionFailure(); throw Self.makeError(message: "Could not get ObvContext from OwnedIdentity") }
+        guard let context = ownedIdentity.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not get context from OwnedIdentity") }
         
         let request = Self.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -310,10 +303,21 @@ extension ContactGroupV2PendingMember {
         ])
         request.fetchBatchSize = 1_000
         
-        let items = try obvContext.fetch(request)
-        items.forEach({ $0.obvContext = obvContext })
+        let items = try context.fetch(request)
         return Set(items)
         
+    }
+    
+    
+    static func contactIsPendingMemberInCommonGroup(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> Bool {
+        let request = Self.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withIdentity(contactIdentifier.contactCryptoId.cryptoIdentity),
+            Predicate.withOwnedCryptoIdentity(contactIdentifier.ownedCryptoId.cryptoIdentity),
+        ])
+        request.fetchLimit = 1
+        let result = try context.fetch(request).first
+        return result != nil
     }
     
     
@@ -351,10 +355,9 @@ extension ContactGroupV2PendingMember {
         guard !isRestoringBackup else { assert(isInserted); return }
 
         // Send a backupableManagerDatabaseContentChanged notification
-        if let delegateManager = self.delegateManager {
+        if let delegateManager = Self.delegateManager {
             if isInserted || isDeleted || isUpdated {
-                guard let flowId = obvContext?.flowId else { assertionFailure(); return }
-                ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
+                ObvBackupNotification.backupableManagerDatabaseContentChanged
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
         }
@@ -374,7 +377,7 @@ extension ContactGroupV2PendingMember {
                 previousBackedUpProfileSnapShotIsObsolete = false
             }
             if previousBackedUpProfileSnapShotIsObsolete {
-                if let ownedCryptoIdentity = self.rawContactGroup?.ownedIdentity?.cryptoIdentity {
+                if let ownedCryptoIdentity = try? self.rawContactGroup?.ownedIdentity?.cryptoIdentity {
                     let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
                     Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2PendingMemberChanged(ownedCryptoId: ownedCryptoId) }
                 } else {
@@ -458,12 +461,12 @@ struct ContactGroupV2PendingMemberBackupItem: Codable, Hashable, ObvErrorMaker {
         
     }
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-        let contactGroupV2PendingMember = ContactGroupV2PendingMember(backupItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout BackupItemObjectAssociations) throws {
+        let contactGroupV2PendingMember = ContactGroupV2PendingMember(backupItem: self, within: context)
         try associations.associate(contactGroupV2PendingMember, to: self)
     }
     
-    func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing to do here
     }
 
@@ -540,13 +543,13 @@ struct ContactGroupV2PendingMemberSyncSnapshotItem: Codable, Hashable, Identifia
     }
     
     
-    func restoreInstance(within obvContext: ObvContext, cryptoIdentity: ObvCryptoIdentity, associations: inout SnapshotNodeManagedObjectAssociations) throws {
-        let contactGroupV2PendingMember = try ContactGroupV2PendingMember(snapshotNode: self, cryptoIdentity: cryptoIdentity, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, cryptoIdentity: ObvCryptoIdentity, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let contactGroupV2PendingMember = try ContactGroupV2PendingMember(snapshotNode: self, cryptoIdentity: cryptoIdentity, within: context)
         try associations.associate(contactGroupV2PendingMember, to: self)
     }
 
     
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing to do here
     }
 

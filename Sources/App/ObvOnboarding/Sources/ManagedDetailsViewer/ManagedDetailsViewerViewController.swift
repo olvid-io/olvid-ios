@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,9 +24,13 @@ import ObvKeycloakManager
 
 
 protocol ManagedDetailsViewerViewControllerDelegate: AnyObject {
-    func userWantsToCreateProfileWithDetailsFromIdentityProvider(controller: ManagedDetailsViewerViewController, keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff), keycloakState: ObvKeycloakState) async
+    func userWantsToCreateProfileOrBindExistingProfileWithIdentityProvider(_ vc: ManagedDetailsViewerViewController, bindExistingOrCreate: BindExistingOrCreateNewProfile, keycloakDetails: (keycloakUserDetailsAndStuff: ObvKeycloakManager.KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: ObvKeycloakManager.KeycloakServerRevocationsAndStuff), keycloakState: ObvKeycloakState) async
 }
 
+enum BindExistingOrCreateNewProfile {
+    case bindExistingProfile(existingOwnedCryptoIdToBind: ObvTypes.ObvCryptoId)
+    case createNewProfile
+}
 
 final class ManagedDetailsViewerViewController: UIHostingController<ManagedDetailsViewerView>, ManagedDetailsViewerViewActionsProtocol {
     
@@ -70,8 +74,17 @@ final class ManagedDetailsViewerViewController: UIHostingController<ManagedDetai
     
     @MainActor
     func userWantsToCreateProfileWithDetailsFromIdentityProvider(keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)) async {
-        await delegate?.userWantsToCreateProfileWithDetailsFromIdentityProvider(
-            controller: self,
+        await delegate?.userWantsToCreateProfileOrBindExistingProfileWithIdentityProvider(
+            self,
+            bindExistingOrCreate: .createNewProfile,
+            keycloakDetails: keycloakDetails,
+            keycloakState: keycloakState)
+    }
+    
+    func userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: ObvTypes.ObvCryptoId, keycloakDetails: (keycloakUserDetailsAndStuff: ObvKeycloakManager.KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: ObvKeycloakManager.KeycloakServerRevocationsAndStuff)) async {
+        await delegate?.userWantsToCreateProfileOrBindExistingProfileWithIdentityProvider(
+            self,
+            bindExistingOrCreate: .bindExistingProfile(existingOwnedCryptoIdToBind: existingOwnedCryptoIdToBind),
             keycloakDetails: keycloakDetails,
             keycloakState: keycloakState)
     }
@@ -82,11 +95,15 @@ final class ManagedDetailsViewerViewController: UIHostingController<ManagedDetai
 
 
 private final class ManagedDetailsViewerViewActions: ManagedDetailsViewerViewActionsProtocol {
-    
+        
     weak var delegate: ManagedDetailsViewerViewActionsProtocol?
     
     func userWantsToCreateProfileWithDetailsFromIdentityProvider(keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)) async {
         await delegate?.userWantsToCreateProfileWithDetailsFromIdentityProvider(keycloakDetails: keycloakDetails)
     }
     
+    func userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: ObvTypes.ObvCryptoId, keycloakDetails: (keycloakUserDetailsAndStuff: ObvKeycloakManager.KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: ObvKeycloakManager.KeycloakServerRevocationsAndStuff)) async {
+        await delegate?.userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: existingOwnedCryptoIdToBind, keycloakDetails: keycloakDetails)
+    }
+
 }

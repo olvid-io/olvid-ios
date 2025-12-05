@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,34 +18,47 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvTypes
 import LinkPresentation
 import OlvidUtils
-import ObvEngine
+@preconcurrency import ObvEngine
 import ObvUICoreData
 import ObvSettings
 import ObvAppCoreConstants
 import ObvLocation
+import ObvAppInboxService
+import ObvAppTypes
+
+
+protocol BootstrapCoordinatorDelegate: AnyObject {
+    func reprocessEngineMessagesForLater(_ bootstrapCoordinator: BootstrapCoordinator, messageIdentifiersForLater: [ObvMessageIdentifier]) async
+}
 
 
 final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
     
     let obvEngine: ObvEngine
     static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: BootstrapCoordinator.self))
+    static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: BootstrapCoordinator.self))
     private var observationTokens = [NSObjectProtocol]()
     let coordinatorsQueue: OperationQueue
     let queueForComposedOperations: OperationQueue
     let queueForSyncHintsComputationOperation: OperationQueue
     weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
+    weak var delegate: BootstrapCoordinatorDelegate?
+    
+    private let appInboxService: ObvAppInboxService
+    private var isSyncMessageIdsKeptForLaterIfRequiredInProgress = false
     
     static let errorDomain = "BootstrapCoordinator"
     
     private let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)
     
-    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue, queueForSyncHintsComputationOperation: OperationQueue) {
+    init(obvEngine: ObvEngine, appInboxService: ObvAppInboxService, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue, queueForSyncHintsComputationOperation: OperationQueue) {
         self.obvEngine = obvEngine
+        self.appInboxService = appInboxService
         self.queueForSyncHintsComputationOperation = queueForSyncHintsComputationOperation
         self.coordinatorsQueue = coordinatorsQueue
         self.queueForComposedOperations = queueForComposedOperations
@@ -57,6 +70,7 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
     }
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
+        await setDateOfCreationOfFirstProfileIfRequired(withDate: nil)
         await updateLegacyStatusesOfSentMessagesIfRequired()
         pruneObsoletePersistedInvitations()
         removeOldCachedPreviewFetched()
@@ -79,6 +93,11 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
             deleteOrphanedPersistedAttachmentSentRecipientInfosOperation()
             await migrateUtiOfFyleMessageJoinWithStatusForLinkPreviews()
             await resetInconsistentDiscussionExistenceAndVisibilityDurations()
+            do {
+                try await syncMessageIdsKeptForLaterIfRequired(syncRequestType: .foreground)
+            } catch {
+                Self.logger.fault("Could not sync message IDs kept for later: \(error)")
+            }
         }
     }
     
@@ -95,11 +114,12 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
                     completion(.success((coordinatorsQueue, queueForComposedOperations)))
                 }
             },
-            ObvMessengerInternalNotification.observeResyncContactIdentityDevicesWithEngine { [weak self] obvContactIdentifier in
-                Task { [weak self] in await self?.processResyncContactIdentityDevicesWithEngineNotification(obvContactIdentifier: obvContactIdentifier) }
-            },
         ])
         
+        Task {
+            await PersistedObvOwnedIdentity.addObvObserver(self)
+        }
+
     }
     
     
@@ -107,6 +127,16 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
         case selfIsNil
     }
     
+}
+
+// MARK: - Implementing PersistedObvOwnedIdentityObserver
+
+extension BootstrapCoordinator: PersistedObvOwnedIdentityObserver {
+    
+    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) async {
+        await setDateOfCreationOfFirstProfileIfRequired(withDate: Date.now)
+    }
+
 }
 
 
@@ -127,6 +157,11 @@ extension BootstrapCoordinator: BackgroundTasksManagerDelegate {
     
     func syncAppDatabasesWithEngine(backgroundTasksManager: BackgroundTasksManager) async throws {
         await syncAppDatabasesWithEngineIfRequired(queuePriority: .veryHigh, syncRequestType: .processingBackgroundTask)
+    }
+ 
+    
+    func syncMessageIdsKeptForLater(_ backgroundTasksManager: BackgroundTasksManager) async throws {
+        try await syncMessageIdsKeptForLaterIfRequired(syncRequestType: .processingBackgroundTask)
     }
     
 }
@@ -153,6 +188,55 @@ extension BootstrapCoordinator {
     }
     
 
+    private func setDateOfCreationOfFirstProfileIfRequired(withDate date: Date?) async {
+        do {
+            guard let userDefaults else { assertionFailure(); return }
+            
+            guard userDefaults.dateOrNil(for: ObvMessengerConstants.UserDefaultsKeys.dateOfCreationOfFirstProfile) == nil else {
+                // The date of creation of the first profile is already set, there is nothing left to do.
+                return
+            }
+            
+            if let date {
+                
+                userDefaults.setDate(date, for: ObvMessengerConstants.UserDefaultsKeys.dateOfCreationOfFirstProfile)
+                
+            } else {
+                
+                let numberOfProfiles = try await countProfiles()
+                guard numberOfProfiles > 0 else {
+                    // No profile exists yet. The `dateOfCreationOfFirstProfile` will be set when a profile will be created.
+                    return
+                }
+                guard let guessedDate = try await obvEngine.guessDateOfCreationOfFirstProfile() else {
+                    // We could not guess the date of creation of the first profile, which can happen if the profile has no contacts
+                    return
+                }
+                
+                userDefaults.setDate(guessedDate, for: ObvMessengerConstants.UserDefaultsKeys.dateOfCreationOfFirstProfile)
+                
+            }
+        } catch {
+            Self.logger.fault("Could not set the date of creation of the first profile: \(error)")
+            assertionFailure()
+        }
+    }
+    
+    
+    private func countProfiles() async throws -> Int {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    let count = try PersistedObvOwnedIdentity.countAll(within: context)
+                    return continuation.resume(returning: count)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
     /// Update the legacy sent message statutes of previously sent messages to update them if required. This method also consolidates the timestamps in sent message infos as, before v3.1,
     /// we could end up in a situation where a sent info could have a non-nil delivered timestamp, with a nil sent timestamp (which makes no sense).
     private func updateLegacyStatusesOfSentMessagesIfRequired() async {
@@ -294,13 +378,6 @@ extension BootstrapCoordinator {
     }
 
 
-    private func processResyncContactIdentityDevicesWithEngineNotification(obvContactIdentifier: ObvContactIdentifier) async {
-        let operationsToQueueOnQueueForComposedOperation = await getOperationsRequiredToSyncContactDevices(scope: .contactDevicesOfContact(contactIdentifier: obvContactIdentifier), isRestoringSyncSnapshotOrBackup: false)
-        operationsToQueueOnQueueForComposedOperation.makeEachOperationDependentOnThePreceedingOne()
-        await coordinatorsQueue.addAndAwaitOperations(operationsToQueueOnQueueForComposedOperation)
-    }
-
-
     enum DatabaseSyncRequestType {
         case userRequested
         case foreground
@@ -317,6 +394,103 @@ extension BootstrapCoordinator {
 
     }
 
+    
+    private enum MessageIdsKeptForLaterSyncRequestType {
+        case processingBackgroundTask
+        case foreground
+        case userRequested
+    }
+    
+    
+    private func syncMessageIdsKeptForLaterIfRequired(syncRequestType: MessageIdsKeptForLaterSyncRequestType) async throws {
+        
+        guard !isSyncMessageIdsKeptForLaterIfRequiredInProgress else { return }
+        isSyncMessageIdsKeptForLaterIfRequiredInProgress = true
+        defer { isSyncMessageIdsKeptForLaterIfRequiredInProgress = false }
+        
+        guard let delegate else {
+            assertionFailure()
+            Self.logger.fault("Could not sync messageIdsKeptForLater as the delegate is nil")
+            return
+        }
+        
+        let syncUUID = UUID()
+
+        // If we are processing a foreground request, we don't perform the sync if one was performed recently
+        
+        switch syncRequestType {
+        case .foreground:
+            assert(userDefaults != nil)
+            let dateOfLastAppInboxSyncMessageIdsKeptForLater = userDefaults?.dateOrNil(forKey: ObvMessengerConstants.UserDefaultsKeys.dateOfLastAppInboxSyncMessageIdsKeptForLater.rawValue) ?? .distantPast
+            guard Date.now.timeIntervalSince(dateOfLastAppInboxSyncMessageIdsKeptForLater) > TimeInterval(days: 2) else {
+                Self.logger.debug("↻ \(syncUUID, privacy: .public) Not performing an app database sync in foreground as one was performed on \(dateOfLastAppInboxSyncMessageIdsKeptForLater, privacy: .public)")
+                return
+            }
+            Self.logger.debug("↻ \(syncUUID, privacy: .public) Performing an app database sync in foreground as none has been performed recently (last one: \(dateOfLastAppInboxSyncMessageIdsKeptForLater, privacy: .public))")
+        case .processingBackgroundTask, .userRequested:
+            break
+        }
+        
+        defer {
+            userDefaults?.set(Date.now, forKey: ObvMessengerConstants.UserDefaultsKeys.dateOfLastAppInboxSyncMessageIdsKeptForLater.rawValue)
+        }
+
+        // Replay messages from engine kept for later that expect a discussion that now exist
+        
+        do {
+            let allExpectedDiscussionIdentifiers = try await self.appInboxService.getAllExpectedDiscussionIdentifiers()
+            for discussionIdentifier in allExpectedDiscussionIdentifiers {
+                do {
+                    if try await isDiscussionExisting(discussionIdentifier: discussionIdentifier) {
+                        let messageIdentifiersForLater = await self.appInboxService.fetchMessageIdentifiersForLater(identifierOfExpectedDiscussion: discussionIdentifier)
+                        await delegate.reprocessEngineMessagesForLater(self, messageIdentifiersForLater: messageIdentifiersForLater)
+                    }
+                } catch {
+                    Self.logger.fault("Could not check if discussion \(discussionIdentifier) exists: \(error, privacy: .public)")
+                }
+            }
+        } catch {
+            Self.logger.fault("Could not get all expected discussion identifiers: \(error, privacy: .public)")
+        }
+                
+        // Replay messages from engine kept for later that expect a group member that now exist
+
+        do {
+            let allExpectedGroupMemberIdentifiers = try await self.appInboxService.getAllExpectedGroupMembersIdentifiers()
+            for memberId in allExpectedGroupMemberIdentifiers {
+                do {
+                    if try await isGroupMemberExisting(memberId: memberId) {
+                        let messageIdentifiersForLater = await self.appInboxService.fetchMessageIdentifiersForLater(identifierOfExpectedGroup: memberId.groupId, cryptoIdOfExpectedContact: memberId.memberCryptoId)
+                        await delegate.reprocessEngineMessagesForLater(self, messageIdentifiersForLater: messageIdentifiersForLater)
+                    }
+                } catch {
+                    Self.logger.fault("Could not check if group member exists: \(error, privacy: .public)")
+                }
+            }
+        } catch {
+            Self.logger.fault("Could not get all expected group members identifiers: \(error, privacy: .public)")
+        }
+
+        // Replay messages from engine kept for later that expect a message that now exist
+        
+        do {
+            let allExpectedMessageIdentifiers = try await self.appInboxService.getAllExpectedMessageIdentifiers()
+            for messageId in allExpectedMessageIdentifiers {
+                do {
+                    if try await isMessageExisting(messageId: messageId) {
+                        let messageIdentifiersForLater = await self.appInboxService.fetchMessageIdentifiersForLater(identifierOfExpectedMessage: messageId)
+                        await delegate.reprocessEngineMessagesForLater(self, messageIdentifiersForLater: messageIdentifiersForLater)
+                    }
+                } catch {
+                    Self.logger.fault("Could not check if message exists: \(error, privacy: .public)")
+                }
+            }
+        } catch {
+            Self.logger.fault("Could not get all expected message identifiers: \(error, privacy: .public)")
+        }
+
+    }
+    
     
     private func syncAppDatabasesWithEngineIfRequired(queuePriority: Operation.QueuePriority, syncRequestType: DatabaseSyncRequestType) async {
         
@@ -448,7 +622,10 @@ extension BootstrapCoordinator {
             if !ops.isEmpty {
                 ops.forEach { $0.queuePriority = queuePriority }
                 await coordinatorsQueue.addAndAwaitOperations(ops)
-                ops.forEach { assert($0.isFinished && !$0.isCancelled) }
+                ops.forEach { op in
+                    debugPrint(op)
+                    assert(op.isFinished && !op.isCancelled)
+                }
                 syncPerformed.insert(.groupsV1)
             }
             os_log("↻ %{public}@ Did sync groups V1", log: Self.log, type: .debug, syncUUID.debugDescription)
@@ -533,7 +710,6 @@ extension BootstrapCoordinator {
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         await coordinatorsQueue.addAndAwaitOperation(composedOp)
         guard op1.isFinished && !op1.isCancelled else { assertionFailure(); return }
-
         
     }
 
@@ -546,13 +722,73 @@ extension BootstrapCoordinator {
     
     func userRequestedAppDatabaseSyncWithEngine(rootViewController: RootViewController) async throws {
         await syncAppDatabasesWithEngineIfRequired(queuePriority: .veryHigh, syncRequestType: .userRequested)
+        do {
+            try await syncMessageIdsKeptForLaterIfRequired(syncRequestType: .userRequested)
+        } catch {
+            Self.logger.fault("Could not sync message identifiers kept for later: \(error)")
+        }
     }
     
 }
 
 
 
-// MARK: - Private helpers
+// MARK: - Private helpers when syncing engine message identifiers saved for later (during bootstrap)
+
+extension BootstrapCoordinator {
+    
+    private func isDiscussionExisting(discussionIdentifier: ObvDiscussionIdentifier) async throws -> Bool {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    let isExisting = try PersistedDiscussion.isPersistedDiscussionExisting(discussionIdentifier: discussionIdentifier, within: context)
+                    return continuation.resume(returning: isExisting)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    private func isGroupMemberExisting(memberId: ObvGroupMemberIdentifier) async throws -> Bool {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    let isExisting: Bool
+                    switch memberId.groupId {
+                    case .groupV1(let groupId):
+                        isExisting = try PersistedContactGroup.isGroupMemberExisting(
+                            groupId: groupId,
+                            memberCryptoId: memberId.memberCryptoId,
+                            within: context)
+                    case .groupV2(let groupId):
+                        isExisting = try PersistedGroupV2Member.isNonPendingGroupMemberWithAssociatedPersistedContactExisting(
+                            groupId: groupId,
+                            memberCryptoId: memberId.memberCryptoId,
+                            within: context)
+                    }
+                    return continuation.resume(returning: isExisting)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    private func isMessageExisting(messageId: ObvMessageAppIdentifier) async throws -> Bool {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    let isExisting = try PersistedMessage.isMessageExisting(messageId: messageId, within: context)
+                    return continuation.resume(returning: isExisting)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+}
 
 private extension Operation.QueuePriority {
     

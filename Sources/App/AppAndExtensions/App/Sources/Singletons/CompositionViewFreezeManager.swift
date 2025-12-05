@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -44,12 +44,11 @@ import OlvidUtils
 /// be executed after the attachment task is done. It should be noted that this block does *not* rely on the `NewComposeMessageView` instance to unfreeze it. Instead,
 /// it call this singleton directely. This way, we know for sure that that even if the `NewComposeMessageView` instance is deallocated (e.g., because the user left
 /// the discussion), this singleton will be notified that it should unfreeze, and the next time the user enters the discussion, she will indeed get an unfreezed composition view.
-@available(iOS 15, *)
 final class CompositionViewFreezeManager {
     
     static let shared = CompositionViewFreezeManager()
 
-    private var currentFreezeIds = [ObvManagedObjectPermanentID<PersistedDraft>: (freezeId: UUID?, progress: Progress?, views: [Weak<NewComposeMessageView>])]()
+    private var currentFreezeIds = [TypeSafeManagedObjectID<PersistedDraft>: (freezeId: UUID?, progress: Progress?, views: [Weak<NewComposeMessageView>])]()
     private let internalQueue = DispatchQueue(label: "CompositionViewFreezeCoordinator internal queue")
     
     private func makeError(message: String) -> Error { NSError(domain: "CompositionViewFreezeCoordinator", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
@@ -59,23 +58,23 @@ final class CompositionViewFreezeManager {
     /// Called by all `NewComposeMessageView` at init
     func register(_ composeView: NewComposeMessageView) -> (freezeId: UUID?, progress: Progress?) {
 
-        guard let draftPermanentID = try? composeView.draft.objectPermanentID else { assertionFailure(); return (nil, nil)}
+        let draftObjectID = composeView.draft.typedObjectID
 
         var freezeId: UUID? = nil
         var progress: Progress? = nil
         var views = [Weak<NewComposeMessageView>]()
         
         internalQueue.sync {
-            cleanCurrentFreezeIds(for: draftPermanentID)
+            cleanCurrentFreezeIds(for: draftObjectID)
 
-            if let existingValues = currentFreezeIds.removeValue(forKey: draftPermanentID) {
+            if let existingValues = currentFreezeIds.removeValue(forKey: draftObjectID) {
                 freezeId = existingValues.freezeId
                 progress = existingValues.progress
                 views = existingValues.views
             }
 
             views.append(Weak(composeView))
-            currentFreezeIds[draftPermanentID] = (freezeId, progress, views)
+            currentFreezeIds[draftObjectID] = (freezeId, progress, views)
         }
         
         return (freezeId, progress)
@@ -83,20 +82,20 @@ final class CompositionViewFreezeManager {
     
     
     func unregister(_ composeView: NewComposeMessageView) {
-        guard let draftPermanentID = try? composeView.draft.objectPermanentID else { assertionFailure(); return }
+        let draftObjectID = composeView.draft.typedObjectID
         internalQueue.sync {
-            cleanCurrentFreezeIds(for: draftPermanentID)
+            cleanCurrentFreezeIds(for: draftObjectID)
         }
     }
     
     
     /// Remove the references to `NewComposeMessageView` that were deallocated. Must be called on the internal queue
-    private func cleanCurrentFreezeIds(for draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
-        if let existingValues = currentFreezeIds.removeValue(forKey: draftPermanentID) {
+    private func cleanCurrentFreezeIds(for draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
+        if let existingValues = currentFreezeIds.removeValue(forKey: draftObjectID) {
             var views = existingValues.views
             views.removeAll(where: { $0.value == nil })
             if !views.isEmpty || existingValues.freezeId != nil {
-                currentFreezeIds[draftPermanentID] = (existingValues.freezeId, existingValues.progress, views)
+                currentFreezeIds[draftObjectID] = (existingValues.freezeId, existingValues.progress, views)
             }
         }
     }
@@ -104,10 +103,10 @@ final class CompositionViewFreezeManager {
     
     /// Called by a `NewComposeMessageView` when it shall freeze
     func freeze(_ composeView: NewComposeMessageView) throws {
-        guard let draftPermanentID = try? composeView.draft.objectPermanentID else { assertionFailure(); return }
+        let draftObjectID = composeView.draft.typedObjectID
         internalQueue.sync {
-            cleanCurrentFreezeIds(for: draftPermanentID)
-            guard let existingValues = currentFreezeIds.removeValue(forKey: draftPermanentID) else {
+            cleanCurrentFreezeIds(for: draftObjectID)
+            guard let existingValues = currentFreezeIds.removeValue(forKey: draftObjectID) else {
                 assertionFailure()
                 return
             }
@@ -115,7 +114,7 @@ final class CompositionViewFreezeManager {
             assert(views.contains(where: { $0.value == composeView }))
             assert(existingValues.freezeId == nil)
             let newFreezeId = UUID()
-            currentFreezeIds[draftPermanentID] = (newFreezeId, nil, views)
+            currentFreezeIds[draftObjectID] = (newFreezeId, nil, views)
             DispatchQueue.main.async {
                 for view in views {
                     view.value?.freeze(withFreezeId: newFreezeId)
@@ -126,22 +125,22 @@ final class CompositionViewFreezeManager {
     
     
     /// Returns `true` iff the compose view is registered. Must be called on the internal queue.
-    private func hasRegistered(_ composeView: NewComposeMessageView, for draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) -> Bool {
-        guard let values = currentFreezeIds[draftPermanentID] else { return false }
+    private func hasRegistered(_ composeView: NewComposeMessageView, for draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) -> Bool {
+        guard let values = currentFreezeIds[draftObjectID] else { return false }
         return values.views.contains(where: { $0.value == composeView })
     }
     
     
     
     /// Called to unfreeze all `NewComposeMessageView` instances corresponding to the draft objectID
-    func unfreeze(_ draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, success: Bool, completion: (() -> Void)? = nil) throws {
+    func unfreeze(_ draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, completion: (() -> Void)? = nil) throws {
 
-        let (freezeIdForViewsToUnfreeze, viewsToUnfreeze) = updateCurrentFreezeIdsOnUnfreeze(draftPermanentID)
+        let (freezeIdForViewsToUnfreeze, viewsToUnfreeze) = updateCurrentFreezeIdsOnUnfreeze(draftObjectID)
         
         if let freezeIdForViewsToUnfreeze = freezeIdForViewsToUnfreeze {
             DispatchQueue.main.async {
                 for view in viewsToUnfreeze {
-                    view.value?.unfreeze(withFreezeId: freezeIdForViewsToUnfreeze, success: success)
+                    view.value?.unfreeze(withFreezeId: freezeIdForViewsToUnfreeze)
                 }
                 completion?()
             }
@@ -153,19 +152,19 @@ final class CompositionViewFreezeManager {
     }
 
     
-    private func updateCurrentFreezeIdsOnUnfreeze(_ draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) -> (freezeIdForViewsToUnfreeze: UUID?, viewsToUnfreeze: [Weak<NewComposeMessageView>]) {
+    private func updateCurrentFreezeIdsOnUnfreeze(_ draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) -> (freezeIdForViewsToUnfreeze: UUID?, viewsToUnfreeze: [Weak<NewComposeMessageView>]) {
 
         var viewsToUnfreeze = [Weak<NewComposeMessageView>]()
         var freezeIdForViewsToUnfreeze: UUID?
 
         internalQueue.sync {
-            cleanCurrentFreezeIds(for: draftPermanentID)
-            guard let existingValues = currentFreezeIds.removeValue(forKey: draftPermanentID),
+            cleanCurrentFreezeIds(for: draftObjectID)
+            guard let existingValues = currentFreezeIds.removeValue(forKey: draftObjectID),
                   let freezeId = existingValues.freezeId else {
                 return
             }
             let views = existingValues.views
-            currentFreezeIds[draftPermanentID] = (nil, nil, views)
+            currentFreezeIds[draftObjectID] = (nil, nil, views)
             viewsToUnfreeze = views
             freezeIdForViewsToUnfreeze = freezeId
         }
@@ -178,17 +177,16 @@ final class CompositionViewFreezeManager {
 
 // MARK: - Unfreezing views when receiving appropriate notifications
 
-@available(iOS 15, *)
 extension CompositionViewFreezeManager {
     
-    func processDraftToSendWasReset(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
+    func processDraftToSendWasReset(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
 
-        let (freezeIdForViewsToUnfreeze, viewsToUnfreeze) = updateCurrentFreezeIdsOnUnfreeze(draftPermanentID)
+        let (freezeIdForViewsToUnfreeze, viewsToUnfreeze) = updateCurrentFreezeIdsOnUnfreeze(draftObjectID)
         
         if let freezeIdForViewsToUnfreeze = freezeIdForViewsToUnfreeze {
             DispatchQueue.main.async {
                 for view in viewsToUnfreeze {
-                    view.value?.unfreezeAfterDraftToSendWasReset(draftPermanentID, freezeId: freezeIdForViewsToUnfreeze)
+                    view.value?.unfreezeAfterDraftToSendWasReset(draftObjectID, freezeId: freezeIdForViewsToUnfreeze)
                 }
             }
         }
@@ -196,14 +194,14 @@ extension CompositionViewFreezeManager {
     }
  
     
-    func processDraftCouldNotBeSent(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
+    func processDraftCouldNotBeSent(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
 
-        let (freezeIdForViewsToUnfreeze, viewsToUnfreeze) = updateCurrentFreezeIdsOnUnfreeze(draftPermanentID)
+        let (freezeIdForViewsToUnfreeze, viewsToUnfreeze) = updateCurrentFreezeIdsOnUnfreeze(draftObjectID)
 
         if let freezeIdForViewsToUnfreeze = freezeIdForViewsToUnfreeze {
             DispatchQueue.main.async {
                 for view in viewsToUnfreeze {
-                    view.value?.unfreezeAfterDraftCouldNotBeSent(draftPermanentID, freezeId: freezeIdForViewsToUnfreeze)
+                    view.value?.unfreezeAfterDraftCouldNotBeSent(draftObjectID, freezeId: freezeIdForViewsToUnfreeze)
                 }
             }
         }
@@ -215,18 +213,17 @@ extension CompositionViewFreezeManager {
 
 // MARK: - Managing progresses
 
-@available(iOS 15, *)
 extension CompositionViewFreezeManager {
     
-    func newProgressToAddForTrackingFreeze(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, progress: Progress) {
+    func newProgressToAddForTrackingFreeze(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, progress: Progress) {
         
         var viewsToInform = [Weak<NewComposeMessageView>]()
         var freezeIdForViews: UUID?
         var progressToMakeAvailable: Progress?
 
         internalQueue.sync {
-            cleanCurrentFreezeIds(for: draftPermanentID)
-            guard let existingValues = currentFreezeIds.removeValue(forKey: draftPermanentID),
+            cleanCurrentFreezeIds(for: draftObjectID)
+            guard let existingValues = currentFreezeIds.removeValue(forKey: draftObjectID),
                   let freezeId = existingValues.freezeId else {
                 return
             }
@@ -235,10 +232,10 @@ extension CompositionViewFreezeManager {
                 let overallProgress = Progress(totalUnitCount: previousProgress.totalUnitCount + progress.totalUnitCount)
                 overallProgress.addChild(previousProgress, withPendingUnitCount: previousProgress.totalUnitCount - previousProgress.completedUnitCount)
                 overallProgress.addChild(progress, withPendingUnitCount: progress.totalUnitCount - progress.completedUnitCount)
-                currentFreezeIds[draftPermanentID] = (freezeId, overallProgress, views)
+                currentFreezeIds[draftObjectID] = (freezeId, overallProgress, views)
                 progressToMakeAvailable = overallProgress
             } else {
-                currentFreezeIds[draftPermanentID] = (freezeId, progress, views)
+                currentFreezeIds[draftObjectID] = (freezeId, progress, views)
                 progressToMakeAvailable = progress
             }
             viewsToInform = views
@@ -248,12 +245,11 @@ extension CompositionViewFreezeManager {
         if let freezeIdForViews = freezeIdForViews, let progressToMakeAvailable = progressToMakeAvailable {
             DispatchQueue.main.async {
                 for view in viewsToInform {
-                    view.value?.newFreezeProgressAvailable(draftPermanentID, freezeId: freezeIdForViews, progress: progressToMakeAvailable)
+                    view.value?.newFreezeProgressAvailable(draftObjectID, freezeId: freezeIdForViews, progress: progressToMakeAvailable)
                 }
             }
         }
 
     }
-
 
 }

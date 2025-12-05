@@ -99,7 +99,7 @@ actor FreeTrialQueryCoordinator: FreeTrialQueryDelegate {
     
     
     /// Starts a free trial and returns refresh API permission reflecting the result of starting the free trial.
-    func startFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements {
+    func startFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws {
         
         guard let delegateManager = delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
@@ -135,13 +135,11 @@ actor FreeTrialQueryCoordinator: FreeTrialQueryDelegate {
             switch returnStatus {
             case .ok:
                 failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
-                let newAPIKeyElements = try await delegateManager.networkFetchFlowDelegate.refreshAPIPermissions(of: ownedCryptoId, flowId: flowId)
-                return newAPIKeyElements
+                try await delegateManager.networkFetchFlowDelegate.refreshAPIPermissions(of: ownedCryptoId, flowId: flowId)
             case .invalidSession:
                 failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
                 _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
-                let newAPIKeyElements = try await startFreeTrial(for: ownedCryptoId, flowId: flowId)
-                return newAPIKeyElements
+                try await startFreeTrial(for: ownedCryptoId, flowId: flowId)
             case .freeTrialAlreadyUsed:
                 failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
                 throw ObvError.freeTrialAlreadyUsed
@@ -149,8 +147,7 @@ actor FreeTrialQueryCoordinator: FreeTrialQueryDelegate {
                 let delay = failedAttemptsCounterManager.incrementAndGetDelay(.freeTrialQuery(ownedIdentity: ownedCryptoId))
                 os_log("Will retry the call to startFreeTrial in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
                 await retryManager.waitForDelay(milliseconds: delay)
-                let newAPIKeyElements = try await startFreeTrial(for: ownedCryptoId, flowId: flowId)
-                return newAPIKeyElements
+                try await startFreeTrial(for: ownedCryptoId, flowId: flowId)
             }
         } catch {
             assertionFailure()

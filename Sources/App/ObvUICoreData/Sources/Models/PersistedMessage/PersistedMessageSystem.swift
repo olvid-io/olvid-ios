@@ -134,9 +134,6 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
 
         var isRelevantForCountingUnread: Bool {
             switch self {
-            case .contactJoinedGroup: return true
-            case .contactLeftGroup: return true
-            case .contactWasDeleted: return true
             case .callLogItem: return false // Only if item.callLogReport.isRelevantForCountingUnread
             case .updatedDiscussionSharedSettings: return true
             case .discussionWasRemotelyWiped: return true
@@ -150,6 +147,9 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
             case .ownedIdentityDidCaptureSensitiveMessages: return true
             case .contactIdentityDidCaptureSensitiveMessages: return true
 
+            case .contactJoinedGroup: return false
+            case .contactLeftGroup: return false
+            case .contactWasDeleted: return false
             case .numberOfNewMessages: return false
             case .discussionIsEndToEndEncrypted: return false
             case .contactWasIntroducedToAnotherContact: return false
@@ -321,7 +321,7 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
                 } else if let associatedData = associatedData, let contactName = String(data: associatedData, encoding: .utf8)?.trimmingWhitespacesAndNewlines() {
                     return Strings.contactIsOneToOneAgain(contactName: contactName)
                 } else {
-                    assertionFailure()
+                    // This happens when deleting a contact while in the one2one discussion
                     return nil
                 }
             case .groupV1, .groupV2, .none:
@@ -525,7 +525,7 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
 extension PersistedMessageSystem {
     
     /// At this time, the `messageUploadTimestampFromServer` is only relevant when receiving an `updatedDiscussionSharedSettings` system message.
-    public convenience init(_ category: Category, optionalContactIdentity: PersistedObvContactIdentity?, optionalOwnedCryptoId: ObvCryptoId?, optionalCallLogItem: PersistedCallLogItem?, discussion: PersistedDiscussion, messageUploadTimestampFromServer: Date? = nil, timestamp: Date, thisMessageTimestampCanResetDiscussionTimestampOfLastMessage: Bool = true) throws {
+    public convenience init(_ category: Category, optionalContactIdentity: PersistedObvContactIdentity?, optionalOwnedCryptoId: ObvCryptoId?, optionalCallLogItem: PersistedCallLogItem?, discussion: PersistedDiscussion, messageUploadTimestampFromServer: Date? = nil, timestamp: Date, thisMessageTimestampCanResetDiscussionSortDate: Bool = true, markAsRead: Bool = false) throws {
         
         guard category != .numberOfNewMessages else { assertionFailure(); throw ObvUICoreDataError.inappropriateInitilizerCalled }
         
@@ -545,9 +545,16 @@ extension PersistedMessageSystem {
         
         let senderSequenceNumber = discussion.incrementLastSystemMessageSequenceNumber()
         
+        let messageStatus: Int
+        
+        if markAsRead {
+            messageStatus = MessageStatus.read.rawValue
+        } else {
+            messageStatus = MessageStatus.new.rawValue
+        }
         try self.init(timestamp: timestamp,
                       body: nil,
-                      rawStatus: MessageStatus.new.rawValue,
+                      rawStatus: messageStatus,
                       senderSequenceNumber: senderSequenceNumber,
                       sortIndex: sortIndex,
                       replyTo: nil,
@@ -557,7 +564,8 @@ extension PersistedMessageSystem {
                       forwarded: false,
                       mentions: [], // For now, we have no mentions in system messages
                       isLocation: false,
-                      thisMessageTimestampCanResetDiscussionTimestampOfLastMessage: thisMessageTimestampCanResetDiscussionTimestampOfLastMessage,
+                      poll: nil,
+                      thisMessageTimestampCanResetDiscussionSortDate: thisMessageTimestampCanResetDiscussionSortDate,
                       forEntityName: PersistedMessageSystem.entityName)
      
         self.rawCategory = category.rawValue
@@ -598,6 +606,7 @@ extension PersistedMessageSystem {
                       forwarded: false,
                       mentions: [], // For now, we have no mentions in system messages,
                       isLocation: false,
+                      poll: nil,
                       forEntityName: PersistedMessageSystem.entityName)
         
         self.rawCategory = Category.numberOfNewMessages.rawValue
@@ -709,33 +718,36 @@ extension PersistedMessageSystem {
                                     timestamp: Date())
         message.associatedData = discussion.contactIdentity?.mediumOriginalName.data(using: .utf8)
     }
-
     
-    public static func insertMembersOfGroupV2WereUpdatedSystemMessage(within discussion: PersistedGroupV2Discussion) throws {
+    
+    public static func insertMembersOfGroupV2WereUpdatedSystemMessage(within discussion: PersistedGroupV2Discussion, markAsRead: Bool) throws {
         _ = try self.init(.membersOfGroupV2WereUpdated,
                           optionalContactIdentity: nil,
                           optionalOwnedCryptoId: nil,
                           optionalCallLogItem: nil,
                           discussion: discussion,
-                          timestamp: Date())
+                          timestamp: Date(),
+                          markAsRead: markAsRead)
     }
-
-    public static func insertMemberOfGroupV2HasJoinedSystemMessage(within discussion: PersistedGroupV2Discussion, memberIdentity: PersistedObvContactIdentity) throws {
+    
+    public static func insertMemberOfGroupV2HasJoinedSystemMessage(within discussion: PersistedGroupV2Discussion, memberIdentity: PersistedObvContactIdentity, markAsRead: Bool) throws {
         _ = try self.init(.contactJoinedGroup,
                           optionalContactIdentity: memberIdentity,
                           optionalOwnedCryptoId: nil,
                           optionalCallLogItem: nil,
                           discussion: discussion,
-                          timestamp: Date())
+                          timestamp: Date(),
+                          markAsRead: markAsRead)
     }
-
-    public static func insertMemberOfGroupV2HasLeftSystemMessage(within discussion: PersistedGroupV2Discussion, memberIdentity: PersistedObvContactIdentity) throws {
+    
+    public static func insertMemberOfGroupV2HasLeftSystemMessage(within discussion: PersistedGroupV2Discussion, memberIdentity: PersistedObvContactIdentity, markAsRead: Bool) throws {
         _ = try self.init(.contactLeftGroup,
                           optionalContactIdentity: memberIdentity,
                           optionalOwnedCryptoId: nil,
                           optionalCallLogItem: nil,
                           discussion: discussion,
-                          timestamp: Date())
+                          timestamp: Date(),
+                          markAsRead: markAsRead)
     }
 
     public static func insertOwnedIdentityIsPartOfGroupV2AdminsMessage(within discussion: PersistedGroupV2Discussion) throws {
@@ -797,7 +809,7 @@ extension PersistedMessageSystem {
         guard oneToOneDiscussion.contactIdentity != otherContact else {
             throw ObvUICoreDataError.unexpectedContact
         }
-        // We set thisMessageTimestampCanResetDiscussionTimestampOfLastMessage to false as we do not want discussions to "move" in the list of recent discussions just because we introduced a contact to another.
+        // We set thisMessageTimestampCanResetDiscussionSortDate to false as we do not want discussions to "move" in the list of recent discussions just because we introduced a contact to another.
         // This would particularly not make sense when introducing one contact to many other contacts.
         _ = try self.init(.contactWasIntroducedToAnotherContact,
                           optionalContactIdentity: otherContact,
@@ -805,7 +817,7 @@ extension PersistedMessageSystem {
                           optionalCallLogItem: nil,
                           discussion: oneToOneDiscussion,
                           timestamp: Date(),
-                          thisMessageTimestampCanResetDiscussionTimestampOfLastMessage: false)
+                          thisMessageTimestampCanResetDiscussionSortDate: false)
     }
     
 }

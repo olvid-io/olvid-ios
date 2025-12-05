@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import CoreData
 import Combine
-import os.log
+import OSLog
 import ObvUI
 import SwiftUI
 import ObvUICoreData
@@ -28,9 +28,9 @@ import ObvSettings
 import ObvDesignSystem
 import ObvAppCoreConstants
 import ObvUserNotificationsSounds
+import ObvAppTypes
 
-
-final class DiscussionSettingsHostingViewController: UIHostingController<DiscussionExpirationSettingsWrapperView> {
+final class DiscussionSettingsHostingViewController: KeyboardHostingController<DiscussionExpirationSettingsWrapperView> {
 
     fileprivate let model: DiscussionExpirationSettingsViewModel
 
@@ -180,7 +180,7 @@ fileprivate extension PersistedDiscussionLocalConfiguration {
         OptionalBoolType(countBasedRetentionIsActive)
     }
 
-    var _muteNotificationsDuration: MuteDurationOption? { nil }
+    var _muteNotificationsDuration: ObvMuteDurationOption? { nil }
 
     var _notificationSound: OptionalNotificationSound {
         OptionalNotificationSound(notificationSound)
@@ -346,7 +346,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     let countBasedRetention: ValueWithBinding<PersistedDiscussionLocalConfiguration, Int>
     let timeBasedRetention: ValueWithBinding<PersistedDiscussionLocalConfiguration, DurationOptionAltOverride>
     let muteNotificationsEndDate: Date?
-    let muteNotificationsDuration: ValueWithBinding<PersistedDiscussionLocalConfiguration, MuteDurationOption?>
+    let muteNotificationsDuration: ValueWithBinding<PersistedDiscussionLocalConfiguration, ObvMuteDurationOption?>
     let defaultEmoji: ValueWithBinding<PersistedDiscussionLocalConfiguration, String?>
     let notificationSound: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalNotificationSound>
     let performInteractionDonation: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
@@ -391,7 +391,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                                 muteNotificationsDuration.set(nil)
                             }
                         }) {
-                            Label("MUTE_NOTIFICATIONS", systemIcon: .moonZzzFill)
+                            Label("MUTE_NOTIFICATIONS", systemIcon: .bellBadgeSlash)
                         }
                     }
 
@@ -611,9 +611,13 @@ fileprivate struct DiscussionExpirationSettingsView: View {
             .navigationBarItems(leading:
                                     Button(action: { dismissAction(nil) },
                                            label: {
-                Image(systemIcon: .xmarkCircleFill)
-                    .font(Font.system(size: 24, weight: .semibold, design: .default))
-                    .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
+                if #available(iOS 26, *) {
+                    Image(systemIcon: .xmark)
+                } else {
+                    Image(systemIcon: .xmarkCircleFill)
+                        .font(Font.system(size: 24, weight: .semibold, design: .default))
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
+                }
             })
             )
             .alert(isPresented: $showConfirmationMessageBeforeSavingSharedConfig) {
@@ -637,7 +641,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
 
     private var muteActionSheetButtons: [ActionSheet.Button] {
         var buttons = [ActionSheet.Button]()
-        buttons += MuteDurationOption.allCases.map { duration in
+        buttons += ObvMuteDurationOption.allCases.map { duration in
             return Alert.Button.default(
                 Text(duration.description),
                 action: {
@@ -679,10 +683,17 @@ struct ChangeDefaultEmojiView: View {
             }
         }
         .sheet(isPresented: $showingEmojiPickerSheet) {
-            EmojiPickerView(model: EmojiPickerViewModel(selectedEmoji: defaultEmoji) { emoji in
-                self.defaultEmoji = emoji
-                self.showingEmojiPickerSheet = false
-            })
+            NavigationStack {
+                EmojiPickerView(model: EmojiPickerViewModel(selectedEmoji: defaultEmoji) { emoji in
+                    self.defaultEmoji = emoji
+                    self.showingEmojiPickerSheet = false
+                })
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        ObvButtonWithCancelRole(action: { showingEmojiPickerSheet = false })
+                    }
+                }
+            }
         }
     }
 }

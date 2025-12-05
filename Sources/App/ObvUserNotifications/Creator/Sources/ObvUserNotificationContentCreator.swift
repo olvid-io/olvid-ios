@@ -218,8 +218,8 @@ public struct ObvUserNotificationContentCreator {
         case .removeReceivedMessages(messageAppIdentifiers: let messageAppIdentifiers):
             
             return .removePreviousNotificationsBasedOnObvMessageAppIdentifiers(content: UNNotificationContent(), messageAppIdentifiers: messageAppIdentifiers)
-
-        case .minimal, .message, .reaction, .messageEdition:
+            
+        case .minimal, .message, .reaction, .messageEdition, .pollAnswer:
             
             Self.logger.fault("Unexpected infos for an ObvOwnedMessage")
             assertionFailure()
@@ -304,6 +304,16 @@ public struct ObvUserNotificationContentCreator {
                 reactionJSON: reactionJSON,
                 reactor: reactor,
                 sentMessageReactedTo: sentMessageReactedTo,
+                uploadTimestampFromServer: uploadTimestampFromServer)
+            
+            return content
+            
+        case .pollAnswer(pollVoteJSON: let pollVoteJSON, reactor: let reactor, sentMessageVotedTo: let sentMessageVotedTo, uploadTimestampFromServer: let uploadTimestampFromServer):
+            
+            let content = await ObvUserNotificationContentCreator.createNotificationContentForPollVote(
+                pollVoteJSON: pollVoteJSON,
+                reactor: reactor,
+                sentMessageVotedTo: sentMessageVotedTo,
                 uploadTimestampFromServer: uploadTimestampFromServer)
             
             return content
@@ -559,6 +569,15 @@ extension ObvUserNotificationContentCreator {
 
     }
     
+    private static func createNotificationContentForPollVote(pollVoteJSON: PollVoteJSON, reactor: PersistedObvContactIdentityStructure, sentMessageVotedTo: PersistedMessageSentStructure, uploadTimestampFromServer: Date) async -> ObvUserNotificationContentTypeForObvMessage {
+        
+        let userNotificationContentType = await createNotificationContentForReceivedPollVote(voted: pollVoteJSON.voted,
+                                                                                             reactor: reactor,
+                                                                                             sentMessageVotedTo: sentMessageVotedTo,
+                                                                                             uploadTimestampFromServer: uploadTimestampFromServer)
+        return userNotificationContentType
+
+    }
     
     private static func createNotificationContentForReceivedMessage(message: MessageJSON, expectedAttachmentsCount: Int, contact: PersistedObvContactIdentityStructure, discussionKind: PersistedDiscussionAbstractStructure.StructureKind, messageRepliedTo: RepliedToMessageStructure?, uploadTimestampFromServer: Date) async -> ObvUserNotificationContentTypeForObvMessage {
         
@@ -825,6 +844,9 @@ extension ObvUserNotificationContentCreator {
                     } else if let reactionJSON = persistedItemJSON.reactionJSON {
                         groupV1Identifier = reactionJSON.groupV1Identifier
                         groupV2Identifier = reactionJSON.groupV2Identifier
+                    } else if let pollVoteJSON = persistedItemJSON.pollVoteJSON {
+                        groupV1Identifier = pollVoteJSON.groupV1Identifier
+                        groupV2Identifier = pollVoteJSON.groupV2Identifier
                     } else if let deleteMessagesJSON = persistedItemJSON.deleteMessagesJSON {
                         groupV1Identifier = deleteMessagesJSON.groupV1Identifier
                         groupV2Identifier = deleteMessagesJSON.groupV2Identifier
@@ -901,7 +923,6 @@ extension ObvUserNotificationContentCreator {
                         }
                         
                         guard contactIsAllowedToPostMessage else {
-                            assertionFailure()
                             return continuation.resume(returning: .silent)
                         }
 
@@ -946,7 +967,6 @@ extension ObvUserNotificationContentCreator {
                         context.rollback()
 
                         guard contactIsAllowedToSetOrUpdateReaction else {
-                            assertionFailure()
                             return continuation.resume(returning: .silent)
                         }
 
@@ -966,6 +986,26 @@ extension ObvUserNotificationContentCreator {
                             reactor: contact,
                             sentMessageReactedTo: messageReactedTo,
                             uploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
+                        
+                        return continuation.resume(returning: infosForCreatingContent)
+                        
+                    } else if let pollVoteJSON = persistedItemJSON.pollVoteJSON {
+                        
+                        Self.logger.info("We received a notification for a poll vote")
+                        
+                        // Determine the sent message replied to
+                        
+                        guard let sentMessageVotedTo = try PersistedMessageSent.findMessageFrom(reference: pollVoteJSON.messageReference, within: persistedDiscussion) as? PersistedMessageSent else {
+                            // The poll vote does not concern one of our sent messages, we don't notify the user
+                            return continuation.resume(returning: .silent)
+                        }
+                        
+                        let messageVotedTo = try sentMessageVotedTo.toStructure()
+                        
+                        let infosForCreatingContent = InfosForCreatingContent.pollAnswer(pollVoteJSON: pollVoteJSON,
+                                                                                         reactor: contact,
+                                                                                         sentMessageVotedTo: messageVotedTo,
+                                                                                         uploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
                         
                         return continuation.resume(returning: infosForCreatingContent)
                         
@@ -1276,6 +1316,118 @@ extension ObvUserNotificationContentCreator {
             assertionFailure()
             return .addReactionOnSentMessage(content: content, sentMessageReactedTo: sentMessageReactedTo.messageAppIdentifier, reactor: reactor.contactIdentifier, userNotificationCategory: userNotificationCategory)
         }
+
+    }
+    
+    private static func createNotificationContentForReceivedPollVote(voted: Bool, reactor: PersistedObvContactIdentityStructure, sentMessageVotedTo: PersistedMessageSentStructure, uploadTimestampFromServer: Date) async -> ObvUserNotificationContentTypeForObvMessage {
+        
+        // TODO: Should implement code intelligence to return silent only for some case.
+        return .silent
+        
+        // Note: We comment the following code as, for now, we don't notify when a voter casts a vote.
+        
+//        let discussionKind = sentMessageVotedTo.discussionKind
+//        
+//        // In certain cases, we want to silent the notification
+//        
+//        guard !shouldReturnSilentNotificationContent(contact: reactor, discussionKind: discussionKind, repliedToOrReactedTo: .sentMessageReactedTo) else {
+//            return .silent
+//        }
+//        
+//        // A voted false means that the sender has removed his vote
+//        
+//        guard voted == true else {
+//            return .removePollVoteOnSentMessage(content: UNNotificationContent(),
+//                                                sentMessageVotedTo: sentMessageVotedTo.messageAppIdentifier,
+//                                                reactor: reactor.contactIdentifier)
+//        }
+//
+//        // If we reach this point, we don't silent the notification. We start from a "minimal" content that we enrich.
+//        
+//        let content = Self.createMinimalNotificationContent(badge: .unchanged).mutableContent
+//
+//        //
+//        // Providing the primary content
+//        //
+//        
+//        content.title = reactor.customOrFullDisplayName
+//        
+//        switch discussionKind {
+//        case .oneToOneDiscussion:
+//            // Keep the subtitle as in the minimal notification content
+//            break
+//        case .groupDiscussion(structure: let structure):
+//            content.subtitle = structure.title
+//        case .groupV2Discussion(structure: let structure):
+//            content.subtitle = structure.title
+//        }
+//        
+//        content.body = String(localized: "VOTED_TO_ONE_OF_YOUR_SENT_POLL")
+//
+//        // Providing supplementary content
+//        // For now, we don't deal with attachments and don't use the userInfo dictionary.
+//
+//        //
+//        // Configuring app behavior
+//        //
+//
+//        // We don't modify the badge
+//        
+//        // Integrating with the system
+//        
+//        if let notificationSound = discussionKind.localConfiguration.notificationSound ?? ObvMessengerSettings.Discussions.notificationSound {
+//            switch notificationSound {
+//            case .none:
+//                content.sound = nil
+//            case .system:
+//                // Keep the sound as it is in the minimal notification content
+//                break
+//            default:
+//                if let sound = notificationSound.unNotificationSound(for: content.body) {
+//                    content.sound = sound
+//                } else {
+//                    // Keep the sound as it is in the minimal notification content
+//                }
+//            }
+//        } else {
+//            // Keep the sound as it is in the minimal notification content
+//        }
+//
+//        // For now, we keep the interruptionLevel of the minimal notification
+//
+//        //
+//        // Specify the appropriate category, allowing the notification to give access to the appropriate actions
+//        //
+//        
+//        let userNotificationCategory = ObvUserNotificationCategoryIdentifier.pollVote
+//        content.setObvCategoryIdentifier(to: userNotificationCategory)
+//
+//        //
+//        // Specify the threadIdentifier, so as to group received message notification by discussion
+//        //
+//        
+//        content.threadIdentifier = ObvUserNotificationThread.discussion(discussionKind.discussionIdentifier).threadIdentifier
+//
+//        //
+//        // Set the messageAppIdentifier of the content.
+//        // Used when deciding what to do with the notification while the app is in the foreground
+//        //
+//        
+//        content.setObvDiscussionIdentifier(to: discussionKind.discussionIdentifier)
+//        content.setSentMessageReactedTo(to: sentMessageVotedTo.messageAppIdentifier)
+//        content.setReactor(to: reactor.contactIdentifier)
+//        content.setUploadTimestampFromServer(to: uploadTimestampFromServer)
+//
+//        // Enrich the notification with communication information and return the content
+//
+//        do {
+//            let communicationType = ObvCommunicationType.incomingPollVote(reactor: reactor, sentMessageVotedTo: sentMessageVotedTo)
+//            let updatedContent = try await ObvCommunicationInteractor.update(notificationContent: content, communicationType: communicationType)
+//            return .addPollVoteOnSentMessage(content: updatedContent, sentMessageVotedTo: sentMessageVotedTo.messageAppIdentifier, reactor: reactor.contactIdentifier, userNotificationCategory: userNotificationCategory)
+//        } catch {
+//            assertionFailure()
+//            return .addPollVoteOnSentMessage(content: content, sentMessageVotedTo: sentMessageVotedTo.messageAppIdentifier, reactor: reactor.contactIdentifier, userNotificationCategory: userNotificationCategory)
+//        }
 
     }
     
@@ -1661,6 +1813,8 @@ extension ObvUserNotificationContentCreator {
         
         case reaction(reactionJSON: ReactionJSON, reactor: PersistedObvContactIdentityStructure, sentMessageReactedTo: PersistedMessageSentStructure, uploadTimestampFromServer: Date)
 
+        case pollAnswer(pollVoteJSON: PollVoteJSON, reactor: PersistedObvContactIdentityStructure, sentMessageVotedTo: PersistedMessageSentStructure, uploadTimestampFromServer: Date)
+        
         case removeReceivedMessages(messageAppIdentifiers: [ObvMessageAppIdentifier])
 
         case removeAllNotificationsOfDiscussion(discussionIdentifier: ObvDiscussionIdentifier, lastReadMessageServerTimestamp: Date?)

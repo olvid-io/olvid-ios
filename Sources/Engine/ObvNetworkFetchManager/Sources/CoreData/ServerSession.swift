@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,18 +19,16 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 import ObvCrypto
-import OlvidUtils
 import ObvMetaManager
 
 
 @objc(ServerSession)
-final class ServerSession: NSManagedObject, ObvErrorMaker {
+final class ServerSession: NSManagedObject {
 
     private static let entityName = "ServerSession"
-    static let errorDomain = "ServerSession"
 
     // MARK: Attributes
 
@@ -45,7 +43,7 @@ final class ServerSession: NSManagedObject, ObvErrorMaker {
     var ownedCryptoIdentity: ObvCryptoIdentity {
         get throws {
             guard let cryptoIdentity = ObvCryptoIdentity(from: rawOwnedCryptoId) else {
-                throw Self.makeError(message: "Could not decode rawOwnedCryptoId")
+                throw ObvError.couldNotDecodeRawOwnedCryptoId
             }
             return cryptoIdentity
         }
@@ -222,4 +220,15 @@ extension ServerSession {
         }
     }
 
+}
+
+
+// MARK: - Errors
+
+extension ServerSession {
+    
+    enum ObvError: Error {
+        case couldNotDecodeRawOwnedCryptoId
+    }
+    
 }

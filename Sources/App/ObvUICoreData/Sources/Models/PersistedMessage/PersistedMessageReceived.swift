@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvEngine
 import ObvTypes
 import MobileCoreServices
@@ -190,11 +190,11 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
             switch newLocation.type {
             case .SEND:
                 if let locationOneShotReceived = self.locationOneShotReceived {
-                    try locationOneShotReceived.updateContentForOneShotLocation(with: newLocation.locationData)
+                    locationOneShotReceived.updateContentForOneShotLocation(with: newLocation.locationData)
                 }
             case .SHARING:
                 if let locationContinuousReceived = self.locationContinuousReceived {
-                    try locationContinuousReceived.updateContentForContinuousLocation(with: newLocation.locationData, count: newLocation.count ?? 0)
+                    locationContinuousReceived.updateContentForContinuousLocation(with: newLocation.locationData, count: newLocation.count ?? 0)
                 }
             case .END_SHARING:
                 if let locationContinuousReceived = self.locationContinuousReceived {
@@ -232,7 +232,7 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
     
     // MARK: - Observers
     
-    private static var observersHolder = ObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
     
     public static func addObvObserver(_ newObserver: PersistedMessageReceivedObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -314,6 +314,18 @@ extension PersistedMessageReceived {
             replyTo = nil
         }
         
+        let poll: PersistedPoll?
+        if let pollJSON = messageJSON.poll {
+            guard let context = discussion.managedObjectContext else {
+                assertionFailure()
+                throw ObvUICoreDataError.noContext
+            }
+            let obvPoll = try pollJSON.toObvPoll()
+            poll = try PersistedPoll(obvPoll: obvPoll, within: context)
+        } else {
+            poll = nil
+        }
+        
         try self.init(timestamp: adjustedTimestamp,
                       body: messageJSON.body,
                       rawStatus: MessageStatus.new.rawValue,
@@ -326,6 +338,7 @@ extension PersistedMessageReceived {
                       forwarded: messageJSON.forwarded,
                       mentions: messageJSON.userMentions,
                       isLocation: receivedLocation != nil,
+                      poll: poll,
                       forEntityName: PersistedMessageReceived.entityName)
 
         self.contactIdentity = contactIdentity
@@ -493,8 +506,28 @@ extension PersistedMessageReceived {
             
         }
         
+        guard createdOrUpdatedMessage.messageIsValid() else {
+            assertionFailure("Inserting or modifying this message would result in an empty message on screen. This should be investigated.")
+            Self.logger.fault("Aborting insertion/update as the the resulting message is empty.")
+            throw ObvUICoreDataError.cannotCreateEmptyPersistedMessageSent
+        }
+        
         return createdOrUpdatedMessage
         
+    }
+
+    
+    /// Validates whether a received message is non-empty before database insertion or update.
+    ///
+    /// This allows to make sure we do not obtain a `PersistedMessageReceived` that would result in an "empty" message on screen.
+    ///
+    /// - Returns: `true` if the message has a non-nil, non-empty body **or** at least one attachment, **or** any similar relevent data.
+    ///   This prevents "empty" messages from being stored in the database and displayed to users.
+    private func messageIsValid() -> Bool {
+        let messageHasNonEmptyBody = self.messageHasNonEmptyBody()
+        let messageHasAttachments = !self.fyleMessageJoinWithStatuses.isEmpty
+        let messageHasValidLocationReceived = locationContinuousReceived != nil || locationOneShotReceived != nil
+        return messageHasNonEmptyBody || messageHasAttachments || messageHasValidLocationReceived
     }
 
     
@@ -689,7 +722,8 @@ extension PersistedMessageReceived {
             let infos = try self.deleteExpiredMessage()
             return infos
         } else {
-            try self.markAsRead(dateWhenMessageWasRead: dateWhenMessageWasRead, requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
+            self.markAsRead(dateWhenMessageWasRead: dateWhenMessageWasRead,
+                            requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
             return nil
         }
     }
@@ -724,7 +758,7 @@ extension PersistedMessageReceived {
     }
 
     var shareActionCanBeMadeAvailableForReceivedMessage: Bool {
-        return !isWiped && !readingRequiresUserAction && !isEphemeralMessageWithUserAction && !isLocationMessage
+        return !isWiped && !readingRequiresUserAction && !isEphemeralMessageWithUserAction && !isLocationMessage && !isPoll
     }
     
     var forwardActionCanBeMadeAvailableForReceivedMessage: Bool {
@@ -771,7 +805,7 @@ extension PersistedMessageReceived {
             if isEphemeralMessageWithUserAction {
                 self.status = .unread
             } else {
-                try markAsRead(dateWhenMessageWasRead: dateWhenMessageTurnedNotNew, requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
+                markAsRead(dateWhenMessageWasRead: dateWhenMessageTurnedNotNew, requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
             }
             return self.timestamp
         case .unread, .read:
@@ -780,7 +814,7 @@ extension PersistedMessageReceived {
     }
     
     
-    private func markAsRead(dateWhenMessageWasRead: Date, requestedOnAnotherOwnedDevice: Bool) throws {
+    private func markAsRead(dateWhenMessageWasRead: Date, requestedOnAnotherOwnedDevice: Bool) {
         os_log("Call to markAsRead in PersistedMessageReceived for message %{public}@", log: PersistedMessageReceived.log, type: .debug, self.objectID.debugDescription)
         
         if self.status != .read {
@@ -960,11 +994,45 @@ extension PersistedMessageReceived {
                 withSenderThreadIdentifier(identifier.senderThreadIdentifier),
             ])
         }
+        static func withinDiscussionWithObjectID(_ discussionObjectID: NSManagedObjectID) -> NSPredicate {
+            PersistedMessage.Predicate.withinDiscussionWithObjectID(discussionObjectID)
+        }
     }
     
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageReceived> {
         return NSFetchRequest<PersistedMessageReceived>(entityName: PersistedMessageReceived.entityName)
+    }
+
+    
+    static func getMostRecentTimestampOfMessagesReceived(in discussion: PersistedDiscussion) throws -> Date? {
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
+        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        request.predicate = Predicate.withinDiscussion(discussion)
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.Predicate.Key.timestamp.rawValue, ascending: false)]
+        request.propertiesToFetch = [PersistedMessage.Predicate.Key.timestamp.rawValue]
+        request.fetchLimit = 1
+        let message = try context.fetch(request).first
+        return message?.timestamp
+    }
+
+    
+    static func isMessageReceivedExisting(discussionIdentifier: ObvDiscussionIdentifier, senderThreadIdentifier: UUID, senderSequenceNumber: Int, senderIdentifier: Data, within context: NSManagedObjectContext) throws -> Bool {
+        // If the discussion does not exist, the message cannot exist
+        guard let discussionObjectID = try PersistedDiscussion.getPersistedDiscussionObjectID(discussionIdentifier: discussionIdentifier, within: context) else {
+            return false
+        }
+        let batchFetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        batchFetchRequest.resultType = .managedObjectIDResultType
+        batchFetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withinDiscussionWithObjectID(discussionObjectID.objectID),
+            Predicate.withMessageWriterIdentifier(.init(senderSequenceNumber: senderSequenceNumber,
+                                                        senderThreadIdentifier: senderThreadIdentifier,
+                                                        senderIdentifier: senderIdentifier))
+        ])
+        batchFetchRequest.fetchLimit = 1
+        let result = try context.fetch(batchFetchRequest) as? [NSManagedObjectID] ?? []
+        return !result.isEmpty
     }
 
     
@@ -1663,7 +1731,7 @@ extension PersistedMessageReceived {
                 // Notify (internally) that the message was read
                 
                 if let messageIdFromServer = UID(uid: self.messageIdentifierFromEngine), let ownedCryptoId = self.discussion?.ownedIdentity?.cryptoId {
-                    Task { await Self.observersHolder.persistedMessageReceivedWasRead(ownedCryptoId: ownedCryptoId, messageIdFromServer: messageIdFromServer) }
+                    Task { await PersistedMessageReceived.observersHolder.persistedMessageReceivedWasRead(ownedCryptoId: ownedCryptoId, messageIdFromServer: messageIdFromServer) }
                 } else {
                     assertionFailure()
                 }
@@ -1693,7 +1761,7 @@ extension PersistedMessageReceived {
         if isInserted {
             do {
                 let receivedMessage = try self.toStructure()
-                Task { await Self.observersHolder.persistedMessageReceivedWasInserted(receivedMessage: receivedMessage) }
+                Task { await PersistedMessageReceived.observersHolder.persistedMessageReceivedWasInserted(receivedMessage: receivedMessage) }
             } catch {
                 assertionFailure()
             }
@@ -1724,7 +1792,7 @@ public typealias MessageReceivedPermanentID = ObvManagedObjectPermanentID<Persis
 
 // MARK: - PersistedMessageReceived observers
 
-public protocol PersistedMessageReceivedObserver: AnyObject {
+public protocol PersistedMessageReceivedObserver: AnyObject, Sendable {
     func persistedMessageReceivedWasInserted(receivedMessage: PersistedMessageReceivedStructure) async
     func persistedMessageReceivedWasRead(ownedCryptoId: ObvCryptoId, messageIdFromServer: UID) async
     func newReturnReceiptsToSendForPersistedMessageReceived(returnReceiptsToSend: [ObvReturnReceiptToSend]) async

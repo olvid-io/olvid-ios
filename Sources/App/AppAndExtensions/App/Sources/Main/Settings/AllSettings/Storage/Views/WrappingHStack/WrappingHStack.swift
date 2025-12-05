@@ -22,7 +22,7 @@ import SwiftUI
 /// A view used to display HStack but limited to width available.
 ///
 
-struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & Hashable>: View {
+struct WrappingHStack<Content: View, TruncatedContent: View, SizingContent: View, T: Identifiable & Hashable>: View {
     
     typealias Row = [T]
     typealias Rows = [Row]
@@ -36,11 +36,13 @@ struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & H
     }
     
     private var data: [T]
-    private let contentForTruncatedElements: (([T]) -> TruncatedContent)?
+    private let contentForTruncatedElements: ((Int) -> TruncatedContent)?
     private let content: (T) -> Content
+    private let contentForSizing: () -> SizingContent
     private let layout: Layout
     
-    @State private var truncatedElements: [T]?
+//    @State private var truncatedElements: [T]?
+    @State private var elementsDisplayedCount: Int =  0
     @State private var rows: Rows = Rows()
     @State private var sizes: [CGSize] = [CGSize]()
     
@@ -58,9 +60,11 @@ struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & H
          width: CGFloat,
          maxRows: Int? = nil,
          cornerRadius: CGFloat = 0.0,
-         contentForTruncatedElements: (([T]) -> TruncatedContent)? = nil,
+         contentForSizing: @escaping () -> SizingContent,
+         contentForTruncatedElements: ((Int) -> TruncatedContent)? = nil,
          content: @escaping (T) -> Content) {
         self.data = data
+        self.contentForSizing = contentForSizing
         self.content = content
         self.contentForTruncatedElements = contentForTruncatedElements
         self.layout = .init(
@@ -77,6 +81,7 @@ struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & H
         
         buildView(
             rows: rows,
+            contentForSizing: contentForSizing,
             content: content,
             contentForTruncatedElements: contentForTruncatedElements,
             layout: layout
@@ -85,15 +90,16 @@ struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & H
     
     @ViewBuilder
     private func buildView(rows: Rows,
+                           contentForSizing: @escaping () -> SizingContent,
                            content: @escaping (T) -> Content,
-                           contentForTruncatedElements: (([T]) -> TruncatedContent)?,
+                           contentForTruncatedElements: ((Int) -> TruncatedContent)?,
                            layout: Layout) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(rows, id: \.self) { row in
                 HStack(alignment: layout.cellAlignment, spacing: layout.cellSpacing) {
                     ForEach(row, id: \.self) { value in
-                        if let truncatedElements, let contentForTruncatedElements, row == rows.last, value == row.last {
-                            contentForTruncatedElements(truncatedElements)
+                        if let contentForTruncatedElements, elementsDisplayedCount > 0, row == rows.last, value == row.last {
+                            contentForTruncatedElements(elementsDisplayedCount)
                         } else {
                             content(value)
                         }
@@ -103,7 +109,7 @@ struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & H
             }
         }
         .background(
-            calculateCellSizesAndRows(data: data, content: content) { sizes in
+            calculateCellSizesAndRows(data: data, content: contentForSizing) { sizes in
                 self.sizes = sizes
             }
                 .onChange(of: layout) { layout in
@@ -125,15 +131,15 @@ struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & H
     // cell.
     private func calculateCellSizesAndRows(
         data: [T],
-        content: @escaping (T) -> Content,
+        content: @escaping () -> SizingContent,
         result: @escaping ([CGSize]) -> Void
     ) -> some View {
         // Note: the HStack is required to layout the cells as _siblings_ which
         // is required for the SizeStorePreferenceKey's reduce function to be
         // invoked.
         HStack {
-            ForEach(data, id: \.self) { element in
-                content(element)
+            ForEach(data, id: \.self) { _ in
+                content()
                     .calculateSize()
             }
         }
@@ -152,7 +158,7 @@ struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & H
         guard layout.width > 10 else {
             return []
         }
-        self.truncatedElements = nil
+        self.elementsDisplayedCount = 0
         
         let dataAndSize = zip(data, sizes)
         var rows = [[T]]()
@@ -177,7 +183,7 @@ struct WrappingHStack<Content: View, TruncatedContent: View, T: Identifiable & H
                 rows = rows.dropLast()
                 rows.append(row)
                 let elementsDisplayedCount = rows.reduce(0, { $0 + $1.count })
-                self.truncatedElements = Array(self.data.dropFirst(elementsDisplayedCount))
+                self.elementsDisplayedCount = elementsDisplayedCount
                 break
             }
             availableSpace = layout.width

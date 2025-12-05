@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,10 +21,10 @@ import Foundation
 import ObvTypes
 
 
-public struct PersistedContactGroupStructure: Hashable, Equatable {
+public struct PersistedContactGroupStructure: Hashable, Equatable, Sendable {
     
     public let groupV1Identifier: GroupV1Identifier
-    let groupName: String
+    let groupDisplayName: String
     let category: Category
     public let displayPhotoURL: URL?
     public let contactIdentities: Set<PersistedObvContactIdentityStructure>
@@ -34,16 +34,16 @@ public struct PersistedContactGroupStructure: Hashable, Equatable {
         .init(ownedCryptoId: ownedIdentity.cryptoId, groupV1Identifier: groupV1Identifier)
     }
     
-    public enum Category: Int {
+    public enum Category: Int, Sendable {
         case owned = 0
         case joined = 1
     }
     
     // Initializer
     
-    public init(groupV1Identifier: GroupV1Identifier, groupName: String, category: Category, displayPhotoURL: URL?, contactIdentities: Set<PersistedObvContactIdentityStructure>, ownedIdentity: PersistedObvOwnedIdentityStructure) {
+    public init(groupV1Identifier: GroupV1Identifier, groupDisplayName: String, category: Category, displayPhotoURL: URL?, contactIdentities: Set<PersistedObvContactIdentityStructure>, ownedIdentity: PersistedObvOwnedIdentityStructure) {
         self.groupV1Identifier = groupV1Identifier
-        self.groupName = groupName
+        self.groupDisplayName = groupDisplayName
         self.category = category
         self.displayPhotoURL = displayPhotoURL
         self.contactIdentities = contactIdentities

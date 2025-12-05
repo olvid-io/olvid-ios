@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import CoreData
 import ObvCrypto
 import ObvTypes
 import OlvidUtils
@@ -96,6 +97,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     
     func verifyKeycloakSignature(ownedCryptoId: ObvCryptoIdentity, keycloakTransferProof: ObvKeycloakTransferProof, keycloakTransferProofElements: ObvKeycloakTransferProofElements, within obvContext: ObvContext) throws
     
+    func guessDateOfCreationOfFirstProfile(within context: NSManagedObjectContext) throws -> Date?
     
     // MARK: - API related to contact groups V2
 
@@ -170,7 +172,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
 
     func getSignedContactDetails(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> SignedObvKeycloakUserDetails?
 
-    func getOwnedIdentityKeycloakState(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedObvKeycloakUserDetails?)
+    func getOwnedIdentityKeycloakState(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvKeycloakStateAndUserDetails?
 
     func saveKeycloakAuthState(ownedIdentity: ObvCryptoIdentity, rawAuthState: Data, within obvContext: ObvContext) throws
 
@@ -259,7 +261,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     func getContactsWithNoDeviceOfOwnedIdentity(_ ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
     
     /// This method throws if the second identity is not an owned identity or if the first identity is not a contact of that owned identity. Otherwise it returns the display name of the contact identity.
-    func getIdentityDetailsOfContactIdentity(_: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> (publishedIdentityDetails: ObvIdentityDetails?, trustedIdentityDetails: ObvIdentityDetails)
+    func getIdentityDetailsOfContactIdentity(_: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> (publishedIdentityDetails: ObvIdentityDetails?, trustedIdentityDetails: ObvIdentityDetails)
 
     func getPublishedIdentityDetailsOfContactIdentity(_: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> (contactIdentityDetailsElements: IdentityDetailsElements, photoURL: URL?)?
     
@@ -271,7 +273,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
 
     func updatePublishedIdentityDetailsOfContactIdentity(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, with newContactIdentityDetailsElements: IdentityDetailsElements, allowVersionDowngrade: Bool, within obvContext: ObvContext) throws
 
-    func isIdentity(_: ObvCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> Bool
+    func isIdentity(_: ObvCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> Bool
     
     func deleteContactIdentity(_: ObvCryptoIdentity, forOwnedIdentity: ObvCryptoIdentity, failIfContactIsPartOfACommonGroup: Bool, within: ObvContext) throws
     
@@ -282,7 +284,15 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     func checkIfContactWasRecentlyOnline(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
     
     func markContactAsRecentlyOnline(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
+    
+    func getAsyncStreamOfObvContactIdentity(for contactIdentifier: ObvContactIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvContactIdentity>)
 
+    func finishAsyncSequenceOfObvContactIdentity(streamUUID: UUID)
+    
+    func getAsyncStreamOfObvTrustOrigin(contactIdentifier: ObvTypes.ObvContactIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<[ObvTrustOrigin]>)
+
+    func finishAsyncStreamOfObvTrustOrigin(streamUUID: UUID)
+    
     // MARK: - API related to contact devices
     
     func addDeviceForContactIdentity(_: ObvCryptoIdentity, withUid: UID, ofOwnedIdentity: ObvCryptoIdentity, createdDuringChannelCreation: Bool, within: ObvContext) throws
@@ -358,11 +368,15 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     
     func deleteContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, deleteEvenIfGroupMembersStillExist: Bool, within obvContext: ObvContext) throws
 
-    func contactIdentityBelongsToSomeContactGroup(_ contactIdentity: ObvCryptoIdentity, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
+    func contactIsPartOrPendingInCommonGroup(contactIdentifier: ObvTypes.ObvContactIdentifier, within obvContext: ObvContext) throws -> Bool
 
     func forceUpdateOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, authoritativeGroupInformation: GroupInformation, within obvContext: ObvContext) throws
 
     func resetGroupMembersVersionOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws
+    
+    func getAsyncStreamOfJoinedGroupV1Details(groupIdentifier: ObvGroupV1Identifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvGroupTrustedAndPublishedDetails>)
+
+    func finishAsyncStreamOfJoinedGroupV1Details(streamUUID: UUID)
 
     func getAllOwnedIdentityWithMissingPhotoUrl(within obvContext: ObvContext) throws -> [(ObvCryptoIdentity, IdentityDetailsElements)]
 

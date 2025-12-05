@@ -1,0 +1,2448 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "ABOUT_ARCHIVED_DISCUSSIONS_MESSAGE_AUTOMATIC_UNARCHIVING_FALSE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine archivierte Diskussion bleibt archiviert, bis Sie sie manuell wiederherstellen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An archived discussion stay archived until you decide to manually unarchive it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una conversación archivada permanecerá archivada hasta que decidas desarchivarla manualmente."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une discussion archivée reste archivée jusqu'à ce que vous décidiez de la désarchiver manuellement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una discussione archiviata rimane archiviata finché non decidi di ripristinarla manualmente."
+          }
+        }
+      }
+    },
+    "ABOUT_ARCHIVED_DISCUSSIONS_MESSAGE_AUTOMATIC_UNARCHIVING_TRUE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine archivierte Diskussion wird automatisch wiederhergestellt, wenn in dieser Diskussion eine Benachrichtigung empfangen wird."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An archived discussion will be automatically unarchived when a notification is received in this discussion."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una conversación archivada se desarchivará automáticamente cuando se reciba una notificación en esta conversación."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une discussion archivée sera automatiquement désarchivée lors de la réception d’une notification dans cette discussion."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una discussione archiviata verrà automaticamente riattivata quando si riceve una notifica in questa discussione."
+          }
+        }
+      }
+    },
+    "ABOUT_ARCHIVED_DISCUSSIONS_TITLE_AUTOMATIC_UNARCHIVING_FALSE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manuelles Entarchivieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unarchiving manually"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desarchivando manualmente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désarchivage manuel"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Decompressione manuale"
+          }
+        }
+      }
+    },
+    "ABOUT_ARCHIVED_DISCUSSIONS_TITLE_AUTOMATIC_UNARCHIVING_TRUE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch wiederherstellen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unarchiving automatically"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desarchivando automáticamente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désarchivage automatique"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disarchiviazione automatica"
+          }
+        }
+      }
+    },
+    "ACTIONS" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktionen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acciones"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Azioni"
+          }
+        }
+      }
+    },
+    "ARCHIVE_DISCUSSION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiv"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiver"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivia"
+          }
+        }
+      }
+    },
+    "ARCHIVED_CELL_TITLE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivierte Konversationen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archived discussions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversaciones archivadas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussions archivées"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussioni archiviate"
+          }
+        }
+      }
+    },
+    "ARE_YOU_SURE_YOU_WANT_TO_DELETE_THESE_%lld_DISCUSSIONS_FROM_THIS_DEVICE" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Möchten Sie alle Nachrichten der ausgewählten Konversation von diesem Gerät löschen? Diese Aktion ist unwiderruflich."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Möchten Sie alle Nachrichten der %lld ausgewählten Konversationen von diesem Gerät löschen? Diese Aktion ist unwiderruflich."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Do you wish to delete all the messages of the selected discussion from this device? This action is irreversible."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Do you wish to delete all the messages of the %lld selected discussions from this device? This action is irreversible."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "¿Deseas eliminar todos los mensajes de la conversación seleccionada de este dispositivo? Esta acción es irreversible."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "¿Deseas eliminar todos los mensajes de las %lld conversaciones seleccionadas de este dispositivo? Esta acción es irreversible."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Voulez-vous supprimer tous les messages de la discussion sélectionnée de cet appareil ? Attention, cette opération est irréversible."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Voulez-vous supprimer de cet appareil tous les messages des %lld discussions sélectionnées ? Attention, cette opération est irréversible."
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vuoi eliminare tutti i messaggi della discussione selezionata da questo dispositivo? Questa azione è irreversibile."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vuoi eliminare tutti i messaggi delle %lld discussioni selezionate da questo dispositivo? Questa azione è irreversibile."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "BODY_WHEN_NO_ILLUSTRATIVE_MESSAGE_AVAILABLE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Nachricht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No message"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin mensaje"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun message"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun messaggio"
+          }
+        }
+      }
+    },
+    "BUTTON_TITLE_DISCOVER_OLVID_PLUS" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid+ entdecken"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discover Olvid+"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descubrir Olvid+"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Découvrir Olvid+"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scopri Olvid+"
+          }
+        }
+      }
+    },
+    "BUTTON_TITLE_OK" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "CONFIGURE_NEW_BACKUPS_NOW" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichern konfigurieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurar copias de seguridad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurer les sauvegardes"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura backup"
+          }
+        }
+      }
+    },
+    "CONFIGURE_UNARCHIVING" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entarchivierung konfigurieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure unarchiving"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurar la descarga de archivos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurer le désarchivage"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura lo scaricamento automatico"
+          }
+        }
+      }
+    },
+    "DELETE_%lld_DISCUSSIONS" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Lösche die Nachrichten dieser Konversation"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Lösche die Nachrichten von %lld Konversationen"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete the messages of the discussion"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete the messages of the %lld discussions"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Eliminar los mensajes de la conversación"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Eliminar los mensajes de %lld conversaciones"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Supprimer les messages de la discussion"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Supprimer les messages des %lld discussions"
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Elimina i messaggi della conversazione"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Elimina i messaggi di %lld conversazioni"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "DELETE_DISCUSSION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina"
+          }
+        }
+      }
+    },
+    "DONE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erledigt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hecho"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fatto"
+          }
+        }
+      }
+    },
+    "DONT_TURN_ON" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht aktivieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Don't turn on"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No lo enciendas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne pas activer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non attivare"
+          }
+        }
+      }
+    },
+    "GET_NEW_MESSAGES" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Nachrichten abrufen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get new messages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtener nuevos mensajes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chercher les nouveaux messages"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ricevi nuovi messaggi"
+          }
+        }
+      }
+    },
+    "LOCATION_CELL_LABEL_%lld_LOCATIONS_ARE_SHARED_WITH_YOU" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ein Standort wird mit dir geteilt."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Standorte werden mit dir geteilt."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Kein Standort wird mit dir geteilt."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "One location is being shared with you."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld locations are being shared with you."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No location is being shared with you."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Se está compartiendo una ubicación contigo."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld ubicaciones se están compartiendo contigo."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No se está compartiendo ninguna ubicación contigo."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Une position est partagée avec vous."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld positions sont partagées avec vous."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Aucune position n’est partagée avec vous."
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ti viene condivisa una posizione."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld posizioni ti vengono condivise."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nessuna posizione ti viene condivisa."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "LOCATION_CELL_LABEL_YOU_ARE_CURRENTLY_SHARING_YOUR_LOCATION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie teilen derzeit den Standort dieses Geräts."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are currently sharing this device’s location."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualmente estás compartiendo la ubicación de este dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous partagez actuellement la position de cet appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stai condividendo la posizione di questo dispositivo."
+          }
+        }
+      }
+    },
+    "LOCATION_CELL_LABEL_YOU_ARE_CURRENTLY_SHARING_YOUR_LOCATION_AND_%lld_LOCATIONS_ARE_SHARED_WITH_YOU" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sie geben derzeit den Standort dieses Geräts weiter, und ein weiterer Standort wird mit Ihnen geteilt."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sie geben derzeit den Standort dieses Geräts weiter und %lld weitere Standorte werden mit Ihnen geteilt."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sie geben derzeit den Standort dieses Geräts weiter."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You are currently sharing this device’s location, and one other location is being shared with you."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You are currently sharing this device’s location, and %lld other locations are being shared with you."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You are currently sharing this device’s location."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Actualmente estás compartiendo la ubicación de este dispositivo, y otra ubicación se está compartiendo contigo."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Actualmente estás compartiendo la ubicación de este dispositivo, y %lld otras ubicaciones se están compartiendo contigo."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Actualmente estás compartiendo la ubicación de este dispositivo."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous partagez actuellement la position de cet appareil et une position est partagée avec vous."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous partagez actuellement la position de cet appareil et %lld positions sont partagées avec vous."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous partagez actuellement la position de cet appareil."
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stai condividendo la posizione di questo dispositivo e un'altra posizione viene condivisa con te."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stai condividendo la posizione di questo dispositivo e %lld altre posizioni vengono condivise con te."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stai condividendo la posizione di questo dispositivo."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "LOCATION_CELL_LABEL_YOU_ARE_NOT_SHARING_YOUR_LOCATION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du teilst deinen Standort mit diesem Gerät nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are not sharing this device’s location."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No estás compartiendo la ubicación de este dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ne partagez pas la position de cet appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non stai condividendo la posizione di questo dispositivo."
+          }
+        }
+      }
+    },
+    "MARK_ALL_AS_READ" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als gelesen markieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as read"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcar como leído"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marquer comme lu"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segna come letto"
+          }
+        }
+      }
+    },
+    "MENU_BUTTON_ARCHIVE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiv"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiver"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivio"
+          }
+        }
+      }
+    },
+    "MENU_BUTTON_DELETE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina"
+          }
+        }
+      }
+    },
+    "MENU_BUTTON_MARK_ALL_AS_READ" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als gelesen markieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as read"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcar como leído"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marquer comme lu"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segna come letto"
+          }
+        }
+      }
+    },
+    "MENU_BUTTON_PIN" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anpinnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fijar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Épingler"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fissa"
+          }
+        }
+      }
+    },
+    "MENU_BUTTON_SETTINGS" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellungen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paramètres"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impostazioni"
+          }
+        }
+      }
+    },
+    "MENU_BUTTON_STORAGE_MANAGEMENT" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speicherverwaltung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storage management"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Administración del almacenamiento"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestion du stockage"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestione spazio di archiviazione"
+          }
+        }
+      }
+    },
+    "MENU_BUTTON_UNARCHIVE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiv aufheben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unarchive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a archivar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désarchiver"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riarchivia"
+          }
+        }
+      }
+    },
+    "MENU_BUTTON_UNPIN" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixieren aufheben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desanclajar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Détacher"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sblocca"
+          }
+        }
+      }
+    },
+    "MESSAGE_OLVID_PLUS_SUCCESSFUL_SUBSCRIPTION_FAMILY_SHARED" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie haben jetzt Zugang zu Olvid+ dank eines Familienmitglieds! Führen Sie sichere Audio- und Videoanrufe durch und nutzen Sie Olvid auf mehreren Geräten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You now have access to Olvid+ thanks to a family member! Make secure audio and video calls, and use Olvid on multiple devices."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Tu suscripción a Olvid+ está activa! Realiza llamadas de audio y video seguras y usa Olvid en varios dispositivos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez désormais accès à Olvid+ grâce à un membre de votre famille ! Passez des appels audio et vidéo sécurisés et utilisez Olvid sur plusieurs appareils."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ora hai accesso a Olvid+ grazie a un familiare! Effettua chiamate audio e video sicure e usa Olvid su più dispositivi."
+          }
+        }
+      }
+    },
+    "MESSAGE_OLVID_PLUS_SUCCESSFUL_SUBSCRIPTION_PURCHASED_AND_FAMILY_SHAREABLE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr Olvid+-Familienabo ist aktiv! Sie und Ihre Familie können jetzt sichere Audio- und Videoanrufe tätigen und Olvid auf mehreren Geräten nutzen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Olvid+ family subscription is active! You and your family can now enjoy secure audio and video calls, and use Olvid on multiple devices."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Tu suscripción familiar a Olvid+ está activa! Tú y tu familia pueden disfrutar de llamadas de audio y video seguras y usar Olvid en varios dispositivos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre abonnement familial Olvid+ est actif ! Vous et votre famille pouvez désormais passer des appels audio et vidéo sécurisés et utiliser Olvid sur plusieurs appareils."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo abbonamento famiglia Olvid+ è attivo! Tu e la tua famiglia potete ora effettuare chiamate audio e video sicure e usare Olvid su più dispositivi."
+          }
+        }
+      }
+    },
+    "MESSAGE_OLVID_PLUS_SUCCESSFUL_SUBSCRIPTION_PURCHASED_BUT_NOT_FAMILY_SHAREABLE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr Olvid+-Abo ist aktiv! Führen Sie sichere Audio- und Videoanrufe durch und nutzen Sie Olvid auf mehreren Geräten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Olvid+ subscription is active! Make secure audio and video calls, and use Olvid on multiple devices."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Ahora tienes acceso a Olvid+ gracias a un familiar! Realiza llamadas de audio y video seguras y usa Olvid en varios dispositivos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre abonnement Olvid+ est actif ! Passez des appels audio et vidéo sécurisés et utilisez Olvid sur plusieurs appareils."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo abonamento Olvid+ è attivo! Effettua chiamate audio e video sicure e usa Olvid su più dispositivi."
+          }
+        }
+      }
+    },
+    "MUTE_DISCUSSION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benachrichtigungen stummschalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mute notifications"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Silenciar notificaciones"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désactiver les notifications"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disattiva notifiche"
+          }
+        }
+      }
+    },
+    "MUTE_NOTIFICATIONS" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benachrichtigungen stummschalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mute notifications"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Silenciar notificaciones"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désactiver les notifications"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disattiva notifiche"
+          }
+        }
+      }
+    },
+    "PIN_DISCUSSION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gespräch anpinnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin discussion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fijar conversación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Épingler"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fissa la conversazione"
+          }
+        }
+      }
+    },
+    "Please hold on, we're working hard in the background to get everything ready for you!" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte haben Sie einen Moment Geduld, wir arbeiten intensiv daran, alles für Sie vorzubereiten!"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please hold on, we're working hard to get everything ready for you!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por favor, espere, estamos trabajando arduamente para tener todo listo para usted."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez patienter, nous travaillons dur pour tout préparer pour vous !"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per favore, abbi pazienza, stiamo lavorando sodo per preparare tutto per te!"
+          }
+        }
+      }
+    },
+    "Read receipts" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lesebestätigungen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read receipts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmaciones de lectura"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmations de lecture"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ricevute di lettura"
+          }
+        }
+      }
+    },
+    "SEARCH" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerca"
+          }
+        }
+      }
+    },
+    "SELECT_DISCUSSIONS" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diskussionen auswählen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select discussions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar conversaciones"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionner des discussions"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleziona le conversazioni"
+          }
+        }
+      }
+    },
+    "SHOW_BACKUP_KEY_NOW" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeige meinen Backup-Schlüssel an"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display my backup key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar mi clave de copia de seguridad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ma clé de sauvegarde"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra la mia chiave di backup"
+          }
+        }
+      }
+    },
+    "STOP_SHARING" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopp"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêter"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrompi"
+          }
+        }
+      }
+    },
+    "TIP_OLVID_PLUS_MESSAGE_FAMILY" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Richte Apple Family Sharing ein und schenke Olvid+ an fünf Familienmitglieder. Jeder erhält Multi-Device-Zugriff und sichere Anrufe & Videoanrufe—Privatsphäre für die ganze Familie!"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up Apple Family Sharing and gift Olvid+ to five family members. Everyone gets multi-device access and secure calls & video—privacy for the whole family!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura el Compartir en familia de Apple y regala Olvid+ a cinco miembros de tu familia. Todos tendrán acceso multi-dispositivo y llamadas y videollamadas seguras—privacidad para toda la familia."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurez le partage familial Apple et offrez Olvid+ à cinq membres de votre famille. Tout le monde bénéficie de l’accès multi-appareils et des appels audio et vidéo sécurisés—la confidentialité pour toute la famille !"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura la Condivisione famiglia Apple e regala Olvid+ a cinque membri della tua famiglia. Tutti ottengono l’accesso multi-dispositivo e chiamate audio e video sicure—privacy per tutta la famiglia!"
+          }
+        }
+      }
+    },
+    "TIP_OLVID_PLUS_MESSAGE_MULTIDEVICE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade auf Olvid+ und freischalten Sie den Multi-Device-Zugriff. Ihre Nachrichten bleiben auf allen Geräten synchronisiert—so sind Sie immer verbunden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade to Olvid+ and unlock multi-device access. Your messages stay in sync across all your devices—so you’re always connected."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualiza a Olvid+ y desbloquea el acceso multi-dispositivo. Tus mensajes se mantienen sincronizados en todos tus dispositivos—para que siempre estés conectado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passez à Olvid+ et débloquez l’accès multi-appareils. Vos messages sont synchronisés entre tous vos appareils—pour rester toujours connecté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiorna a Olvid+ e sblocca l’accesso multi-dispositivo. I tuoi messaggi rimangono sincronizzati su tutti i tuoi dispositivi—così sei sempre connesso."
+          }
+        }
+      }
+    },
+    "TIP_OLVID_PLUS_MESSAGE_SECURE_CALLS" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit Olvid+ können Sie Ende-zu-Ende-verschlüsselte Sprach- und Videoanrufe tätigen. Erreichen Sie jeden Olvid-Nutzer sicher – ganz gleich, ob er Olvid+ hat oder nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid+ lets you make end-to-end encrypted voice and video calls. Reach any Olvid user securely, whether they have Olvid+ or not."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid+ te permite hacer llamadas de voz y video con cifrado de extremo a extremo. Conéctate de forma segura con cualquier usuario de Olvid, tenga Olvid+ o no."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid+ vous permet de passer des appels vocaux et vidéo chiffrés de bout en bout. Communiquez en toute sécurité avec tout utilisateur Olvid, qu’il ait Olvid+ ou non."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid+ ti permette di effettuare chiamate vocali e video crittografate end-to-end. Raggiungi qualsiasi utente Olvid in modo sicuro, che abbia Olvid+ o no."
+          }
+        }
+      }
+    },
+    "TIP_OLVID_PLUS_MESSAGE_SUPPORT" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freischalten Sie Multi-Device-Zugriff und sichere Anrufe mit Olvid+. Ihr Abo unterstützt ein nachhaltiges, ehrliches Modell—Olvid bleibt für alle kostenlos, ohne Werbung oder versteckte Kosten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock multi-device access and secure calls with Olvid+. Your subscription supports a sustainable, honest model—keeping Olvid free for all, without ads or hidden costs."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desbloquea el acceso multi-dispositivo y las llamadas seguras con Olvid+. Tu suscripción apoya un modelo sostenible y honesto—manteniendo Olvid gratuito para todos, sin anuncios ni costes ocultos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Débloquez l’accès multi-appareils et les appels sécurisés avec Olvid+. Votre abonnement soutient un modèle durable et honnête, qui permet à Olvid de rester gratuite pour tous, sans publicité ni coûts cachés."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sblocca l’accesso multi-dispositivo e le chiamate sicure con Olvid+. Il tuo abbonamento sostiene un modello sostenibile e onesto—mantenendo Olvid gratuito per tutti, senza pubblicità o costi nascosti."
+          }
+        }
+      }
+    },
+    "TIP_OLVID_PLUS_TITLE_FAMILY" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Familienfreigabe"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family Sharing"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En Familia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partage familial"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In famiglia"
+          }
+        }
+      }
+    },
+    "TIP_OLVID_PLUS_TITLE_MULTIDEVICE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mehrgeräte-Synchronisation"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multi-device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronización multi-dispositivo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multi-appareils"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizzazione multi-dispositivo"
+          }
+        }
+      }
+    },
+    "TIP_OLVID_PLUS_TITLE_SECURE_CALLS" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichere Anrufe & Video"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Calls & Video"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llamadas y video seguras"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appels et vidéo sécurisés"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiamate e video sicuri"
+          }
+        }
+      }
+    },
+    "TIP_OLVID_PLUS_TITLE_SUPPORT" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterstütze eine wirklich freie App"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Support a Truly Free App"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apoya una app verdaderamente gratis"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soutenez une application vraiment gratuite"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sostieni un’app davvero gratuita"
+          }
+        }
+      }
+    },
+    "TIP_REMEMBER_TO_WRITE_DOWN_BACKUP_KEY_MESSAGE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Backup-Schlüssel ist wichtig, um deine Profile wiederherzustellen, falls du den Zugriff auf dieses Gerät verlierst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your backup key is essential for restoring your profiles if you lose access to this device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu clave de respaldo es esencial para restaurar tus perfiles si pierdes el acceso a este dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre clé de sauvegarde sera essentielle pour restaurer votre profil si vous perdez l’accès à cet appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La tua chiave di backup è essenziale per ripristinare i tuoi profili in caso di smarrimento o perdita di accesso a questo dispositivo."
+          }
+        }
+      }
+    },
+    "TIP_REMEMBER_TO_WRITE_DOWN_BACKUP_KEY_TITLE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vergiss nicht, deinen Backup-Schlüssel aufzuschreiben 📝"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Don’t forget to write down your backup key 😇"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No olvides anotar tu clave de respaldo 📝"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "N’oubliez pas de noter votre clé de sauvegarde 😇"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non dimenticare di annotare la tua chiave di backup 📝"
+          }
+        }
+      }
+    },
+    "TIP_SETUP_NEW_BACKUPS_MESSAGE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit Backups können Sie Ihre Profile wiederherstellen, falls Sie den Zugriff auf dieses Gerät verlieren. Die neue Erfahrung ist einfacher denn je 😉 und kann in wenigen Sekunden eingerichtet werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backups allow to restore your profiles if you lose access to this device. The new experience is easier than ever 😉, and can be setup in a few seconds."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las copias de seguridad permiten restaurar tus perfiles si pierdes el acceso a este dispositivo. La nueva experiencia es más fácil que nunca 🤩, y se puede configurar en unos segundos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes vous permettent de restaurer vos profils si vous perdez l’accès à cet appareil. La nouvelle expérience est plus simple que jamais 😉 et peut être configurée en quelques secondes."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I backup ti permettono di ripristinare i tuoi profili in caso di smarrimento o perdita di accesso a questo dispositivo. La nuova esperienza è più semplice che mai 😉, e può essere configurata in pochi secondi."
+          }
+        }
+      }
+    },
+    "TIP_SETUP_NEW_BACKUPS_TITLE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verliere nicht den Zugriff auf deine Profile!"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Don’t lose access to your profiles!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡No pierdas el acceso a tus perfiles!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne perdez pas l’accès à vos profils !"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non perdere l'accesso ai tuoi profili!"
+          }
+        }
+      }
+    },
+    "TITLE_OLVID_PLUS_SUCCESSFUL_SUBSCRIPTION_FAMILY_SHARED" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie haben jetzt Olvid+!"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You now have Olvid+!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Ahora tienes Olvid+!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez désormais Olvid+ !"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ora hai Olvid+!"
+          }
+        }
+      }
+    },
+    "TITLE_OLVID_PLUS_SUCCESSFUL_SUBSCRIPTION_PURCHASED_AND_FAMILY_SHAREABLE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr Olvid+-Familienabo ist aktiv!"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Olvid+ Family plan is active!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Tu plan familiar Olvid+ está activo!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre forfait familial Olvid+ est activé !"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo piano famiglia Olvid+ è attivo!"
+          }
+        }
+      }
+    },
+    "TITLE_OLVID_PLUS_SUCCESSFUL_SUBSCRIPTION_PURCHASED_BUT_NOT_FAMILY_SHAREABLE" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr Olvid+-Abo ist aktiv!"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Olvid+ plan is active!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Tu plan Olvid+ está activo!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre forfait Olvid+ est activé !"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo piano Olvid+ è attivo!"
+          }
+        }
+      }
+    },
+    "Turn on read receipts to let your contacts know when you've read their messages. You can adjust this setting anytime." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktiviere Lesebestätigungen, damit deine Kontakte wissen, wann du ihre Nachrichten gelesen hast. Du kannst diese Einstellung jederzeit ändern."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on read receipts to let your contacts know when you've read their messages. You can adjust this setting anytime."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa los comprobantes de lectura para que tus contactos sepan cuándo has leído sus mensajes. Puedes ajustar esta configuración en cualquier momento."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activez les confirmations de lecture pour informer vos contacts lorsque vous avez lu leurs messages. Vous pouvez ajuster ce paramètre à tout moment."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva le conferme di lettura per far sapere ai tuoi contatti quando hai letto i loro messaggi. Puoi modificare questa impostazione in qualsiasi momento."
+          }
+        }
+      }
+    },
+    "TURN_ON" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einschalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva"
+          }
+        }
+      }
+    },
+    "UNARCHIVE_DISCUSSION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiv aufheben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unarchive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desarchivar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désarchiver"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riarchiviare"
+          }
+        }
+      }
+    },
+    "UNMUTE_DISCUSSION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benachrichtigungen aktivieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unmute notifications"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar notificaciones"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réactiver les notifications"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riattiva le notifiche"
+          }
+        }
+      }
+    },
+    "UNPIN_DISCUSSION" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gespräch abheften"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin discussion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desanclar conversación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Détacher"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sblocca discussione"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -61,17 +61,15 @@ public final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvIdentif
 
 extension PersistedDraftFyleJoin {
     
-    public convenience init?(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fyleObjectID: NSManagedObjectID, fileName: String, uti: String, within context: NSManagedObjectContext) {
+    public convenience init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fyleObjectID: NSManagedObjectID, fileName: String, uti: String, within context: NSManagedObjectContext) throws {
 
-        let draft: PersistedDraft
-        let fyle: Fyle
-        do {
-            guard let fetchedDraft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: context) else { return nil }
-            guard let fetchedFyle = try Fyle.get(objectID: fyleObjectID, within: context) else { return nil }
-            draft = fetchedDraft
-            fyle = fetchedFyle
-        } catch {
-            return nil
+        guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: context) else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotFindDraft
+        }
+        guard let fyle = try Fyle.get(objectID: fyleObjectID, within: context) else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotFindFyle
         }
 
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedDraftFyleJoin.entityName, in: context)!
@@ -143,6 +141,9 @@ extension PersistedDraftFyleJoin {
         static func withDraft(withPermanentID draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) -> NSPredicate {
             NSPredicate(Key.draftPermanentUUID, EqualToUuid: draftPermanentID.uuid)
         }
+        static func withDraft(_ objectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSPredicate {
+            NSPredicate(Key.draft, equalToObjectWithObjectID: objectID.objectID)
+        }
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>) -> NSPredicate {
             NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
         }
@@ -166,6 +167,17 @@ extension PersistedDraftFyleJoin {
         let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withDraft(withPermanentID: draftPermanentID),
+            Predicate.withFyleWithObjectID(fyleObjectID),
+        ])
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+    
+    public static func get(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fyleObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
+        let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withDraft(draftObjectID),
             Predicate.withFyleWithObjectID(fyleObjectID),
         ])
         request.fetchLimit = 1

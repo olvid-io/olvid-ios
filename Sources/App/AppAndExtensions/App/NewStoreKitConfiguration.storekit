@@ -1,0 +1,182 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "34749900",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "CEA74352",
+      "localizations" : [
+
+      ],
+      "name" : "Olvid+",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "959B4DD5",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "All premium features of Olvid+ for you",
+              "displayName" : "Individual",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "Toutes les fonctionnalités de Olvid+ pour vous",
+              "displayName" : "Individuel",
+              "locale" : "fr"
+            }
+          ],
+          "productID" : "io.olvid.premium_2020_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Individual (monthly)",
+          "subscriptionGroupID" : "CEA74352",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.90",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "152B0DE6",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "All premium features of Olvid+ for you",
+              "displayName" : "Individual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "io.olvid.subscription.individual.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Individual (yearly)",
+          "subscriptionGroupID" : "CEA74352",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "6.99",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "CADA5EE8",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "All premium features of Olvid+ for you and your family",
+              "displayName" : "Family",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "io.olvid.subscription.family.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Family (monthly)",
+          "subscriptionGroupID" : "CEA74352",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+            {
+              "internalID" : "224751F3",
+              "offerID" : "123456789",
+              "paymentMode" : "free",
+              "referenceName" : "My promotional offer",
+              "subscriptionPeriod" : "P1M"
+            }
+          ],
+          "codeOffers" : [
+            {
+              "eligibility" : [
+                "expired",
+                "new",
+                "existing"
+              ],
+              "internalID" : "76577F1F",
+              "isStackable" : true,
+              "paymentMode" : "free",
+              "referenceName" : "Free for one year",
+              "subscriptionPeriod" : "P1Y"
+            }
+          ],
+          "displayPrice" : "69.90",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "761B0DCD",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "All premium features of Olvid+ for you and your family",
+              "displayName" : "Family",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "io.olvid.subscription.family.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Family (yearly)",
+          "subscriptionGroupID" : "CEA74352",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

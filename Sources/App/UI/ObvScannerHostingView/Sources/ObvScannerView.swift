@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import SwiftUI
 import AVFoundation
-import os.log
+import OSLog
 import ObvDesignSystem
 import ObvAppCoreConstants
 import ObvAppTypes
@@ -31,7 +31,7 @@ public protocol ObvScannerHostingViewDelegate: AnyObject {
     func qrCodeWasScanned(olvidURL: OlvidURL) async
 }
 
-
+/// This scanner is still used in the onboarding. The scanner used in the invitation is part of the `ObvInvitationFlow` module.
 public final class ObvScannerHostingView: UIHostingController<ScannerView>, ScannerViewStoreDelegate {
     
     let store: ScannerViewStore

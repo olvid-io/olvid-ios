@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import CoreData
 import ObvTypes
 import ObvAppTypes
 import ObvEngine
-import os.log
+import OSLog
 import OlvidUtils
 import UniformTypeIdentifiers
 import ObvSettings
@@ -72,6 +72,7 @@ public class PersistedMessage: NSManagedObject {
     @NSManaged private(set) var rawMessageRepliedTo: PersistedMessage? // Should *only* be accessed from subentities
     @NSManaged private var rawReactions: [PersistedMessageReaction]?
     @NSManaged private var replies: Set<PersistedMessage>
+    @NSManaged private(set) public var poll: PersistedPoll?
 
     // MARK: - Other variables
     
@@ -140,7 +141,7 @@ public class PersistedMessage: NSManagedObject {
         get throws {
             guard let discussionIdentifier = try discussion?.discussionIdentifier else {
                 assertionFailure()
-                throw ObvUICoreDataError.discussionIsNil
+                throw ObvUICoreDataError.couldNotFindDiscussion
             }
             if let sentMessage = self as? PersistedMessageSent {
                 return .sent(discussionIdentifier: discussionIdentifier,
@@ -164,7 +165,7 @@ public class PersistedMessage: NSManagedObject {
     func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws -> InfoAboutWipedOrDeletedPersistedMessage {
 
         guard let discussion else {
-            throw ObvUICoreDataError.discussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         let messageAppIdentifier: ObvMessageAppIdentifier?
@@ -178,6 +179,7 @@ public class PersistedMessage: NSManagedObject {
         self.deleteBodyAndMentions()
         self.reactions.forEach { try? $0.delete() }
         self.reactions.forEach { try? $0.delete() }
+        try? self.poll?.delete()
         let infos: InfoAboutWipedOrDeletedPersistedMessage
         // In general, we simply delete the message without leaving any trace. Only exception:
         // if the deletion request does not come from the owned identity and doesn't come from the
@@ -230,6 +232,8 @@ public class PersistedMessage: NSManagedObject {
     public var isWiped: Bool { isLocallyWiped || isRemoteWiped }
 
     public var isLocationMessage: Bool { self.isLocation }
+    
+    public var isPoll: Bool { self.poll != nil }
     
     /// Shall only be called from methods in `PersistedMessage`, `PersistedMessageReceived`, or `PersistedMessageSent`. It shall thus not be made public.
     func processUpdateMessageRequest(newTextBody: String?, newUserMentions: [MessageJSON.UserMention]) throws {
@@ -393,7 +397,7 @@ public class PersistedMessage: NSManagedObject {
 
     // MARK: - Observers
     
-    private static var observersHolder = PersistedMessageObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = PersistedMessageObserversHolder()
     
     public static func addObserver(_ newObserver: PersistedMessageObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -585,15 +589,14 @@ extension PersistedMessage {
         case message(messageRepliedTo: PersistedMessage)
     }
 
-    convenience init(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, replyTo: ReplyToType?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forwarded: Bool, mentions: [MessageJSON.UserMention], isLocation: Bool, thisMessageTimestampCanResetDiscussionTimestampOfLastMessage: Bool = true, forEntityName entityName: String) throws {
-        
+    convenience init(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, replyTo: ReplyToType?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forwarded: Bool, mentions: [MessageJSON.UserMention], isLocation: Bool, poll: PersistedPoll?, thisMessageTimestampCanResetDiscussionSortDate: Bool = true, forEntityName entityName: String) throws {
         guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
         // We remove the \0 character from the source string, as Core Data discards any content following this character.
-        self.body = body?.replacingOccurrences(of: "\0", with: "")
+        self.body = body?.replacingOccurrences(of: "\0", with: " ")
         self.permanentUUID = UUID()
         self.rawStatus = rawStatus
         self.sectionIdentifier = try PersistedMessage.computeSectionIdentifier(fromTimestamp: timestamp, sortIndex: sortIndex, discussion: discussion)
@@ -605,6 +608,7 @@ extension PersistedMessage {
         self.visibilityDuration = visibilityDuration
         self.forwarded = forwarded
         self.doesMentionOwnedIdentity = false // Set later
+        self.poll = poll
 
         mentions.forEach { mention in
             _ = try? PersistedUserMentionInMessage(mention: mention, message: self)
@@ -632,16 +636,32 @@ extension PersistedMessage {
             }
         }
         
-        if thisMessageTimestampCanResetDiscussionTimestampOfLastMessage {
-            discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(self.timestamp)
+        if thisMessageTimestampCanResetDiscussionSortDate {
+            discussion.resetSortDateIfCurrentValueIsEarlierThan(self.timestamp)
         }
-        discussion.unarchive()
+        
+        if discussion.canUnarchiveAutomatically(with: self) {
+            discussion.unarchive()
+        }
         
         // Update the value of the doesMentionOwnedIdentity attribute
         
         resetDoesMentionOwnedIdentityValue()
 
     }
+    
+    
+    /// Helper function used by the `func messageIsValid()` functions in both `PersistedMessageSent` and `PersistedMessageReceived`.
+    func messageHasNonEmptyBody() -> Bool {
+        let messageHasValidBody: Bool
+        if let body = self.body, !body.trimmingWhitespacesAndNewlines().isEmpty {
+            messageHasValidBody = true
+        } else {
+            messageHasValidBody = false
+        }
+        return messageHasValidBody
+    }
+
     
     
     /// When creating a new `PersistedMessage`, we need to search for previous `PersistedMessage` that are a reply to this message.
@@ -651,7 +671,7 @@ extension PersistedMessage {
     func updateMessagesReplyingToThisMessage() throws {
 
         guard let context = self.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
-        guard let discussion else { assertionFailure(); throw ObvUICoreDataError.discussionIsNil }
+        guard let discussion else { assertionFailure(); throw ObvUICoreDataError.couldNotFindDiscussion }
 
         let senderIdentifier: Data
         let senderThreadIdentifier: UUID
@@ -696,7 +716,7 @@ extension PersistedMessage {
     
     /// This `update()` method shall *only* be called from the similar `update()` from the subclass `PersistedMessageReceived`.
     func update(body: String?, newMentions: Set<MessageJSON.UserMention>, senderSequenceNumber: Int, replyTo: PersistedMessage?, discussion: PersistedDiscussion) throws {
-        guard let localDiscussion = self.discussion else { assertionFailure(); throw ObvUICoreDataError.discussionIsNil }
+        guard let localDiscussion = self.discussion else { assertionFailure(); throw ObvUICoreDataError.couldNotFindDiscussion }
         guard localDiscussion.objectID == discussion.objectID else { assertionFailure(); throw ObvUICoreDataError.inconsistentDiscussion }
         guard self.senderSequenceNumber == senderSequenceNumber else { assertionFailure(); throw ObvUICoreDataError.invalidSenderSequenceNumber }
         try self.replaceContentWith(newBody: body, newMentions: newMentions)
@@ -756,7 +776,7 @@ extension PersistedMessage {
     /// Called from this class only, after checks have been made
     private func deletePersistedMessage() throws -> InfoAboutWipedOrDeletedPersistedMessage {
         guard let discussion else {
-            throw ObvUICoreDataError.discussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         guard let context = self.managedObjectContext else {
             assertionFailure()
@@ -887,6 +907,66 @@ public extension PersistedMessage {
 }
 
 
+// MARK: - Poll Vote Util
+extension PersistedMessage {
+    
+    /// Set `messageUploadTimestampFromServer` to `nil` if the request is made on the current device
+    func setPollVoteFromOwnedIdentity(for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date?) throws {
+                
+        // We only want user to vote to sent or received message.
+        switch self.kind {
+        case .none, .system:
+            throw ObvUICoreDataError.unexpectedMessageKind
+        case .received, .sent:
+            break
+        }
+        
+        // Never set a vote on a wiped message
+        guard !self.isWiped else { return }
+        
+        guard let poll = self.poll else {
+            assertionFailure()
+            throw ObvUICoreDataError.messageIsNotPollMessage
+        }
+
+        try poll.setPollVoteFromOwnedIdentity(
+            for: pollCandidateUUID,
+            voted: voted,
+            version: version,
+            messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+    }
+    
+    
+    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date?) throws {
+        
+        // We only want user to vote to sent or received message.
+        switch self.kind {
+        case .none, .system:
+            throw ObvUICoreDataError.unexpectedMessageKind
+        case .received, .sent:
+            break
+        }
+
+        // Never set a vote on a wiped message
+        guard !self.isWiped else { return }
+        
+        guard let poll = self.poll else {
+            assertionFailure()
+            throw ObvUICoreDataError.messageIsNotPollMessage
+        }
+
+        try poll.setPollVoteFromContact(
+            contact,
+            for: pollCandidateUUID,
+            voted: voted,
+            version: version,
+            messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+    }
+    
+}
+
 
 // MARK: - Reactions Util
 
@@ -936,7 +1016,6 @@ extension PersistedMessage {
             // The new emoji is nil (meaning we should remove a previous reaction) and no previous reaction can be found. There is nothing to do.
         }
     }
-    
     
     /// Expected to be called on the main thread as it allows the UI to determine if the owned identity is allowed to set a reaction on this message.
     ///
@@ -1231,9 +1310,16 @@ extension PersistedMessage {
             NSPredicate(containsText: searchTerm, forKey: Predicate.Key.body)
         }
         static func isSystemMessageForMembersOfGroupV2WereUpdated(within context: NSManagedObjectContext) -> NSPredicate {
+            
+            let predicateForCategory = NSCompoundPredicate(orPredicateWithSubpredicates: [
+                PersistedMessageSystem.Predicate.withCategory(.contactJoinedGroup),
+                PersistedMessageSystem.Predicate.withCategory(.contactLeftGroup),
+                PersistedMessageSystem.Predicate.withCategory(.membersOfGroupV2WereUpdated),
+            ])
+            
             return NSCompoundPredicate(andPredicateWithSubpredicates: [
                 Self.isSystemMessage(within: context),
-                PersistedMessageSystem.Predicate.withCategory(.membersOfGroupV2WereUpdated),
+                predicateForCategory
             ])
         }
     }
@@ -1247,6 +1333,25 @@ extension PersistedMessage {
         return NSFetchRequest<NSDictionary>(entityName: PersistedMessage.entityName)
     }
 
+    
+    public static func isMessageExisting(messageId: ObvMessageAppIdentifier, within context: NSManagedObjectContext) throws -> Bool {
+        switch messageId {
+        case .sent(discussionIdentifier: let discussionIdentifier, senderThreadIdentifier: let senderThreadIdentifier, senderSequenceNumber: let senderSequenceNumber):
+            return try PersistedMessageSent.isMessageSentExisting(
+                discussionIdentifier: discussionIdentifier,
+                senderThreadIdentifier: senderThreadIdentifier,
+                senderSequenceNumber: senderSequenceNumber,
+                within: context)
+        case .received(discussionIdentifier: let discussionIdentifier, senderIdentifier: let senderIdentifier, senderThreadIdentifier: let senderThreadIdentifier, senderSequenceNumber: let senderSequenceNumber):
+            return try PersistedMessageReceived.isMessageReceivedExisting(
+                discussionIdentifier: discussionIdentifier,
+                senderThreadIdentifier: senderThreadIdentifier,
+                senderSequenceNumber: senderSequenceNumber,
+                senderIdentifier: senderIdentifier,
+                within: context)
+        }
+    }
+    
     
     static func getPersistedMessage(discussion: PersistedDiscussion, messageId: MessageIdentifier) throws -> PersistedMessage? {
         switch messageId {
@@ -1504,7 +1609,13 @@ extension PersistedMessage {
         }
         
         if let messageAppIdentifierOnDeletionOrWipe {
-            Task { await Self.observersHolder.aPersistedMessageWasWipedOrDeleted(messageIdentifier: messageAppIdentifierOnDeletionOrWipe) }
+            Task { await PersistedMessage.observersHolder.aPersistedMessageWasWipedOrDeleted(messageIdentifier: messageAppIdentifierOnDeletionOrWipe) }
+        }
+        
+        if isInserted && (self is PersistedMessageSent || self is PersistedMessageReceived)  {
+            if let messageIdentifier = try? self.messageAppIdentifier {
+                Task { await PersistedMessage.observersHolder.aPersistedSentOrReceivedMessageWasInserted(messageIdentifier: messageIdentifier) }
+            }
         }
 
     }
@@ -1896,24 +2007,46 @@ public typealias MessagePermanentID = ObvManagedObjectPermanentID<PersistedMessa
 
 // MARK: - PersistedMessage observers
 
-public protocol PersistedMessageObserver {
+public protocol PersistedMessageObserver: AnyObject, Sendable {
     func aPersistedMessageWasWipedOrDeleted(messageIdentifier: ObvMessageAppIdentifier) async
+    func aPersistedSentOrReceivedMessageWasInserted(messageIdentifier: ObvMessageAppIdentifier) async
 }
 
+public extension PersistedMessageObserver {
+    func aPersistedMessageWasWipedOrDeleted(messageIdentifier: ObvMessageAppIdentifier) async {}
+    func aPersistedSentOrReceivedMessageWasInserted(messageIdentifier: ObvMessageAppIdentifier) async {}
+}
 
 private actor PersistedMessageObserversHolder: PersistedMessageObserver {
     
-    private var observers = [PersistedMessageObserver]()
+    private var observers = [WeakObserver]()
     
+    private final class WeakObserver {
+        private(set) weak var value: PersistedMessageObserver?
+        init(value: PersistedMessageObserver?) {
+            self.value = value
+        }
+    }
+
     func addObserver(_ newObserver: PersistedMessageObserver) {
-        self.observers.append(newObserver)
+        self.observers.append(.init(value: newObserver))
     }
     
     // Implementing PersistedMessageObserver
     
     func aPersistedMessageWasWipedOrDeleted(messageIdentifier: ObvMessageAppIdentifier) async {
-        for observer in observers {
-            await observer.aPersistedMessageWasWipedOrDeleted(messageIdentifier: messageIdentifier)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedMessageWasWipedOrDeleted(messageIdentifier: messageIdentifier) }
+            }
+        }
+    }
+    
+    func aPersistedSentOrReceivedMessageWasInserted(messageIdentifier: ObvMessageAppIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedSentOrReceivedMessageWasInserted(messageIdentifier: messageIdentifier) }
+            }
         }
     }
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,11 +52,8 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOpe
     
     
     enum Result {
-        case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
-        case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
-        case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
-        case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId)
-        case couldNotFindDiscussionInDatabase(discussionIdentifier: ObvDiscussionIdentifier)
+        case couldNotFindActiveDiscussionInDatabase(discussionIdentifier: ObvDiscussionIdentifier)
+        case contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: ObvGroupIdentifier, contactCryptoId: ObvCryptoId)
         case merged
     }
 
@@ -76,13 +73,25 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOpe
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
+        let discussionIdentifier: ObvDiscussionIdentifier
+        
         do {
+            
+            let ownedCryptoId: ObvCryptoId
             
             switch origin {
                 
             case .fromContact(contactIdentifier: let contactIdentifier):
                 
-                guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: contactIdentifier.ownedCryptoId, within: obvContext.context) else {
+                ownedCryptoId = contactIdentifier.ownedCryptoId
+                
+                guard let _discussionIdentifier = discussionSharedConfiguration.getDiscussionIdentifier(ownedCryptoId: ownedCryptoId) else {
+                    assertionFailure()
+                    return cancel(withReason: .couldNotDetermineDiscussionIdentifier)
+                }
+                discussionIdentifier = _discussionIdentifier
+                
+                guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
                 }
 
@@ -91,16 +100,23 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOpe
                     messageUploadTimestampFromServer: messageUploadTimestampFromServer, 
                     messageLocalDownloadTimestamp: messageLocalDownloadTimestamp,
                     contactCryptoId: contactIdentifier.contactCryptoId)
-                
-                result = .merged
-                                      
+                                                      
                 if weShouldSendBackOurSharedSettings {
                     requestSendingDiscussionSharedConfiguration(contactIdentifier: contactIdentifier, discussionId: discussionId, within: obvContext)
                 }
 
+                return result = .merged
+
+            case .fromOtherDeviceOfOwnedIdentity(ownedCryptoId: let _ownedCryptoId):
                 
-            case .fromOtherDeviceOfOwnedIdentity(ownedCryptoId: let ownedCryptoId):
+                ownedCryptoId = _ownedCryptoId
                 
+                guard let _discussionIdentifier = discussionSharedConfiguration.getDiscussionIdentifier(ownedCryptoId: ownedCryptoId) else {
+                    assertionFailure()
+                    return cancel(withReason: .couldNotDetermineDiscussionIdentifier)
+                }
+                discussionIdentifier = _discussionIdentifier
+
                 guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
                 }
@@ -109,46 +125,88 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOpe
                     discussionSharedConfiguration: discussionSharedConfiguration, 
                     messageUploadTimestampFromServer: messageUploadTimestampFromServer)
                                 
-                result = .merged
-
                 if weShouldSendBackOurSharedSettings {
                     ObvMessengerInternalNotification.aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice(
                         ownedCryptoId: ownedCryptoId,
                         discussionId: discussionId)
                     .postOnDispatchQueue()
                 }
-                
+            
+                return result = .merged
+
             }
             
         } catch {
             
             if let error = error as? ObvUICoreDataError {
                 switch error {
+                    
+                case .couldNotFindDiscussion,
+                        .cannotChangeShareConfigurationOfLockedDiscussion,
+                        .cannotChangeShareConfigurationOfPreDiscussion:
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
+                case .couldNotFindGroupV1InDatabase:
+                    // If a group does not exist, any associated discussion also cannot exist.
+                    // Therefore, return a `couldNotFindActiveDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created,
+                    // which occurs automatically upon group creation.
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
                 case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
-                    result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+                    // If a group does not exist, any associated discussion also cannot exist.
+                    // Therefore, return a `couldNotFindActiveDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created,
+                    // which occurs automatically upon group creation.
+                    let discussionIdentifier = ObvDiscussionIdentifier.groupV2(id: groupIdentifier)
+                    result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
                     return
+
                 case .couldNotFindContactWithId(contactIdentifier: let contactIdentifier):
-                    // This can happen if the owned identity performed a mutual scan with the contact from another owned device
-                    result = .couldNotFindContactInDatabase(contactCryptoId: contactIdentifier.contactCryptoId)
-                    return
-                case .couldNotFindOneToOneContactWithId(contactIdentifier: let contactIdentifier):
-                    // This can happen when receiving a shared config from a contact who just accepted our invitation to be a oneToOne contact. We should not fail as this case is handled:
-                    // we will soon turn her into a oneToOne contact, and thus, send her back our own shared config for the discussion. Upon receiving our discussion shared settings, she will
-                    // again send us back her shared settings if required.
-                    result = .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactIdentifier.contactCryptoId)
-                    return
-                case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactIdentifier: let contactIdentifier):
-                    result = .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactIdentifier.contactCryptoId)
-                    return
-                case .couldNotFindDiscussion:
-                    guard let discussionIdentifier = discussionSharedConfiguration.getDiscussionIdentifier(ownedCryptoId: ownedCryptoId) else {
-                        assertionFailure()
-                        return cancel(withReason: .coreDataError(error: error))
+                    // This can happen if the owned identity performed a mutual scan with the contact from another owned device.
+                    // In the case the received information concerns:
+                    // - a one2one discussion:
+                    // If a contact does not exist, any associated discussion also cannot exist.
+                    // Therefore, return a `couldNotFindActiveDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created,
+                    // which occurs automatically upon contact creation.
+                    // - a group discussion:
+                    // To the contrary of the previous case, the discussion with the contact might never be
+                    // created (e.g., when the contact is added to the group by another administrator). So we
+                    // return a `contactIsNotPartOfGroupOrRequiresPermissions` result.
+                    if let obvGroupIdentifier = discussionIdentifier.obvGroupIdentifier {
+                        // Group discussion
+                        return result = .contactIsNotPartOfGroupOrRequiresPermissions(
+                            groupIdentifier: obvGroupIdentifier,
+                            contactCryptoId: contactIdentifier.contactCryptoId)
+                    } else {
+                        // One2one discussion
+                        return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
                     }
-                    result = .couldNotFindDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
-                    return
+                    
+                case .couldNotFindOneToOneContactWithId:
+                    // This can happen when receiving a shared config from a contact who just accepted
+                    // our invitation to be a oneToOne contact. We should not fail as this case is handled:
+                    // we will soon turn her into a oneToOne contact, and thus,
+                    // send her back our own shared config for the discussion.
+                    // Upon receiving our discussion shared settings, she will
+                    // again send us back her shared settings if required.
+                    //
+                    // If a contact is not one-to-one, any associated discussion is locked, or cannot exist.
+                    // Therefore, return a `couldNotFindDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created, or if the existing discussion
+                    // status is set to active again.
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+                    
+                case .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
+                    assert(groupIdentifier == discussionIdentifier.obvGroupIdentifier)
+                    return result = .contactIsNotPartOfGroupOrRequiresPermissions(
+                        groupIdentifier: groupIdentifier,
+                        contactCryptoId: contactCryptoId)
+                                        
                 default:
                     return cancel(withReason: .coreDataError(error: error))
+                    
                 }
             } else {
                 return cancel(withReason: .coreDataError(error: error))
@@ -181,11 +239,13 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOpe
         case coreDataError(error: Error)
         case couldNotFindPersistedOwnedIdentity
         case contextIsNil
+        case couldNotDetermineDiscussionIdentifier
 
         var logType: OSLogType {
             switch self {
             case .coreDataError,
                  .couldNotFindPersistedOwnedIdentity,
+                 .couldNotDetermineDiscussionIdentifier,
                  .contextIsNil:
                 return .fault
             }
@@ -199,6 +259,8 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOpe
                 return "Could not find persisted owned identity"
             case .contextIsNil:
                 return "Context is nil"
+            case .couldNotDetermineDiscussionIdentifier:
+                return "Could not determine discussion identifier"
             }
         }
 

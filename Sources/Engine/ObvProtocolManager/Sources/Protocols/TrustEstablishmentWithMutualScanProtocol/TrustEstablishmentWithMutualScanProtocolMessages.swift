@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,8 +63,8 @@ extension TrustEstablishmentWithMutualScanProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.contactIdentity = try message.encodedInputs[0].obvDecode()
             self.signature = try message.encodedInputs[1].obvDecode()
         }
@@ -102,8 +102,8 @@ extension TrustEstablishmentWithMutualScanProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             aliceIdentity = try encodedElements[0].obvDecode()
             signature = try encodedElements[1].obvDecode()
@@ -141,8 +141,8 @@ extension TrustEstablishmentWithMutualScanProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard try message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.bobIdentity = try message.encodedInputs[0].obvDecode()
             self.signature = try message.encodedInputs[1].obvDecode()
         }
@@ -175,9 +175,9 @@ extension TrustEstablishmentWithMutualScanProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
+            guard try message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             let encodedBobCoreDetails: Data = try encodedElements[0].obvDecode()
             bobCoreDetails = try ObvIdentityCoreDetails(encodedBobCoreDetails)
             bobDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[1])
@@ -216,8 +216,8 @@ extension TrustEstablishmentWithMutualScanProtocol {
         }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             aliceIdentity = try encodedElements[0].obvDecode()
             signature = try encodedElements[1].obvDecode()

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import UIKit
 import ObvUICoreData
+import ObvSystemIcon
 
 
 protocol ViewControllerWithEllipsisCircleRightBarButtonItem: UIViewController {}
@@ -26,11 +27,14 @@ protocol ViewControllerWithEllipsisCircleRightBarButtonItem: UIViewController {}
 
 extension ViewControllerWithEllipsisCircleRightBarButtonItem {
     
-    @available(iOS, introduced: 14.0)
-    func getConfiguredEllipsisCircleRightBarButtonItem() -> UIBarButtonItem {
-        let menu = getFirstMenuAvailable()
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-        let ellipsisImage = UIImage(systemIcon: .ellipsisCircle, withConfiguration: symbolConfiguration)
+    func getConfiguredEllipsisCircleRightBarButtonItem(menu: UIMenu) -> UIBarButtonItem {
+        let systemIcon: SystemIcon
+        if #available(iOS 26, *) {
+            systemIcon = .ellipsis
+        } else {
+            systemIcon = .ellipsisCircle
+        }
+        let ellipsisImage = UIImage(systemIcon: systemIcon)
         let ellipsisButton = UIBarButtonItem(
             title: "Menu",
             image: ellipsisImage,

@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import Combine
 import CoreData
 import os.log
 import ObvTypes
@@ -25,6 +26,7 @@ import UserNotifications
 import ObvUICoreData
 import ObvAppCoreConstants
 import ObvAppCoreConstants
+import ObvUICoreDataStructs
 
 actor UserNotificationsBadgesManager {
     
@@ -34,6 +36,7 @@ actor UserNotificationsBadgesManager {
     
     private let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)
     private var notificationTokens = [NSObjectProtocol]()
+    private var cancellables = Set<AnyCancellable>()
     private let queueForBadgesOperations = OperationQueue.createSerialQueue(name: "Queue for badges operations")
 
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: UserNotificationsBadgesManager.self))
@@ -43,13 +46,20 @@ actor UserNotificationsBadgesManager {
     init() {
         Task {
             await observeNotifications()
+            await continouslyUpdateCurrentOwnedCryptoId()
         }
     }
     
     deinit {
         notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        cancellables.forEach { $0.cancel() }
     }
 
+    
+    func applicationWasInitializedButWasNeverOnScreen() async {
+        await recomputeAllBadges()
+    }
+    
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         await recomputeAllBadges()
@@ -138,9 +148,6 @@ extension UserNotificationsBadgesManager {
             ObvMessengerInternalNotification.observeUpdateBadgeBackgroundTaskWasLaunched() { [weak self] completion in
                 Task { [weak self] in await self?.recomputeAllBadges(completion: completion) }
             },
-            ObvMessengerInternalNotification.observeMetaFlowControllerDidSwitchToOwnedIdentity { [weak self] ownedCryptoId in
-                Task { [weak self] in await self?.switchCurrentOwnedCryptoId(to: ownedCryptoId) }
-            },
         ])
                 
     }
@@ -174,9 +181,20 @@ extension UserNotificationsBadgesManager: PersistedObvOwnedIdentityObserver {
 
 extension UserNotificationsBadgesManager {
     
-    private func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+    private func switchCurrentOwnedCryptoIdIfRequired() async {
+        let newOwnedCryptoId = OlvidUserActivitySingleton.shared.currentUserActivity?.ownedCryptoId
+        guard self.currentOwnedCryptoId != newOwnedCryptoId else { return }
         currentOwnedCryptoId = newOwnedCryptoId
         await recomputeAllBadges()
+    }
+  
+    private func continouslyUpdateCurrentOwnedCryptoId() {
+        Task { await switchCurrentOwnedCryptoIdIfRequired() }
+        OlvidUserActivitySingleton.shared.$currentUserActivity
+            .sink { [weak self] newValue in
+                Task { await self?.switchCurrentOwnedCryptoIdIfRequired() }
+            }
+            .store(in: &cancellables)
     }
     
 }

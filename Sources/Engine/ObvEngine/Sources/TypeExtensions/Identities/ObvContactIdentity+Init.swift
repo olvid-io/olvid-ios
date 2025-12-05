@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,14 +28,19 @@ extension ObvContactIdentity {
     
     init?(contactCryptoIdentity: ObvCryptoIdentity, ownedCryptoIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) {
         // The following call allows to make sure that `contactCryptoIdentity` is indeed a contact of `ownedCryptoIdentity` (it also ensures that `ownedCryptoIdentity` is an owned identity).
-        guard (try? identityDelegate.isIdentity(contactCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoIdentity, within: obvContext)) == true else { return nil }
+        guard (try? identityDelegate.isIdentity(contactCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoIdentity, within: obvContext.context)) == true else { return nil }
         let allIdentityDetails: (publishedIdentityDetails: ObvIdentityDetails?, trustedIdentityDetails: ObvIdentityDetails)
         do {
-            allIdentityDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactCryptoIdentity, ofOwnedIdentity: ownedCryptoIdentity, within: obvContext)
+            allIdentityDetails = try identityDelegate.getIdentityDetailsOfContactIdentity(contactCryptoIdentity, ofOwnedIdentity: ownedCryptoIdentity, within: obvContext.context)
         } catch {
             return nil
         }
-        guard let ownedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return nil }
+        do {
+            guard try !identityDelegate.isOwnedIdentityDeletedOrDeletionIsInProgress(ownedCryptoIdentity, within: obvContext) else { return nil }
+            guard try identityDelegate.isOwned(ownedCryptoIdentity, within: obvContext) else { return nil }
+        } catch {
+            return nil
+        }
         let isCertifiedByOwnKeycloak: Bool
         do {
             isCertifiedByOwnKeycloak = try identityDelegate.isContactCertifiedByOwnKeycloak(contactIdentity: contactCryptoIdentity, ofOwnedIdentity: ownedCryptoIdentity, within: obvContext)
@@ -70,7 +75,7 @@ extension ObvContactIdentity {
         self.init(cryptoIdentity: contactCryptoIdentity,
                   trustedIdentityDetails: allIdentityDetails.trustedIdentityDetails,
                   publishedIdentityDetails: allIdentityDetails.publishedIdentityDetails,
-                  ownedIdentity: ownedIdentity,
+                  ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedCryptoIdentity),
                   isCertifiedByOwnKeycloak: isCertifiedByOwnKeycloak,
                   isActive: isActive,
                   isRevokedAsCompromised: isRevokedAsCompromised,

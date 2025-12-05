@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,7 +48,9 @@ extension PersistedExpirationForReceivedMessageWithLimitedVisibility {
         enum Key: String {
             case messageReceivedWithLimitedVisibility = "messageReceivedWithLimitedVisibility"
         }
-        static let withNoMessage = NSPredicate(withNilValueForKey: Key.messageReceivedWithLimitedVisibility)
+        static var withNoMessage: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.messageReceivedWithLimitedVisibility)
+        }
     }
     
     @nonobjc private static func fetchRequest() -> NSFetchRequest<PersistedExpirationForReceivedMessageWithLimitedVisibility> {

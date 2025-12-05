@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -57,7 +57,7 @@ final class ContactIdentityToContactIdentityMigrationPolicyV40ToV41: NSEntityMig
             throw Self.makeError(message: "Could not read the value of the owned identity")
         }
                 
-        let transformer = ObvCryptoIdentityTransformer()
+        let transformer = ObvCryptoIdentityTransformerForMigration()
         guard let value = ownedIdentityObject.value(forKey: "cryptoIdentity"),
                 let ownedIdentityIdentity = transformer.transformedValue(value) as? Data,
         let ownedCryptoIdentity = ObvCryptoIdentity(from: ownedIdentityIdentity)  else {
@@ -69,4 +69,33 @@ final class ContactIdentityToContactIdentityMigrationPolicyV40ToV41: NSEntityMig
         
     }
     
+}
+
+// Private helpers
+
+private final class ObvCryptoIdentityTransformerForMigration: ValueTransformer {
+    
+    override class func transformedValueClass() -> AnyClass {
+        return ObvCryptoIdentity.self
+    }
+    
+    override class func allowsReverseTransformation() -> Bool {
+        return true
+    }
+    
+    /// Transform an ObvIdentity into an instance of Data
+    override func transformedValue(_ value: Any?) -> Any? {
+        guard let obvCryptoIdentity = value as? ObvCryptoIdentity else { return nil }
+        return obvCryptoIdentity.getIdentity()
+    }
+    
+    override func reverseTransformedValue(_ value: Any?) -> Any? {
+        guard let data = value as? Data else { return nil }
+        return ObvCryptoIdentity(from: data)
+    }
+}
+
+
+private extension NSValueTransformerName {
+    static let obvCryptoIdentityTransformerName = NSValueTransformerName(rawValue: "ObvCryptoIdentityTransformer")
 }

@@ -185,7 +185,7 @@ public final class PersistedDiscussionLocalConfiguration: NSManagedObject {
     
     // MARK: - Observers
     
-    private static var observersHolder = ObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
     
     public static func addObvObserver(_ newObserver: PersistedDiscussionLocalConfigurationObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -207,7 +207,7 @@ private enum PersistedDiscussionLocalConfigurationValueType: CaseIterable, Hasha
     case performInteractionDonation
 }
 
-public enum PersistedDiscussionLocalConfigurationValue {
+public enum PersistedDiscussionLocalConfigurationValue: Sendable {
     case autoRead(_ autoRead: Bool?)
     case retainWipedOutboundMessages(_ retainWipedOutboundMessages: Bool?)
     case doSendReadReceipt(_ doSendReadReceipt: Bool?)
@@ -378,6 +378,8 @@ extension PersistedDiscussionLocalConfiguration {
             case rawPerformInteractionDonation = "rawPerformInteractionDonation"
             case rawRetainWipedOutboundMessages = "rawRetainWipedOutboundMessages"
             case rawTimeBasedRetention = "rawTimeBasedRetention"
+            // Relationships
+            case discussion = "discussion"
         }
         static func withMuteNotificationsEndDateLaterThan(_ date: Date) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -393,6 +395,9 @@ extension PersistedDiscussionLocalConfiguration {
         }
         static func withObjectID(objectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) -> NSPredicate {
             NSPredicate(withObjectID: objectID.objectID)
+        }
+        static func withDiscusion(objectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
+            NSPredicate(Key.discussion, equalToObjectWithObjectID: objectID.objectID)
         }
     }
     
@@ -431,6 +436,19 @@ extension PersistedDiscussionLocalConfiguration {
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.muteNotificationsEndDate.rawValue, ascending: true)]
         request.fetchLimit = 1
         return try context.fetch(request).first?.muteNotificationsEndDate
+    }
+
+    
+    public static func getFetchedResultsController(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDiscussionLocalConfiguration> {
+        let request: NSFetchRequest<PersistedDiscussionLocalConfiguration> = PersistedDiscussionLocalConfiguration.fetchRequest()
+        request.predicate = Predicate.withDiscusion(objectID: persistedDiscussionObjectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return NSFetchedResultsController<PersistedDiscussionLocalConfiguration>(
+            fetchRequest: request,
+            managedObjectContext: context,
+            sectionNameKeyPath: nil,
+            cacheName: nil)
     }
     
 }
@@ -505,9 +523,11 @@ extension PersistedDiscussionLocalConfiguration {
                 
                 do {
                     guard let discussionIdentifier = try self.discussion?.discussionIdentifier else {
-                        throw ObvUICoreDataError.discussionIsNil
+                        throw ObvUICoreDataError.couldNotFindDiscussion
                     }
-                    Task { await Self.observersHolder.aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: discussionIdentifier, value: value) }
+                    Task {
+                        await PersistedDiscussionLocalConfiguration.observersHolder.aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: discussionIdentifier, value: value)
+                    }
                 } catch {
                     Self.logger.error("Could not compute discussion identifier: \(error)")
                     assertionFailure()
@@ -526,7 +546,7 @@ extension PersistedDiscussionLocalConfiguration {
             if changedKeys.contains(Predicate.Key.rawDoSendReadReceipt.rawValue) {
                 if let ownedCryptoId = self.discussion?.ownedIdentity?.cryptoId {
                     Task {
-                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ownedCryptoId)
+                        await PersistedDiscussionLocalConfiguration.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ownedCryptoId)
                     }
                 } else {
                     assertionFailure()
@@ -627,7 +647,7 @@ struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable 
 
 // MARK: - PersistedDiscussionLocalConfiguration observers
 
-public protocol PersistedDiscussionLocalConfigurationObserver: AnyObject {
+public protocol PersistedDiscussionLocalConfigurationObserver: AnyObject, Sendable {
     func aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: ObvDiscussionIdentifier, value: PersistedDiscussionLocalConfigurationValue) async
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ObvCryptoId) async
 }
@@ -653,7 +673,9 @@ private actor ObserversHolder: PersistedDiscussionLocalConfigurationObserver {
     func aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: ObvDiscussionIdentifier, value: PersistedDiscussionLocalConfigurationValue) async {
         await withTaskGroup(of: Void.self) { taskGroup in
             for observer in observers.compactMap(\.value) {
-                taskGroup.addTask { await observer.aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: discussionIdentifier, value: value) }
+                taskGroup.addTask {
+                    await observer.aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: discussionIdentifier, value: value)
+                }
             }
         }
     }

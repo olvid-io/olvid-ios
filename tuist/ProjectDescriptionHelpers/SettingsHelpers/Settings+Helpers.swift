@@ -22,6 +22,14 @@ extension Dictionary where Key == String, Value == ProjectDescription.SettingVal
     }
     
     
+    /// Enables clang module verification for frameworks.
+    ///
+    /// See: https://developer.apple.com/documentation/xcode/build-settings-reference#Enable-Module-Verifier
+    func enableModuleVerifier(_ bool: Bool) -> Self {
+        merging(["ENABLE_MODULE_VERIFIER": .init(booleanLiteral: bool)])
+    }
+
+    
     /// Automatically generate an Info.plist file.
     ///
     /// See: https://developer.apple.com/documentation/xcode/build-settings-reference#Generate-Infoplist-File

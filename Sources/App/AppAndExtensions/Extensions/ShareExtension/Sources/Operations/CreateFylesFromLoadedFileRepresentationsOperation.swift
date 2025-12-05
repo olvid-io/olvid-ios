@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,25 +19,22 @@
   
 
 import Foundation
-import os.log
+import OSLog
 import OlvidUtils
 import ObvCrypto
 import ObvUICoreData
 import CoreData
+import ObvAppCoreConstants
 
-
-protocol LoadedItemProviderProvider: Operation {
-    var loadedItemProviders: [LoadedItemProvider]? { get }
-}
 
 final class CreateFylesFromLoadedFileRepresentationsOperation: ContextualOperationWithSpecificReasonForCancel<CreateFylesFromLoadedFileRepresentationsOperationReasonForCancel>, @unchecked Sendable, FyleJoinsProvider {
 
-    private let loadedItemProviderProvider: LoadedItemProviderProvider
-    private let log: OSLog
+    private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "CreateFylesFromLoadedFileRepresentationsOperation")
+    
+    private let loadedItemProviders: [LoadedItemProvider]
 
-    init(loadedItemProviderProvider: LoadedItemProviderProvider, log: OSLog) {
-        self.loadedItemProviderProvider = loadedItemProviderProvider
-        self.log = log
+    init(loadedItemProviders: [LoadedItemProvider]) {
+        self.loadedItemProviders = loadedItemProviders
         super.init()
     }
 
@@ -53,23 +50,20 @@ final class CreateFylesFromLoadedFileRepresentationsOperation: ContextualOperati
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        assert(loadedItemProviderProvider.isFinished)
-        
-        guard let loadedItemProviders = loadedItemProviderProvider.loadedItemProviders else {
-            cancel(withReason: .noLoadedItemProviders)
-            return
-        }
-        
         var tempURLsToDelete = [URL]()
         var fyleJoins = [FyleJoin]()
-        var bodyTexts = [String]()
+        var loadedItemProvidersToPaste = [LoadedItemProviderToPaste]()
         
         for loadedItemProvider in loadedItemProviders {
             
             switch loadedItemProvider {
                 
-            case .file(tempURL: let tempURL, fileType: let fileType, filename: let filename):
+            case .toAttach(let loadedItemProviderToAttach):
                 
+                let tempURL = loadedItemProviderToAttach.tempURL
+                let fileType = loadedItemProviderToAttach.fileType
+                let filename = loadedItemProviderToAttach.filename
+                                
                 // Compute the sha256 of the file
                 let sha256: Data
                 do {
@@ -90,7 +84,7 @@ final class CreateFylesFromLoadedFileRepresentationsOperation: ContextualOperati
                 // We move the received file to a permanent location
                 
                 do {
-                    try fyle.moveFileToPermanentURL(from: tempURL, logTo: log)
+                    try fyle.moveFileToPermanentURL(from: tempURL, logTo: Self.log)
                 } catch {
                     cancelAndContinue(withReason: .couldNotMoveFileToPermanentURL(error: error))
                     tempURLsToDelete.append(tempURL)
@@ -101,17 +95,25 @@ final class CreateFylesFromLoadedFileRepresentationsOperation: ContextualOperati
                 
                 fyleJoins += [fyleJoin]
                 
-            case .text(content: let textContent):
+            case .toPaste(let loadedItemProviderToPaste):
                 
-                bodyTexts.append(textContent)
+                loadedItemProvidersToPaste.append(loadedItemProviderToPaste)
                 
-            case .url(content: let url):
-                bodyTexts.append(url.absoluteString)
             }
             
         }
         
-        self.bodyTexts = bodyTexts
+        // In the special case where there is exactly one URL, we put it last in the bodyTexts.
+        // This typically happens when sharing an article, where the shared content to paste contains
+        // one URL, and one decription as text. In that case, we typically want the description to appear first.
+        
+        let numberOfURLsToPaste = loadedItemProvidersToPaste.count(where: { $0.isURL })
+        if numberOfURLsToPaste == 1 {
+            self.bodyTexts = loadedItemProvidersToPaste.sorted(by: \.sortOrder).map(\.textToPaste)
+        } else {
+            self.bodyTexts = loadedItemProvidersToPaste.map(\.textToPaste)
+        }
+        
         self.fyleJoins = fyleJoins
         
         for urlToDelete in tempURLsToDelete {
@@ -121,6 +123,21 @@ final class CreateFylesFromLoadedFileRepresentationsOperation: ContextualOperati
     }
 
 }
+
+
+
+fileprivate extension LoadedItemProviderToPaste {
+    
+    /// Allows to easily place URLs last in the bodyTexts
+    var sortOrder: Int {
+        switch self {
+        case .text: return 0
+        case .url: return 1
+        }
+    }
+    
+}
+
 
 enum CreateFylesFromLoadedFileRepresentationsOperationReasonForCancel: LocalizedErrorWithLogType {
     case contextIsNil

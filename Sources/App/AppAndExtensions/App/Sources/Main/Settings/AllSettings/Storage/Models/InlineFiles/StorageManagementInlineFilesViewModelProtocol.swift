@@ -26,7 +26,13 @@ protocol StorageManagementInlineFilesViewModelProtocol {
     
     associatedtype Content: View
     
+    associatedtype SizingContent: View
+    
     var storageFiles: [StorageFileRepresentation] { get }
+    
+    var displayableStorageFiles: [StorageFileRepresentation] { get }
+    
+    func cellForSizing() -> SizingContent
     
     func cellForStorageFile(_ storageFile: StorageFileRepresentation) -> Content
     

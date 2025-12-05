@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvEngine
 import ObvCoreDataStack
@@ -27,6 +27,7 @@ import ObvUICoreData
 import ObvCrypto
 import OlvidUtils
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 
@@ -53,8 +54,6 @@ final class ContactGroupCoordinator: OlvidCoordinator, ObvErrorMaker {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
-    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {}
-
 }
 
 
@@ -67,32 +66,11 @@ extension ContactGroupCoordinator {
         // Internal notifications
         
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeInviteContactsToGroupOwned { [weak self] groupUid, ownedCryptoId, newGroupMembers in
-                self?.processInviteContactsToGroupOwnedNotification(groupUid: groupUid, ownedCryptoId: ownedCryptoId, newGroupMembers: newGroupMembers)
-            },
-            ObvMessengerInternalNotification.observeRemoveContactsFromGroupOwned { [weak self] groupUid, ownedCryptoId, removedContacts in
-                self?.processRemoveContactsFromGroupOwnedNotification(groupUid: groupUid, ownedCryptoId: ownedCryptoId, removedContacts: removedContacts)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToRefreshContactGroupJoined { [weak self] (obvContactGroup) in
-                self?.processUserWantsToRefreshContactGroupJoined(obvContactGroup: obvContactGroup)
-            },
             ObvMessengerInternalNotification.observeUserWantsToUpdateCustomNameAndGroupV2Photo() { [weak self] ownedCryptoId, groupIdentifier, customName, customPhoto in
                 self?.processUserWantsToUpdateCustomNameAndGroupV2Photo(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, customName: customName, customPhoto: customPhoto)
             },
-            ObvMessengerInternalNotification.observeUserHasSeenPublishedDetailsOfGroupV2() { [weak self] groupObjectID in
-                self?.processUserHasSeenPublishedDetailsOfGroupV2(groupObjectID: groupObjectID)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToSetCustomNameOfJoinedGroupV1() { [weak self] (ownedCryptoId, groupIdentifier, groupNameCustom) in
-                self?.processUserWantsToSetCustomNameOfJoinedGroupV1(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, groupNameCustom: groupNameCustom)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToUpdatePersonalNoteOnGroupV1 { [weak self] ownedCryptoId, groupIdentifier, newText in
-                self?.processUserWantsToUpdatePersonalNoteOnGroupV1(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToUpdatePersonalNoteOnGroupV2 { [weak self] ownedCryptoId, groupIdentifier, newText in
-                self?.processUserWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText)
-            },
-            ObvMessengerInternalNotification.observeUserHasSeenPublishedDetailsOfContactGroupJoined { [weak self] obvGroupIdentifier in
-                self?.processUserHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: obvGroupIdentifier)
+            ObvMessengerInternalNotification.observeUserWantsToUpdateCustomNameAndGroupV1Photo { [weak self] groupV1Identifier, customName, customPhoto in
+                self?.processUserWantsToSetCustomNameOfJoinedGroupV1(groupV1Identifier: groupV1Identifier, groupNameCustom: customName, customPhoto: customPhoto)
             },
         ])
         
@@ -151,47 +129,8 @@ extension ContactGroupCoordinator {
             },
         ])
     }
-
-    
-    private func processUserWantsToRefreshContactGroupJoined(obvContactGroup: ObvContactGroup) {
-        let ownedCryptoId = obvContactGroup.ownedIdentity.cryptoId
-        let groupUid = obvContactGroup.groupUid
-        let groupOwned = obvContactGroup.groupOwner.cryptoId
-        do {
-            try obvEngine.refreshContactGroupJoined(ownedCryptoId: ownedCryptoId, groupUid: groupUid, groupOwner: groupOwned)
-        } catch {
-            os_log("Could not refresh contact group joined", log: Self.log, type: .fault)
-            return
-        }
-    }
-
     
     
-    private func processInviteContactsToGroupOwnedNotification(groupUid: UID, ownedCryptoId: ObvCryptoId, newGroupMembers: Set<ObvCryptoId>) {
-        do {
-            try obvEngine.inviteContactsToGroupOwned(groupUid: groupUid,
-                                                     ownedCryptoId: ownedCryptoId,
-                                                     newGroupMembers: newGroupMembers)
-        } catch {
-            assertionFailure()
-            os_log("Could not invite contact to group owned", log: Self.log, type: .error)
-        }
-    }
-    
-    
-    private func processRemoveContactsFromGroupOwnedNotification(groupUid: UID, ownedCryptoId: ObvCryptoId, removedContacts: Set<ObvCryptoId>) {
-        do {
-            try obvEngine.removeContactsFromGroupOwned(groupUid: groupUid,
-                                                       ownedCryptoId: ownedCryptoId,
-                                                       removedGroupMembers: removedContacts)
-        } catch {
-            assertionFailure()
-            os_log("Could not invite contact to group owned", log: Self.log, type: .error)
-        }
-    }
-    
-    
-
     private func processContactGroupOwnedHasUpdatedLatestDetailsNotification(obvContactGroup: ObvContactGroup) {
         let op1 = ProcessContactGroupOwnedHasUpdatedLatestDetailsOperation(obvContactGroup: obvContactGroup)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
@@ -277,38 +216,46 @@ extension ContactGroupCoordinator {
     }
 
     
-    private func processUserHasSeenPublishedDetailsOfGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>) {
-        let op1 = MarkPublishedDetailsOfGroupV2AsSeenOperation(groupV2ObjectID: groupObjectID)
+    /// Called from the
+    func processUserHasSeenPublishedDetailsOfGroup(groupIdentifier: ObvGroupIdentifier) async throws {
+        let op1 = MarkPublishedDetailsOfGroupAsSeenOperation(groupIdentifier: groupIdentifier)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            assertionFailure()
+            return
+        }
+    }
+    
+    
+    private func processUserWantsToSetCustomNameOfJoinedGroupV1(groupV1Identifier: ObvGroupV1Identifier, groupNameCustom: String?, customPhoto: UIImage?) {
+        let op1 = SetCustomNameOfJoinedGroupV1Operation(groupV1Identifier: groupV1Identifier, groupNameCustom: groupNameCustom, customPhoto: customPhoto, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         coordinatorsQueue.addOperation(composedOp)
     }
 
     
-    private func processUserWantsToSetCustomNameOfJoinedGroupV1(ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV1Identifier, groupNameCustom: String?) {
-        let op1 = SetCustomNameOfJoinedGroupV1Operation(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, groupNameCustom: groupNameCustom, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
+    /// Called from the `RootViewController`.
+    func processUserWantsToUpdatePersonalNoteOnGroupV1(groupV1Identifier: ObvGroupV1Identifier, newText: String?) async throws {
+        let op1 = UpdatePersonalNoteOnGroupV1Operation(ownedCryptoId: groupV1Identifier.ownedCryptoId, groupIdentifier: groupV1Identifier.groupV1Identifier, newText: newText, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        coordinatorsQueue.addOperation(composedOp)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            assertionFailure()
+            throw ObvError.couldNotUpdatePersonalNote
+        }
     }
 
     
-    private func processUserWantsToUpdatePersonalNoteOnGroupV1(ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV1Identifier, newText: String?) {
-        let op1 = UpdatePersonalNoteOnGroupV1Operation(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
+    /// Called from the `RootViewController`.
+    func processUserWantsToUpdatePersonalNoteOnGroupV2(groupV2Identifier: ObvGroupV2Identifier, newText: String?) async throws {
+        let op1 = UpdatePersonalNoteOnGroupV2Operation(ownedCryptoId: groupV2Identifier.ownedCryptoId, groupIdentifier: groupV2Identifier.identifier.appGroupIdentifier, newText: newText, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        coordinatorsQueue.addOperation(composedOp)
-    }
-
-    
-    private func processUserWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, newText: String?) {
-        let op1 = UpdatePersonalNoteOnGroupV2Operation(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        coordinatorsQueue.addOperation(composedOp)
-    }
-
-    
-    private func processUserHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: ObvGroupV1Identifier) {
-        let op1 = ProcessUserHasSeenPublishedDetailsOfContactGroupJoinedOperation(obvGroupIdentifier: obvGroupIdentifier)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        coordinatorsQueue.addOperation(composedOp)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            assertionFailure()
+            throw ObvError.couldNotUpdatePersonalNote
+        }
     }
 
     
@@ -327,6 +274,15 @@ extension ContactGroupCoordinator {
     
     func userWantsToReplaceTrustedDetailsByPublishedDetails(groupIdentifier: ObvGroupV2Identifier) async throws {
         try await obvEngine.replaceTrustedDetailsByPublishedDetailsOfGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
+    }
+    
+}
+
+
+extension ContactGroupCoordinator {
+    
+    enum ObvError: Error {
+        case couldNotUpdatePersonalNote
     }
     
 }

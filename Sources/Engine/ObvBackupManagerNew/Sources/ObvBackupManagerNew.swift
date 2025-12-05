@@ -1018,8 +1018,6 @@ extension ObvBackupManagerNew {
             throw .uploadBackupToServerError(error: error)
         }
         
-        debugPrint("Done")
-
     }
     
     
@@ -1226,9 +1224,7 @@ extension ObvBackupManagerNew {
             assertionFailure()
             throw .uploadBackupToServerError(error: error)
         }
-        
-        debugPrint("Done")
-        
+                
     }
     
     

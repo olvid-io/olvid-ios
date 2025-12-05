@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -47,7 +47,7 @@ final class ObvServerChannel: ObvChannel {
 // MARK: - Implementing ObvChannel
 extension ObvServerChannel {
     
-    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> ObvMessageIdentifier {
+    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within context: NSManagedObjectContext) throws -> ObvMessageIdentifier {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvServerChannel.logCategory)
         
@@ -117,7 +117,7 @@ extension ObvServerChannel {
             
             let serverQuery = ServerQuery(ownedIdentity: ownedIdentity, queryType: serverQueryType, encodedElements: message.encodedElements)
             
-            networkFetchDelegate.postServerQuery(serverQuery, within: obvContext)
+            networkFetchDelegate.postServerQuery(serverQuery, within: context)
             
             let randomUid = UID.gen(with: prng)
             let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid)
@@ -182,7 +182,7 @@ extension ObvServerChannel {
             throw Self.makeError(message: "Unexpected number of server channels found")
         }
 
-        let messageId = try acceptableServerChannel.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
+        let messageId = try acceptableServerChannel.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext.context)
         
         return [messageId: Set([acceptableServerChannel.ownedIdentity])]
         

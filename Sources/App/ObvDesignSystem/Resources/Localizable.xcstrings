@@ -1,122 +1,368 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "" : {
-
+  "sourceLanguage": "en",
+  "strings": {
+    "": {
+      "shouldTranslate": false
     },
-    "Cancel" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cancel"
+    "BUTTON_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annuler"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appeler"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiama"
           }
         }
       }
     },
-    "CONTENT_UNAVAILABLE_VIEW_FOR_SEARCH_DESCRIPTION" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check the spelling or try a new search."
+    "BUTTON_CHAT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vérifiez l’orthographe ou lancez une nouvelle recherche."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discuter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat"
           }
         }
       }
     },
-    "CONTENT_UNAVAILABLE_VIEW_FOR_SEARCH_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Results"
+    "CONTENT_UNAVAILABLE_VIEW_FOR_SEARCH_DESCRIPTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte überprüfe die Rechtschreibung oder versuche eine neue Suche."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun résultat"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the spelling or try a new search."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisa la ortografía o intenta una búsqueda nueva."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez l’orthographe ou lancez une nouvelle recherche."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controlla l'ortografia o prova una nuova ricerca."
           }
         }
       }
     },
-    "Ok" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ok"
+    "CONTENT_UNAVAILABLE_VIEW_FOR_SEARCH_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Ergebnisse"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ok"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Results"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontraron resultados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun résultat"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun risultato"
           }
         }
       }
     },
-    "PERSONAL_NOTE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Personal note"
+    "Cancel": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abbrechen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Note personnelle"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulla"
           }
         }
       }
     },
-    "TAP_TO_CANCEL" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "mac" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Click to cancel"
+    "Ok": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okay"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ok"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De acuerdo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ok"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ok"
+          }
+        }
+      }
+    },
+    "PERSONAL_NOTE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Persönliche Notiz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personal note"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nota personal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note personnelle"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nota personale"
+          }
+        }
+      }
+    },
+    "SELECTED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgewählt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleccionado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionner"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selezionato"
+          }
+        }
+      }
+    },
+    "TAP_TO_CANCEL": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Klicken, um abzubrechen"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Tap to cancel"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tippen, um abzubrechen"
                 }
               }
             }
           }
         },
-        "fr" : {
-          "variations" : {
-            "device" : {
-              "mac" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Cliquez pour annuler"
+        "en": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Click to cancel"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Touchez pour annuler"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tap to cancel"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Haz clic para cancelar"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Toca para cancelar"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Cliquez pour annuler"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Touchez pour annuler"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Clicca per annullare"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tocca per annullare"
                 }
               }
             }
@@ -124,22 +370,108 @@
         }
       }
     },
-    "TYPE_PERSONAL_NOTE_HERE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Type a personal note here..."
+    "TYPE_PERSONAL_NOTE_HERE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gib hier eine persönliche Notiz ein..."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrez votre note personnelle..."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type a personal note here..."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe una nota personal aquí..."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrez votre note personnelle..."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scrivi una nota personale qui..."
+          }
+        }
+      }
+    },
+    "UNSELECTED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abgewählt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deselected"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desseleccionado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désélectionné"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deselezionato"
+          }
+        }
+      }
+    },
+    "VALUE_COPIED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wert kopiert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Value copied"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valor copiado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valeur copiée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valore copiato"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.1"
 }

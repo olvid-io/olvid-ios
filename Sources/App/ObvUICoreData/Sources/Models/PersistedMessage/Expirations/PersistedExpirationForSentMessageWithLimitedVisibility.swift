@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,7 +58,9 @@ extension PersistedExpirationForSentMessageWithLimitedVisibility {
             case retainWipedMessageSent = "retainWipedMessageSent"
             case messageSentWithLimitedVisibility = "messageSentWithLimitedVisibility"
         }
-        static let withNoMessage = NSPredicate(withNilValueForKey: Key.messageSentWithLimitedVisibility)
+        static var withNoMessage: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.messageSentWithLimitedVisibility)
+        }
     }
     
     @nonobjc private static func fetchRequest() -> NSFetchRequest<PersistedExpirationForSentMessageWithLimitedVisibility> {

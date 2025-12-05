@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,7 +63,7 @@ extension OwnedDeviceDiscoveryProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }
@@ -85,8 +85,8 @@ extension OwnedDeviceDiscoveryProtocol {
         // Initializers
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             
             if let result = ServerResponseOwnedDeviceDiscoveryResult(encodedElements[0]) {
@@ -125,8 +125,8 @@ extension OwnedDeviceDiscoveryProtocol {
         // Initializers
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             guard let result = UploadPreKeyForCurrentDeviceResult(encodedElements[0]) else { assertionFailure(); throw Self.makeError(message: "Could not decode UploadPreKeyForCurrentDeviceResult") }
             self.uploadPreKeyForCurrentDeviceResult = result
@@ -158,7 +158,7 @@ extension OwnedDeviceDiscoveryProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
 
     }

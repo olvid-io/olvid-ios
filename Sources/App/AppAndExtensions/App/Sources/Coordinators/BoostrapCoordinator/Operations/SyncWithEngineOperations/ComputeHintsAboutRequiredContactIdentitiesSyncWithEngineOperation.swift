@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -179,7 +179,7 @@ final class ComputeHintsAboutRequiredContactIdentitiesSyncWithEngineOperation: A
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
             context.perform {
                 do {
-                    guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvContactIdentityWithinEngine.ownedIdentity.cryptoId, within: context) else {
+                    guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvContactIdentityWithinEngine.ownedCryptoId, within: context) else {
                         assertionFailure()
                         return continuation.resume(returning: false)
                     }

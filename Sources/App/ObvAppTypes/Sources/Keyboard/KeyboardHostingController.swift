@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,22 +25,38 @@ import SwiftUI
 ///
 /// Warning: For some reason, we were unable to refactor this logic into some kind of KeyboardManager, preventing centralization of `windowKeyCommands` and `keyboardDidInputEscapeKey` in related controllers (KeyboardWindow, KeyboardViewController, and KeyboardHostingController)."
 open class KeyboardHostingController<Content>: UIHostingController<Content> where Content: View {
-
-    private lazy var windowKeyCommands = [
-        UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(keyboardDidInputEscapeKey))
-    ]
     
-    open override var keyCommands: [UIKeyCommand]? {
-        var commands = super.keyCommands ?? []
+    // MARK: Attributes - Private - Notifications
+    private var isRegisteredToKeyboardNotifications = false
+    private var keyBoardObservationTokens = [NSObjectProtocol]()
+    open override var canBecomeFirstResponder: Bool { true }
+    
+    private func registerForNotificationIfRequired() {
+        guard !isRegisteredToKeyboardNotifications else { return }
+        isRegisteredToKeyboardNotifications = true
         
-        commands += windowKeyCommands
-        
-        return commands
+//        keyBoardObservationTokens.append(contentsOf: [
+//            KeyboardNotification.observeKeyboardDidInputEscapeKeyNotification { [weak self] in
+//                OperationQueue.main.addOperation {
+//                    self?.escapeKeyPressed()
+//                }
+//            },
+//        ])
     }
     
-    @objc
-    func keyboardDidInputEscapeKey(_ sender: Any?) {
-        KeyboardNotification.keyboardDidInputEscapeKeyNotification.postOnDispatchQueue()
+    // MARK: Life Cycle
+
+    open override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        registerForNotificationIfRequired()
     }
 
+    
+    deinit {
+        keyBoardObservationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
+    open func escapeKeyPressed() {
+        dismiss(animated: true)
+    }
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,6 +62,12 @@ public final class PersistedDraft: NSManagedObject, ObvIdentifiableManagedObject
             .filter { $0.uti != UTType.olvidPreviewUti }
             .sorted(by: { $0.index < $1.index })
     }
+    
+    public var fyleJoinsPreviews: [FyleJoin] {
+        unsortedDraftFyleJoins
+            .filter { $0.uti == UTType.olvidPreviewUti }
+            .sorted(by: { $0.index < $1.index })
+    }
 
     // MARK: Other variables
     
@@ -119,7 +125,7 @@ extension PersistedDraft {
         self.existenceDuration = nil
         self.mentions = Set<PersistedUserMentionInDraft>()
         
-        self.discussion.unarchive()
+//        self.discussion.unarchive()
     }
     
 }
@@ -199,8 +205,8 @@ extension PersistedDraft {
         if self.body != trimmedBody {
             self.body = trimmedBody
             if let resultingBody = self.body, !resultingBody.isEmpty {
-                self.discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(Date())
-                self.discussion.unarchive()
+                self.discussion.resetSortDateIfCurrentValueIsEarlierThan(Date())
+//                self.discussion.unarchive()
             }
         }
         
@@ -219,8 +225,8 @@ extension PersistedDraft {
         }
         self.body?.append(content)
         // We don't need to reset the mentions since we are only appending characters to the existing body.
-        self.discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(Date())
-        self.discussion.unarchive()
+        self.discussion.resetSortDateIfCurrentValueIsEarlierThan(Date())
+//        self.discussion.unarchive()
     }
 
     public var hasSomeExpiration: Bool {

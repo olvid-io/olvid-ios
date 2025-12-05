@@ -22,7 +22,7 @@ import CoreData
 import OlvidUtils
 import ObvTypes
 import CryptoKit
-import os.log
+import OSLog
 import ObvPlatformBase
 import ObvEngine
 import ObvUIObvCircledInitials
@@ -34,6 +34,7 @@ import ObvAppTypes
 public final class PersistedGroupV2: NSManagedObject {
     
     private static let entityName = "PersistedGroupV2"
+    private static let logger = Logger(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedGroupV2")
 
     // Attributes
     
@@ -129,13 +130,16 @@ public final class PersistedGroupV2: NSManagedObject {
         return rawDiscussion
     }
     
-    public var groupType: ObvGroupType? {
-        guard let serializedGroupType else { return nil }
-        return try? ObvGroupType(serializedGroupType: serializedGroupType)
+    public func getOrInferGroupType() -> ObvGroupType {
+        if let serializedGroupType, let groupType = try? ObvGroupType(serializedGroupType: serializedGroupType) {
+            return groupType
+        } else {
+            return inferGroupType()
+        }
     }
     
 
-    private(set) var publishedDetailsStatus: PublishedDetailsStatusType {
+    public private(set) var publishedDetailsStatus: PublishedDetailsStatusType {
         get {
             let value = PublishedDetailsStatusType(rawValue: rawPublishedDetailsStatus)
             assert(value != nil)
@@ -664,6 +668,42 @@ public final class PersistedGroupV2: NSManagedObject {
     }
 
     
+    private func inferGroupType() -> ObvGroupType {
+        assert(self.serializedGroupType == nil)
+        Self.logger.info("[GroupType inferrence] Inferring the group type")
+        let everyoneIsAdmin = self.ownPermissionAdmin && self.otherMembers.reduce(true) { $0 && $1.isAnAdmin }
+        if everyoneIsAdmin {
+            Self.logger.info("[GroupType inferrence] Since everyone is admin, we infer the group type .simple")
+            return .standard
+        } else {
+            let everyoneCanSendMessages = self.ownPermissionSendMessage && self.otherMembers.allSatisfy(\.isAllowedToSendMessage)
+            let countOfMembersWithRemoteDeleteAnything = (self.ownPermissionRemoteDeleteAnything ? 1 : 0) + self.otherMembers.filter({ $0.isAllowedToRemoteDeleteAnything }).count
+            if countOfMembersWithRemoteDeleteAnything == 0 {
+                Self.logger.info("[GroupType inferrence] No one can remote delete anything, the group is not .advanced")
+                // Not an advanced group
+                if everyoneCanSendMessages {
+                    Self.logger.info("[GroupType inferrence] Everyone can send messages, we infer the group type .managed")
+                    return .managed
+                } else {
+                    Self.logger.info("[GroupType inferrence] Not everyone can send messages, we infer the group type .readOnly")
+                    return .readOnly
+                }
+            } else {
+                Self.logger.info("[GroupType inferrence] Certain users can remote delete anything, the group is .advanced")
+                let remoteDeleteAnythingPolicy: ObvGroupType.RemoteDeleteAnythingPolicy
+                if countOfMembersWithRemoteDeleteAnything == 1 + self.otherMembers.count {
+                    Self.logger.info("[GroupType inferrence] Everyone can remote delete anything, so it's an advanced group with .everyone policy")
+                    remoteDeleteAnythingPolicy = .everyone
+                } else {
+                    Self.logger.info("[GroupType inferrence] Not everyone can remote delete anything, so it's an advanced group with .admins policy")
+                    remoteDeleteAnythingPolicy = .admins
+                }
+                return .advanced(isReadOnly: !everyoneCanSendMessages, remoteDeleteAnythingPolicy: remoteDeleteAnythingPolicy)
+            }
+        }
+    }
+    
+    
     // MARK: Convenience DB getters
 
     struct Predicate {
@@ -962,12 +1002,12 @@ public final class PersistedGroupV2: NSManagedObject {
 
         if isDeleted {
             
-            if let groupIdentifierOnDeletion {
-                ObvMessengerCoreDataNotification.persistedGroupV2WasDeleted(groupIdentifier: groupIdentifierOnDeletion)
-                    .postOnDispatchQueue()
-            } else {
-                assertionFailure("groupIdentifierOnDeletion is nil, we probably deleted this group without calling `func delete()`")
-            }
+//            if let groupIdentifierOnDeletion {
+//                ObvMessengerCoreDataNotification.persistedGroupV2WasDeleted(groupIdentifier: groupIdentifierOnDeletion)
+//                    .postOnDispatchQueue()
+//            } else {
+//                assertionFailure("groupIdentifierOnDeletion is nil, we probably deleted this group without calling `func delete()`")
+//            }
             
         } else {
             
@@ -978,20 +1018,6 @@ public final class PersistedGroupV2: NSManagedObject {
                 }
             }
             
-            if changedKeys.contains(Predicate.Key.rawOtherMembers.rawValue) {
-                if let ownedCryptoId = try? self.ownCryptoId {
-                    ObvMessengerCoreDataNotification.otherMembersOfGroupV2DidChange(ownedCryptoId: ownedCryptoId, groupIdentifier: self.groupIdentifier)
-                        .postOnDispatchQueue()
-                }
-            }
-            
-        }
-        
-        if isInserted {
-            if let ownedCryptoId = try? self.ownCryptoId {
-                ObvMessengerCoreDataNotification.aPersistedGroupV2WasInsertedInDatabase(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
-                    .postOnDispatchQueue()
-            }
         }
         
         // Potentially notify that the previous backed up profile snapshot is obsolete.
@@ -1006,7 +1032,7 @@ public final class PersistedGroupV2: NSManagedObject {
                 let ownedIdentity = self.rawOwnedIdentityIdentity
                 if let ownedCryptoId = try? ObvCryptoId(identity: ownedIdentity) {
                     Task {
-                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ownedCryptoId)
+                        await PersistedGroupV2.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ownedCryptoId)
                     }
                 } else {
                     assertionFailure()
@@ -1041,37 +1067,6 @@ public final class PersistedGroupV2: NSManagedObject {
     }
 
     
-    /// If a serialized group type is available, this the method returns its deserialized version, provided it is in adequation with the permissions of all group members (including us).
-    ///
-    /// Note: We don't try to infer the group type if there is no `serializedGroupType`.
-    public func getAdequateGroupType() -> ObvGroupType? {
-        
-        guard let serializedGroupType, let groupType = try? ObvGroupType(serializedGroupType: serializedGroupType) else { return nil }
-        
-        // Make sure the returned group type is adequate given the own permissions and the other member permissions
-        
-        let exactPermissionsForAdmins = ObvGroupType.exactPermissions(of: .admin, forGroupType: groupType)
-        let exactPermissionsForRegularMembers = ObvGroupType.exactPermissions(of: .regularMember, forGroupType: groupType)
-
-        if self.ownedIdentityIsAdmin {
-            guard self.ownPermissions == exactPermissionsForAdmins else { return nil }
-        } else {
-            guard self.ownPermissions == exactPermissionsForRegularMembers else { return nil }
-        }
-        
-        for member in self.otherMembers {
-            guard member.permissions == (member.isAnAdmin ? exactPermissionsForAdmins : exactPermissionsForRegularMembers) else {
-                return nil
-            }
-        }
-        
-        // If we reach this point, we can return the group type as it is in adequation with the current permissions of all group members
-
-        return groupType
-        
-    }
-    
-    
     // MARK: - Receiving discussion shared configurations
 
     /// Called when receiving a shared discussion configuration from a contact  indicating this particular group as the target. This method makes sure the contact is allowed to change the configuration.
@@ -1080,15 +1075,22 @@ public final class PersistedGroupV2: NSManagedObject {
         let contactIdentity = contact.identity
         
         guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            assertionFailure()
             throw ObvUICoreDataError.ownedIdentityIsNotPartOfThisGroup
         }
 
         guard let initiatorAsMember = self.otherMembers.first(where: { $0.identity == contactIdentity }) else {
-            throw ObvUICoreDataError.theInitiatorIsNotPartOfTheGroup
+            let obvGroupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: obvGroupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
         
         guard initiatorAsMember.isAllowedToChangeSettings else {
-            throw ObvUICoreDataError.theInitiatorIsNotAllowedToChangeSettings
+            let obvGroupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: obvGroupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         guard let discussion = self.discussion else {
@@ -1167,16 +1169,20 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
-            throw ObvUICoreDataError.wipeRequestedByNonGroupMember
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         guard requester.isAllowedToRemoteDeleteAnything || requester.isAllowedToEditOrRemoteDeleteOwnMessages else {
             assertionFailure()
-            throw ObvUICoreDataError.wipeRequestedByMemberNotAllowedToRemoteDelete
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contact.cryptoId)
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         let infos = try discussion.processWipeMessageRequest(of: messagesToDelete, from: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -1195,7 +1201,7 @@ public final class PersistedGroupV2: NSManagedObject {
         // We do not check whether the owned identity is allowed to wipe
         
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         let infos = try discussion.processWipeMessageRequest(of: messagesToDelete, from: ownedIdentity.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -1214,7 +1220,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
         
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         switch deletionType {
@@ -1250,15 +1256,17 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
-            throw ObvUICoreDataError.wipeRequestedByNonGroupMember
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contact.cryptoId)
         }
 
         guard requester.isAllowedToSendMessage else {
-            throw ObvUICoreDataError.messageReceivedByMemberNotAllowedToSendMessage
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contact.cryptoId)
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         return try discussion.createOrOverridePersistedMessageReceived(
@@ -1283,7 +1291,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         return try discussion.createPersistedMessageSentFromOtherOwnedDevice(
@@ -1304,17 +1312,23 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
-            throw ObvUICoreDataError.wipeRequestedByNonGroupMember
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
         // Check that the contact is allowed to edit her messages. Note that the check whether the message was written by her is done later.
         
         guard requester.isAllowedToEditOrRemoteDeleteOwnMessages else {
-            throw ObvUICoreDataError.updateRequestReceivedByMemberNotAllowedToToEditOrRemoteDeleteOwnMessages
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
         
         // Request the update
@@ -1332,7 +1346,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         // Check that the owned identity is allowed to edit her messages. Note that the check whether the message was written by her is done later.
@@ -1356,7 +1370,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         // Check that the owned identity is allowed to edit her messages.
@@ -1393,22 +1407,28 @@ public final class PersistedGroupV2: NSManagedObject {
     
     func processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws {
         
+        let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+
         guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
             throw ObvUICoreDataError.ownedIdentityIsNotPartOfThisGroup
         }
 
         guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
-            throw ObvUICoreDataError.wipeRequestedByNonGroupMember
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
         // Check that the contact is allowed to make this request
         
         guard requester.isAllowedToRemoteDeleteAnything else {
-            throw ObvUICoreDataError.requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         try discussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -1424,7 +1444,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         try discussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -1441,7 +1461,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         switch deletionType {
@@ -1474,7 +1494,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         try discussion.processSetOrUpdateReactionOnMessageLocalRequest(from: ownedIdentity, for: message, newEmoji: newEmoji)
@@ -1489,11 +1509,14 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard self.otherMembers.contains(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
-            throw ObvUICoreDataError.contactNeitherGroupOwnerNorPartOfGroupMembers
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
         let updatedMessage = try discussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
@@ -1510,7 +1533,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         guard ownedIdentityIsAllowedToSendMessage else {
@@ -1523,6 +1546,68 @@ public final class PersistedGroupV2: NSManagedObject {
 
     }
     
+    // MARK: - Process poll vote requests
+
+    func processSetOrUpdatePollVoteOnMessageLocalRequest(from ownedIdentity: PersistedObvOwnedIdentity,
+                                                         for message: PersistedMessage,
+                                                         pollCandidateUUID: UUID,
+                                                         voted: Bool,
+                                                         version: Int) throws {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvUICoreDataError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvUICoreDataError.couldNotFindDiscussion
+        }
+
+        try discussion.processSetOrUpdatePollVoteOnMessageLocalRequest(from: ownedIdentity, for: message, pollCandidateUUID: pollCandidateUUID, voted: voted, version: version)
+        
+    }
+
+    
+    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw ObvUICoreDataError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard self.otherMembers.contains(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
+        }
+
+        guard let discussion else {
+            throw ObvUICoreDataError.couldNotFindDiscussion
+        }
+
+        let updatedMessage = try discussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        return updatedMessage
+
+    }
+    
+    
+    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvUICoreDataError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvUICoreDataError.couldNotFindDiscussion
+        }
+
+        guard ownedIdentityIsAllowedToSendMessage else {
+            throw ObvUICoreDataError.ownedIdentityIsNotAllowedToSendMessages
+        }
+        
+        let updatedMessage = try discussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        return updatedMessage
+
+    }
     
     // MARK: - Process screen capture detections
 
@@ -1533,11 +1618,14 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) != nil else {
-            throw ObvUICoreDataError.wipeRequestedByNonGroupMember
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         try discussion.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -1552,7 +1640,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         try discussion.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -1567,7 +1655,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         try discussion.processLocalDetectionThatSensitiveMessagesWereCapturedInThisDiscussion(by: ownedIdentity)
@@ -1584,11 +1672,14 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) != nil else {
-            throw ObvUICoreDataError.wipeRequestedByNonGroupMember
+            let groupIdentifier = ObvGroupIdentifier.groupV2(try self.obvGroupIdentifier)
+            throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
+                groupIdentifier: groupIdentifier,
+                contactCryptoId: contact.cryptoId)
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         let discussionId = try discussion.identifier
@@ -1606,7 +1697,7 @@ public final class PersistedGroupV2: NSManagedObject {
         }
 
         guard let discussion else {
-            throw ObvUICoreDataError.persistedGroupV2DiscussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
         let discussionId = try discussion.identifier
@@ -1619,9 +1710,9 @@ public final class PersistedGroupV2: NSManagedObject {
     
     // MARK: - Observers
     
-    private static var observersHolder = ObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
     
-    public static func addObserver(_ newObserver: PersistedGroupV2Observer) async {
+    public static func addObvObserver(_ newObserver: PersistedGroupV2Observer) async {
         await observersHolder.addObserver(newObserver)
     }
 
@@ -1828,6 +1919,14 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
     /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
     private var isInsertedWhileRestoringSyncSnapshot = false
 
+    // MARK: - Observers
+    
+    nonisolated(unsafe) private static var observersHolder = MemberObserversHolder()
+    
+    public static func addObvObserver(_ newObserver: PersistedGroupV2MemberObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
     // Initializer
     
     fileprivate convenience init(identityAndPermissionsAndDetails: ObvGroupV2.IdentityAndPermissionsAndDetails, groupIdentifier: Data, ownCryptoId: ObvCryptoId, persistedGroupV2: PersistedGroupV2, isRestoringSyncSnapshotOrBackup: Bool) throws {
@@ -1857,7 +1956,7 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         
         // If PersistedObvContactIdentity is not nil, it means we are in contact with the member, we can add a message system telling that this member has joined the group
         if let contact {
-            try? self.rawGroup?.discussion?.groupMemberHasJoined(contact)
+            try? self.rawGroup?.discussion?.groupMemberHasJoined(contact, markAsRead: true)
         }
 
         self.groupIdentifier = groupIdentifier
@@ -1917,7 +2016,7 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         self.rawContact = persistedContact
         
         // If the current groupV2Member's raw contact is being updated, it means the contact was not previously known to the owned identity, we can create an system message telling that the member has joined the group.
-        try? self.rawGroup?.discussion?.groupMemberHasJoined(persistedContact)
+        try? self.rawGroup?.discussion?.groupMemberHasJoined(persistedContact, markAsRead: true)
         
         self.updateNormalizedSortAndSearchKeys(with: ObvMessengerSettings.Interface.contactsSortOrder)
     }
@@ -2005,7 +2104,7 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         
         // If current member to be deleted is part of a group discussion, we create a message system to the group telling the member has left.
         if let rawContact {
-            try? rawGroup?.discussion?.groupMemberHasLeft(rawContact)
+            try? rawGroup?.discussion?.groupMemberHasLeft(rawContact, markAsRead: true)
         }
         
         context.delete(self)
@@ -2079,6 +2178,26 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(withObjectID: objectID)
         }
+        static var notPending: NSPredicate {
+            NSPredicate(Key.isPending, is: false)
+        }
+    }
+
+    
+    /// Return `true` iff there exist a group member with the specified `memberCryptoId` in the group specified by `groupId`, such that the member is not pending and has a non-nil relationship
+    /// with a `PersistedObvContactIdentity`.
+    public static func isNonPendingGroupMemberWithAssociatedPersistedContactExisting(groupId: ObvGroupV2Identifier, memberCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Bool {
+        let batchFetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        batchFetchRequest.resultType = .managedObjectIDResultType
+        batchFetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupV2Identifier(groupV2Identifier: groupId),
+            Predicate.withCryptoId(memberCryptoId),
+            Predicate.notPending,
+            Predicate.withNoAssociatedContact,
+        ])
+        batchFetchRequest.fetchLimit = 1
+        let result = try context.fetch(batchFetchRequest) as? [NSManagedObjectID] ?? []
+        return !result.isEmpty
     }
 
     
@@ -2146,33 +2265,6 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
     }
     
     
-    public static func getFetchedResultsController(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
-        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
-        request.predicate = Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier)
-        request.fetchBatchSize = 500
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
-        return .init(fetchRequest: request,
-                     managedObjectContext: context,
-                     sectionNameKeyPath: nil,
-                     cacheName: nil)
-    }
-        
-
-    public static func getFetchedResultsControllerForAdmins(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
-        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier),
-            Predicate.permissionAdmin(is: true),
-        ])
-        request.fetchBatchSize = 500
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
-        return .init(fetchRequest: request,
-                     managedObjectContext: context,
-                     sectionNameKeyPath: nil,
-                     cacheName: nil)
-    }
-    
-    
     public static func getSearchPredicate(_ searchText: String?) -> NSPredicate {
         let predicate: NSPredicate
         let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2183,47 +2275,69 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         }
         return predicate
     }
-
     
-    public static func getFetchedResultsControllerForInvitableGroupMembers(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
-        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+    
+    public static func getPredicate(groupV2Identifier: ObvGroupV2Identifier, restrictToAdmins: Bool = false, searchText: String? = nil) -> NSPredicate {
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier),
-            Predicate.withAssociatedNonOneToOneContact,
+            restrictToAdmins ? Predicate.permissionAdmin(is: true) : NSPredicate(value: true),
+            getSearchPredicate(searchText),
         ])
-        request.fetchBatchSize = 500
+    }
+    
+    public static func getFetchedResultsController(predicate: NSPredicate, fetchLimitOrFetchBatchSize: ObvFetchLimitOrBatchSize = .fetchBatchSize(500), within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = predicate
+        switch fetchLimitOrFetchBatchSize {
+        case .fetchBatchSize(let value):
+            request.fetchBatchSize = value
+        case .fetchLimit(let value):
+            request.fetchLimit = value
+        }
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
         return .init(fetchRequest: request,
                      managedObjectContext: context,
                      sectionNameKeyPath: nil,
                      cacheName: nil)
+    }
+    
+    
+    public static func getFetchedResultsController(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let predicate = Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier)
+        return getFetchedResultsController(predicate: predicate, within: context)
+    }
+        
+
+    public static func getFetchedResultsControllerForAdmins(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier),
+            Predicate.permissionAdmin(is: true),
+        ])
+        return getFetchedResultsController(predicate: predicate, within: context)
+    }
+
+    
+    public static func getFetchedResultsControllerForInvitableGroupMembers(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier),
+            Predicate.withAssociatedNonOneToOneContact,
+        ])
+        return getFetchedResultsController(predicate: predicate, within: context)
     }
 
     
     public static func getFetchedResultsControllerForMembersWithNoAssociatedContact(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
-        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier),
             Predicate.withNoAssociatedContact,
         ])
-        request.fetchBatchSize = 500
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
-        return .init(fetchRequest: request,
-                     managedObjectContext: context,
-                     sectionNameKeyPath: nil,
-                     cacheName: nil)
+        return getFetchedResultsController(predicate: predicate, within: context)
     }
 
 
     public static func getFetchedResultsController(objectID: TypeSafeManagedObjectID<PersistedGroupV2Member>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
-        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
-        request.predicate = Predicate.withObjectID(objectID: objectID)
-        request.fetchLimit = 1
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
-        return .init(fetchRequest: request,
-                     managedObjectContext: context,
-                     sectionNameKeyPath: nil,
-                     cacheName: nil)
+        let predicate = Predicate.withObjectID(objectID: objectID)
+        return getFetchedResultsController(predicate: predicate, fetchLimitOrFetchBatchSize: .fetchLimit(1), within: context)
     }
 
     // MARK: Computing changesets
@@ -2271,10 +2385,20 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
             os_log("Insertion of a PersistedGroupV2 during a snapshot restore --> we don't send any notification", log: log, type: .info)
             return
         }
-
+        
         if changedKeys.contains(Predicate.Key.isPending.rawValue), !self.isPending, let contactObjectID = contact?.typedObjectID {
             ObvMessengerCoreDataNotification.aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: contactObjectID)
                 .postOnDispatchQueue()
+        }
+        
+        if !self.isDeleted {
+            if let groupIdentifier = try? self.rawGroup?.obvGroupIdentifier, let memberCryptoId = self.cryptoId, (isInserted || !changedKeys.isEmpty) {
+                Task {
+                    await PersistedGroupV2Member.observersHolder.aPersistedGroupV2MemberWasInsertedOrChanged(
+                        groupIdentifier: groupIdentifier,
+                        memberIdentifier: memberCryptoId)
+                }
+            }
         }
         
     }
@@ -2565,8 +2689,13 @@ struct PersistedGroupV2SyncSnapshotNode: ObvSyncSnapshotNode {
 
 // MARK: - PersistedGroupV2 observers
 
-public protocol PersistedGroupV2Observer: AnyObject {
+public protocol PersistedGroupV2Observer: AnyObject, Sendable {
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ObvCryptoId) async
+}
+
+
+public extension PersistedGroupV2Observer {
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ObvCryptoId) async {}
 }
 
 
@@ -2591,6 +2720,40 @@ private actor ObserversHolder: PersistedGroupV2Observer {
         await withTaskGroup(of: Void.self) { taskGroup in
             for observer in observers.compactMap(\.value) {
                 taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+    
+}
+
+
+// MARK: - PersistedGroupV2Member observers
+
+public protocol PersistedGroupV2MemberObserver: AnyObject, Sendable {
+    func aPersistedGroupV2MemberWasInsertedOrChanged(groupIdentifier: ObvGroupV2Identifier, memberIdentifier: ObvCryptoId) async
+}
+
+private actor MemberObserversHolder: PersistedGroupV2MemberObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PersistedGroupV2MemberObserver?
+        init(value: PersistedGroupV2MemberObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: PersistedGroupV2MemberObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing PersistedGroupV2MemberObserver
+
+    func aPersistedGroupV2MemberWasInsertedOrChanged(groupIdentifier: ObvGroupV2Identifier, memberIdentifier: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedGroupV2MemberWasInsertedOrChanged(groupIdentifier: groupIdentifier, memberIdentifier: memberIdentifier) }
             }
         }
     }

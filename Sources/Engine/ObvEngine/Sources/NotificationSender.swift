@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import UserNotifications
 import ObvMetaManager
 import ObvCrypto
@@ -53,13 +53,6 @@ extension ObvEngine {
             notificationCenterTokens.append(token)
         }
 
-        do {
-            let token = ObvIdentityNotificationNew.observeContactIdentityIsNowTrusted(within: notificationDelegate) { [weak self] (contactIdentity, ownedIdentity, flowId) in
-                self?.processContactIdentityIsNowTrustedNotification(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, flowId: flowId)
-            }
-            notificationCenterTokens.append(token)
-        }
-        
         do {
             let token = ObvChannelNotification.observeNewConfirmedObliviousChannel(within: notificationDelegate) { [weak self] (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) in
                 self?.processNewConfirmedObliviousChannelNotification(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: remoteDeviceUid)
@@ -188,7 +181,7 @@ extension ObvEngine {
         }
         
         do {
-            let token = ObvIdentityNotificationNew.observeOwnedIdentityWasDeactivated(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
+            let token = ObvIdentityNotificationNew.observeOwnedIdentityWasDeactivated(within: notificationDelegate) { [weak self] (ownedIdentity) in
                 guard let appNotificationCenter = self?.appNotificationCenter else { return }
                 let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity)
                 let notification = ObvEngineNotificationNew.ownedIdentityWasDeactivated(ownedIdentity: ownedCryptoId)
@@ -198,7 +191,7 @@ extension ObvEngine {
         }
 
         do {
-            let token = ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
+            let token = ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: notificationDelegate) { [weak self] (ownedIdentity) in
                 guard let appNotificationCenter = self?.appNotificationCenter else { return }
                 let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity)
                 let notification = ObvEngineNotificationNew.ownedIdentityWasReactivated(ownedIdentity: ownedCryptoId)
@@ -239,9 +232,6 @@ extension ObvEngine {
         // ObvProtocolNotification
 
         notificationCenterTokens.append(contentsOf: [
-            ObvProtocolNotification.observeMutualScanContactAdded(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, signature in
-                self?.processMutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, signature: signature)
-            },
             ObvProtocolNotification.observeKeycloakSynchronizationRequired(within: notificationDelegate) { [weak self] ownedIdentity in
                 self?.processKeycloakSynchronizationRequired(ownedIdentity: ownedIdentity)
             },
@@ -283,26 +273,20 @@ extension ObvEngine {
             ObvIdentityNotificationNew.observeLatestPhotoOfContactGroupOwnedHasBeenUpdated(within: notificationDelegate) { [weak self] (groupUid, ownedIdentity) in
                 self?.processLatestPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: groupUid, ownedIdentity: ownedIdentity)
             },
-            ObvIdentityNotificationNew.observeOwnedIdentityKeycloakServerChanged(within: notificationDelegate) { [weak self] ownedCryptoIdentity, flowId in
-                self?.processOwnedIdentityKeycloakServerChanged(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
+            ObvIdentityNotificationNew.observeOwnedIdentityKeycloakServerChanged(within: notificationDelegate) { [weak self] ownedCryptoIdentity in
+                self?.processOwnedIdentityKeycloakServerChanged(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier())
             },
-            ObvIdentityNotificationNew.observeContactWasUpdatedWithinTheIdentityManager(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity, flowId) in
-                self?.processContactWasUpdatedWithinTheIdentityManager(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
+            ObvIdentityNotificationNew.observeContactWasRevokedAsCompromised(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity in
+                self?.processContactWasRevokedAsCompromised(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: FlowIdentifier())
             },
-            ObvIdentityNotificationNew.observeContactIsActiveChanged(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity, isActive, flowId) in
-                self?.processContactIsActiveChanged(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, isActive: isActive, flowId: flowId)
+            ObvIdentityNotificationNew.observeContactObvCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity in
+                self?.processContactObvCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: FlowIdentifier())
             },
-            ObvIdentityNotificationNew.observeContactWasRevokedAsCompromised(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, flowId in
-                self?.processContactWasRevokedAsCompromised(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
+            ObvIdentityNotificationNew.observeUpdatedContactDevice(within: notificationDelegate) { [weak self] deviceIdentifier in
+                self?.processUpdatedContactDevice(deviceIdentifier: deviceIdentifier, flowId: FlowIdentifier())
             },
-            ObvIdentityNotificationNew.observeContactObvCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, flowId in
-                self?.processContactObvCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
-            },
-            ObvIdentityNotificationNew.observeUpdatedContactDevice(within: notificationDelegate) { [weak self] deviceIdentifier, flowId in
-                self?.processUpdatedContactDevice(deviceIdentifier: deviceIdentifier, flowId: flowId)
-            },
-            ObvIdentityNotificationNew.observeOwnedIdentityCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity, flowId in
-                self?.processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, flowId: flowId)
+            ObvIdentityNotificationNew.observeOwnedIdentityCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity in
+                self?.processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, flowId: FlowIdentifier())
             },
             ObvIdentityNotificationNew.observeGroupV2WasCreated(within: notificationDelegate) { [weak self] (obvGroupV2, initiator) in
                 self?.processGroupV2WasCreated(obvGroupV2: obvGroupV2, initiator: initiator)
@@ -337,9 +321,7 @@ extension ObvEngine {
             notificationCenterTokens.append(token)
         }
 
-        observeNewPublishedContactIdentityDetailsNotifications(notificationDelegate: notificationDelegate)
         observeOwnedIdentityDetailsPublicationInProgressNotifications(notificationDelegate: notificationDelegate)
-        observeNewTrustedContactIdentityDetailsNotifications(notificationDelegate: notificationDelegate)
         
         // Notification received from the network fetch manager
         
@@ -371,9 +353,6 @@ extension ObvEngine {
             ObvNetworkFetchNotificationNew.observeInboxAttachmentDownloadCancelledByServer(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
                 self?.processInboxAttachmentDownloadCancelledByServer(attachmentId: attachmentId, flowId: flowId)
             },
-            ObvNetworkFetchNotificationNew.observeApplicationMessagesDecrypted(within: notificationDelegate) { [weak self] (obvMessageOrObvOwnedMessages, flowId) in
-                self?.processMessageDecryptedNotification(obvMessageOrObvOwnedMessages: obvMessageOrObvOwnedMessages, flowId: flowId)
-            },
             ObvNetworkFetchNotificationNew.observeInboxAttachmentWasDownloaded(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
                 self?.processAttachmentDownloadedNotification(attachmentId: attachmentId, flowId: flowId)
             },
@@ -394,47 +373,15 @@ extension ObvEngine {
                 ObvEngineNotificationNew.serverRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications
                     .postOnBackgroundQueue(within: appNotificationCenter)
             },
-            ObvNetworkFetchNotificationNew.observeNewReturnReceiptToProcess(within: notificationDelegate) { [weak self] encryptedReceivedReturnReceipt in
-                self?.processNewReturnReceiptToProcessNotification(encryptedReceivedReturnReceipt: encryptedReceivedReturnReceipt)
+            ObvNetworkFetchNotificationNew.observeServerAndInboxContainNoMoreUnprocessedMessages(within: notificationDelegate) { [weak self] ownedIdentity, downloadTimestampFromServer in
+                guard let appNotificationCenter = self?.appNotificationCenter else { return }
+                ObvEngineNotificationNew.serverAndInboxContainNoMoreUnprocessedMessages(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity), downloadTimestampFromServer: downloadTimestampFromServer)
+                    .postOnBackgroundQueue(within: appNotificationCenter)
             },
         ])
     }
     
     
-    private func processMutualScanContactAdded(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, signature: Data) {
-        
-        guard let createContextDelegate = createContextDelegate else {
-            os_log("The create context delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        guard let identityDelegate = identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        let log = self.log
-        let appNotificationCenter = appNotificationCenter
-        
-        createContextDelegate.performBackgroundTask(flowId: FlowIdentifier()) { obvContext in
-            guard let obvContact = ObvContactIdentity(contactCryptoIdentity: contactIdentity, ownedCryptoIdentity: ownedIdentity, identityDelegate: identityDelegate, within: obvContext) else {
-                os_log("Could not get ObvContact", log: log, type: .fault)
-                assertionFailure()
-                return
-            }
-            ObvEngineNotificationNew.mutualScanContactAdded(obvContactIdentity: obvContact, signature: signature)
-                .postOnBackgroundQueue(within: appNotificationCenter)
-        }
-        
-    }
-
-    
-    private func processNewReturnReceiptToProcessNotification(encryptedReceivedReturnReceipt: ObvEncryptedReceivedReturnReceipt) {
-        ObvEngineNotificationNew.newObvEncryptedReceivedReturnReceipt(encryptedReceivedReturnReceipt: encryptedReceivedReturnReceipt)
-            .postOnBackgroundQueue(queueForPostingNewObvReturnReceiptToProcessNotifications, within: appNotificationCenter)
-    }
-    
-
     /// If the protocol performing an owned device discovery reports that the current device is not part of the results returned by the server, we force a registration to push notifications.
     /// If the current device was not part of the discovery because another owned device deactivated it, we will be notified by the server as a result of this re-register to push notifications.
     /// In that case, the registration method will return a ``ObvNetworkFetchError.RegisterPushNotificationError.anotherDeviceIsAlreadyRegistered`` error, and this device will be deactivated.
@@ -479,11 +426,11 @@ extension ObvEngine {
             return
         }
         
-        createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+        createContextDelegate.performBackgroundTask { [weak self] context in
             
             guard let _self = self else { return }
             
-            guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: obvContext) else {
+            guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: context) else {
                 os_log("Could not get a network received attachment of message %{public}@ (4)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
                 return
             }
@@ -492,7 +439,7 @@ extension ObvEngine {
                 
                 let obvOwnedAttachment: ObvOwnedAttachment
                 do {
-                    obvOwnedAttachment = try ObvOwnedAttachment(attachmentId: attachmentId, networkFetchDelegate: networkFetchDelegate, within: obvContext)
+                    obvOwnedAttachment = try ObvOwnedAttachment(attachmentId: attachmentId, networkFetchDelegate: networkFetchDelegate, within: context)
                 } catch {
                     os_log("Could not construct an ObvOwnedAttachment of message %{public}@ (1)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
                     return
@@ -510,7 +457,7 @@ extension ObvEngine {
                 
                 let obvAttachment: ObvAttachment
                 do {
-                    try obvAttachment = ObvAttachment(attachmentId: attachmentId, fromContactIdentity: contactIdentifier, networkFetchDelegate: networkFetchDelegate, within: obvContext)
+                    try obvAttachment = ObvAttachment(attachmentId: attachmentId, fromContactIdentity: contactIdentifier, networkFetchDelegate: networkFetchDelegate, within: context)
                 } catch {
                     os_log("Could not construct an ObvAttachment of message %{public}@ (4)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
                     return
@@ -586,65 +533,6 @@ extension ObvEngine {
     }
     
 
-    private func observeNewTrustedContactIdentityDetailsNotifications(notificationDelegate: ObvNotificationDelegate) {
-        
-        let NotificationType = ObvIdentityNotification.NewTrustedContactIdentityDetails.self
-        let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-            guard let _self = self else { return }
-            guard let (contactCryptoIdentity, ownedCryptoIdentity, _) = NotificationType.parse(notification) else { return }
-            
-            guard let createContextDelegate = _self.createContextDelegate else { return }
-            guard let identityDelegate = _self.identityDelegate else { return }
-
-            var obvContactIdentity: ObvContactIdentity?
-            let randomFlowId = FlowIdentifier()
-            createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-                obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactCryptoIdentity,
-                                                        ownedCryptoIdentity: ownedCryptoIdentity,
-                                                        identityDelegate: identityDelegate,
-                                                        within: obvContext)
-            }
-            guard let obvContactIdentity = obvContactIdentity else {
-                os_log("Could not get contact identity", log: _self.log, type: .fault)
-                return
-            }
-            
-            ObvEngineNotificationNew.updatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: true, publishedIdentityDetailsWereUpdated: false)
-                .postOnBackgroundQueue(within: _self.appNotificationCenter)
-        }
-        notificationCenterTokens.append(token)
-    }
-
-    
-    private func observeNewPublishedContactIdentityDetailsNotifications(notificationDelegate: ObvNotificationDelegate) {
-        
-        let NotificationType = ObvIdentityNotification.NewPublishedContactIdentityDetails.self
-        let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-            guard let _self = self else { return }
-            guard let (contactCryptoIdentity, ownedCryptoIdentity, _) = NotificationType.parse(notification) else { return }
-            
-            guard let createContextDelegate = _self.createContextDelegate else { return }
-            guard let identityDelegate = _self.identityDelegate else { return }
-            
-            var obvContactIdentity: ObvContactIdentity?
-            let randomFlowId = FlowIdentifier()
-            createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-                obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactCryptoIdentity,
-                                                             ownedCryptoIdentity: ownedCryptoIdentity,
-                                                             identityDelegate: identityDelegate,
-                                                             within: obvContext)
-            }
-            guard let obvContactIdentity = obvContactIdentity else {
-                os_log("Could not get contact identity", log: _self.log, type: .fault)
-                return
-            }
-            ObvEngineNotificationNew.updatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: false, publishedIdentityDetailsWereUpdated: true)
-                .postOnBackgroundQueue(within: _self.appNotificationCenter)
-        }
-        notificationCenterTokens.append(token)
-    }
-
-    
     private func processOwnedIdentityKeycloakServerChanged(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
 
         guard let identityDelegate = self.identityDelegate else { assertionFailure(); return }
@@ -663,30 +551,6 @@ extension ObvEngine {
 
         }
         
-    }
-    
-    
-    private func processContactIsActiveChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, isActive: Bool, flowId: FlowIdentifier) {
-        
-        guard let identityDelegate = self.identityDelegate else { assertionFailure(); return }
-        guard let createContextDelegate = self.createContextDelegate else { assertionFailure(); return }
-        let appNotificationCenter = self.appNotificationCenter
-        
-        createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
-            
-            guard let obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactIdentity,
-                                                              ownedCryptoIdentity: ownedIdentity,
-                                                              identityDelegate: identityDelegate, within: obvContext) else {
-                os_log("Could not create an ObvContactIdentity structure", log: self.log, type: .fault)
-                assertionFailure()
-                return
-            }
-
-            ObvEngineNotificationNew.contactIsActiveChangedWithinEngine(obvContactIdentity: obvContactIdentity)
-                .postOnBackgroundQueue(within: appNotificationCenter)
-
-        }
-
     }
     
     
@@ -835,30 +699,6 @@ extension ObvEngine {
     }
 
     
-    private func processContactWasUpdatedWithinTheIdentityManager(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        
-        guard let identityDelegate = self.identityDelegate else { assertionFailure(); return }
-        guard let createContextDelegate = self.createContextDelegate else { assertionFailure(); return }
-        let appNotificationCenter = self.appNotificationCenter
-        
-        createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
-            
-            guard let obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactIdentity,
-                                                              ownedCryptoIdentity: ownedIdentity,
-                                                              identityDelegate: identityDelegate, within: obvContext) else {
-                os_log("Could not create an ObvContactIdentity structure", log: self.log, type: .fault)
-                assertionFailure()
-                return
-            }
-
-            ObvEngineNotificationNew.updatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: false, publishedIdentityDetailsWereUpdated: false)
-                .postOnBackgroundQueue(within: appNotificationCenter)
-
-        }
-
-    }
-
-
     private func observeOwnedIdentityDetailsPublicationInProgressNotifications(notificationDelegate: ObvNotificationDelegate) {
         let NotificationType = ObvIdentityNotification.OwnedIdentityDetailsPublicationInProgress.self
         let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
@@ -1492,38 +1332,6 @@ extension ObvEngine {
     }
 
     
-    private func processMessageDecryptedNotification(obvMessageOrObvOwnedMessages: [ObvMessageOrObvOwnedMessage], flowId: FlowIdentifier) {
-        
-        //let logger = self.logger
-        
-//        guard let flowDelegate = flowDelegate else {
-//            logger.fault("The flow delegate is not set")
-//            assertionFailure()
-//            return
-//        }
-        
-        let appNotificationCenter = self.appNotificationCenter
-        let queueForPostingNotificationsToTheApp = self.queueForPostingNotificationsToTheApp
-        
-        // Before notifying the app about this new message, we start a flow allowing to wait until the return receipt is sent.
-        // In practice, the app will save the new message is database, create the return receipt, pass it to the engine that will send it.
-        // Once this is done, the engine will stop the flow.
-//        do {
-//            _ = try flowDelegate.startBackgroundActivityForPostingReturnReceipt(messageId: obvMessageOrObvOwnedMessage.messageId, attachmentNumber: nil)
-//        } catch {
-//            logger.fault("🧾 Failed to start a flow allowing to wait for the message return receipt to be sent")
-//            assertionFailure()
-//            // In production, continue anyway
-//        }
-        
-        ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] Notifying the app about \(obvMessageOrObvOwnedMessages.count) messages")
-        ObvEngineNotificationNew.newMessagesReceived(messages: obvMessageOrObvOwnedMessages)
-            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
-
-        
-    }
-    
-    
     private func processAttachmentDownloadedNotification(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         
         let log = self.log
@@ -1540,12 +1348,11 @@ extension ObvEngine {
             return
         }
         
-        let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] (obvContext) in
+        createContextDelegate.performBackgroundTask { [weak self] context in
             
             guard let _self = self else { return }
             
-            guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: obvContext) else {
+            guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: context) else {
                 os_log("Could not get a network received attachment of message %{public}@ (4)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
                 return
             }
@@ -1554,7 +1361,7 @@ extension ObvEngine {
                 
                 let obvOwnedAttachment: ObvOwnedAttachment
                 do {
-                    obvOwnedAttachment = try ObvOwnedAttachment(attachmentId: attachmentId, networkFetchDelegate: networkFetchDelegate, within: obvContext)
+                    obvOwnedAttachment = try ObvOwnedAttachment(attachmentId: attachmentId, networkFetchDelegate: networkFetchDelegate, within: context)
                 } catch {
                     os_log("Could not construct an ObvOwnedAttachment of message %{public}@ (4)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
                     return
@@ -1583,7 +1390,7 @@ extension ObvEngine {
                 
                 let obvAttachment: ObvAttachment
                 do {
-                    try obvAttachment = ObvAttachment(attachmentId: attachmentId, fromContactIdentity: contactIdentifier, networkFetchDelegate: networkFetchDelegate, within: obvContext)
+                    try obvAttachment = ObvAttachment(attachmentId: attachmentId, fromContactIdentity: contactIdentifier, networkFetchDelegate: networkFetchDelegate, within: context)
                 } catch {
                     os_log("Could not construct an ObvAttachment of message %{public}@ (4)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
                     return
@@ -1618,12 +1425,11 @@ extension ObvEngine {
         guard let createContextDelegate else { assertionFailure(); return }
         guard let networkFetchDelegate = networkFetchDelegate else { assertionFailure(); return }
         
-        let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] (obvContext) in
+        createContextDelegate.performBackgroundTask { [weak self] context in
             
             guard let _self = self else { return }
             
-            guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: obvContext) else {
+            guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: context) else {
                 os_log("Could not get a network received attachment of message %{public}@ (4)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
                 return
             }
@@ -1652,12 +1458,11 @@ extension ObvEngine {
         guard let createContextDelegate else { assertionFailure(); return }
         guard let networkFetchDelegate = networkFetchDelegate else { assertionFailure(); return }
         
-        let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] (obvContext) in
+        createContextDelegate.performBackgroundTask { [weak self] context in
             
             guard let _self = self else { return }
             
-            guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: obvContext) else {
+            guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: context) else {
                 os_log("Could not get a network received attachment of message %{public}@ (4)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
                 return
             }
@@ -1747,28 +1552,5 @@ extension ObvEngine {
 
         }
     }
-    
-    
-    /// Thanks to a internal notification within the Oblivious Engine, this method gets called when a conctact identity becomes trusted. Within this method, we send a similar notification through the default notification center so as to let the App be notified.
-    func processContactIdentityIsNowTrustedNotification(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        
-        guard let createContextDelegate = createContextDelegate else { return }
-        guard let identityDelegate = identityDelegate else { return }
-        
-        let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] (obvContext) in
-            
-            guard let _self = self else { return }
-            
-            guard let contactIdentity = ObvContactIdentity(contactCryptoIdentity: contactCryptoIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else {
-                os_log("Could not create an ObvContactIdentity", log: _self.log, type: .fault)
-                return
-            }
-            
-            ObvEngineNotificationNew.newTrustedContactIdentity(obvContactIdentity: contactIdentity)
-                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
-            
-        }
-    }
-    
+
 }

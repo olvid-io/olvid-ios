@@ -34,6 +34,7 @@ public enum ObvUserNotificationCategoryIdentifier: String, CaseIterable {
     case newMessageWithHiddenContent = "ObvUserNotificationCategory.newMessageWithHiddenContent"
     case missedCall = "ObvUserNotificationCategory.missedCall"
     case newReaction = "ObvUserNotificationCategory.newReaction"
+    case pollVote = "ObvUserNotificationCategory.pollVote"
     case postUserNotificationAsAnotherCallParticipantStartedCamera = "ObvUserNotificationCategory.postUserNotificationAsAnotherCallParticipantStartedCamera"
     case rejectedIncomingCallBecauseOfDeniedRecordPermission = "ObvUserNotificationCategory.rejectedIncomingCallBecauseOfDeniedRecordPermission"
     case protocolMessage = "ObvUserNotificationCategory.protocolMessage"

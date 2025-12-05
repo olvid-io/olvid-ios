@@ -62,7 +62,7 @@ extension PersistedMessageSent {
     public func wipeOrDeleteExpiredMessageSent() throws -> InfoAboutWipedOrDeletedPersistedMessage {
         if retainWipedOutboundMessages {
             guard let discussion else {
-                throw ObvUICoreDataError.discussionIsNil
+                throw ObvUICoreDataError.couldNotFindDiscussion
             }
             do {
                 let wipeInfo = InfoAboutWipedOrDeletedPersistedMessage(kind: .wiped,

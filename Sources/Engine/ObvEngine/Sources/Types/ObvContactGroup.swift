@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ import ObvTypes
 import OlvidUtils
 import ObvCrypto
 
-public struct ObvContactGroup {
+public struct ObvContactGroup: Sendable {
     
     public let groupUid: UID
     private let publishedGroupDetailsWithPhoto: GroupDetailsElementsWithPhoto // We do not want to expose all the vars of a GroupDetailsElementsWithPhoto instance
@@ -53,7 +53,7 @@ public struct ObvContactGroup {
         return .init(ownedCryptoId: ownedIdentity.cryptoId, groupV1Identifier: groupIdentifier)
     }
     
-    public enum GroupType {
+    public enum GroupType: Sendable {
         case owned
         case joined
     }

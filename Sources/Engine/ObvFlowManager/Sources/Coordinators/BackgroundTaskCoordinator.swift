@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvTypes
 import ObvCrypto
 import ObvMetaManager
@@ -31,6 +31,8 @@ final class BackgroundTaskCoordinator: SimpleBackgroundTaskDelegate, BackgroundT
     
     private static let logCategory = "BackgroundTaskCoordinator"
 
+    private let debugUUID = UUID().uuidString.prefix(4)
+    
     weak var delegateManager: ObvFlowDelegateManager?
     
     private var notificationCenterTokens = [NSObjectProtocol]()
@@ -66,6 +68,27 @@ final class BackgroundTaskCoordinator: SimpleBackgroundTaskDelegate, BackgroundT
 }
 
 
+extension BackgroundTaskCoordinator {
+    
+    private func getCurrentExpectationsWithinFlow(flowId: FlowIdentifier, logger: Logger) -> (expectations: Set<Expectation>, backgroundTaskId: UIBackgroundTaskIdentifier, completionHander: (() -> Void)?)? {
+        logger.info("[\(self.debugUUID)] Call to getCurrentExpectationsWithinFlow")
+        return _currentExpectationsWithinFlow[flowId]
+    }
+
+    private func setCurrentExpectationsWithinFlow(flowId: FlowIdentifier, logger: Logger, to newValues: (expectations: Set<Expectation>, backgroundTaskId: UIBackgroundTaskIdentifier, completionHander: (() -> Void)?)) {
+        logger.info("[\(self.debugUUID)] Call to setCurrentExpectationsWithinFlow")
+        _currentExpectationsWithinFlow[flowId] = newValues
+    }
+    
+    private func removeCurrentExpectationsWithinFlow(flowId: FlowIdentifier, logger: Logger) -> (expectations: Set<Expectation>, backgroundTaskId: UIBackgroundTaskIdentifier, completionHander: (() -> Void)?)? {
+        let removedValue = _currentExpectationsWithinFlow.removeValue(forKey: flowId)
+        logger.info("[\(self.debugUUID)] Call to removeCurrentExpectationsWithinFlow (removing value \(removedValue.debugDescription)")
+        return removedValue
+    }
+    
+}
+
+
 // MARK: - Synchronized access to the current background tasks
 
 extension BackgroundTaskCoordinator {
@@ -77,6 +100,7 @@ extension BackgroundTaskCoordinator {
             throw Self.makeError(message: "The delegate manager is not set")
         }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
         
         let flowId = FlowIdentifier()
         
@@ -87,11 +111,11 @@ extension BackgroundTaskCoordinator {
         }
 
         backgroundActivitiesQueue.sync {
-            _currentExpectationsWithinFlow[flowId] = (expectations, backgroundTaskId, completionHandler)
+            setCurrentExpectationsWithinFlow(flowId: flowId, logger: logger, to: (expectations, backgroundTaskId, completionHandler))
         }
         
-        os_log("Starting flow %{public}@ associated with background task %d", log: log, type: .info, flowId.debugDescription, backgroundTaskId.rawValue)
-        os_log("Initial expectations of flow %{public}@: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: expectations))
+        logger.info("[\(self.debugUUID)] Starting flow \(flowId.debugDescription, privacy: .public) associated with background task \(backgroundTaskId.rawValue)")
+        logger.info("[\(self.debugUUID)] Initial expectations of flow \(flowId.debugDescription, privacy: .public): \(Expectation.description(of: expectations), privacy: .public)")
 
         return flowId
     }
@@ -100,26 +124,27 @@ extension BackgroundTaskCoordinator {
     private func updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId flowId: FlowIdentifier, expectationsToRemove: [Expectation], expectationsToAdd: [Expectation]) {
         
         guard let delegateManager = delegateManager else { return }
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
         
+        var numberOfExpectationsLeft = 0
+
         backgroundActivitiesQueue.sync {
             
             // Update the flow expectations
             
-            do {
-                guard let (expectations, backgroundTaskId, completionHandler) = _currentExpectationsWithinFlow[flowId] else { return }
-                
-                os_log("Expectations of background activity associated with flow %{public}@ before update: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: expectations))
-                let newExpectations = expectations.subtracting(expectationsToRemove).union(expectationsToAdd)
-                os_log("Expectations of background activity associated with flowId %{public}@ after update: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: newExpectations))
-
-                _currentExpectationsWithinFlow[flowId] = (newExpectations, backgroundTaskId, completionHandler)
-
-            }
+            guard let (expectations, backgroundTaskId, completionHandler) = getCurrentExpectationsWithinFlow(flowId: flowId, logger: logger) else { return }
             
+            logger.info("[\(self.debugUUID)] Expectations of background activity associated with flow \(flowId.debugDescription, privacy: .public) before update: \(Expectation.description(of: expectations), privacy: .public)")
+            let newExpectations = expectations.subtracting(expectationsToRemove).union(expectationsToAdd)
+            logger.info("[\(self.debugUUID)] Expectations of background activity associated with flowId \(flowId.debugDescription, privacy: .public) after update: \(Expectation.description(of: expectations), privacy: .public)")
+            
+            setCurrentExpectationsWithinFlow(flowId: flowId, logger: logger, to: (newExpectations, backgroundTaskId, completionHandler))
+            
+            numberOfExpectationsLeft = self._currentExpectationsWithinFlow.count
+
         }
         
-        self.endBackgroundActivityIfItHasNoMoreExpectationsWithinFlow(withId: flowId)
+        self.endBackgroundActivityIfItHasNoMoreExpectationsWithinFlow(withId: flowId, numberOfExpectationsLeft: numberOfExpectationsLeft)
     }
     
     
@@ -130,9 +155,11 @@ extension BackgroundTaskCoordinator {
     private func updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [Expectation]) {
         
         guard let delegateManager = delegateManager else { assertionFailure(); return }
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
 
         var flowsToUpdate = Set<FlowIdentifier>()
+        
+        var numberOfExpectationsLeft = 0
         
         backgroundActivitiesQueue.sync {
             
@@ -140,18 +167,23 @@ extension BackgroundTaskCoordinator {
                 value.expectations.intersection(expectationsToRemove).isEmpty ? nil : flowId
             })
             
+            let currentNumberOfFlows = _currentExpectationsWithinFlow.count
+            logger.info("[\(self.debugUUID)] Among the \(currentNumberOfFlows, privacy: .public) flows, there are \(flowsToUpdate.count) flows to update")
+            
             for flowId in flowsToUpdate {
-                guard let value = _currentExpectationsWithinFlow[flowId] else { assertionFailure(); continue }
-                os_log("Expectations of background activity associated with flow %{public}@ before update: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: value.expectations))
+                guard let value = getCurrentExpectationsWithinFlow(flowId: flowId, logger: logger) else { assertionFailure(); continue }
+                logger.info("[\(self.debugUUID)] Expectations of background activity associated with flow \(flowId.debugDescription, privacy: .public) before update: \(Expectation.description(of: value.expectations), privacy: .public)")
                 let newExpectations = value.expectations.subtracting(expectationsToRemove)
-                os_log("Expectations of background activity associated with flowId %{public}@ after update: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: newExpectations))
-                _currentExpectationsWithinFlow[flowId] = (newExpectations, value.backgroundTaskId, value.completionHander)
+                logger.info("[\(self.debugUUID)] Expectations of background activity associated with flowId \(flowId.debugDescription, privacy: .public) after update: \(Expectation.description(of: newExpectations), privacy: .public)")
+                setCurrentExpectationsWithinFlow(flowId: flowId, logger: logger, to: (newExpectations, value.backgroundTaskId, value.completionHander))
             }
             
+            numberOfExpectationsLeft = self._currentExpectationsWithinFlow.count
+
         }
 
         for flowId in flowsToUpdate {
-            self.endBackgroundActivityIfItHasNoMoreExpectationsWithinFlow(withId: flowId)
+            self.endBackgroundActivityIfItHasNoMoreExpectationsWithinFlow(withId: flowId, numberOfExpectationsLeft: numberOfExpectationsLeft)
         }
         
     }
@@ -160,9 +192,11 @@ extension BackgroundTaskCoordinator {
     private func endBackgroundActivityAssociatedWithFlow(withId flowId: FlowIdentifier) {
         guard let delegateManager = delegateManager else { return }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
         backgroundActivitiesQueue.sync {
 
-            guard let (expectations, backgroundTaskId, completionHandler) = _currentExpectationsWithinFlow.removeValue(forKey: flowId) else { return }
+            guard let (expectations, backgroundTaskId, completionHandler) = removeCurrentExpectationsWithinFlow(flowId: flowId, logger: logger) else { return }
+            logger.info("Did remove the flow \(flowId.debugDescription, privacy: .public)")
             if !expectations.isEmpty {
                 os_log("We are about to end the background activity associated with flow %{public}@ although there are still expectations: %{public}@", log: log, type: .error, flowId.debugDescription, Expectation.description(of: expectations))
             }
@@ -175,15 +209,24 @@ extension BackgroundTaskCoordinator {
     }
     
     
-    private func endBackgroundActivityIfItHasNoMoreExpectationsWithinFlow(withId flowId: FlowIdentifier) {
+    private func endBackgroundActivityIfItHasNoMoreExpectationsWithinFlow(withId flowId: FlowIdentifier, numberOfExpectationsLeft: Int) {
+        
+        guard let delegateManager = delegateManager else { assertionFailure(); return }
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+        
         var backgroundActivityHasNoMoreExpectations = false
         backgroundActivitiesQueue.sync {
-            guard let (expectations, _, _) = _currentExpectationsWithinFlow[flowId] else { return }
+            guard let (expectations, _, _) = getCurrentExpectationsWithinFlow(flowId: flowId, logger: logger) else { return }
             backgroundActivityHasNoMoreExpectations = expectations.isEmpty
         }
         if backgroundActivityHasNoMoreExpectations {
+            logger.info("[\(self.debugUUID)] Will end flow \(flowId.debugDescription, privacy: .public) as it has no more expectations")
             endBackgroundActivityAssociatedWithFlow(withId: flowId)
+        } else {
+            logger.info("[\(self.debugUUID)] Not ending flow \(flowId.debugDescription, privacy: .public) as it still has expectations")
+            logger.info("[\(self.debugUUID)] Debug \(numberOfExpectationsLeft) expectations left")
         }
+        
     }
     
 }
@@ -194,19 +237,21 @@ extension BackgroundTaskCoordinator {
     
     func observeEngineNotifications() {
         
-        guard let delegateManager = delegateManager else { return }
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+        guard let delegateManager = delegateManager else { assertionFailure(); return }
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            logger.fault("[\(self.debugUUID)] The notification delegate is not set")
             return
         }
+        
+        let debugUUID = self.debugUUID
         
         notificationCenterTokens.append(contentsOf: [
 
             // NewOutboxMessageAndAttachmentsToUpload
             ObvNetworkPostNotification.observeNewOutboxMessageAndAttachmentsToUpload(within: notificationDelegate) { [weak self] (messageId, attachmentIds, flowId) in
-                os_log("NewOutboxMessageAndAttachmentsToUpload notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+                logger.debug("[\(debugUUID)] NewOutboxMessageAndAttachmentsToUpload notification received within flow \(flowId.debugDescription, privacy: .public)")
                 if attachmentIds.isEmpty {
                     self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
                                                                                    expectationsToRemove: [],
@@ -221,25 +266,25 @@ extension BackgroundTaskCoordinator {
 
             // OutboxMessageWasUploaded
             ObvNetworkPostNotification.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: internalQueue) { [weak self] (messageId, _, _, _, flowId) in
-                os_log("OutboxMessageWasUploaded notification received within flow %{public}@ for messageId %{public}@", log: log, type: .debug, flowId.debugDescription, messageId.debugDescription)
+                logger.debug("[\(debugUUID)] OutboxMessageWasUploaded notification received within flow \(flowId.debugDescription, privacy: .public) for messageId \(messageId.debugDescription, privacy: .public)")
                 self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.outboxMessageWasUploaded(messageId: messageId)])
             },
             
             // AttachmentUploadRequestIsTakenCareOf
             ObvNetworkPostNotification.observeAttachmentUploadRequestIsTakenCareOf(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
-                os_log("AttachmentUploadRequestIsTakenCareOf notification received within flow %{public}@ for attachmentId %{public}@", log: log, type: .debug, flowId.debugDescription, attachmentId.debugDescription)
+                logger.debug("[\(debugUUID)] AttachmentUploadRequestIsTakenCareOf notification received within flow \(flowId.debugDescription, privacy: .public) for attachmentId \(attachmentId.debugDescription, privacy: .public)")
                 self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.attachmentUploadRequestIsTakenCareOfForAttachment(withId: attachmentId)])
             },
             
             // OutboxMessageAndAttachmentsDeleted
             ObvNetworkPostNotification.observeOutboxMessageAndAttachmentsDeleted(within: notificationDelegate) { [weak self] (messageId, flowId) in
-                os_log("OutboxMessageAndAttachmentsDeleted notification received within flow %{public}@ for messageId %{public}@", log: log, type: .debug, flowId.debugDescription, messageId.debugDescription)
+                logger.debug("[\(debugUUID)] OutboxMessageAndAttachmentsDeleted notification received within flow \(flowId.debugDescription, privacy: .public) for messageId \(messageId.debugDescription, privacy: .public)")
                 self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.deletionOfOutboxMessage(withId: messageId)])
             },
             
             // ProtocolMessageToProcess
             ObvProtocolNotification.observeProtocolMessageToProcess(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
-                os_log("ProtocolMessageToProcess notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+                logger.debug("[\(debugUUID)] ProtocolMessageToProcess notification received within flow \(flowId.debugDescription, privacy: .public)")
                 self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
                                                                                expectationsToRemove: [.protocolMessageToProcess, .uidsOfMessagesToProcess(ownedCryptoIdentity: protocolMessageId.ownedCryptoIdentity)],
                                                                                expectationsToAdd: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId)])
@@ -247,13 +292,13 @@ extension BackgroundTaskCoordinator {
             
             // ProtocolMessageProcessed
             ObvProtocolNotification.observeProtocolMessageProcessed(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
-                os_log("ProtocolMessageProcessed notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+                logger.debug("[\(debugUUID)] ProtocolMessageProcessed notification received within flow \(flowId.debugDescription, privacy: .public)")
                 self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId)])
             },
             
             // DeletedOutboxMessageWasCreated
             ObvNetworkPostNotification.observeDeletedOutboxMessageWasCreated(within: notificationDelegate) { [weak self] (messageId, flowId) in
-                os_log("DeletedOutboxMessageWasCreated notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+                logger.debug("[\(debugUUID)] DeletedOutboxMessageWasCreated notification received within flow \(flowId.debugDescription, privacy: .public)")
                 self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.deletedOutboxMessageWasCreated(messageId: messageId)])
             },
             

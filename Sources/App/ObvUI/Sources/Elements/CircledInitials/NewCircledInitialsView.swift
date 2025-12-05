@@ -57,18 +57,13 @@ public final class NewCircledInitialsView: UIView {
         switch configuration {
         case .contact(let initial, let photo, let showGreenShield, let showRedShield, let cryptoId, let tintAdjustmentMode):
             let textColor: UIColor
-
             let roundedClipViewBackgroundColor: UIColor
-
             switch tintAdjustmentMode {
             case .normal:
                 textColor = cryptoId.colors.text
-
                 roundedClipViewBackgroundColor = configuration.backgroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle)
-
             case .disabled:
                 textColor = AppTheme.shared.colorScheme.secondaryLabel
-
                 roundedClipViewBackgroundColor = AppTheme.shared.colorScheme.systemFill
             }
 
@@ -77,7 +72,7 @@ public final class NewCircledInitialsView: UIView {
             setupPictureView(photo: photo)
             greenShieldView.isHidden = !showGreenShield
             redShieldView.isHidden = !showRedShield
-        case .group(let photo, _):
+        case .groupV1(let photo, _):
             setupPictureView(photo: photo)
             greenShieldView.isHidden = true
             redShieldView.isHidden = true

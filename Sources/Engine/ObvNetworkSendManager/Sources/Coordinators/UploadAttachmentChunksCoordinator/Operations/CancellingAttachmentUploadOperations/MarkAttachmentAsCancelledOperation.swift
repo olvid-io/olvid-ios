@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import CoreData
 import ObvTypes
@@ -74,7 +74,7 @@ final class MarkAttachmentAsCancelledOperation: Operation, @unchecked Sendable {
 
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            guard let outboxAttachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+            guard let outboxAttachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else {
                 // Nothing to cancel
                 return
             }

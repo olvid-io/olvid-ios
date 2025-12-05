@@ -26,7 +26,7 @@ import ObvTypes
 
 protocol IdentityProviderValidationViewControllerDelegate: AnyObject {
     func discoverKeycloakServer(controller: IdentityProviderValidationViewController, keycloakServerURL: URL) async throws -> (jwks: ObvJWS.ObvJWKSet, serviceConfig: OIDServiceConfiguration)
-    func userWantsToAuthenticateOnKeycloakServer(controller: IdentityProviderValidationViewController, keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, keycloakServerKeyAndConfig: (jwks: ObvJWS.ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws
+    func userWantsToAuthenticateOnKeycloakServer(controller: IdentityProviderValidationViewController, keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile, keycloakServerKeyAndConfig: (jwks: ObvJWS.ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws
 }
 
 
@@ -94,12 +94,13 @@ final class IdentityProviderValidationViewController: UIHostingController<Identi
     }
     
     
-    func userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, keycloakServerKeyAndConfig: (jwks: ObvJWS.ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws {
+    func userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws {
         guard let delegate else { throw ObvError.theDelegateIsNotSet }
         return try await delegate.userWantsToAuthenticateOnKeycloakServer(
             controller: self,
             keycloakConfiguration: keycloakConfiguration,
             isConfiguredFromMDM: isConfiguredFromMDM,
+            isBindingExistingProfile: isBindingExistingProfile,
             keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
     }
     
@@ -122,9 +123,9 @@ private final class IdentityProviderValidationViewActions: IdentityProviderValid
         return try await delegate.discoverKeycloakServer(keycloakServerURL: keycloakServerURL)
     }
     
-    func userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, keycloakServerKeyAndConfig: (jwks: ObvJWS.ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws {
+    func userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws {
         guard let delegate else { throw ObvError.theDelegateIsNotSet }
-        try await delegate.userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: keycloakConfiguration, isConfiguredFromMDM: isConfiguredFromMDM, keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
+        try await delegate.userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: keycloakConfiguration, isConfiguredFromMDM: isConfiguredFromMDM, isBindingExistingProfile: isBindingExistingProfile, keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
     }
 
     enum ObvError: Error {

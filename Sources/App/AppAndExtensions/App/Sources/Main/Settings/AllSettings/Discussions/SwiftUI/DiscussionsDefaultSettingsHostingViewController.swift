@@ -59,6 +59,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     let ownedCryptoId: ObvCryptoId
     var doSendReadReceipt: Binding<Bool>!
     var alwaysShowNotificationsWhenMentioned: Binding<Bool>!
+    var unarchiveWhenNotifiedInDiscussions:  Binding<Bool>!
     var attachLinkPreviewtoMessageSent: Binding<Bool>!
     var fetchMissingLinkPreviewFromMessagereceived: Binding<Bool>!
     var readOnce: Binding<Bool>!
@@ -81,6 +82,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         self.ownedCryptoId = ownedCryptoId
         self.changed = false
         self.doSendReadReceipt = Binding<Bool>(get: getDoSendReadReceipt, set: setDoSendReadReceipt)
+        self.unarchiveWhenNotifiedInDiscussions = Binding<Bool>(get: getUnarchiveDiscussions, set: setUnarchiveDiscussions)
         alwaysShowNotificationsWhenMentioned = Binding<Bool> {
             return ObvMessengerSettings.Discussions.notificationOptions.contains(.alwaysNotifyWhenMentionnedEvenInMutedDiscussion)
         } set: { newValue in
@@ -130,6 +132,20 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        ObvMessengerSettingsObservableObject.shared.$unarchiveDiscussions
+            .compactMap { (unarchiveDiscussions, changeMadeFromAnotherOwnedDevice) in
+                // We only observe changes made from other owned devices
+                guard changeMadeFromAnotherOwnedDevice else { return nil }
+                return unarchiveDiscussions
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] (unarchiveDiscussions: Bool) in
+                withAnimation {
+                    self?.changed.toggle()
+                }
+            }
+            .store(in: &cancellables)
+        
     }
 
     private func getTimeBasedRetention() -> DurationOptionAlt {
@@ -171,6 +187,17 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
 
     private func setDoSendReadReceipt(_ newValue: Bool) {
         ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: newValue, changeMadeFromAnotherOwnedDevice: false)
+        withAnimation {
+            self.changed.toggle()
+        }
+    }
+    
+    private func getUnarchiveDiscussions() -> Bool {
+        ObvMessengerSettings.Discussions.unarchiveDiscussions
+    }
+
+    private func setUnarchiveDiscussions(_ newValue: Bool) {
+        ObvMessengerSettings.Discussions.setUnarchiveDiscussions(to: newValue, changeMadeFromAnotherOwnedDevice: false)
         withAnimation {
             self.changed.toggle()
         }
@@ -290,6 +317,7 @@ struct DiscussionsDefaultSettingsWrapperView: View {
     var body: some View {
         DiscussionsDefaultSettingsView(doSendReadReceipt: model.doSendReadReceipt,
                                        alwaysShowNotificationsWhenMentioned: model.alwaysShowNotificationsWhenMentioned,
+                                       unarchiveWhenNotifiedInDiscussions: model.unarchiveWhenNotifiedInDiscussions,
                                        readOnce: model.readOnce,
                                        attachLinkPreviewtoMessageSent: model.attachLinkPreviewtoMessageSent,
                                        fetchMissingLinkPreviewFromMessagereceived: model.fetchMissingLinkPreviewFromMessagereceived,
@@ -311,6 +339,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
     
     @Binding var doSendReadReceipt: Bool
     @Binding var alwaysShowNotificationsWhenMentioned: Bool
+    @Binding var unarchiveWhenNotifiedInDiscussions: Bool
     @Binding var readOnce: Bool
     @Binding var attachLinkPreviewtoMessageSent: Bool
     @Binding var fetchMissingLinkPreviewFromMessagereceived: Bool
@@ -331,10 +360,19 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
         Text(doSendReadReceipt ? Strings.SendReadRecceipts.explanationWhenYes : Strings.SendReadRecceipts.explanationWhenNo)
     }
     
+    private var unarchiveWhenNotifiedSectionFooter: Text {
+        Text(unarchiveWhenNotifiedInDiscussions ? Strings.UnarchiveWhenNotified.explanationWhenYes : Strings.UnarchiveWhenNotified.explanationWhenNo)
+    }
+    
     private struct Strings {
         struct SendReadRecceipts {
             static let explanationWhenYes = NSLocalizedString("Your contacts will be notified when you have read their messages. This settting can be overriden on a per discussion basis.", comment: "Explantation")
             static let explanationWhenNo = NSLocalizedString("Your contacts won't be notified when you read their messages. This settting can be overriden on a per discussion basis.", comment: "Explantation")
+        }
+        
+        struct UnarchiveWhenNotified {
+            static let explanationWhenYes = NSLocalizedString("Archived discussions are unarchived when a notification is received.", comment: "Explanation")
+            static let explanationWhenNo = NSLocalizedString("Archived discussions remains archived even though a notification is received.", comment: "Explanation")
         }
     }
 
@@ -363,6 +401,11 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                     Text(NSLocalizedString("discussion-default-settings-view.mention-notification-mode.picker.mode.never",
                                            comment: "Display title for the `never` value for mention notification mode"))
                         .tag(false)
+                }
+            }
+            Section(footer: unarchiveWhenNotifiedSectionFooter) {
+                Toggle(isOn: $unarchiveWhenNotifiedInDiscussions) {
+                    Label("UNARCHIVE_DISCUSSIONS_LABEL", systemImage: "archivebox.fill")
                 }
             }
             Section(footer: Text("ATTACH_PREVIEW_SECTION_FOOTER")) {
@@ -502,6 +545,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
         Group {
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(false),
                                            alwaysShowNotificationsWhenMentioned: .constant(true),
+                                           unarchiveWhenNotifiedInDiscussions: .constant(true),
                                            readOnce: .constant(false),
                                            attachLinkPreviewtoMessageSent: .constant(false),
                                            fetchMissingLinkPreviewFromMessagereceived: .constant(false),
@@ -517,6 +561,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            changed: .constant(false))
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(true),
                                            alwaysShowNotificationsWhenMentioned: .constant(false),
+                                           unarchiveWhenNotifiedInDiscussions: .constant(false),
                                            readOnce: .constant(false),
                                            attachLinkPreviewtoMessageSent: .constant(false),
                                            fetchMissingLinkPreviewFromMessagereceived: .constant(false),

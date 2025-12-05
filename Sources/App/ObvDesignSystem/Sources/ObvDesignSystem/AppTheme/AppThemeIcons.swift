@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@
 import ObvSystemIcon
 
 public struct AppThemeIcons {
-    public let muteIcon: SystemIcon = .moonZzzFill
+    public let muteIcon: SystemIcon = .bellBadgeSlash
     public let pinIcon: SystemIcon = .pinFill
     public let archivebox: SystemIcon = .archivebox
     public let archiveboxFill: SystemIcon = .archiveboxFill

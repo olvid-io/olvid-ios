@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import OSLog
 import ObvEncoder
 import ObvCrypto
 import ObvTypes
@@ -37,11 +38,13 @@ public struct ReceivedMessage {
     public var knownAttachmentCount: Int? { return message.knownAttachmentCount }
     var messageUploadTimestampFromServer: Date { return message.messageUploadTimestampFromServer }
     
-    public init?(with message: ObvNetworkReceivedMessageEncrypted, decryptedWith messageKey: AuthenticatedEncryptionKey, obtainedUsing channelType: ObvProtocolReceptionChannelInfo) {
+    private static let logger = Logger(subsystem: "io.olvid.channel", category: "ReceivedMessage")
+    
+    public init(with message: ObvNetworkReceivedMessageEncrypted, decryptedWith messageKey: AuthenticatedEncryptionKey, obtainedUsing channelType: ObvProtocolReceptionChannelInfo) throws {
         
-        guard let (encodedContent, rawDecryptedContentForMessageKey) = ReceivedMessage.decryptToObvEncoded(message.encryptedContent, with: messageKey) else { return nil }
+        let (encodedContent, rawDecryptedContentForMessageKey) = try ReceivedMessage.decryptToObvEncoded(message.encryptedContent, with: messageKey)
         self.contentForMessageKey = rawDecryptedContentForMessageKey
-        guard let (type, encodedElements) = ReceivedMessage.parse(encodedContent) else { return nil }
+        let (type, encodedElements) = try ReceivedMessage.parse(encodedContent)
         self.type = type
         self.encodedElements = encodedElements
         self.message = message
@@ -58,31 +61,56 @@ public struct ReceivedMessage {
         self.extendedMessagePayloadKey = extendedMessagePayloadKey
         // If the extended message payload is available (which only happens when the message was received in a notification, otherwise it is downloaded asynchronously), decrypt it now
         if let encryptedExtendedContent = message.availableEncryptedExtendedContent, let extendedMessagePayloadKey {
-            self.extendedMessagePayload = Self.decryptToData(encryptedExtendedContent, with: extendedMessagePayloadKey)
+            self.extendedMessagePayload = try Self.decryptToData(encryptedExtendedContent, with: extendedMessagePayloadKey)
         } else {
             self.extendedMessagePayload = nil
         }
+        
+        // Now that both the message key and the message content are available, we ensure GKMv2 support
+        try Self.checkGKMV2Support(messageKey: messageKey, messageContent: self.contentForMessageKey)
+
     }
 
-    private static func decryptToData(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) -> Data? {
+    private static func decryptToData(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) throws -> Data {
         let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
-        guard let rawEncodedElements = try? authEnc.decrypt(encryptedContent, with: messageKey) else { return nil }
+        let rawEncodedElements = try authEnc.decrypt(encryptedContent, with: messageKey)
         return rawEncodedElements
     }
 
-    private static func decryptToObvEncoded(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) -> (obvEncoded: ObvEncoded, rawDecryptedContentForMessageKey: Data)? {
-        guard let rawEncodedElements = decryptToData(encryptedContent, with: messageKey) else { return nil }
-        guard let content = ObvEncoded(withPaddedRawData: rawEncodedElements) else { return nil }
+    private static func decryptToObvEncoded(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) throws -> (obvEncoded: ObvEncoded, rawDecryptedContentForMessageKey: Data) {
+        let rawEncodedElements = try decryptToData(encryptedContent, with: messageKey)
+        guard let content = ObvEncoded(withPaddedRawData: rawEncodedElements) else { throw ObvError.parsingFailed }
         return (content, rawEncodedElements)
     }
     
-    private static func parse(_ content: ObvEncoded) -> (messageType: ObvChannelMessageType, encodedElements: ObvEncoded)? {
-        guard let listOfEncoded = [ObvEncoded](content) else { return nil }
-        guard listOfEncoded.count == 2 else { return nil }
-        guard let messageType = ObvChannelMessageType(listOfEncoded[0]) else { return nil }
+    private static func parse(_ content: ObvEncoded) throws -> (messageType: ObvChannelMessageType, encodedElements: ObvEncoded) {
+        guard let listOfEncoded = [ObvEncoded](content) else { throw ObvError.parsingFailed }
+        guard listOfEncoded.count == 2 else { throw ObvError.parsingFailed }
+        guard let messageType = ObvChannelMessageType(listOfEncoded[0]) else { throw ObvError.parsingFailed }
         let encodedElements = listOfEncoded[1]
         return (messageType, encodedElements)
     }
     
+    
+    /// Each time a message is decrypted, this method is called to evaluate the channel support for GKMV2.
+    /// Since 2025-09-09, this support is mandatory, for all channel types (oblivious, pre-key, and asymmetric).
+    private static func checkGKMV2Support(messageKey: AuthenticatedEncryptionKey, messageContent: Data) throws {
+
+        let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
+
+        assert((messageContent.count & 0x1FF) == 0) // We expect the content to be a multiple of 512
+        if !authEnc.verifyMessageKey(messageKey: messageKey, message: messageContent) {
+            assertionFailure()
+            Self.logger.fault("The message key does not support GKMV2 although it should at this point. Rejecting the message.")
+            throw ObvError.messageKeyDoesNotSupportGKMV2AlthoughItShould
+        }
+
+    }
+
+    enum ObvError: Error {
+        case messageKeyDoesNotSupportGKMV2AlthoughItShould
+        case parsingFailed
+    }
+
 }
 

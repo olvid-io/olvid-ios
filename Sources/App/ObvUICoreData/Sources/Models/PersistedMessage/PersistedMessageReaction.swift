@@ -84,10 +84,19 @@ extension PersistedMessageReaction {
 
     fileprivate struct Predicate {
         enum Key: String {
+            // Attributes
             case rawEmoji = "rawEmoji"
+            // Relationships
+            case message = "message"
         }
         static func withObjectID(_ objectID: TypeSafeManagedObjectID<PersistedMessageReaction>) -> NSPredicate {
             NSPredicate(withObjectID: objectID.objectID)
+        }
+        static func withMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) -> NSPredicate {
+            NSPredicate.init(Key.message, equalToObjectWithObjectID: messageObjectID.objectID)
+        }
+        static var withNonNilEmoji: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.rawEmoji)
         }
     }
 
@@ -102,6 +111,18 @@ extension PersistedMessageReaction {
         request.predicate = Predicate.withObjectID(objectID)
         request.fetchLimit = 1
         return try context.fetch(request).first
+    }
+    
+    
+    public static func getFetchedResultsControllerForPersistedMessageReaction(objectID: TypeSafeManagedObjectID<PersistedMessageReaction>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessageReaction> {
+        let request: NSFetchRequest<PersistedMessageReaction> = PersistedMessageReaction.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return NSFetchedResultsController(fetchRequest: request,
+                                          managedObjectContext: context,
+                                          sectionNameKeyPath: nil,
+                                          cacheName: nil)
     }
 
 }
@@ -118,6 +139,66 @@ public final class PersistedMessageReactionSent: PersistedMessageReaction {
         try self.init(emoji: emoji, timestamp: timestamp, message: message, forEntityName: Self.entityName)
     }
     
+    
+}
+
+
+// MARK: - Convenience DB getters
+
+extension PersistedMessageReactionSent {
+    
+    fileprivate struct Predicate {
+        static func withObjectID(_ objectID: TypeSafeManagedObjectID<PersistedMessageReactionSent>) -> NSPredicate {
+            NSPredicate(withObjectID: objectID.objectID)
+        }
+    }
+
+    @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageReactionSent> {
+        return NSFetchRequest<PersistedMessageReactionSent>(entityName: PersistedMessageReactionSent.entityName)
+    }
+
+    
+    public static func get(with objectID: TypeSafeManagedObjectID<PersistedMessageReactionSent>, within context: NSManagedObjectContext) throws -> PersistedMessageReactionSent? {
+        let request: NSFetchRequest<PersistedMessageReactionSent> = PersistedMessageReactionSent.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+    
+
+    public static func getFetchedResultsControllerForSentReactionOnMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessageReactionSent> {
+        let fetchRequest: NSFetchRequest<PersistedMessageReactionSent> = PersistedMessageReactionSent.fetchRequest()
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            PersistedMessageReaction.Predicate.withMessage(messageObjectID: messageObjectID),
+            PersistedMessageReaction.Predicate.withNonNilEmoji,
+        ])
+        fetchRequest.sortDescriptors = []
+        fetchRequest.fetchLimit = 1 // There can be at most one sent reaction per message
+        return NSFetchedResultsController<PersistedMessageReactionSent>(fetchRequest: fetchRequest,
+                                                                        managedObjectContext: context,
+                                                                        sectionNameKeyPath: nil,
+                                                                        cacheName: nil)
+    }
+    
+    
+    public static func getFetchedResultsControllerForPersistedMessageReactionSent(objectID: TypeSafeManagedObjectID<PersistedMessageReactionSent>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessageReactionSent> {
+        let request: NSFetchRequest<PersistedMessageReactionSent> = PersistedMessageReactionSent.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return NSFetchedResultsController(fetchRequest: request,
+                                          managedObjectContext: context,
+                                          sectionNameKeyPath: nil,
+                                          cacheName: nil)
+    }
+
+}
+
+
+public extension TypeSafeManagedObjectID where T == PersistedMessageReactionSent {
+    var downcast: TypeSafeManagedObjectID<PersistedMessageReaction> {
+        TypeSafeManagedObjectID<PersistedMessageReaction>(objectID: objectID)
+    }
 }
 
 
@@ -179,6 +260,68 @@ public final class PersistedMessageReactionReceived: PersistedMessageReaction {
     }
 
 }
+
+
+// MARK: - Convenience DB getters
+
+extension PersistedMessageReactionReceived {
+    
+    fileprivate struct Predicate {
+        enum Key: String {
+            // Attributes
+            // Relationships
+            case contact = "contact"
+        }
+        static func withObjectID(_ objectID: TypeSafeManagedObjectID<PersistedMessageReactionReceived>) -> NSPredicate {
+            NSPredicate(withObjectID: objectID.objectID)
+        }
+    }
+
+
+    @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageReactionReceived> {
+        return NSFetchRequest<PersistedMessageReactionReceived>(entityName: PersistedMessageReactionReceived.entityName)
+    }
+
+    
+    public static func getFetchedResultsControllerForReceivedReactionOnMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessageReactionReceived> {
+        let fetchRequest: NSFetchRequest<PersistedMessageReactionReceived> = PersistedMessageReactionReceived.fetchRequest()
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            PersistedMessageReaction.Predicate.withMessage(messageObjectID: messageObjectID),
+            PersistedMessageReaction.Predicate.withNonNilEmoji,
+        ])
+        fetchRequest.sortDescriptors = [
+            NSSortDescriptor(key: [Predicate.Key.contact.rawValue, PersistedObvContactIdentity.Predicate.Key.sortDisplayName.rawValue].joined(separator: "."),
+                             ascending: true),
+        ]
+        fetchRequest.fetchBatchSize = 100
+        return NSFetchedResultsController<PersistedMessageReactionReceived>(fetchRequest: fetchRequest,
+                                                                            managedObjectContext: context,
+                                                                            sectionNameKeyPath: nil,
+                                                                            cacheName: nil)
+    }
+    
+    
+    public static func get(with objectID: TypeSafeManagedObjectID<PersistedMessageReactionReceived>, within context: NSManagedObjectContext) throws -> PersistedMessageReactionReceived? {
+        let request: NSFetchRequest<PersistedMessageReactionReceived> = PersistedMessageReactionReceived.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+    
+    public static func getFetchedResultsControllerForPersistedMessageReactionReceived(objectID: TypeSafeManagedObjectID<PersistedMessageReactionReceived>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessageReactionReceived> {
+        let request: NSFetchRequest<PersistedMessageReactionReceived> = PersistedMessageReactionReceived.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return NSFetchedResultsController(fetchRequest: request,
+                                          managedObjectContext: context,
+                                          sectionNameKeyPath: nil,
+                                          cacheName: nil)
+    }
+
+}
+
 
 public extension TypeSafeManagedObjectID where T == PersistedMessageReactionReceived {
     var downcast: TypeSafeManagedObjectID<PersistedMessageReaction> {

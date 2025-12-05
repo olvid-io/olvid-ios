@@ -39,7 +39,7 @@ public extension UIImage {
     }
     
     convenience init?(customIcon: CustomIcon, withConfiguration configuration: UIImage.Configuration? = nil) {
-        self.init(named: customIcon.name, in: Bundle(for: LocalizableClassForObvSystemIconBundle.self), with: configuration)
+        self.init(named: customIcon.name, in: ObvSystemIconResources.bundle, with: configuration)
     }
 
 }

@@ -1,1464 +1,3102 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "ARE_YOU_KIDDING" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Are you kidding?"
+  "sourceLanguage": "en",
+  "strings": {
+    "ARE_YOU_KIDDING": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machst du Witze?"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous plaisantez ?"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you kidding?"
           }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Estás bromeando?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous plaisantez ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ma stai scherzando?"
+          }
+        }
+      }
+    },
+    "BASSOON": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fagott"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bassoon"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fagot"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basson"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fagotto"
+          }
+        }
+      }
+    },
+    "BELL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glocke"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bell"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campana"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloche"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campanello"
+          }
+        }
+      }
+    },
+    "BIRD_CARDINAL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kardinal"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cardinal"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cardinal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cardinal"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cardinale"
+          }
+        }
+      }
+    },
+    "BIRD_COQUI": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coqui"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coqui"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coquí"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Francolin coqui"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coqui"
+          }
+        }
+      }
+    },
+    "BIRD_CROW": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krähe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crow"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuervo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corbeau"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corvo"
+          }
+        }
+      }
+    },
+    "BIRD_CUCKOO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kuckuck"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuckoo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuclillo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coucou"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuculo"
+          }
+        }
+      }
+    },
+    "BIRD_DUCK_QUACK": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ente"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duck"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pato"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canard"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anatra"
+          }
+        }
+      }
+    },
+    "BIRD_DUCK_QUACKS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ente quakt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duck quacks"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El pato grazna"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coin-coin"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un'anatra starnazza"
+          }
+        }
+      }
+    },
+    "BIRD_EAGLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adler"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eagle"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Águila"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aigle"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquila"
+          }
+        }
+      }
+    },
+    "BIRD_IN_FOREST": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vogel im Wald"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bird in the forest"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pájaro en el bosque"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oiseau dans la forêt"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uccello nella foresta"
+          }
+        }
+      }
+    },
+    "BIRD_MAGPIE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eichelhäher"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Magpie"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urraca"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pie"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghiandaia"
+          }
+        }
+      }
+    },
+    "BIRD_OWL_HORNED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hornuhu"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horned owl"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búho cornudo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hibou à cornes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gufo cornuto"
+          }
+        }
+      }
+    },
+    "BIRD_OWL_TAWNY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waldkauz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tawny owl"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lechuza común"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chouette hulotte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gufo fulvo"
+          }
+        }
+      }
+    },
+    "BIRD_TWEET": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vogelzwitscher"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bird Tweet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweet de pájaro"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cui-cui"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cinguettio di uccello"
+          }
+        }
+      }
+    },
+    "BIRD_WARNING": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falke"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hawk"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halcón"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buse"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falco"
+          }
+        }
+      }
+    },
+    "BLOCK": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blockieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Block"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloquear"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloquer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocca"
+          }
+        }
+      }
+    },
+    "BRASS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messing"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brass"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latón"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuivres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ottone"
+          }
+        }
+      }
+    },
+    "BRING_THE_DRAMA": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bring die Dramatik!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bring the drama"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Que empiece el drama!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Feu aux poudres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scatena il dramma"
+          }
+        }
+      }
+    },
+    "BUSY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beschäftigt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busy"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocupado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occupé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occupato"
+          }
+        }
+      }
+    },
+    "CALM": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruhig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calm"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calmado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calme"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calmo"
+          }
+        }
+      }
+    },
+    "CHICKEN": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hähnchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chicken"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pollo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poulet"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pollo"
+          }
+        }
+      }
+    },
+    "CHICKEN_ROOSTER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hahn 1"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rooster 1"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gallo 1"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coq 1"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gallo 1"
+          }
+        }
+      }
+    },
+    "CHICKEN_ROSTER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hahn 2"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rooster 2"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gallo 2"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coq 2"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gallo 2"
+          }
+        }
+      }
+    },
+    "CHIME": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klingelton"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chime"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timbre"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carillon"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segnale acustico"
+          }
+        }
+      }
+    },
+    "CICADA": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zikade"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cicada"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cigada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cigale"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cicada"
+          }
+        }
+      }
+    },
+    "CIRCUS_CLOWN_HORN": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hupen einer Zirkusclown"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circus clown horn"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bocina de payaso"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corne de clown"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clacson da clown"
+          }
+        }
+      }
+    },
+    "CLARINET": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klarinette"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clarinet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clarinete"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clarinette"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clarinetto"
+          }
+        }
+      }
+    },
+    "CLAV_FLY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kemence"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kemence"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kemence"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guitare"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kemence"
+          }
+        }
+      }
+    },
+    "CLAV_GUITAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cura"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cura"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cura"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cura"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cura"
+          }
+        }
+      }
+    },
+    "CLOUD": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wolke"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nube"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuage"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud"
+          }
+        }
+      }
+    },
+    "COW_MOO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kuh"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cow"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaca"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vache"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mucca"
+          }
+        }
+      }
+    },
+    "ELEPHANT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elefant"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elephant"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elefante"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éléphant"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elefante"
+          }
+        }
+      }
+    },
+    "ENOUGH_WITH_THE_TALKING": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genug geredet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enough with the talking"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basta de hablar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assez parlé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basta chiacchiere"
+          }
+        }
+      }
+    },
+    "FLUTE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flöte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flute"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flauta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flûte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flauto"
+          }
+        }
+      }
+    },
+    "FRENZY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raserei"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frenzy"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frenesí"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frénésie"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frenesia"
+          }
+        }
+      }
+    },
+    "FROG": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frosch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frog"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rana"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grenouille"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rana"
+          }
+        }
+      }
+    },
+    "FUNNY_FANFARE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lustige Fanfare"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funny fanfare"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fanfarria divertida"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drôle de fanfare"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fanfara divertente"
+          }
+        }
+      }
+    },
+    "GLOCKENSPIEL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glockenspiel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glockenspiel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glockenspiel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carillon"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glockenspiel"
+          }
+        }
+      }
+    },
+    "GOAT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziege"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goat"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cabra"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèvre"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capra"
+          }
+        }
+      }
+    },
+    "HARP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Harfe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Harp"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arpa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Harpe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arpa"
+          }
+        }
+      }
+    },
+    "HEY_CHAMP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hey, Meister!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hey champ"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Ánimo, campeón!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hé, champion !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ehi campione"
+          }
+        }
+      }
+    },
+    "HORN_BOAT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nebelhorn"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fog horn"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bocina de niebla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corne de brume"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clacson da nebbia"
+          }
+        }
+      }
+    },
+    "HORN_BUS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bushalhorn"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bus Horn"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bocina de autobús"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klaxon de bus"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clacson di autobus"
+          }
+        }
+      }
+    },
+    "HORN_CAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autohupe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Car Horn"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bocina de coche"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klaxon automobile"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clacson dell'auto"
+          }
         }
       }
     },
-    "BASSOON" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bassoon"
+    "HORN_DIXIE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hupe von 1916"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1916 car horn"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claxon de coche de 1916"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klaxon 1916"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Basson"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "clacson di un'auto del 1916"
           }
         }
       }
     },
-    "BELL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bell"
+    "HORN_TAXI": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taxihupe"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cloche"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taxi horn"
           }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bocina de taxi"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klaxon de taxi"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clacson del taxi"
+          }
         }
       }
     },
-    "BIRD_CARDINAL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cardinal"
+    "HORN_TRAIN_1": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugsignal 1"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Train horn 1"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cardinal"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bocina de tren 1"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Train 1"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clacson del treno 1"
+          }
         }
       }
     },
-    "BIRD_COQUI" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coqui"
+    "HORN_TRAIN_2": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugshorn 2"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Train horn 2"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bocina de tren 2"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Train 2"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Francolin coqui"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clacson del treno 2"
           }
         }
       }
     },
-    "BIRD_CROW" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Crow"
+    "HORSE_WHINNIES": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pferd"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Corbeau"
-          }
-        }
-      }
-    },
-    "BIRD_CUCKOO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cuckoo"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horse"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coucou"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caballo"
           }
-        }
-      }
-    },
-    "BIRD_DUCK_QUACK" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duck"
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cheval"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Canard"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cavallo"
           }
         }
       }
     },
-    "BIRD_DUCK_QUACKS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duck quacks"
+    "KOTO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koto"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coin-coin"
-          }
-        }
-      }
-    },
-    "BIRD_EAGLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eagle"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koto"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aigle"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koto"
           }
-        }
-      }
-    },
-    "BIRD_IN_FOREST" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bird in the forest"
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koto"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oiseau dans la forêt"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koto"
           }
         }
       }
     },
-    "BIRD_MAGPIE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Magpie"
+    "MODULAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modular"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pie"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modular"
           }
-        }
-      }
-    },
-    "BIRD_OWL_HORNED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Horned owl"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modular"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modulaire"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hibou à cornes"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modulare"
           }
         }
       }
     },
-    "BIRD_OWL_TAWNY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tawny owl"
+    "NESTLING": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Küken"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chouette hulotte"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nestling"
           }
-        }
-      }
-    },
-    "BIRD_TWEET" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bird Tweet"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polluelo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nid d'abeilles"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cui-cui"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piccolino"
           }
         }
       }
     },
-    "BIRD_WARNING" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hawk"
+    "NICE_CUT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schöner Schnitt"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buse"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nice cut"
           }
-        }
-      }
-    },
-    "BLOCK" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buen corte"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jolie coupe"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bloquer"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bel taglio"
           }
         }
       }
     },
-    "BRASS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Brass"
+    "NOTIFICATION_SOUNDS_ALARM_CATEGORY_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarme"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cuivres"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarms"
           }
-        }
-      }
-    },
-    "BRING_THE_DRAMA" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bring the drama"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarmas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarmes"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Feu aux poudres"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allarmi"
           }
         }
       }
     },
-    "BUSY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Busy"
+    "NOTIFICATION_SOUNDS_ANIMAL_CATEGORY_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiere"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Occupé"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animals"
           }
-        }
-      }
-    },
-    "CALM" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Calm"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animales"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animaux"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Calme"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animali"
           }
         }
       }
     },
-    "CHICKEN" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chicken"
+    "NOTIFICATION_SOUNDS_NEUTRAL_CATEGORY_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neutral"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Poulet"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neutral"
           }
-        }
-      }
-    },
-    "CHICKEN_ROOSTER" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rooster 1"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neutral"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neutre"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coq 1"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neutro"
           }
         }
       }
     },
-    "CHICKEN_ROSTER" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rooster 2"
+    "NOTIFICATION_SOUNDS_TOY_CATEGORY_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spielzeug"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coq 2"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toys"
           }
-        }
-      }
-    },
-    "CHIME" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chime"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Juguetes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jouets"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Carillon"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giocattoli"
           }
         }
       }
     },
-    "CICADA" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cicada"
+    "NO_SOUNDS": {
+      "comment": "Title",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cigale"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
           }
-        }
-      }
-    },
-    "CIRCUS_CLOWN_HORN" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Circus clown horn"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguno"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Corne de clown"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessuno"
           }
         }
       }
     },
-    "CLARINET" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clarinet"
+    "OBOE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oboe"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clarinette"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oboe"
           }
-        }
-      }
-    },
-    "CLAV_FLY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kemence"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oboe"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hautbois"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Guitare"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oboe"
           }
         }
       }
     },
-    "CLAV_GUITAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cura"
+    "OH_REALLY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wirklich?"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cura"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oh really"
           }
-        }
-      }
-    },
-    "CLOUD" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cloud"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿De verdad?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oh vraiment"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuage"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davvero?"
           }
         }
       }
     },
-    "COW_MOO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cow"
+    "ORINGZ": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oring"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vache"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oring"
           }
-        }
-      }
-    },
-    "ELEPHANT" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elephant"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Origen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anneau"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Éléphant"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oring"
           }
         }
       }
     },
-    "ENOUGH_WITH_THE_TALKING" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enough with the talking"
+    "PANTHERA": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panthera"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Assez parlé"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panthera"
           }
-        }
-      }
-    },
-    "FLUTE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flute"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pantera"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panthère"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flûte"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pantera"
           }
         }
       }
     },
-    "FRENZY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frenzy"
+    "PARANOID": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paranoid"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frénésie"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paranoid"
           }
-        }
-      }
-    },
-    "FROG" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frog"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paranoico"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paranoïaque"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Grenouille"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paranoico"
           }
         }
       }
     },
-    "FUNNY_FANFARE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Funny fanfare"
+    "PIANO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klavier"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Drôle de fanfare"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piano"
           }
-        }
-      }
-    },
-    "GLOCKENSPIEL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Glockenspiel"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piano"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piano"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Carillon"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piano"
           }
         }
       }
     },
-    "GOAT" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Goat"
+    "PIPA": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipa"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chèvre"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipa"
           }
-        }
-      }
-    },
-    "HARP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Harp"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipa"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Harpe"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipa"
           }
         }
       }
     },
-    "HEY_CHAMP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hey champ"
+    "POLITE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Höflich"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hé, champion !"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polite"
           }
-        }
-      }
-    },
-    "HORN_BOAT" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fog horn"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cortés"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poli"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Corne de brume"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cortese"
           }
         }
       }
     },
-    "HORN_BUS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bus Horn"
+    "PUPPY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welpe"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Klaxon de bus"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puppy"
           }
-        }
-      }
-    },
-    "HORN_CAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Car Horn"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cachorro"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiot"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Klaxon automobile"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cucciolo"
           }
         }
       }
     },
-    "HORN_DIXIE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1916 car horn"
+    "SAXO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saxo"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Klaxon 1916"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saxo"
           }
-        }
-      }
-    },
-    "HORN_TAXI" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Taxi horn"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saxo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saxo"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Klaxon de taxi"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sasso"
           }
         }
       }
     },
-    "HORN_TRAIN_1" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Train horn 1"
+    "SHEEP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schaf"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Train 1"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sheep"
           }
-        }
-      }
-    },
-    "HORN_TRAIN_2" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Train horn 2"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oveja"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mouton"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Train 2"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pecora"
           }
         }
       }
     },
-    "HORSE_WHINNIES" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Horse"
+    "SONAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonar"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cheval"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonar"
           }
-        }
-      }
-    },
-    "KOTO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Koto"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonar"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Koto"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonar"
           }
         }
       }
     },
-    "MODULAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modular"
+    "SPRINGY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Federnd"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modulaire"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Springy"
           }
-        }
-      }
-    },
-    "NESTLING" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nestling"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elástico"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ressort"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nid d'abeilles"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Molleggiante"
           }
         }
       }
     },
-    "NICE_CUT" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nice cut"
+    "STRIKE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strich"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jolie coupe"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strike"
           }
-        }
-      }
-    },
-    "NO_SOUNDS" : {
-      "comment" : "Title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "None"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tachar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frappe"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barrato"
           }
         }
       }
     },
-    "NOTIFICATION_SOUNDS_ALARM_CATEGORY_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alarms"
+    "STRINGS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeichenketten"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alarmes"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strings"
           }
-        }
-      }
-    },
-    "NOTIFICATION_SOUNDS_ANIMAL_CATEGORY_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Animals"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cadenas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cordes"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Animaux"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stringhe"
           }
         }
       }
     },
-    "NOTIFICATION_SOUNDS_NEUTRAL_CATEGORY_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neutral"
+    "SYNTH_AIRSHIP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Luftschiff"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neutre"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Airship"
           }
-        }
-      }
-    },
-    "NOTIFICATION_SOUNDS_TOY_CATEGORY_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toys"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirigible Sintético"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé airship"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jouets"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nave Aerea Sintetizzata"
           }
         }
       }
     },
-    "OBOE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oboe"
+    "SYNTH_CHORDAL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth-Akkordfolge"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hautbois"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Chordal"
           }
-        }
-      }
-    },
-    "OH_REALLY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oh really"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acorde Sintetizado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé cordes"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oh vraiment"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accordo Synth"
           }
         }
       }
     },
-    "ORINGZ" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oring"
+    "SYNTH_COSMIC": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Kosmisch"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anneau"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Cosmic"
           }
-        }
-      }
-    },
-    "PANTHERA" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Panthera"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Cósmico"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé cosmique"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Panthère"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Cosmico"
           }
         }
       }
     },
-    "PARANOID" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paranoid"
+    "SYNTH_DROPLETS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth-Tropfen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paranoïaque"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Droplets"
           }
-        }
-      }
-    },
-    "PIANO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Piano"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gotas Sintéticas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé gouttelettes"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Piano"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gocce di Synth"
           }
         }
       }
     },
-    "PIPA" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pipa"
+    "SYNTH_EMOTIVE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Emotiver"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pipa"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Emotive"
           }
-        }
-      }
-    },
-    "POLITE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Polite"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Emotivo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé émotif"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Poli"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Emozionale"
           }
         }
       }
     },
-    "PUPPY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Puppy"
+    "SYNTH_FM": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth FM"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chiot"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth FM"
           }
-        }
-      }
-    },
-    "SAXO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Saxo"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth FM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé FM"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Saxo"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth FM"
           }
         }
       }
     },
-    "SHEEP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sheep"
+    "SYNTH_LUSHARP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Lush Arpeggio"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mouton"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth LushArp"
           }
-        }
-      }
-    },
-    "SONAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sonar"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arpegio Synth Lush"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé luxuriant"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sonar"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Lush Arp"
           }
         }
       }
     },
-    "SPRINGY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Springy"
+    "SYNTH_PECUSSIVE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthetische Perkussion"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ressort"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Percussive"
           }
-        }
-      }
-    },
-    "STRIKE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Strike"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Percusión Sintética"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé percussif"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frappe"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Percussive Synth"
           }
         }
       }
     },
-    "STRINGS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Strings"
+    "SYNTH_QUANTIZER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth-Quantisier"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cordes"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Quantizer"
           }
-        }
-      }
-    },
-    "SYNTH_AIRSHIP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth Airship"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuantificador Synth"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthé quantizer"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé airship"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quantizzatore Synth"
           }
         }
       }
     },
-    "SYNTH_CHORDAL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth Chordal"
+    "SYSTEM_SOUND": {
+      "comment": "Title",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Systemton"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé cordes"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System sound"
           }
-        }
-      }
-    },
-    "SYNTH_COSMIC" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth Cosmic"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonido del sistema"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son système"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé cosmique"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suono di sistema"
           }
         }
       }
     },
-    "SYNTH_DROPLETS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth Droplets"
+    "TIGER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiger"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé gouttelettes"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiger"
           }
-        }
-      }
-    },
-    "SYNTH_EMOTIVE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth Emotive"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tigre"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tigre"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé émotif"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tigre"
           }
         }
       }
     },
-    "SYNTH_FM" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth FM"
+    "TURKEY_GOBBLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Türkei"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé FM"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turkey"
           }
-        }
-      }
-    },
-    "SYNTH_LUSHARP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth LushArp"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turquía"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dinde"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé luxuriant"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turchia"
           }
         }
       }
     },
-    "SYNTH_PECUSSIVE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth Percussive"
+    "TURKEY_NOISES": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Truthähne"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé percussif"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turkeys"
           }
-        }
-      }
-    },
-    "SYNTH_QUANTIZER" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synth Quantizer"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pavos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dindes"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Synthé quantizer"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tacchini"
           }
         }
       }
     },
-    "SYSTEM_SOUND" : {
-      "comment" : "Title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "System sound"
+    "UNPHASED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unberührt"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Son système"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unphased"
           }
-        }
-      }
-    },
-    "TIGER" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tiger"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imperturbable"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déphasé"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tigre"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imperturbabile"
           }
         }
       }
     },
-    "TURKEY_GOBBLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turkey"
+    "UNSTRUNG": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unverknüpft"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dinde"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unstrung"
           }
-        }
-      }
-    },
-    "TURKEY_NOISES" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turkeys"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin enlazar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décordé"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dindes"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non collegato"
           }
         }
       }
     },
-    "UNPHASED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unphased"
+    "WEIRD": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seltsam"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Déphasé"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weird"
           }
-        }
-      }
-    },
-    "UNSTRUNG" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unstrung"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raro"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bizarre"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Décordé"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strano"
           }
         }
       }
     },
-    "WEIRD" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Weird"
+    "WOODBLOCK": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Holzschnitt"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bizarre"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Woodblock"
           }
-        }
-      }
-    },
-    "WOODBLOCK" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Woodblock"
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xilografía"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Woodblock"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Woodblock"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xilografia"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

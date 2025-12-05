@@ -811,7 +811,6 @@ extension BackupTableViewController {
         @MainActor func userWantsToConfigureNewBackups()
     }
     
-    @available(iOS 16, *)
     final class AnnoucingNewBackupsCell: UITableViewCell {
         
         private weak var delegate: AnnoucingNewBackupsCellDelegate?

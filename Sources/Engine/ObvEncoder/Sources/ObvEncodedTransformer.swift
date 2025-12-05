@@ -19,28 +19,28 @@
 
 import Foundation
 
-public class ObvEncodedTransformer: ValueTransformer {
-    
-    override public class func transformedValueClass() -> AnyClass {
-        return ObvEncoded.self
-    }
-    
-    public override class func allowsReverseTransformation() -> Bool {
-        return true
-    }
-    
-    public override func transformedValue(_ value: Any?) -> Any? {
-        guard let encodedData = value as? ObvEncoded else { return nil }
-        return encodedData.rawData
-    }
-    
-    public override func reverseTransformedValue(_ value: Any?) -> Any? {
-        guard let data = value as? Data else { return nil }
-        return ObvEncoded(withRawData: data)
-    }
-}
-
-
-public extension NSValueTransformerName {
-    static let obvEncodedTransformerName = NSValueTransformerName(rawValue: "ObvEncodedTransformer")
-}
+//public class ObvEncodedTransformer: ValueTransformer {
+//    
+//    override public class func transformedValueClass() -> AnyClass {
+//        return ObvEncoded.self
+//    }
+//    
+//    public override class func allowsReverseTransformation() -> Bool {
+//        return true
+//    }
+//    
+//    public override func transformedValue(_ value: Any?) -> Any? {
+//        guard let encodedData = value as? ObvEncoded else { return nil }
+//        return encodedData.rawData
+//    }
+//    
+//    public override func reverseTransformedValue(_ value: Any?) -> Any? {
+//        guard let data = value as? Data else { return nil }
+//        return ObvEncoded(withRawData: data)
+//    }
+//}
+//
+//
+//public extension NSValueTransformerName {
+//    static let obvEncodedTransformerName = NSValueTransformerName(rawValue: "ObvEncodedTransformer")
+//}

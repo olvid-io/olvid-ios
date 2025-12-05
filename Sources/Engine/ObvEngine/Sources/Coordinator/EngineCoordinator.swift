@@ -18,14 +18,14 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
 
 
-// This engine coordinator is *only* used when starting the full engine.
+/// This engine coordinator is *only* used when starting the full engine.
 final class EngineCoordinator {
         
     private let logger: Logger
@@ -62,23 +62,20 @@ final class EngineCoordinator {
         // Listening to ObvIdentityNotificationNew
         
         notificationCenterTokens.append(contentsOf: [
-            ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: notificationDelegate) { [weak self] (ownedCryptoIdentity, flowId) in
-                self?.processOwnedIdentityWasReactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId) // ok
+            ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: notificationDelegate) { [weak self] (ownedCryptoIdentity) in
+                self?.processOwnedIdentityWasReactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier())
             },
-            ObvIdentityNotificationNew.observeNewActiveOwnedIdentity(within: notificationDelegate) { [weak self] (ownedCryptoIdentity, flowId) in
-                self?.processNewActiveOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId) // ok
+            ObvIdentityNotificationNew.observeNewActiveOwnedIdentity(within: notificationDelegate) { [weak self] ownedCryptoIdentity in
+                self?.processNewActiveOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier())
             },
-            ObvIdentityNotificationNew.observeDeletedContactDevice(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity, contactDeviceUid, flowId) in
-                self?.deleteObliviousChannelBetweenThisDeviceAndRemoteDevice(ownedIdentity: ownedIdentity, remoteDeviceUid: contactDeviceUid, remoteIdentity: contactIdentity, flowId: flowId) // ok
+            ObvIdentityNotificationNew.observeDeletedContactDevice(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity, contactDeviceUid) in
+                self?.deleteObliviousChannelBetweenThisDeviceAndRemoteDevice(ownedIdentity: ownedIdentity, remoteDeviceUid: contactDeviceUid, remoteIdentity: contactIdentity, flowId: FlowIdentifier()) // ok
             },
             ObvIdentityNotificationNew.observeNewOwnedIdentityWithinIdentityManager(within: notificationDelegate) { [weak self] cryptoIdentity in
                 Task { [weak self] in await self?.processNewOwnedIdentityWithinIdentityManager(ownedCryptoIdentity: cryptoIdentity) }
             },
             ObvIdentityNotificationNew.observeContactIsCertifiedByOwnKeycloakStatusChanged(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, newIsCertifiedByOwnKeycloak in
                 Task { [weak self] in await self?.processContactIsCertifiedByOwnKeycloakStatusChanged(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, newIsCertifiedByOwnKeycloak: newIsCertifiedByOwnKeycloak) }
-            },
-            ObvIdentityNotificationNew.observeContactIdentityIsNowTrusted(within: notificationDelegate) { [weak self] contactIdentity, ownedIdentity, flowId in
-                Task { [weak self] in await self?.processContactIdentityIsNowTrusted(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, flowId: flowId) }
             },
             ObvIdentityNotificationNew.observeNewContactDevice(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity, contactDeviceUid, createdDuringChannelCreation, flowId) in
                 self?.processNewContactDevice(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, createdDuringChannelCreation: createdDuringChannelCreation, flowId: flowId)
@@ -105,8 +102,8 @@ final class EngineCoordinator {
             ObvNetworkFetchNotificationNew.observeServerAndInboxContainNoMoreUnprocessedMessages(within: notificationDelegate) { [weak self] ownedCryptoIdentity, downloadTimestampFromServer in
                 Task { [weak self] in await self?.processServerAndInboxContainNoMoreUnprocessedMessages(ownedIdentity: ownedCryptoIdentity, downloadTimestampFromServer: downloadTimestampFromServer) }
             },
-            ObvNetworkFetchNotificationNew.observeApplicationMessagesDecrypted(within: notificationDelegate) { obvMessageOrObvOwnedMessages, flowId in
-                Task { [weak self] in await self?.processApplicationMessageDecrypted(obvMessageOrObvOwnedMessages: obvMessageOrObvOwnedMessages, flowId: flowId) }
+            ObvNetworkFetchNotificationNew.observeApplicationMessagesWhereReceivedFromContacts(within: notificationDelegate) { [weak self] contactIds in
+                Task { [weak self] in await self?.processApplicationMessagesWhereReceivedFromContacts(contactIds: contactIds) }
             },
         ])
         
@@ -735,7 +732,7 @@ extension EngineCoordinator {
     /// When a contact becomes trusted, we start a contact device discovery protocol to found out about all her devices.
     /// We also notify the fetch manager in case we previously received messages from that contact, using our current device prekeys: in that case we kept the messages within the inbox, waiting for the (unknown) remote identity
     /// to become a contact (which is exactly what happened).
-    private func processContactIdentityIsNowTrusted(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async {
+    func processContactIdentityIsNowTrusted(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async {
         
         guard let networkFetchDelegate = delegateManager?.networkFetchDelegate else { assertionFailure(); return }
         
@@ -816,7 +813,7 @@ extension EngineCoordinator {
 
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true else {
                 os_log("Trying to perform a device discovery of an identity which is not a contact identity", log: log, type: .fault)
                 assertionFailure()
                 return
@@ -916,39 +913,54 @@ extension EngineCoordinator {
     }
     
     
-    /// When an application message gets decrypted, we check if it comes from a contact. If it is the case, we make sure that this contact is indicated as "recently online".
-    private func processApplicationMessageDecrypted(obvMessageOrObvOwnedMessages: [ObvMessageOrObvOwnedMessage], flowId: FlowIdentifier) async {
-        
+    /// When an application message is received from a contact, we make sure that this contact is indicated as "recently online".
+    private func processApplicationMessagesWhereReceivedFromContacts(contactIds: Set<ObvContactIdentifier>) async {
         guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
         guard let protocolDelegate = delegateManager?.protocolDelegate else { assertionFailure(); return }
-
-        // Extract ObvMessages only (discard ObvOwnedMessages)
-        
-        let obvMessages: [ObvMessage] = obvMessageOrObvOwnedMessages.compactMap { message in
-            switch message {
-            case .obvMessage(let obvMessage):
-                return obvMessage
-            case .obvOwnedMessage:
-                return nil
+        for contactId in contactIds {
+            let contactWasRecentlyOnline: Bool
+            do {
+                contactWasRecentlyOnline = try await checkIfContactWasRecentlyOnline(contactId: contactId)
+            } catch {
+                logger.fault("Could not check if contact was recently online: \(error)")
+                continue
             }
-        }
-        
-        for obvMessage in obvMessages {
-            let op1 = MarkContactAsRecentlyOnlineOperation(contactIdentifier: obvMessage.fromContactIdentity, identityDelegate: identityDelegate)
-
+            guard !contactWasRecentlyOnline else { continue }
+            // If we reach this point, we can mark the contact as recently online.
+            let op1 = MarkContactAsRecentlyOnlineOperation(contactIdentifier: contactId, identityDelegate: identityDelegate)
             do {
                 let composedOp = try createCompositionOfOneContextualOperation(op1: op1)
                 try await protocolDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
-                os_log("Successful pinged keycloak contacts in group where they are pending", log: log, type: .info)
             } catch {
                 assertionFailure(error.localizedDescription)
-                os_log("Failed to ping keycloak contacts in group where they are pending: %{public}@", log: log, type: .fault, error.localizedDescription)
+                logger.fault("Could not mark contact as recently online: \(error)")
             }
         }
-        
+
     }
     
     
+    /// Helper method
+    private func checkIfContactWasRecentlyOnline(contactId: ObvContactIdentifier) async throws -> Bool {
+        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); throw ObvError.theCreateContextDelegateIsNotSet }
+        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); throw ObvError.theIdentityDelegateIsNotSet }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: FlowIdentifier()) { context in
+                do {
+                    let wasRecentlyOnline = try identityDelegate.checkIfContactWasRecentlyOnline(
+                        ownedIdentity: contactId.ownedCryptoId.cryptoIdentity,
+                        contactIdentity: contactId.contactCryptoId.cryptoIdentity,
+                        within: context)
+                    return continuation.resume(returning: wasRecentlyOnline)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+
+    }
+    
+
     private func deleteObliviousChannelBetweenThisDeviceAndRemoteDevice(ownedIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, remoteIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         
         guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
@@ -1192,7 +1204,7 @@ extension EngineCoordinator {
                 return
             }
             
-            guard (try? identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoIdentity, within: obvContext)) == true else {
+            guard (try? identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoIdentity, within: obvContext.context)) == true else {
                 return
             }
             
@@ -1260,7 +1272,7 @@ extension EngineCoordinator {
                 return
             }
             
-            guard (try? identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoIdentity, within: obvContext)) == true else {
+            guard (try? identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoIdentity, within: obvContext.context)) == true else {
                 return
             }
             
@@ -1330,10 +1342,14 @@ extension EngineCoordinator {
 
         createContextDelegate.performBackgroundTask(flowId: FlowIdentifier()) { obvContext in
             
-            guard let obvDialogs = try? PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext) else { assertionFailure(); return }
+            guard let obvDialogs = try? PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext.context) else { assertionFailure(); return }
             for obvDialog in obvDialogs {
-                guard obvDialog.obvDialog?.ownedCryptoId == ObvCryptoId(cryptoIdentity: deletedOwnedCryptoId) else { continue }
-                try? obvDialog.delete()
+                do {
+                    guard try obvDialog.obvDialog?.ownedCryptoId == ObvCryptoId(cryptoIdentity: deletedOwnedCryptoId) else { continue }
+                    try? obvDialog.delete()
+                } catch {
+                    assertionFailure()
+                }
             }
             try? obvContext.save(logOnFailure: log)
 

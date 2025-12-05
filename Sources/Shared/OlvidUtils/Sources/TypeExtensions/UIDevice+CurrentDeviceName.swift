@@ -150,6 +150,15 @@ public extension UIDevice {
             return "iPhone 16 Plus"
         case "iPhone17,5":
             return "iPhone 16e"
+            
+        case "iPhone18,1":
+            return "iPhone 17 Pro"
+        case "iPhone18,2":
+            return "iPhone 17 Pro Max"
+        case "iPhone18,3":
+            return "iPhone 17"
+        case "iPhone18,4":
+            return "iPhone Air"
 
         //
         // iPads
@@ -380,28 +389,35 @@ public extension UIDevice {
         case "MacBookPro17,1":
             return "MacBook Pro (2020)"
             
+        case "MacBookPro18,1":
+            return "MacBook Pro M1 Pro"
+        case "MacBookPro18,2":
+            return "MacBook Pro M1 Max"
+        case "MacBookPro18,3":
+            return "MacBook Pro (2021)"
+        case "MacBookPro18,4":
+            return "MacBook Pro (2021)"
+
         case "Macmini9,1":
             return "Apple Mac mini M1" // 2020
-
-        case "MacBookPro18,3", "MacBookPro18,4":
-            return "MacBook Pro (2021)"
-        case "MacBookPro18,1", "MacBookPro18,2":
-            return "MacBook Pro (2021)"
 
         case "Mac13,1":
             return "Mac Studio M1 Max" // 2022
         case "Mac13,2":
             return "Mac Studio M1 Ultra" // 2022
 
-        case "Mac 14,7":
-            return "MacBook Pro" // 2022
-
+        case "Mac14,2":
+            return "MacBook Air M2"
         case "Mac14,3":
             return "Apple Mac mini M2" // 2023
         case "Mac14,5":
             return "MacBook Pro" // 2023
         case "Mac14,6":
             return "MacBook Pro" // 2023
+        case "Mac 14,7":
+            return "MacBook Pro" // 2022
+        case "Mac14,8":
+            return "Mac Pro M2 Ultra"
         case "Mac14,9":
             return "MacBook Pro" // 2023
         case "Mac14,10":
@@ -412,8 +428,62 @@ public extension UIDevice {
             return "Mac Studio M2 Max" // 2023
         case "Mac14,14":
             return "Mac Studio M2 Ultra" // 2023
+        case "Mac14,15":
+            return "MacBook Air M2"
+            
+        case "Mac15,3":
+            return "MacBook Pro M3"
+        case "Mac15,4":
+            return "iMac M3"
+        case "Mac15,5":
+            return "iMac M3"
+        case "Mac15,6":
+            return "MacBook Pro M3 Pro"
+        case "Mac15,7":
+            return "MacBook Pro M3 Pro"
+        case "Mac15,8":
+            return "MacBook Pro M3 Max"
+        case "Mac15,9":
+            return "MacBook Pro M3 Max"
+        case "Mac15,10":
+            return "MacBook Pro M3 Max"
+        case "Mac15,11":
+            return "MacBook Pro M3 Max"
+        case "Mac15,12":
+            return "MacBook Air M3"
+        case "Mac15,13":
+            return "MacBook Air M3"
+        case "Mac15,14":
+            return "Mac Studio M3 Ultra" // 2025
+            
+        case "Mac16,1":
+            return "MacBook Pro M4"
+        case "Mac16,2":
+            return "iMac M4"
+        case "Mac16,3":
+            return "iMac M4"
+        case "Mac16,5":
+            return "MacBook Pro M4 Max"
+        case "Mac16,6":
+            return "MacBook Pro M4 Max"
+        case "Mac16,7":
+            return "MacBook Pro M4 Pro"
+        case "Mac16,8":
+            return "MacBook Pro M4 Pro"
+        case "Mac16,9":
+            return "Mac Studio M4 Max" // 2025
+        case "Mac16,10":
+            return "Mac mini M4" // 2024
+        case "Mac16,11":
+            return "Mac mini M4 Pro" // 2024
+        case "Mac16,12":
+            return "MacBook Air M4" // 13-inch, M4, 2025
+        case "Mac16,13":
+            return "MacBook Air M4" // 15-inch, M4, 2025
+            
 
         default:
+            print("!!! UIDevice+CurrentDeviceName SHOULD BE UPDATED FOR THIS DEVICE CODE: \(currentDeviceCode) !!!")
             #if targetEnvironment(macCatalyst)
             return "Mac"
             #else

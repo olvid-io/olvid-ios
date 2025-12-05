@@ -146,33 +146,33 @@ extension ObvOwnedCryptoIdentity: ObvCodable {
 
 /// Implementing a ValueTransformer for an ObvCryptoIdentity. This transformer makes it possible to easily store an identity in Core Data.
 
-public class ObvOwnedCryptoIdentityTransformer: ValueTransformer {
-    
-    override public class func transformedValueClass() -> AnyClass {
-        return ObvOwnedCryptoIdentity.self
-    }
-    
-    override public class func allowsReverseTransformation() -> Bool {
-        return true
-    }
-    
-    /// Transform an ObvCryptoIdentity into an instance of Data (which actually is the raw representation of an ObvEncoded object)
-    override public func transformedValue(_ value: Any?) -> Any? {
-        guard let obvCryptoIdentity = value as? ObvOwnedCryptoIdentity else { return nil }
-        let obvEncoded = obvCryptoIdentity.obvEncode()
-        return obvEncoded.rawData
-    }
-    
-    override public func reverseTransformedValue(_ value: Any?) -> Any? {
-        guard let data = value as? Data else { return nil }
-        guard let encodedList = ObvEncoded(withRawData: data) else { return nil }
-        return ObvOwnedCryptoIdentity(encodedList)
-    }
-}
-
-public extension NSValueTransformerName {
-    static let obvOwnedCryptoIdentityTransformerName = NSValueTransformerName(rawValue: "ObvOwnedCryptoIdentityTransformer")
-}
+//public class ObvOwnedCryptoIdentityTransformer: ValueTransformer {
+//    
+//    override public class func transformedValueClass() -> AnyClass {
+//        return ObvOwnedCryptoIdentity.self
+//    }
+//    
+//    override public class func allowsReverseTransformation() -> Bool {
+//        return true
+//    }
+//    
+//    /// Transform an ObvCryptoIdentity into an instance of Data (which actually is the raw representation of an ObvEncoded object)
+//    override public func transformedValue(_ value: Any?) -> Any? {
+//        guard let obvCryptoIdentity = value as? ObvOwnedCryptoIdentity else { return nil }
+//        let obvEncoded = obvCryptoIdentity.obvEncode()
+//        return obvEncoded.rawData
+//    }
+//    
+//    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+//        guard let data = value as? Data else { return nil }
+//        guard let encodedList = ObvEncoded(withRawData: data) else { return nil }
+//        return ObvOwnedCryptoIdentity(encodedList)
+//    }
+//}
+//
+//public extension NSValueTransformerName {
+//    static let obvOwnedCryptoIdentityTransformerName = NSValueTransformerName(rawValue: "ObvOwnedCryptoIdentityTransformer")
+//}
 
 // MARK: - For backup purposes
 

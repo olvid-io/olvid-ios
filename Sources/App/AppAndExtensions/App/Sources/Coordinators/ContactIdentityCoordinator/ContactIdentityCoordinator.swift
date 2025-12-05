@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvEngine
 import ObvCoreDataStack
@@ -27,6 +27,7 @@ import OlvidUtils
 import ObvUICoreData
 import ObvSettings
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchecked Sendable {
@@ -58,38 +59,14 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchec
         // Internal notifications
         
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeUserWantsToDeleteContact { [weak self] contactCryptoId, ownedCryptoId, viewController, completionHandler in
-                Task { [weak self] in await self?.processUserWantsToDeleteContact(with: contactCryptoId, ownedCryptoId: ownedCryptoId, viewController: viewController, completionHandler: completionHandler) }
-            },
-            ObvMessengerInternalNotification.observeUserDidSeeNewDetailsOfContact { [weak self] contactCryptoId, ownedCryptoId in
-                self?.processUserDidSeeNewDetailsOfContactNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-            },
             ObvMessengerInternalNotification.observeUserWantsToEditContactNicknameAndPicture { [weak self] persistedContactObjectID, customDisplayName, customPhoto in
                 self?.updateCustomNicknameAndPictureForContact(persistedContactObjectID: persistedContactObjectID, customDisplayName: customDisplayName, customPhoto: customPhoto)
             },
             ObvMessengerInternalNotification.observeUserWantsToChangeContactsSortOrder { [weak self] ownedCryptoId, sortOrder in
                 self?.processUserWantToChangeContactsSortOrderNotification(ownedCryptoId: ownedCryptoId, sortOrder: sortOrder)
             },
-            ObvMessengerInternalNotification.observeAViewRequiresObvMutualScanUrl { [weak self] remoteIdentity, ownedCryptoId, completionHandler in
-                self?.processAViewRequiresObvMutualScanUrl(remoteIdentity: remoteIdentity, ownedCryptoId: ownedCryptoId, completionHandler: completionHandler)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToStartTrustEstablishmentWithMutualScanProtocol() { [weak self] ownedCryptoId, mutualScanUrl in
-                self?.processUserWantsToStartTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ownedCryptoId, mutualScanUrl: mutualScanUrl)
-            },
-            ObvMessengerInternalNotification.observeObvContactRequest { [weak self] requestUUID, contactCryptoId, ownedCryptoId in
-                self?.processObvContactRequest(requestUUID: requestUUID, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToUnblockContact { [weak self] ownedCryptoId, contactCryptoId in
-                self?.processUserWantsToUnblockContact(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToReblockContact { [weak self] ownedCryptoId, contactCryptoId in
-                self?.processUserWantsToReblockContact(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
-            },
             ObvMessengerInternalNotification.observeUiRequiresSignedContactDetails { [weak self] ownedIdentityCryptoId, contactCryptoId, completion in
                 self?.processUiRequiresSignedContactDetails(ownedIdentityCryptoId: ownedIdentityCryptoId, contactCryptoId: contactCryptoId, completion: completion)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToUpdatePersonalNoteOnContact { [weak self] contactIdentifier, newText in
-                self?.processUserWantsToUpdatePersonalNoteOnContact(contactIdentifier: contactIdentifier, newText: newText)
             },
         ])
         
@@ -98,9 +75,6 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchec
         observationTokens.append(contentsOf: [
             ObvEngineNotificationNew.observeDeletedObliviousChannelWithContactDevice(within: NotificationCenter.default) { [weak self] obvContactIdentifier in
                 Task { [weak self] in await self?.processDeletedObliviousChannelWithContactDevice(obvContactIdentifier: obvContactIdentifier) }
-            },
-            ObvEngineNotificationNew.observeNewTrustedContactIdentity(within: NotificationCenter.default) { [weak self] obvContactIdentity in
-                Task { [weak self] in await self?.processNewTrustedContactIdentity(obvContactIdentity: obvContactIdentity) }
             },
             ObvEngineNotificationNew.observeNewObliviousChannelWithContactDevice(within: NotificationCenter.default) { [weak self] obvContactIdentifier in
                 Task { [weak self] in await self?.processNewObliviousChannelWithContactDevice(obvContactIdentifier: obvContactIdentifier) }
@@ -111,11 +85,8 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchec
             ObvEngineNotificationNew.observeOwnedIdentityUnbindingFromKeycloakPerformed(within: NotificationCenter.default) { [weak self] ownedIdentity in
                 self?.processOwnedIdentityUnbindingFromKeycloakPerformedNotification(ownedIdentity: ownedIdentity)
             },
-            ObvEngineNotificationNew.observeContactIsActiveChangedWithinEngine(within: NotificationCenter.default) { [weak self] obvContactIdentity in
-                self?.processContactIsActiveChangedWithinEngine(obvContactIdentity: obvContactIdentity)
-            },
-            ObvEngineNotificationNew.observeUpdatedContactIdentity(within: NotificationCenter.default) { [weak self] obvContactIdentity, trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated in
-                Task { await self?.processUpdatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated: publishedIdentityDetailsWereUpdated) }
+            ObvEngineNotificationNew.observeCreatedOrUpdatedContactIdentity(within: NotificationCenter.default) { [weak self] obvContactIdentity in
+                Task { await self?.processCreatedOrUpdatedContactIdentity(obvContactIdentity: obvContactIdentity) }
             },
             ObvEngineNotificationNew.observeContactWasDeleted(within: NotificationCenter.default) { [weak self] ownedCryptoId, contactCryptoId in
                 self?.processContactWasDeleted(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
@@ -174,50 +145,10 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchec
 
 extension ContactIdentityCoordinator {
     
-    private func processUserDidSeeNewDetailsOfContactNotification(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        let op1 = processUserDidSeeNewDetailsOfContactOperation(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
+    func processUserDidSeeNewDetailsOfContact(contactIdentifier: ObvTypes.ObvContactIdentifier) {
+        let op1 = processUserDidSeeNewDetailsOfContactOperation(ownedCryptoId: contactIdentifier.ownedCryptoId, contactCryptoId: contactIdentifier.contactCryptoId)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
-    }
-    
-    
-    private func processObvContactRequest(requestUUID: UUID, contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        let obvContact: ObvContactIdentity
-        do {
-            guard let _obvContact = try obvEngine.getContactIdentity(with: contactCryptoId, ofOwnedIdentityWith: ownedCryptoId) else { return }
-            obvContact = _obvContact
-        } catch {
-            os_log("Could not get contact identity of owned identity. This is ok if this contact has just been deleted.", log: Self.log, type: .error)
-            return
-        }
-        
-        let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContact)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        let blockOp = BlockOperation()
-        blockOp.completionBlock = {
-            ObvMessengerInternalNotification.obvContactAnswer(requestUUID: requestUUID, obvContact: obvContact)
-                .postOnDispatchQueue()
-        }
-        blockOp.addDependency(composedOp)
-        self.coordinatorsQueue.addOperations([composedOp, blockOp], waitUntilFinished: false)
-    }
-
-    
-    private func processUserWantsToUnblockContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
-        do {
-            try obvEngine.unblockContactIdentity(with: contactCryptoId, ofOwnedIdentityWithCryptoId: ownedCryptoId)
-        } catch {
-            os_log("The call to unblockContactIdentity failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-        }
-    }
-
-    
-    private func processUserWantsToReblockContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
-        do {
-            try obvEngine.reblockContactIdentity(with: contactCryptoId, ofOwnedIdentityWithCryptoId: ownedCryptoId)
-        } catch {
-            os_log("The call to reblockContactIdentity failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-        }
     }
     
     
@@ -239,10 +170,19 @@ extension ContactIdentityCoordinator {
     }
     
     
-    private func processUserWantsToUpdatePersonalNoteOnContact(contactIdentifier: ObvContactIdentifier, newText: String?) {
+    /// Updates the personal note associated with a specific contact.
+    ///
+    /// This method is triggered when the user edits or saves a note for a contact.
+    func processUserWantsToUpdatePersonalNoteOnContact(contactIdentifier: ObvContactIdentifier, newText: String?) async throws {
         let op1 = UpdatePersonalNoteOnContactOperation(contactIdentifier: contactIdentifier, newText: newText, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
+        await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            assertionFailure()
+            throw Self.makeError(message: "UpdatePersonalNoteOnContactOperation cancelled: \(String(describing: op1.reasonForCancel))")
+        }
+
     }
 
 
@@ -264,209 +204,35 @@ extension ContactIdentityCoordinator {
     }
     
     
-    private func processUserWantsToDeleteContact(with contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, viewController: UIViewController, completionHandler: ((Bool) -> Void)?, confirmation: ContactDeletionConfirmation = .notConfirmedYet, preferDeleteOverDowngrade: Bool = false) async {
+    /// Updates the app database with the latest contact updates from the engine.
+    ///
+    /// This method is invoked in the following scenarios:
+    /// - When a contact is created or updated in the engine.
+    /// - When the user views the details of a specific contact. In this case, the view’s data source receives a stream of `ObvContactIdentity` values from the engine, and this method ensures the displayed information remains consistent with the app database.
+    func processCreatedOrUpdatedContactIdentity(obvContactIdentity: ObvContactIdentity) async {
         
-        switch confirmation {
+        do {
             
-        case .notConfirmedYet:
+            let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
+            let op2 = UpdatePersistedContactIdentityStatusWithInfoFromEngineOperation(obvContactIdentity: obvContactIdentity)
+            let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+            await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
             
-            // When the user wants to delete a contact, we have 2 main cases to consider :
-            // Main case 1: the contact has the .oneToOneContacts capability
-            // Main case 2: she does not.
-
-            ObvStack.shared.performBackgroundTask { context in
-                
-                do {
-                    guard let persistedContact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: context) else { return }
-                    
-                    if persistedContact.supportsCapability(.oneToOneContacts) && !preferDeleteOverDowngrade {
-                        
-                        // We are in the Main case 1 as the contact supports the oneToOneContacts capability.
-                        // In that case, if she is a OneToOne contact, we want to downgrade her to be non-OneToOne.
-                        // Otherwise, we are in the same situation as if we were in Main case 2 (as we want to delete the identity).
-                        
-                        if persistedContact.isOneToOne {
-                            
-                            let contactName = persistedContact.customDisplayName ?? persistedContact.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? persistedContact.fullDisplayName
-
-                            DispatchQueue.main.async {
-                                
-                                let alert = UIAlertController(title: Strings.AlertDowngradeContact.title,
-                                                              message: Strings.AlertDowngradeContact.message(contactName),
-                                                              preferredStyleForTraitCollection: viewController.traitCollection)
-                                let deleteAction = UIAlertAction(title: Strings.AlertDowngradeContact.confirm, style: .destructive) { [weak self] _ in
-                                    Task { [weak self] in
-                                        await self?.processUserWantsToDeleteContact(with: contactCryptoId,
-                                                                                    ownedCryptoId: ownedCryptoId,
-                                                                                    viewController: viewController,
-                                                                                    completionHandler: completionHandler,
-                                                                                    confirmation: .userConfirmedDowngradeToNonOneToOne)
-                                    }
-                                }
-                                let cancelAction = UIAlertAction(title: CommonString.Word.Cancel, style: .cancel) { _ in
-                                    DispatchQueue.main.async { completionHandler?(false) }
-                                }
-                                alert.addAction(deleteAction)
-                                alert.addAction(cancelAction)
-                                
-                                viewController.present(alert, animated: true, completion: nil)
-                            }
-                            
-                        } else {
-
-                            Task { [weak self] in
-                                await self?.processUserWantsToDeleteContact(with: contactCryptoId,
-                                                                            ownedCryptoId: ownedCryptoId,
-                                                                            viewController: viewController,
-                                                                            completionHandler: completionHandler,
-                                                                            confirmation: confirmation,
-                                                                            preferDeleteOverDowngrade: true)
-                            }
-                            
-                        }
-                        
-                    } else {
-                        
-                        // We are in the Main case 2, either because the contact does not support the oneToOneContacts capability, or because the current user
-                        // Wants to fully delete the contct identity. In that case, it's complicated, as we have 3 subcases to consider :
-                        // - Subcase 1: If the contact is part of the members of some group, then we cannot delete her and we inform the user using a modal action sheet
-                        // - Otherwise :
-                        //    - Subcase 2: If the contact is part of the pending members of some group, we inform the user that if she delete the contact, this contact might
-                        //      "reapear" in a near future (when she joins the group).
-                        //    - Subcase 3: Otherwise, there is no technical reason preventing the contact to be deleted, so we simply ask a confirmation to the user.
-
-                        // Preparing for testing the 3 possible subcases
-                        
-                        var noCommonGroup = false
-                        let noGroupWhereContactIsPending: Bool
-                        let contactName: String
-                        do {
-                            let commonGroupsV1 = try PersistedContactGroup.getAllContactGroups(whereContactIdentitiesInclude: persistedContact, within: context)
-                            let pendingGroupsV1 = try PersistedContactGroup.getAllContactGroups(wherePendingMembersInclude: persistedContact, within: context)
-                            let commonGroupsV2 = try PersistedGroupV2.getAllPersistedGroupV2(whereContactIdentitiesInclude: persistedContact)
-                            noCommonGroup = commonGroupsV1.isEmpty && commonGroupsV2.isEmpty
-                            noGroupWhereContactIsPending = pendingGroupsV1.isEmpty
-                            contactName = persistedContact.customDisplayName ?? persistedContact.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? persistedContact.fullDisplayName
-                        }
-                        
-                        guard noCommonGroup else {
-                            // Subcase 1
-                            DispatchQueue.main.async {
-                                let alert = UIAlertController(title: Strings.AlertCommonGroupOnContactDeletion.title,
-                                                              message: Strings.AlertCommonGroupOnContactDeletion.message(contactName), preferredStyle: .alert)
-                                let okAction = UIAlertAction(title: CommonString.Word.Ok, style: .default, handler: nil)
-                                alert.addAction(okAction)
-                                viewController.present(alert, animated: true)
-                            }
-                            return
-                        }
-                        
-                        DispatchQueue.main.async {
-                            let alert: UIAlertController
-                            if !noGroupWhereContactIsPending {
-                                // Subcase 2
-                                alert = UIAlertController(title: Strings.alertDeleteContactTitle,
-                                                          message: Strings.AlertCommonGroupWhereContactToDeleteIsPending.message(contactName),
-                                                          preferredStyleForTraitCollection: viewController.traitCollection)
-                                
-                            } else {
-                                // Subcase 3
-                                alert = UIAlertController(title: Strings.alertDeleteContactTitle,
-                                                          message: Strings.alertDeleteContactMessage(contactName),
-                                                          preferredStyleForTraitCollection: viewController.traitCollection)
-                                
-                            }
-                            
-                            // For both subcases 2 and 3
-                            
-                            alert.addAction(UIAlertAction(title: Strings.alertActionTitleDeleteContact, style: .destructive, handler: { [weak self] _ in
-                                assert(Thread.isMainThread)
-                                Task { [weak self] in
-                                    await self?.processUserWantsToDeleteContact(with: contactCryptoId,
-                                                                                ownedCryptoId: ownedCryptoId,
-                                                                                viewController: viewController,
-                                                                                completionHandler: completionHandler,
-                                                                                confirmation: .userConfirmedFullDeletion)
-                                }
-                            }))
-                            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel, handler: { _ in
-                                assert(Thread.isMainThread)
-                                completionHandler?(false)
-                            }))
-                            viewController.present(alert, animated: true, completion: nil)
-                        }
-
-                    }
-                    
-                } catch {
-                    os_log("Could not process the user request to delete a contact: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                }
-
-            }
-            
-        case .userConfirmedDowngradeToNonOneToOne:
-            
-            // The user confirmed she wishes to downgrade the contact from OneToOne to non-OneToOne. We do not check whether this makes sense here, this has been
-            // Done above, when determining the most appropriate alert to show.
-            
-            do {
-                try obvEngine.downgradeOneToOneContact(ownedIdentity: ownedCryptoId, contactIdentity: contactCryptoId)
-            } catch {
-                os_log("Fail to downgrade the contact to non-OneToOne: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                DispatchQueue.main.async { completionHandler?(false) }
+            guard composedOp.isFinished, !composedOp.isCancelled else {
+                assertionFailure()
                 return
             }
-            DispatchQueue.main.async { completionHandler?(true) }
-
-        case .userConfirmedFullDeletion:
             
-            // The user confirmed she wishes to delete the contact identity. We do not check whether this makes sense here, this has been
-            // Done above, when determining the most appropriate alert to show.
-
-            do {
-                try obvEngine.deleteContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
-                DispatchQueue.main.async { completionHandler?(true) }
-            } catch {
-                os_log("Fail to delete the contact: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                DispatchQueue.main.async { completionHandler?(false) }
-            }
-                        
-        }
-
-    }
-
-
-    private func processUpdatedContactIdentity(obvContactIdentity: ObvContactIdentity, trustedIdentityDetailsWereUpdated: Bool, publishedIdentityDetailsWereUpdated: Bool) async {
-        
-        let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
-        let op2 = UpdatePersistedContactIdentityStatusWithInfoFromEngineOperation(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated: publishedIdentityDetailsWereUpdated)
-        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
-        await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
-        
-        guard composedOp.isFinished, !composedOp.isCancelled else {
-            assertionFailure()
-            return
         }
         
-        ObvMessengerInternalNotification.contactIdentityDetailsWereUpdated(contactCryptoId: obvContactIdentity.cryptoId, ownedCryptoId: obvContactIdentity.ownedIdentity.cryptoId)
-            .postOnDispatchQueue()
-
-    }
-
-
-    private func processNewTrustedContactIdentity(obvContactIdentity: ObvContactIdentity) async {
-        do {
-            let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
-            await queueAndAwaitCompositionOfOneContextualOperation(op1: op1)
-        }
         do {
             let ops = await getOperationsRequiredToSyncContactDevices(scope: .contactDevicesOfContact(contactIdentifier: obvContactIdentity.contactIdentifier), isRestoringSyncSnapshotOrBackup: false)
             await coordinatorsQueue.addAndAwaitOperations(ops)
         }
+
     }
 
-    
+
     private func processContactWasDeleted(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
         let op1 = ProcessContactWasDeletedOperation(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
@@ -540,27 +306,6 @@ extension ContactIdentityCoordinator {
     }
 
 
-    private func processAViewRequiresObvMutualScanUrl(remoteIdentity: Data, ownedCryptoId: ObvCryptoId, completionHandler: @escaping (ObvMutualScanUrl) -> Void) {
-        guard let mutualScanURL = try? obvEngine.computeMutualScanUrl(remoteIdentity: remoteIdentity, ownedCryptoId: ownedCryptoId) else {
-            assertionFailure()
-            return
-        }
-        DispatchQueue.main.async {
-            completionHandler(mutualScanURL)
-        }
-    }
-
-
-    private func processUserWantsToStartTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ObvCryptoId, mutualScanUrl: ObvMutualScanUrl) {
-        do {
-            try obvEngine.startTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ownedIdentity, mutualScanUrl: mutualScanUrl)
-        } catch {
-            os_log("Could not start TrustEstablishmentWithMutualScanProtocol: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-            assertionFailure()
-        }
-    }
-    
-    
     private func processUserWantToChangeContactsSortOrderNotification(ownedCryptoId: ObvCryptoId, sortOrder: ContactsSortOrder) {
         let op1 = UpdateContactsSortOrderOperation(ownedCryptoId: ownedCryptoId, newSortOrder: sortOrder)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
@@ -574,11 +319,5 @@ extension ContactIdentityCoordinator {
         self.coordinatorsQueue.addOperation(composedOp)
     }
     
-    
-    private func processContactIsActiveChangedWithinEngine(obvContactIdentity: ObvContactIdentity) {
-        let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
-    }
     
 }

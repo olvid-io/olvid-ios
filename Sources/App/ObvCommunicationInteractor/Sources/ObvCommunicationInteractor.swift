@@ -36,6 +36,8 @@ public final class ObvCommunicationInteractor {
             try await interaction.donate()
         case .incomingReaction:
             try await interaction.donate()
+        case .incomingPollVote:
+            try await interaction.donate()
         case .outgoingMessage(sentMessage: let sentMessage):
             let discussionKind = sentMessage.discussionKind
             if discussionKind.localConfiguration.performInteractionDonation && !discussionKind.ownedIdentity.isHidden {

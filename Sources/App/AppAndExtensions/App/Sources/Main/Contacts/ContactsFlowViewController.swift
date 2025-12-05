@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,88 +18,60 @@
  */
 
 import UIKit
-import os.log
+import OSLog
 import ObvEngine
 import ObvTypes
 import ObvUICoreData
 import ObvAppCoreConstants
+import ObvUIGroupV1
 import ObvUIGroupV2
+import ObvSharedDataSources
+import ObvSingleContact
+import ObvAppNavigation
 
 
-final class ContactsFlowViewController: UINavigationController, ObvFlowController {
-
-    static let errorDomain = "ContactsFlowViewController"
+final class ContactsFlowViewController: ObvFlowController {
         
-    // Variables
-    
-    private(set) var currentOwnedCryptoId: ObvCryptoId
-    let delegatesStack = ObvFlowControllerDelegatesStack()
-    let obvEngine: ObvEngine
-    var floatingButton: UIButton? // Used on iOS 18+ only, set at the ObvFlowController level
-    private var floatingButtonAnimator: FloatingButtonAnimator?
-    let appDataSourceForObvUIGroupV2Router: AppDataSourceForObvUIGroupV2Router
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "ContactsFlowViewController")
+    private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ContactsFlowViewController.self))
 
-    /// This router allows to present the flow allowing to create a new group v2.
-    /// It is expected to be set only once.
-    /// The delegate methods are implemented in an extension of `ObvFlowController`.
-    private(set) lazy var routerForGroupCreation: ObvUIGroupV2Router = {
-        ObvUIGroupV2Router(mode: .creation(delegate: self),
-                           dataSource: appDataSourceForObvUIGroupV2Router)
-    }()
-    /// This router allows to push the flow allowing to edit a new group v2.
-    /// It is expected to be set only once.
-    /// The delegate methods are implemented in an extension of `ObvFlowController`.
-    private(set) lazy var routerForGroupEdition: ObvUIGroupV2Router = {
-        ObvUIGroupV2Router(mode: .edition(delegate: self),
-                           dataSource: appDataSourceForObvUIGroupV2Router)
-    }()
+    private var observationTokens = [NSObjectProtocol]()
 
-    var observationTokens = [NSObjectProtocol]()
-
-    // Constants
-    
-    let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ContactsFlowViewController.self))
-
-    // Delegate
-    
-    weak var flowDelegate: ObvFlowControllerDelegate?
-
-    // MARK: - Factory
-
-    init(ownedCryptoId: ObvCryptoId, appListOfGroupMembersViewDataSource: AppDataSourceForObvUIGroupV2Router, obvEngine: ObvEngine) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, dataSources: ObvDataSources) {
         
-        self.currentOwnedCryptoId = ownedCryptoId
-        self.obvEngine = obvEngine
-        self.appDataSourceForObvUIGroupV2Router = appListOfGroupMembersViewDataSource
-        
-        let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .oneToOne, showExplanation: true, textAboveContactList: nil)
-        super.init(rootViewController: allContactsVC)
+        super.init(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, dataSources: dataSources, doAddFloatingButton: true)
+
+        let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId,
+                                                      oneToOneStatus: .oneToOne,
+                                                      showExplanation: true,
+                                                      textAboveContactList: nil,
+                                                      avatarViewDataSource: dataSources.avatarViewDataSource,
+                                                      ownedIdentityChooserViewDataSource: dataSources.ownedIdentityChooserViewDataSource)
         
         allContactsVC.delegate = self
-
-        self.delegate = delegatesStack
+        allContactsVC.unlockingHiddenProfileDelegate = self
+        
+        self.setViewControllers([allContactsVC], animated: false)
 
     }
-    
     
     deinit {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
     
-
-    override var delegate: UINavigationControllerDelegate? {
-        get {
-            super.delegate
-        }
-        set {
-            guard newValue is ObvFlowControllerDelegatesStack else { assertionFailure(); return }
-            super.delegate = newValue
-        }
-    }
-
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
+    
+    // MARK: - Switching current owned identity
 
+    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) {
+        popToRootViewController(animated: false)
+        self.currentOwnedCryptoId = newOwnedCryptoId
+        guard let allContactsVC = viewControllers.first as? AllContactsViewController else { assertionFailure(); return }
+        allContactsVC.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+    }
+        
 }
+
 
 // MARK: - View controller lifecycle
 
@@ -113,39 +85,29 @@ extension ContactsFlowViewController {
         if #available(iOS 18, *) {
             // The tabbar is configured with iOS 18 APIs, we don't need to specify a tabBarItem
         } else {
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemName: "person", withConfiguration: symbolConfiguration)
-            tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+            let image = UIImage(systemIcon: .person)
+            tabBarItem = UITabBarItem(title: String(localized: "Contacts"), image: image, tag: 1)
         }
 
-        delegatesStack.addDelegate(OlvidUserActivitySingleton.shared)
-
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        navigationBar.standardAppearance = appearance
+        if #available(iOS 26, *) {
+            // We don't change the appearance under iOS 26
+        } else {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            navigationBar.standardAppearance = appearance
+        }
         
-        observeNotificationsImpactingTheNavigationStack()
+        //observeNotificationsImpactingTheNavigationStack()
 
         // This is required to activate the interactive pop gesture recognizer. Activating this interactive gesture also requires
         // to override gestureRecognizerShouldBegin(_:).
         // See ``https://stackoverflow.com/questions/18946302/uinavigationcontroller-interactive-pop-gesture-not-working``.
-        if #available(iOS 18, *) {
+        if #available(iOS 17, *) {
             interactivePopGestureRecognizer?.delegate = self
         }
 
     }
-    
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        if #available(iOS 18, *) {
-            addFloatingButtonIfRequired()
-            let floatingButtonAnimator = FloatingButtonAnimator(floatingButton: floatingButton)
-            self.delegatesStack.addDelegate(floatingButtonAnimator)
-            self.floatingButtonAnimator = floatingButtonAnimator
-        }
-    }
-
+        
 }
 
 
@@ -161,41 +123,16 @@ extension ContactsFlowViewController: UIGestureRecognizerDelegate {
     
 }
 
-
-// MARK: - Switching current owned identity
-
-extension ContactsFlowViewController {
-    
-    @MainActor
-    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
-        popToRootViewController(animated: false)
-        self.currentOwnedCryptoId = newOwnedCryptoId
-        guard let allContactsVC = viewControllers.first as? AllContactsViewController else { assertionFailure(); return }
-        await allContactsVC.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
-    }
-    
-}
-
-
 // MARK: - AllContactsViewControllerDelegate
 
 extension ContactsFlowViewController: AllContactsViewControllerDelegate {
 
-    func userDidSelect(_ contact: PersistedObvContactIdentity, within nav: UINavigationController?) {
-        let vc: SingleContactIdentityViewHostingController
-        do {
-            vc = try SingleContactIdentityViewHostingController(contact: contact, obvEngine: obvEngine)
-        } catch {
-            assertionFailure(error.localizedDescription)
-            return
-        }
-        vc.delegate = self
-        if let nav = nav {
-            nav.pushViewController(vc, animated: true)
-        }
+    func userDidSelectContact(_ vc: AllContactsViewController, withContactIdentifier contactIdentifier: ObvContactIdentifier, within navigationController: UINavigationController?) {
+        assert(navigationController == nil || navigationController == self || self.presentedViewController == navigationController, "We simplified the underlying API. The navigationController is now discarded.")
+        self.userWantsToNavigateToSingleContactView(contactIdentifier: contactIdentifier)
     }
 
-    func userDidDeselect(_: PersistedObvContactIdentity) {
+    func userDidDeselectContact(_ vc: AllContactsViewController, withContactIdentifier contactIdentifier: ObvContactIdentifier) {
         // We do nothing
     }
     

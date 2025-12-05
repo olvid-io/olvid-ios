@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,7 @@ import MobileCoreServices
 import ObvTypes
 import ObvUI
 import OlvidUtils
-import os.log
+import OSLog
 import QuickLookThumbnailing
 import SwiftUI
 import CoreData
@@ -31,11 +31,13 @@ import ObvUICoreData
 import ObvSystemIcon
 import ObvSettings
 import ObvAppCoreConstants
+import ObvSharedDataSources
 
 
 final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDelegate, ObvErrorMaker, @unchecked Sendable {
     
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: "ShareViewController"))
+    static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: "ShareViewController"))
     static var errorDomain = "ShareViewModel"
     
     enum ThumbnailValue {
@@ -65,7 +67,7 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
 
     weak var delegate: ShareViewModelDelegate?
     
-    private let viewContext: NSManagedObjectContext
+    let viewContext: NSManagedObjectContext
     
     init(allOwnedIdentities: [PersistedObvOwnedIdentity]) throws {
         let contexts = Set(allOwnedIdentities.compactMap({ $0.managedObjectContext }))
@@ -117,14 +119,16 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
         self.selectedDiscussions = discussionsToConsider
     }
 
+    @MainActor
     func setBodyTexts(_ bodyTexts: [String]) {
         assert(!self.bodyTextHasBeenSet)
         for bodyText in bodyTexts {
+            if !text.isEmpty {
+                text.append("\n\n")
+            }
             text.append(bodyText)
         }
-        DispatchQueue.main.async {
-            self.bodyTextHasBeenSet = true
-        }
+        self.bodyTextHasBeenSet = true
     }
 
     func setHardlinks(_ hardlinks: [HardLinkToFyle?]) {
@@ -153,7 +157,14 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
 
     var userCanSendsMessages: Bool {
         guard !messageIsSending else { return false }
-        return !selectedDiscussions.isEmpty
+        let hasAttachments: Bool
+        if let hardlinks = self.hardlinks, !hardlinks.isEmpty {
+            hasAttachments = true
+        } else {
+            hasAttachments = false
+        }
+        let hasValidBody = !self.textBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return !selectedDiscussions.isEmpty && (hasAttachments || hasValidBody)
     }
 
     var discussionsModel: DiscussionsViewModel {
@@ -222,24 +233,18 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
     }
 }
 
-extension ShareViewModel: OwnedIdentityChooserViewControllerDelegate {
-    func userUsedTheOwnedIdentityChooserViewControllerToChoose(ownedCryptoId: ObvTypes.ObvCryptoId) async {
-        guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: viewContext) else {
-            os_log("Could not find owned identity", log: Self.log, type: .error)
-            return
-        }
-        do {
-            try await setSelectedOwnedIdentity(to: ownedIdentity)
-        } catch {
-            os_log("when processUserWantsToSwitchToOtherOwnedIdentity: %@", log: Self.log, type: .error)
-        }
+
+// MARK: - Implementing ObvAvatarViewAppDataSourceDelegate
+
+extension ShareViewModel: ObvAvatarViewAppDataSourceDelegate {
+    
+    func getUserDataNow(ownedCryptoId: ObvTypes.ObvCryptoId, encodedServerKeyAndLabel: Data?) async throws -> Data? {
+        assertionFailure("Not expected to be called in the share extension")
+        return nil
     }
     
-    func userWantsToEditCurrentOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId) async { }
+    func performBackgroundTask(_ block: @escaping (NSManagedObjectContext) -> Void) {
+        ObvStack.shared.performBackgroundTask(block)
+    }
     
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityEdition: Bool { false }
-    
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityCreation: Bool { false }
-    
-    var ownedIdentityChooserViewControllerExplanationString: String? { nil }
 }

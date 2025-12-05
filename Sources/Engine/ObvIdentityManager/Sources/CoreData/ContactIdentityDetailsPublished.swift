@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 import ObvCrypto
 import ObvEncoder
@@ -34,6 +34,9 @@ final class ContactIdentityDetailsPublished: ContactIdentityDetails, ObvErrorMak
     private static let entityName = "ContactIdentityDetailsPublished"
     static let errorDomain = String(describing: ContactIdentityDetailsPublished.self)
     
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: ContactIdentityDetailsPublished.logSubsystem, category: "ContactIdentityDetailsPublished") }()
+
     // MARK: Attributes
     
     
@@ -41,35 +44,42 @@ final class ContactIdentityDetailsPublished: ContactIdentityDetails, ObvErrorMak
         
     // MARK: - Initializer
     
-    convenience init?(contactIdentity: ContactIdentity, contactIdentityDetailsElements: IdentityDetailsElements, delegateManager: ObvIdentityDelegateManager) {
+    convenience init?(contactIdentity: ContactIdentity, contactIdentityDetailsElements: IdentityDetailsElements) {
         
         self.init(contactIdentity: contactIdentity,
                   coreDetails: contactIdentityDetailsElements.coreDetails,
                   version: contactIdentityDetailsElements.version,
                   photoServerKeyAndLabel: contactIdentityDetailsElements.photoServerKeyAndLabel,
-                  entityName: ContactIdentityDetailsPublished.entityName,
-                  delegateManager: delegateManager)
+                  entityName: ContactIdentityDetailsPublished.entityName)
         
     }
 
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(backupItem: ContactIdentityDetailsPublishedBackupItem, within obvContext: ObvContext) {
+    fileprivate convenience init(backupItem: ContactIdentityDetailsPublishedBackupItem, within context: NSManagedObjectContext) {
         self.init(serializedIdentityCoreDetails: backupItem.serializedIdentityCoreDetails,
                   version: backupItem.version,
                   photoServerKeyAndLabel: backupItem.photoServerKeyAndLabel,
                   entityName: ContactIdentityDetailsPublished.entityName,
-                  within: obvContext)
+                  within: context)
     }
 
     
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(snapshotNode: ContactIdentityDetailsPublishedSyncSnapshotNode, within obvContext: ObvContext) {
+    fileprivate convenience init(snapshotNode: ContactIdentityDetailsPublishedSyncSnapshotNode, within context: NSManagedObjectContext) {
         self.init(serializedIdentityCoreDetails: snapshotNode.serializedIdentityCoreDetails,
                   version: snapshotNode.version,
                   photoServerKeyAndLabel: snapshotNode.photoServerKeyAndLabel,
                   entityName: ContactIdentityDetailsPublished.entityName,
-                  within: obvContext)
+                  within: context)
+    }
+
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvContactIdentityDetailsPublishedObserver(_ newObserver: ContactIdentityDetailsPublishedObserver) async {
+        await observersHolder.addObserver(newObserver)
     }
 
 }
@@ -80,14 +90,11 @@ final class ContactIdentityDetailsPublished: ContactIdentityDetails, ObvErrorMak
 extension ContactIdentityDetailsPublished {
     
     /// This method should *only* be called from the `updatePublishedDetails` method of the `ContactIdentity` entity.
-    func updateWithNewContactIdentityDetailsElements(_ newContactIdentityDetailsElements: IdentityDetailsElements, delegateManager: ObvIdentityDelegateManager) throws {
+    func updateWithNewContactIdentityDetailsElements(_ newContactIdentityDetailsElements: IdentityDetailsElements) throws {
 
         self.version = newContactIdentityDetailsElements.version
         
-        guard let storedPublishedCoreDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)?.coreDetails else {
-            assertionFailure()
-            throw Self.makeError(message: "Could not get the local version of the contact published details")
-        }
+        let storedPublishedCoreDetails = try self.getIdentityDetails().coreDetails
         
         if newContactIdentityDetailsElements.coreDetails != storedPublishedCoreDetails {
             self.serializedIdentityCoreDetails = try newContactIdentityDetailsElements.coreDetails.jsonEncode()
@@ -95,9 +102,34 @@ extension ContactIdentityDetailsPublished {
         
         if self.photoServerKeyAndLabel != newContactIdentityDetailsElements.photoServerKeyAndLabel {
             self.photoServerKeyAndLabel = newContactIdentityDetailsElements.photoServerKeyAndLabel
-            try setContactPhoto(with: nil, delegateManager: delegateManager)
+            try setContactPhoto(with: nil)
         }
         
+    }
+    
+}
+
+
+// MARK: - Convenience DB getters
+
+extension ContactIdentityDetailsPublished {
+    
+    @nonobjc static func fetchRequest() -> NSFetchRequest<ContactIdentityDetailsPublished> {
+        return NSFetchRequest<ContactIdentityDetailsPublished>(entityName: ContactIdentityDetailsPublished.entityName)
+    }
+
+    static func getFetchedResultsController(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<ContactIdentityDetailsPublished> {
+        let request: NSFetchRequest<ContactIdentityDetailsPublished> = ContactIdentityDetailsPublished.fetchRequest()
+        request.predicate = ContactIdentityDetails.Predicate.withContactIdentifier(contactIdentifier)
+        request.sortDescriptors = []
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let frc = NSFetchedResultsController(
+            fetchRequest: request,
+            managedObjectContext: context,
+            sectionNameKeyPath: nil,
+            cacheName: nil)
+        return frc
     }
     
 }
@@ -114,33 +146,17 @@ extension ContactIdentityDetailsPublished {
             return
         }
 
-        let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: ContactIdentityDetailsPublished.entityName)
-
-        guard let delegateManager = delegateManager else {
-            os_log("The delegate manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        
-        if !isDeleted, let ownedIdentity = contactIdentity.ownedIdentity, let contactCryptoIdentity = self.contactIdentity.cryptoIdentity {
+        if !isDeleted {
             
-            if let publishedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
-            let NotificationType = ObvIdentityNotification.NewPublishedContactIdentityDetails.self
-            let userInfo = [NotificationType.Key.contactCryptoIdentity: contactCryptoIdentity,
-                            NotificationType.Key.ownedCryptoIdentity: ownedIdentity.cryptoIdentity,
-                            NotificationType.Key.publishedIdentityDetails: publishedIdentityDetails] as [String: Any]
-            notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-            } else {
-                os_log("Could not notify about the new ContactIdentityDetailsPublished", log: log, type: .fault)
+            do {
+                let contactIdentity = try ObvContactIdentity(contactIdentity: self.contactIdentity)
+                Task { await Self.observersHolder.newPublishedContactIdentityDetails(contactIdentity: contactIdentity) }
+            } catch {
+                Self.logger.fault("Could not notify about the new published contact identity details")
                 assertionFailure()
             }
 
-        } 
+        }
     }
     
 }
@@ -258,12 +274,12 @@ struct ContactIdentityDetailsPublishedBackupItem: Codable, Hashable {
 
     }
 
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-        let contactIdentityDetailsPublished = ContactIdentityDetailsPublished(backupItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout BackupItemObjectAssociations) throws {
+        let contactIdentityDetailsPublished = ContactIdentityDetailsPublished(backupItem: self, within: context)
         try associations.associate(contactIdentityDetailsPublished, to: self)
     }
 
-    func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
 
@@ -388,13 +404,13 @@ struct ContactIdentityDetailsPublishedSyncSnapshotNode: ObvSyncSnapshotNode {
     }
     
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
-        let contactIdentityDetailsPublished = ContactIdentityDetailsPublished(snapshotNode: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let contactIdentityDetailsPublished = ContactIdentityDetailsPublished(snapshotNode: self, within: context)
         try associations.associate(contactIdentityDetailsPublished, to: self)
     }
 
     
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
 
@@ -406,4 +422,39 @@ struct ContactIdentityDetailsPublishedSyncSnapshotNode: ObvSyncSnapshotNode {
         case couldNotParsePhotoServerKey
         case couldNotDecodePhotoServerLabel
     }
+}
+
+
+// MARK: - ContactIdentityDetailsPublished observers
+
+protocol ContactIdentityDetailsPublishedObserver: AnyObject {
+    func newPublishedContactIdentityDetails(contactIdentity: ObvContactIdentity) async
+}
+
+
+private actor ObserversHolder: ContactIdentityDetailsPublishedObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactIdentityDetailsPublishedObserver?
+        init(value: ContactIdentityDetailsPublishedObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactIdentityDetailsPublishedObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func newPublishedContactIdentityDetails(contactIdentity: ObvContactIdentity) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.newPublishedContactIdentityDetails(contactIdentity: contactIdentity) }
+            }
+        }
+    }
+    
 }

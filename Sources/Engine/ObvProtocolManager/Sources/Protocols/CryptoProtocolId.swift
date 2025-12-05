@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -54,8 +54,8 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible, CaseIterable {
     case synchronization = 25
     case ownedIdentityTransfer = 26
 
-    func getConcreteCryptoProtocol(from instance: ProtocolInstance, prng: PRNGService) -> ConcreteCryptoProtocol? {
-        return self.concreteCryptoProtocol.init(protocolInstance: instance, prng: prng)
+    func getConcreteCryptoProtocol(from instance: ProtocolInstance, prng: PRNGService, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> ConcreteCryptoProtocol? {
+        return self.concreteCryptoProtocol.init(protocolInstance: instance, prng: prng, delegateManager: delegateManager, within: obvContext)
     }
     
     private var concreteCryptoProtocol: ConcreteCryptoProtocol.Type {

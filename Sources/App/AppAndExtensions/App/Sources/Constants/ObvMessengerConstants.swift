@@ -84,8 +84,6 @@ enum ObvMessengerConstants {
     static let iTunesOlvidIdentifier = NSNumber(value: 1414865219) // Found via https://tools.applemediaservices.com
     static let shortLinkToOlvidAppIniTunes = URL(string: "https://apple.co/3lrdOUV")!
     
-    static let minimumLengthOfPasswordForHiddenProfiles = ObvUICoreDataConstants.minimumLengthOfPasswordForHiddenProfiles
-    
 
     static var isRunningOnRealDevice: Bool {
         #if targetEnvironment(simulator)
@@ -213,6 +211,10 @@ enum ObvMessengerConstants {
     
     enum UserDefaultsKeys: String {
         case dateOfLastDatabaseSync = "io.olvid.background.processing.database.sync.date"
+        case dateOfLastAppInboxSyncMessageIdsKeptForLater = "io.olvid.background.processing.app.inbox.message.ids.sync.date"
+        case dateOfCreationOfFirstProfile = "io.olvid.date.of.creation.of.first.profile"
+        case dateOfLastOlvidPlusTipDisplay = "io.olvid.date.of.last.olvid.plus.tip.display"
+        case olvidPlusSubscriptionConfirmationTipToDisplay = "io.olvid.plus.subscription.confirmation.tip.to.display" // Stores the raw value of a ObvOwnershipType
     }
 
 }

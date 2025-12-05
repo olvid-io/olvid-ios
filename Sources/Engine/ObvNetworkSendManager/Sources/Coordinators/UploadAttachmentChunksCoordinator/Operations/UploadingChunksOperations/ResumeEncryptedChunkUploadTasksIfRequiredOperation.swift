@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvTypes
 import ObvMetaManager
 import ObvServerInterface
@@ -100,9 +100,9 @@ final class ResumeEncryptedChunkUploadTaskIfRequiredOperation: Operation, @unche
         let attachmentId = encryptAttachmentChunkOperation.attachmentId
         let chunkNumber = encryptAttachmentChunkOperation.chunkNumber
 
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
             
-            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else {
                 return cancel(withReason: .cannotFindAttachmentInDatabase)
             }
 

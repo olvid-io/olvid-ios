@@ -28,4 +28,7 @@ protocol BackgroundTasksManagerDelegate: AnyObject {
     func newBackupsAreConfiguredAndCanBePerformed() async throws -> Bool
     func createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing() async throws
     
+    // For Message Ids kept for later by the AppInboxService
+    func syncMessageIdsKeptForLater(_ backgroundTasksManager: BackgroundTasksManager) async throws
+    
 }

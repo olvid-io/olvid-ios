@@ -28,6 +28,7 @@ public enum NewComposeMessageViewSortableAction: Int {
     case choseFile = 4
     case introduceThisContact = 5
     case shareLocation = 6
+    case createPoll = 7
 }
 
 public enum NewComposeMessageViewUnsortableAction: Int {
@@ -44,6 +45,7 @@ public extension NewComposeMessageViewSortableAction {
         .choseFile,
         .scanDocument,
         .introduceThisContact,
+        .createPoll
     ]
 
     var title: String {
@@ -62,6 +64,8 @@ public extension NewComposeMessageViewSortableAction {
             return String(localizedInThisBundle: "Introduce")
         case .shareLocation:
             return String(localizedInThisBundle: "SHARE_LOCATION")
+        case .createPoll:
+            return String(localizedInThisBundle: "CREATE_POLL")
         }
     }
     

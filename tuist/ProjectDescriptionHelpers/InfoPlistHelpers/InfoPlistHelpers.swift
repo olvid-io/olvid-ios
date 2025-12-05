@@ -136,82 +136,26 @@ extension InfoPlist {
             "NSAllowsArbitraryLoads": .boolean(false),
         ])
         
-        let utImportedTypeDeclarations: Plist.Value = .array([
-            .dictionary([
-                "UTTypeDescription": .string("Web Internet Location"),
-                "UTTypeIdentifier": .string("com.apple.web-internet-location"),
-                "UTTypeConformsTo": .array([
-                    .string("public.data"),
-                ]),
-            ]),
-            .dictionary([
-                "UTTypeDescription": .string("Apple m4a Audio"),
-                "UTTypeIdentifier": .string("com.apple.m4a-audio"),
-                "UTTypeConformsTo": .array([
-                    .string("public.data"),
-                ]),
-            ]),
-            .dictionary([
-                "UTTypeDescription": .string("Microsoft Word 97 document"),
-                "UTTypeIdentifier": .string("com.microsoft.word.doc"),
-                "UTTypeConformsTo": .array([
-                    .string("public.data"),
-                ]),
-                "UTTypeTagSpecification": .dictionary([
-                    "public.filename-extension": .array([
-                        .string("doc"),
-                    ]),
-                ]),
-            ]),
-            .dictionary([
-                "UTTypeDescription": .string("Microsoft Word document"),
-                "UTTypeIdentifier": .string("org.openxmlformats.wordprocessingml.document"),
-                "UTTypeConformsTo": .array([
-                    .string("public.data"),
-                ]),
-                "UTTypeTagSpecification": .dictionary([
-                    "public.filename-extension": .array([
-                        .string("docx"),
-                    ]),
-                ]),
-            ]),
-            .dictionary([
-                "UTTypeDescription": .string("Microsoft Powerpoint document"),
-                "UTTypeIdentifier": .string("org.openxmlformats.presentationml.presentation"),
-                "UTTypeConformsTo": .array([
-                    .string("public.data"),
-                ]),
-                "UTTypeTagSpecification": .dictionary([
-                    "public.filename-extension": .array([
-                        .string("pptx"),
-                    ]),
-                ]),
-            ]),
-            .dictionary([
-                "UTTypeDescription": .string("Microsoft Excel document"),
-                "UTTypeIdentifier": .string("org.openxmlformats.spreadsheetml.sheet"),
-                "UTTypeConformsTo": .array([
-                    .string("public.data"),
-                ]),
-                "UTTypeTagSpecification": .dictionary([
-                    "public.filename-extension": .array([
-                        .string("xlsx"),
-                    ]),
-                ]),
-            ]),
-            .dictionary([
-                "UTTypeDescription": .string("Chromium initiated drag"),
-                "UTTypeIdentifier": .string("org.chromium.chromium-initiated-drag"),
-                "UTTypeConformsTo": .array([
-                    .string("public.data"),
-                ]),
-            ]),
-        ])
         
         let bgTaskSchedulerPermittedIdentifiers: ProjectDescription.Plist.Value = .array([
             .string("io.olvid.background.tasks"), // The app refresh background task (there can be only one)
             .string("io.olvid.background.processing.database.sync"), // A processing background task for syncing the app database with the engine database (there can be at most 10 processing tasks)
             .string("io.olvid.background.processing.perform.new.backup"), // A processing background task for performing a (new) backup of all the profiles
+            .string("io.olvid.background.processing.app.inbox.sync.message.ids.kept.for.later"), // A processing background task for making sure all message identifiers (from engine) are properly replayed
+        ])
+        
+        // Custom Browser User-Agent for AppAuth
+        // AppAuth for iOS includes a few extra user-agent we can use. One of them, OIDExternalUserAgentIOSCustomBrowser makes it possible to use a different browser for authentication, like Chrome for iOS or Firefox for iOS.
+        // Here, we configure AppAuth to use a custom browser using the OIDExternalUserAgentIOSCustomBrowser user agent.
+        // See ``https://github.com/openid/AppAuth-iOS?tab=readme-ov-file#custom-browser-user-agent``
+        // We also include
+        
+        let lsApplicationQueriesSchemes: ProjectDescription.Plist.Value = .array([
+            .string("googlechromes"), // For AppAuth
+            .string("opera-https"),   // For AppAuth
+            .string("firefox"),       // For AppAuth
+            .string("waze"),          // For the geoloc feature
+            .string("comgooglemaps"), // For the geoloc feature
         ])
         
         let standardPlistValuesForExtendingDefault: [String : ProjectDescription.Plist.Value] = [
@@ -242,8 +186,8 @@ extension InfoPlist {
             "UISupportedInterfaceOrientations": uiSupportedInterfaceOrientations,
             "UTExportedTypeDeclarations": utExportedTypeDeclarations,
             "NSAppTransportSecurity": nsAppTransportSecurity,
-            "UTImportedTypeDeclarations": utImportedTypeDeclarations,
-            "LSApplicationQueriesSchemes": .array([.string("waze"), .string("comgooglemaps")])
+            "UTImportedTypeDeclarations": Helpers.utImportedTypeDeclarations,
+            "LSApplicationQueriesSchemes": lsApplicationQueriesSchemes,
         ]
                 
         let customPlistValuesForExtendingDefault = Helpers.customPlistValuesForExtendingDefault(appType: appType)
@@ -279,7 +223,8 @@ extension InfoPlist {
             "CFBundleShortVersionString": .string(Version.marketingVersion),
             "CFBundleVersion": .string(Version.currentProjectVersion),
             "NSHumanReadableCopyright": .string(Constant.nsHumanReadableCopyrightValue),
-            "CFBundleDisplayName": .string(Constant.olvidBundleDisplayName(for: appType).appending("-ShareExtension")),
+            "CFBundleDisplayName": .string(Constant.olvidBundleDisplayName(for: appType)),
+            "UTImportedTypeDeclarations": Helpers.utImportedTypeDeclarations,
         ]
         
         let customPlistValuesForExtendingDefault = Helpers.customPlistValuesForExtendingDefault(appType: appType)
@@ -362,6 +307,90 @@ extension InfoPlist {
 
 fileprivate struct Helpers {
     
+    static let utImportedTypeDeclarations: Plist.Value = .array([
+        .dictionary([
+            "UTTypeDescription": .string("Web Internet Location"),
+            "UTTypeIdentifier": .string("com.apple.web-internet-location"),
+            "UTTypeConformsTo": .array([
+                .string("public.data"),
+            ]),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Apple m4a Audio"),
+            "UTTypeIdentifier": .string("com.apple.m4a-audio"),
+            "UTTypeConformsTo": .array([
+                .string("public.data"),
+            ]),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Microsoft Word 97 document"),
+            "UTTypeIdentifier": .string("com.microsoft.word.doc"),
+            "UTTypeConformsTo": .array([
+                .string("public.data"),
+            ]),
+            "UTTypeTagSpecification": .dictionary([
+                "public.filename-extension": .array([
+                    .string("doc"),
+                ]),
+            ]),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Microsoft Word document"),
+            "UTTypeIdentifier": .string("org.openxmlformats.wordprocessingml.document"),
+            "UTTypeConformsTo": .array([
+                .string("public.data"),
+            ]),
+            "UTTypeTagSpecification": .dictionary([
+                "public.filename-extension": .array([
+                    .string("docx"),
+                ]),
+            ]),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Microsoft Powerpoint document"),
+            "UTTypeIdentifier": .string("org.openxmlformats.presentationml.presentation"),
+            "UTTypeConformsTo": .array([
+                .string("public.data"),
+            ]),
+            "UTTypeTagSpecification": .dictionary([
+                "public.filename-extension": .array([
+                    .string("pptx"),
+                ]),
+            ]),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Microsoft Excel document"),
+            "UTTypeIdentifier": .string("org.openxmlformats.spreadsheetml.sheet"),
+            "UTTypeConformsTo": .array([
+                .string("public.data"),
+            ]),
+            "UTTypeTagSpecification": .dictionary([
+                "public.filename-extension": .array([
+                    .string("xlsx"),
+                ]),
+            ]),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Chromium initiated drag"),
+            "UTTypeIdentifier": .string("org.chromium.chromium-initiated-drag"),
+            "UTTypeConformsTo": .array([
+                .string("public.data"),
+            ]),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Apple Files app file"),
+            "UTTypeIdentifier": .string("com.apple.DocumentManager.FINode.File"),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Apple Finder node under macOS"),
+            "UTTypeIdentifier": .string("com.apple.finder.node"),
+        ]),
+        .dictionary([
+            "UTTypeDescription": .string("Apple Link Presentation metadata"),
+            "UTTypeIdentifier": .string("com.apple.linkpresentation.metadata"),
+        ]),
+    ])
+
     static func customPlistValuesForExtendingDefault(appType: OlvidAppType) -> [String : ProjectDescription.Plist.Value] {
         [
             "OBV_APP_TYPE": .string(appType.description),

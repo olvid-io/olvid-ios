@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,11 +19,13 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvTypes
 import ObvSettings
 
+/// 2025-08-06: The two cases dealt with by this `NSManagedObject` are message `delete` and `edit` requests.
+/// The other cases are dealt with at the coordinator level, thanks to the `AppInboxService`.
 @objc(RemoteRequestSavedForLater)
 final class RemoteRequestSavedForLater: NSManagedObject {
     
@@ -33,7 +35,8 @@ final class RemoteRequestSavedForLater: NSManagedObject {
     public enum RequestType: Int {
         case delete = 0
         case edit = 1
-        case reaction = 2
+        case legacyReaction = 2
+        case legacyPollVote = 3
     }
     
     // MARK: Attributes
@@ -156,32 +159,60 @@ final class RemoteRequestSavedForLater: NSManagedObject {
     }
     
     
-    static func createSetOrUpdateReactionRequest(requesterCryptoId: ObvCryptoId, reactionJSON: ReactionJSON, serverTimestamp: Date, discussion: PersistedDiscussion) throws {
-        
-        let messageToEdit = reactionJSON.messageReference
-        
-        // If there exists a delete request for this message, we discard this edit request
-        
-        let deleteRequests = try RemoteRequestSavedForLater.fetchAllRemoteRequestsSavedForLater(for: messageToEdit, in: discussion, ofType: .delete)
-        guard deleteRequests.isEmpty else {
-            return
-        }
-        
-        // Save the request for later
-        
-        let serializedMessageJSON = try reactionJSON.jsonEncode()
-        
-        let _ = try RemoteRequestSavedForLater(
-            requestType: .reaction,
-            requesterCryptoId: requesterCryptoId,
-            senderIdentifier: messageToEdit.senderIdentifier,
-            senderSequenceNumber: messageToEdit.senderSequenceNumber,
-            senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
-            serverTimestamp: serverTimestamp,
-            serializedMessageJSON: serializedMessageJSON,
-            for: discussion)
-        
-    }
+//    static func createSetOrUpdateReactionRequest(requesterCryptoId: ObvCryptoId, reactionJSON: ReactionJSON, serverTimestamp: Date, discussion: PersistedDiscussion) throws {
+//        
+//        let messageToEdit = reactionJSON.messageReference
+//        
+//        // If there exists a delete request for this message, we discard this edit request
+//        
+//        let deleteRequests = try RemoteRequestSavedForLater.fetchAllRemoteRequestsSavedForLater(for: messageToEdit, in: discussion, ofType: .delete)
+//        guard deleteRequests.isEmpty else {
+//            return
+//        }
+//        
+//        // Save the request for later
+//        
+//        let serializedMessageJSON = try reactionJSON.jsonEncode()
+//        
+//        let _ = try RemoteRequestSavedForLater(
+//            requestType: .reaction,
+//            requesterCryptoId: requesterCryptoId,
+//            senderIdentifier: messageToEdit.senderIdentifier,
+//            senderSequenceNumber: messageToEdit.senderSequenceNumber,
+//            senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
+//            serverTimestamp: serverTimestamp,
+//            serializedMessageJSON: serializedMessageJSON,
+//            for: discussion)
+//        
+//    }
+    
+    
+//    static func createSetOrUpdatePollVoteRequest(requesterCryptoId: ObvCryptoId, pollVoteJSON: PollVoteJSON, serverTimestamp: Date, discussion: PersistedDiscussion) throws {
+//        
+//        let messageToEdit = pollVoteJSON.messageReference
+//        
+//        // If there exists a delete request for this message, we discard this edit request
+//        
+//        let deleteRequests = try RemoteRequestSavedForLater.fetchAllRemoteRequestsSavedForLater(for: messageToEdit, in: discussion, ofType: .delete)
+//        guard deleteRequests.isEmpty else {
+//            return
+//        }
+//        
+//        // Save the request for later
+//        
+//        let serializedMessageJSON = try pollVoteJSON.jsonEncode()
+//        
+//        let _ = try RemoteRequestSavedForLater(
+//            requestType: .pollVote,
+//            requesterCryptoId: requesterCryptoId,
+//            senderIdentifier: messageToEdit.senderIdentifier,
+//            senderSequenceNumber: messageToEdit.senderSequenceNumber,
+//            senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
+//            serverTimestamp: serverTimestamp,
+//            serializedMessageJSON: serializedMessageJSON,
+//            for: discussion)
+//        
+//    }
     
     
     
@@ -202,7 +233,7 @@ final class RemoteRequestSavedForLater: NSManagedObject {
         }
         
         guard let discussion = message.discussion else {
-            throw ObvUICoreDataError.discussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
         defer {
@@ -262,7 +293,7 @@ final class RemoteRequestSavedForLater: NSManagedObject {
         }
         
         guard let discussion = message.discussion else {
-            throw ObvUICoreDataError.discussionIsNil
+            throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
         guard let discussionOwnedIdentity = discussion.ownedIdentity else {
@@ -318,8 +349,12 @@ final class RemoteRequestSavedForLater: NSManagedObject {
                     updateMessageJSON: updateMessageJSON,
                     messageUploadTimestampFromServer: serverTimestamp)
                 
-            case .reaction:
+            case .legacyReaction:
                 
+                // In early versions of the reaction feature, we used to rely on this class
+                // to store reactions that arrived before the message. We don't do that anymore
+                // so this case should not happen in practice.
+
                 guard let serializedMessageJSON else {
                     assertionFailure("Reaction request *must* be stored")
                     throw ObvUICoreDataError.couldNotFindSerializedMessageJSON
@@ -330,7 +365,22 @@ final class RemoteRequestSavedForLater: NSManagedObject {
                 _ = try ownedIdentity.processSetOrUpdateReactionOnMessageRequestFromThisOwnedIdentity(
                     reactionJSON: reactionJSON,
                     messageUploadTimestampFromServer: serverTimestamp)
+             
+            case .legacyPollVote:
                 
+                // In early versions of the poll, we used to rely on this class
+                // to store votes that arrived before the poll. We don't do that anymore
+                // so this case should not happen in practice.
+                
+                guard let serializedMessageJSON else {
+                    assertionFailure("Reaction request *must* be stored")
+                    throw ObvUICoreDataError.couldNotFindSerializedMessageJSON
+                }
+                
+                let pollVoteJSON = try PollVoteJSON.jsonDecode(serializedMessageJSON)
+                
+                _ = try ownedIdentity.processSetOrUpdatePollVoteOnMessageRequestFromThisOwnedIdentity(pollVoteJSON: pollVoteJSON,
+                                                                                                      messageUploadTimestampFromServer: serverTimestamp)
             }
             
         } else {
@@ -366,8 +416,12 @@ final class RemoteRequestSavedForLater: NSManagedObject {
                     updateMessageJSON: updateMessageJSON,
                     messageUploadTimestampFromServer: serverTimestamp)
                 
-            case .reaction:
+            case .legacyReaction:
                 
+                // In early versions of the reaction feature, we used to rely on this class
+                // to store votes that arrived before the message. We don't do that anymore
+                // so this case should not happen in practice.
+
                 guard let serializedMessageJSON else {
                     assertionFailure("Reaction request *must* be stored")
                     throw ObvUICoreDataError.couldNotFindSerializedMessageJSON
@@ -379,7 +433,22 @@ final class RemoteRequestSavedForLater: NSManagedObject {
                     reactionJSON: reactionJSON,
                     messageUploadTimestampFromServer: serverTimestamp,
                     overrideExistingReaction: true)
+             
+            case .legacyPollVote:
                 
+                // In early versions of the poll, we used to rely on this class
+                // to store votes that arrived before the poll. We don't do that anymore
+                // so this case should not happen in practice.
+
+                guard let serializedMessageJSON else {
+                    assertionFailure("Reaction request *must* be stored")
+                    throw ObvUICoreDataError.couldNotFindSerializedMessageJSON
+                }
+                
+                let pollVoteJSON = try PollVoteJSON.jsonDecode(serializedMessageJSON)
+                
+                _ = try contact.processSetOrUpdatePollVoteOnMessageRequestFromThisContact(pollVoteJSON: pollVoteJSON,
+                                                                                          messageUploadTimestampFromServer: serverTimestamp)
             }
             
         }

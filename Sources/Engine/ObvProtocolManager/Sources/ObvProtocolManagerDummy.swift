@@ -38,6 +38,7 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         self.log = OSLog(subsystem: logSubsystem, category: "ObvProtocolManagerDummy")
     }
     
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
     
     private static let errorDomain = "ObvProtocolManagerDummy"

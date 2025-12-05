@@ -20,7 +20,8 @@
 import SwiftUI
 
 
-public enum ObvAvatarSize: Sendable {
+public enum ObvAvatarSize: Sendable, Hashable {
+    case small
     case normal
     case large
     case xLarge
@@ -28,6 +29,8 @@ public enum ObvAvatarSize: Sendable {
     
     public var frameSize: CGSize {
         switch self {
+        case .small:
+            return CGSize(width: 24, height: 24)
         case .normal:
             return CGSize(width: 48, height: 48)
         case .large:

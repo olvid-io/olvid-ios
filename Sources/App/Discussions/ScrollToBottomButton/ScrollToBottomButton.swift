@@ -270,13 +270,13 @@ public final class ScrollToBottomButton: UIButton {
     }
 
     private func _updateVisibility(isHidden: Bool) {
-        UIViewPropertyAnimator.runningPropertyAnimator(withDuration: 0.2,
-                                                       delay: 0) {
+        // 2025-09-18 UIViewPropertyAnimator.runningPropertyAnimator removed due to recurring crash under iOS 26
+        UIView.animate(withDuration: 0.2) {
             if isHidden {
                 self.alpha = 0
             } else {
                 self.alpha = 1
             }
-        }
+        }        
     }
 }

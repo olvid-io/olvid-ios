@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -109,9 +109,9 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             
             os_log("Cleaning any ongoing instances of the ChannelCreationWithOwnedDeviceProtocol", log: log, type: .debug)
             do {
-                if try ChannelCreationWithOwnedDeviceProtocolInstance.exists(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext) {
+                if try ChannelCreationWithOwnedDeviceProtocolInstance.exists(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context) {
                     os_log("There exists a ChannelCreationWithOwnedDeviceProtocolInstance to clean", log: log, type: .debug)
-                    let protocolInstanceUids = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext)
+                    let protocolInstanceUids = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context)
                     for protocolInstanceUid in protocolInstanceUids {
                         os_log("The ChannelCreationWithOwnedDeviceProtocolInstance to clean has uid %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription)
                         let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
@@ -143,7 +143,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             let signature: Data
             do {
                 let challengeType = ChallengeType.channelCreation(firstDeviceUid: remoteDeviceUid, secondDeviceUid: currentDeviceUid, firstIdentity: ownedIdentity, secondIdentity: ownedIdentity)
-                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
+                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext.context) else {
                     os_log("Could not solve challenge", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -235,7 +235,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             do {
                 guard !(try ChannelCreationPingSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity,
                                                                         signature: signature,
-                                                                        within: obvContext)) else {
+                                                                        within: obvContext.context)) else {
                     os_log("The signature received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -246,7 +246,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             
             guard ChannelCreationPingSignatureReceived(ownedCryptoIdentity: ownedIdentity,
                                                        signature: signature,
-                                                       within: obvContext) != nil else {
+                                                       within: obvContext.context) != nil else {
                 os_log("We could not insert a new ChannelCreationPingSignatureReceived entry", log: log, type: .fault)
                 return CancelledState()
             }
@@ -254,8 +254,8 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Clean any ongoing instance of this protocol
             
             do {
-                if try ChannelCreationWithOwnedDeviceProtocolInstance.exists(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext) {
-                    let protocolInstanceUids = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext)
+                if try ChannelCreationWithOwnedDeviceProtocolInstance.exists(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context) {
+                    let protocolInstanceUids = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context)
                         for protocolInstanceUid in protocolInstanceUids {
                         let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
                         abortProtocolBlock()
@@ -285,7 +285,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             let ownSignature: Data
             do {
                 let challengeType = ChallengeType.channelCreation(firstDeviceUid: remoteDeviceUid, secondDeviceUid: currentDeviceUid, firstIdentity: ownedIdentity, secondIdentity: ownedIdentity)
-                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
+                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext.context) else {
                     os_log("Could not solve challenge (1)", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -335,11 +335,10 @@ extension ChannelCreationWithOwnedDeviceProtocol {
                 
                 // Create a new ChannelCreationWithOwnedDeviceProtocolInstance entry in database
                 
-                _ = ChannelCreationWithOwnedDeviceProtocolInstance(protocolInstanceUid: protocolInstanceUid,
-                                                                   ownedIdentity: ownedIdentity,
-                                                                   remoteDeviceUid: remoteDeviceUid,
-                                                                   delegateManager: delegateManager,
-                                                                   within: obvContext)
+                _ = try ChannelCreationWithOwnedDeviceProtocolInstance(protocolInstanceUid: protocolInstanceUid,
+                                                                       ownedIdentity: ownedIdentity,
+                                                                       remoteDeviceUid: remoteDeviceUid,
+                                                                       within: obvContext.context)
                 
                 // Generate an ephemeral pair of encryption keys
                 
@@ -428,7 +427,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             do {
                 guard !(try ChannelCreationPingSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity,
                                                                         signature: signature,
-                                                                        within: obvContext)) else {
+                                                                        within: obvContext.context)) else {
                     os_log("The signature received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
                     assertionFailure()
                     return CancelledState()
@@ -442,9 +441,9 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Check whether there already is an instance of this protocol running. If this is the case, abort it, terminate this protocol, and restart it with a fresh ping.
             
             do {
-                if try ChannelCreationWithOwnedDeviceProtocolInstance.exists(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext) {
+                if try ChannelCreationWithOwnedDeviceProtocolInstance.exists(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context) {
                     os_log("A previous ChannelCreationWithOwnedDeviceProtocolInstance exists. We abort it", log: log, type: .info)
-                    let protocolInstanceUids = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext)
+                    let protocolInstanceUids = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context)
                     for protocolInstanceUid in protocolInstanceUids {
                         let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
                         abortProtocolBlock()
@@ -462,11 +461,10 @@ extension ChannelCreationWithOwnedDeviceProtocol {
 
             // If we reach this point, there was no previous instance of this protocol. We create it now
             
-            _ = ChannelCreationWithOwnedDeviceProtocolInstance(protocolInstanceUid: protocolInstanceUid,
-                                                               ownedIdentity: ownedIdentity,
-                                                               remoteDeviceUid: remoteDeviceUid,
-                                                               delegateManager: delegateManager,
-                                                               within: obvContext)
+            _ = try ChannelCreationWithOwnedDeviceProtocolInstance(protocolInstanceUid: protocolInstanceUid,
+                                                                   ownedIdentity: ownedIdentity,
+                                                                   remoteDeviceUid: remoteDeviceUid,
+                                                                   within: obvContext.context)
             
             // Generate an ephemeral pair of encryption keys
             
@@ -578,7 +576,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
                                                                                      andTheRemoteDeviceWithUid: remoteDeviceUid,
                                                                                      ofRemoteIdentity: ownedIdentity,
                                                                                      within: obvContext)
-                _ = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext)
+                _ = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context)
                 let initialMessageToSend = try delegateManager.protocolStarterDelegate.getInitialMessageForChannelCreationWithOwnedDeviceProtocol(ownedIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid)
                 _ = try channelDelegate.postChannelMessage(initialMessageToSend, randomizedWith: prng, within: obvContext)
                 return CancelledState()
@@ -690,7 +688,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
                                                                                      andTheRemoteDeviceWithUid: remoteDeviceUid,
                                                                                      ofRemoteIdentity: ownedIdentity,
                                                                                      within: obvContext)
-                _ = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext)
+                _ = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context)
                 let initialMessageToSend = try delegateManager.protocolStarterDelegate.getInitialMessageForChannelCreationWithOwnedDeviceProtocol(ownedIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid)
                 _ = try channelDelegate.postChannelMessage(initialMessageToSend, randomizedWith: prng, within: obvContext)
                 return CancelledState()
@@ -810,7 +808,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Delete the ChannelCreationProtocolInstance
             
             do {
-                _ = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext)
+                _ = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context)
             } catch {
                 os_log("Could not delete the ChannelCreationWithOwnedDeviceProtocolInstance", log: log, type: .fault)
                 return CancelledState()
@@ -956,7 +954,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Delete the ChannelCreationProtocolInstance
             
             do {
-                _ = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext)
+                _ = try ChannelCreationWithOwnedDeviceProtocolInstance.deleteAll(ownedCryptoIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid, within: obvContext.context)
             } catch {
                 os_log("Could not delete the ChannelCreationWithOwnedDeviceProtocolInstance", log: log, type: .fault)
                 return CancelledState()

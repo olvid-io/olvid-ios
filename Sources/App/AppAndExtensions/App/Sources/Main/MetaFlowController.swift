@@ -18,7 +18,7 @@
  */
 
 import UIKit
-import os.log
+import OSLog
 import CoreData
 import StoreKit
 @preconcurrency import ObvEngine
@@ -43,15 +43,24 @@ import ObvAppBackup
 import ObvImageEditor
 import PhotosUI
 import ObvLocation
+import ObvPollFeature
+import ObvLicenceActivationFlow
+import ObvOwnedIdentityChooser
+import ObvSharedDataSources
+import ObvInvitationFlow
+import ObvCells
+import ObvUIGroupSharedBetweenV1AndV2
+import ObvSingleOwnedIdentity
 
 
 // MARK: - MetaFlowControllerDelegate
 
+@MainActor
 protocol MetaFlowControllerDelegate: AnyObject {
     func userRequestedAppDatabaseSyncWithEngine(metaFlowController: MetaFlowController) async throws
-    func userWantsToSendDraft(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToAddAttachmentsToDraft(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws
-    func userWantsToAddAttachmentsToDraftFromURLs(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws
+    func userWantsToSendDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToAddAttachmentsToDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
+    func userWantsToAddAttachmentsToDraftFromURLs(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
     func userWantsToUpdateDraftBodyAndMentions(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
     func userWantsToDeleteAttachmentsFromDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
     func userWantsToReplyToMessage(_ metaFlowController: MetaFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
@@ -66,20 +75,43 @@ protocol MetaFlowControllerDelegate: AnyObject {
     func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ metaFlowController: MetaFlowController, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>) async throws
     func messagesAreNotNewAnymore(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
     func userWantsToUpdateReaction(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
+    func userWantsToUpdatePollVote(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, voted: Bool, version: Int) async throws
     func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ metaFlowController: MetaFlowController) async throws
     func userWantsToStopSharingLocationInDiscussion(_ metaFlowController: MetaFlowController, discussionIdentifier: ObvDiscussionIdentifier) async throws
     func userWantsToReplaceTrustedDetailsByPublishedDetails(_ metaFlowController: MetaFlowController, groupIdentifier: ObvGroupV2Identifier) async throws
     func userWantsToDeleteOwnedIdentityAndHasConfirmed(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws
     
     func userWantsToShowMapToSendOrShareLocationContinuously(_ metaFlowController: MetaFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToCreatePoll(_ metaFlowController: MetaFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToMarkAllMessagesAsReadInDiscussion(_ metaFlowController: MetaFlowController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) async throws
+    func userWantsToReorderPinnedDiscussions(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, objectIDOfPinnedDiscussions: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws
+
+    func userWantsToArchiveDiscussions(_ metaFlowController: MetaFlowController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws
+    func userWantsToUnarchiveDiscussions(_ metaFlowController: MetaFlowController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws
+
+    func userWantsToDeleteDiscussionsAndHasConfirmed(_ metaFlowController: MetaFlowController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>], deletionType: DeletionType) async throws
+    func userWantsToProcessReceiptsStoredForLater(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, returnReceiptElements: Set<ObvReturnReceiptElements>) async
+    
+    @MainActor
+    func presentAlertAsOsUpgradeIsRequired(_ metaFlowController: MetaFlowController, presentingViewController: UIViewController)
+
+    func userWantsToUpdatePersonalNote(_ metaFlowController: MetaFlowController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws
+    func userDidSeeNewDetailsOfContact(_ metaFlowController: MetaFlowController, contactIdentifier: ObvTypes.ObvContactIdentifier)
+
+    func freshContactIdentityReceivedWhileShowingSingleContactView(_ metaFlowController: MetaFlowController, contactIdentity: ObvContactIdentity) async
+
+    func userHasSeenPublishedDetails(_ metaFlowController: MetaFlowController, publishedDetails: PublishedDetailsValidationViewModel) async throws
+
+    func userWantsToHideOwnedIdentity(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, password: String) async throws
+    func userWantsToUnhideOwnedIdentity(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId) async throws
+
+    func userWantsToUpdateOwnedCustomDisplayName(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvTypes.ObvCryptoId, newCustomDisplayName: String?) async throws
 
 }
 
 
-
-
 @MainActor
-final class MetaFlowController: UIViewController, OlvidURLHandler {
+final class MetaFlowController: UIViewController {
     
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MetaFlowController.self))
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MetaFlowController.self))
@@ -127,19 +159,38 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     /// Used when presenting the navigation stack allowing to configure the backup seed of new backups
     private var router: ObvAppBackupSetupRouter?
 
+    private let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)
+
     // Shall only be accessed on the main thread
     private var automaticallyNavigateToCreatedDisplayedContactGroup = false
     
     private let obvEngine: ObvEngine
-    
-    private lazy var avatarHelper = AvatarHelper(obvEngine: obvEngine)
     
     /// This is used during the onboarding flow, when the user wants to see the subscription to Olvid+
     private var continuationAndOwnedCryptoIdentity: (continuation: CheckedContinuation<ObvAppBackup.ObvDeviceDeactivationConsequence, any Error>, ownedCryptoIdentity: ObvOwnedCryptoIdentity)?
     
     private var continuationsForObtainingAvatar: CheckedContinuation<UIImage?, Never>?
     
-    init(obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate, appBackupDelegate: AppBackupDelegate, storeKitDelegate: StoreKitDelegate, metaFlowControllerDelegate: MetaFlowControllerDelegate, shouldShowCallBanner: Bool) {
+    private let localOwnedIdentityChooserViewControllerDelegate = LocalOwnedIdentityChooserViewControllerDelegate()
+    
+    private let localAvatarViewAppDataSource: LocalAvatarViewAppDataSource
+    private let localObvSingleContactViewAppDataSourceDelegate: LocalObvSingleContactViewAppDataSourceDelegateImplementation
+    private let localLicenseActivationViewControllerAppDataSourceDelegate: LocalNewLicenseActivationViewControllerAppDataSourceDelegate
+    private let localTrustOriginsListViewAppDataSourceDelegate: LocalTrustOriginsListViewAppDataSourceDelegate
+    private let localSingleGroupV1MainViewAppDataSourceDelegate: LocalSingleGroupV1MainViewAppDataSourceDelegate
+    private let localEditGroupNameAndPictureViewAppDataSourceDelegate: LocalEditGroupNameAndPictureViewAppDataSourceDelegate
+    private let localChooseDeviceToReactivateViewAppDataSourceDelegate: LocalChooseDeviceToReactivateViewAppDataSourceDelegate
+    private let localOwnedDetailedInfosViewAppDataSourceDelegate: LocalOwnedDetailedInfosViewAppDataSourceDelegate
+        
+    private let dataSources: ObvDataSources
+    
+    init(obvEngine: ObvEngine,
+         createPasscodeDelegate: CreatePasscodeDelegate,
+         localAuthenticationDelegate: LocalAuthenticationDelegate,
+         appBackupDelegate: AppBackupDelegate,
+         storeKitDelegate: StoreKitDelegate,
+         metaFlowControllerDelegate: MetaFlowControllerDelegate,
+         shouldShowCallBanner: Bool) {
         
         self.obvEngine = obvEngine
         self.createPasscodeDelegate = createPasscodeDelegate
@@ -147,8 +198,29 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         self.appBackupDelegate = appBackupDelegate
         self.storeKitDelegate = storeKitDelegate
         self.metaFlowControllerDelegate = metaFlowControllerDelegate
-
+        self.localAvatarViewAppDataSource = LocalAvatarViewAppDataSource(obvEngine: obvEngine)
+        self.localObvSingleContactViewAppDataSourceDelegate = .init(engine: obvEngine)
+        self.localLicenseActivationViewControllerAppDataSourceDelegate = .init(engine: obvEngine)
+        self.localTrustOriginsListViewAppDataSourceDelegate = .init(engine: obvEngine)
+        self.localSingleGroupV1MainViewAppDataSourceDelegate = .init(engine: obvEngine)
+        self.localEditGroupNameAndPictureViewAppDataSourceDelegate = .init(engine: obvEngine)
+        self.localChooseDeviceToReactivateViewAppDataSourceDelegate = .init(engine: obvEngine)
+        self.localOwnedDetailedInfosViewAppDataSourceDelegate = .init(engine: obvEngine)
+        self.dataSources = .init(avatarViewAppDataSourceDelegate: localAvatarViewAppDataSource,
+                                 singleContactViewAppDataSourceDelegate: localObvSingleContactViewAppDataSourceDelegate,
+                                 licenseActivationViewControllerAppDataSourceDelegate: localLicenseActivationViewControllerAppDataSourceDelegate,
+                                 trustOriginsListViewAppDataSourceDelegate: localTrustOriginsListViewAppDataSourceDelegate,
+                                 singleGroupV1MainViewAppDataSourceDelegate: localSingleGroupV1MainViewAppDataSourceDelegate,
+                                 editGroupNameAndPictureViewAppDataSourceDelegate: localEditGroupNameAndPictureViewAppDataSourceDelegate,
+                                 chooseDeviceToReactivateViewAppDataSourceDelegate: localChooseDeviceToReactivateViewAppDataSourceDelegate,
+                                 ownedDetailedInfosViewAppDataSourceDelegate: localOwnedDetailedInfosViewAppDataSourceDelegate,
+                                 obvEngine: obvEngine,
+                                 backgroundContext: ObvStack.shared.newBackgroundContext(),
+                                 viewContext: ObvStack.shared.viewContext)
+        
         super.init(nibName: nil, bundle: nil)
+        
+        localObvSingleContactViewAppDataSourceDelegate.delegate = self
         
         // If the RootViewController indicates that there is a call in progress, show the call banner.
         // This happens when the app was force quitted before receiving a CallKit incoming call. In that case,
@@ -163,13 +235,10 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         // Internal notifications
         
         observeUserTriedToAccessCameraButAccessIsDeniedNotifications()
-        observeUserWantsToDeleteOwnedContactGroupNotifications()
-        observeUserWantsToLeaveJoinedContactGroupNotifications()
         observeUserWantsToIntroduceContactToAnotherContactNotifications()
         observeOutgoingCallFailedBecauseUserDeniedRecordPermissionNotifications()
         observeVoiceMessageFailedBecauseUserDeniedRecordPermissionNotifications()
         observeRejectedIncomingCallBecauseUserDeniedRecordPermissionNotifications()
-        observePastedStringIsNotValidOlvidURLNotifications()
         observeUserDidTapOnMissedMessageBubbleNotifications()
         observeUserWantsToNavigateToDeepLinkNotifications()
         observeRequestUserDeniedRecordPermissionAlertNotifications()
@@ -198,12 +267,6 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         // App notifications
         
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeUserWantsToRestartChannelEstablishmentProtocol { [weak self] (contactCryptoId, ownedCryptoId) in
-                self?.processUserWantsToRestartChannelEstablishmentProtocol(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV1(queue: OperationQueue.main) { [weak self] (groupName, groupDescription, groupMembersCryptoIds, ownedCryptoId, photoURL) in
-                self?.processUserWantsToCreateNewGroupV1(groupName: groupName, groupDescription: groupDescription, groupMembersCryptoIds: groupMembersCryptoIds, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
-            },
             ObvMessengerCoreDataNotification.observeDisplayedContactGroupWasJustCreated { [weak self] permanentID in
                 Task { await self?.processDisplayedContactGroupWasJustCreated(permanentID: permanentID) }
             },
@@ -253,7 +316,7 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
             await PersistedObvOwnedIdentity.addObvObserver(self)
             await PersistedObvContactIdentity.addObvObserver(self)
             await PersistedContactGroup.addObvObserver(self)
-            await PersistedGroupV2.addObserver(self)
+            await PersistedGroupV2.addObvObserver(self)
             await PersistedDiscussionLocalConfiguration.addObvObserver(self)
             await PersistedDiscussionSharedConfiguration.addObvObserver(self)
             await PersistedDiscussion.addObvObserver(self)
@@ -302,12 +365,6 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     }
 
 
-    private func observePastedStringIsNotValidOlvidURLNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observePastedStringIsNotValidOlvidURL(queue: OperationQueue.main) { [weak self] in
-            self?.showAlertWhenPastedStringIsNotValidOlvidURL()
-        })
-    }
-    
     private func observeOutgoingCallFailedBecauseUserDeniedRecordPermissionNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeOutgoingCallFailedBecauseUserDeniedRecordPermission { [weak self] in
             Task { [weak self] in await  self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertOutgoingCallFailedBecauseUserDeniedRecordPermission.message) }
@@ -614,11 +671,7 @@ extension MetaFlowController {
                 self?.present(alert, animated: true)
             }
         })
-        if let presentedViewController {
-            presentedViewController.present(alert, animated: true)
-        } else {
-            present(alert, animated: true)
-        }
+        self.presentOnTop(alert, animated: true)
     }
     
     
@@ -654,8 +707,8 @@ extension MetaFlowController {
             Task { [weak self] in
                 assert(Thread.isMainThread)
                 guard let _self = self else { return }
-                if await NewAppStateManager.shared.olvidURLHandler == nil {
-                    await NewAppStateManager.shared.setOlvidURLHandler(to: _self)
+                if await NewAppStateManager.shared.olvidURLRouter == nil {
+                    await NewAppStateManager.shared.setOlvidURLRouter(to: _self)
                 }
                 completion?(result)
             }
@@ -683,7 +736,9 @@ extension MetaFlowController {
                     localAuthenticationDelegate: localAuthenticationDelegate,
                     appBackupDelegate: appBackupDelegate,
                     mainFlowViewControllerDelegate: self,
-                    storeKitDelegate: storeKitDelegate)
+                    storeKitDelegate: storeKitDelegate,
+                    dataSources: self.dataSources,
+                    actions: self)
             }
 
             guard let mainFlowViewController else {
@@ -771,7 +826,9 @@ extension MetaFlowController {
                     logSubsystem: ObvAppCoreConstants.logSubsystem,
                     directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
                     mode: .initialOnboarding(mdmConfig: mdmConfig),
-                    dataSource: self)
+                    dataSource: self,
+                    olvidShopViewActions: self,
+                    olvidShopViewDataSources: self.dataSources.olvidShopViewDataSources)
                 onboardingFlowViewController?.delegate = self
             }
             
@@ -826,10 +883,15 @@ extension MetaFlowController {
            let olvidURL = OlvidURL(urlRepresentation: mdmConfigurationURI) {
             
             switch olvidURL.category {
-            case .configuration(_, _, let keycloakConfig):
-                guard let keycloakConfig else { return nil }
-                return .init(keycloakConfiguration: keycloakConfig)
-            default:
+            case .configuration(let configurationKind):
+                switch configurationKind {
+                case .keycloakConfig(let keycloakConfig):
+                    return .init(keycloakConfiguration: keycloakConfig)
+                case .serverAndAPIKey, .betaConfiguration:
+                    assertionFailure()
+                    return nil
+                }
+            case .invitation, .mutualScan, .openIdRedirect:
                 assertionFailure()
                 return nil
             }
@@ -909,6 +971,70 @@ extension MetaFlowController {
 }
 
 
+// MARK: - Implementing OlvidShopViewActions
+
+extension MetaFlowController: OlvidShopViewActions {
+    
+    func refreshSubscriptionStatus() async throws {
+        guard let storeKitDelegate else { throw ObvError.storeKitDelegateIsNil }
+        _ = try await storeKitDelegate.refreshSubscriptionStatus()
+    }
+    
+    
+    func userWantsToBuy(_ view: ObvSubscription.OlvidShopView, product: Product) async throws -> ObvAppTypes.StoreKitDelegatePurchaseResult {
+        guard let storeKitDelegate else {
+            throw ObvError.storeKitDelegateIsNil
+        }
+        return try await storeKitDelegate.userWantsToBuy(product)
+    }
+
+    func getCurrentActiveSubscriptionPublisher(_ view: ObvSubscription.OlvidShopView) throws -> Published<Product?>.Publisher {
+        guard let storeKitDelegate else { assertionFailure(); throw ObvError.storeKitDelegateIsNil }
+        return try storeKitDelegate.getCurrentActiveSubscriptionPublisher()
+    }
+
+}
+
+// MARK: - Implementing UserTriesToAccessPaidFeatureViewActions
+
+extension MetaFlowController: UserTriesToAccessPaidFeatureViewActions {
+    
+    func queryServerForFreeTrial(_ view: ObvSubscription.UserTriesToAccessPaidFeatureView, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> Bool {
+        try await obvEngine.queryServerForFreeTrial(for: ownedCryptoId)
+    }
+    
+    func startFreeTrial(_ view: ObvSubscription.UserTriesToAccessPaidFeatureView, ownedCryptoId: ObvTypes.ObvCryptoId) async throws {
+        try await obvEngine.startFreeTrial(for: ownedCryptoId)
+    }
+    
+    func userWantsToChooseUserToCall(_ view: ObvSubscription.UserTriesToAccessPaidFeatureView, ownedCryptoId: ObvTypes.ObvCryptoId) {
+        //ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo
+        // For now, we simply dismiss the view. We should do better here and present a list of contacts to call
+        self.presentedViewController?.dismiss(animated: true)
+    }
+    
+}
+
+
+// MARK: - Implementing MainFlowViewControllerActions
+
+extension MetaFlowController: MainFlowViewControllerActions {
+    
+    // Other protocol implementations are enough
+    
+}
+
+// MARK: - Implementing LocalObvSingleContactViewAppDataSourceDelegateImplementationDelegate
+
+extension MetaFlowController: LocalObvSingleContactViewAppDataSourceDelegateImplementationDelegate {
+    
+    fileprivate func freshContactIdentityReceivedWhileShowingSingleContactView(_ implementation: LocalObvSingleContactViewAppDataSourceDelegateImplementation, contactIdentity: ObvTypes.ObvContactIdentity) async {
+        guard let metaFlowControllerDelegate else { assertionFailure(); return }
+        await metaFlowControllerDelegate.freshContactIdentityReceivedWhileShowingSingleContactView(self, contactIdentity: contactIdentity)
+    }
+    
+}
+
 // MARK: - NewOnboardingFlowViewControllerDelegate
 
 extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
@@ -963,17 +1089,7 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
     
     
     func fetchAvatarImage(_ onboardingFlow: ObvOnboarding.NewOnboardingFlowViewController, profileCryptoId: ObvTypes.ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage? {
-        do {
-            return try await self.avatarHelper.fetchAvatarImage(ownedCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, size: frameSize)
-        } catch {
-            let nsError = error as NSError
-            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
-                return nil
-            } else {
-                assertionFailure()
-                return nil
-            }
-        }
+        return await self.dataSources.fetchAvatarImage(profileCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, frameSize: frameSize)
     }
     
     
@@ -1004,7 +1120,7 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
     }
     
     func handleOlvidURL(onboardingFlow: NewOnboardingFlowViewController, olvidURL: OlvidURL) async {
-        await self.handleOlvidURL(olvidURL)
+        await self.routeOlvidURL(olvidURL)
     }
 
     func onboardingRequiresKeycloakToSyncAllManagedIdentities() async {
@@ -1044,6 +1160,7 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
 
     
     func onboardingRequiresToPerformOwnedDeviceDiscoveryNow(for ownedCryptoId: ObvCryptoId) async throws -> (ownedDeviceDiscoveryResult: ObvOwnedDeviceDiscoveryResult, currentDeviceIdentifier: Data) {
+        Self.logger.info("💰 Will perform an owned device discovery")
         let ownedDeviceDiscoveryResult = try await obvEngine.performOwnedDeviceDiscoveryNow(ownedCryptoId: ownedCryptoId)
         let currentDeviceIdentifier = try await obvEngine.getCurrentDeviceIdentifier(ownedCryptoId: ownedCryptoId)
         return (ownedDeviceDiscoveryResult, currentDeviceIdentifier)
@@ -1104,13 +1221,17 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
 
     }
 
-
-    func onboardingRequiresToRegisterAndUploadOwnedIdentityToKeycloakServer(ownedCryptoId: ObvCryptoId) async throws {
-        try await KeycloakManagerSingleton.shared.uploadOwnIdentity(ownedCryptoId: ownedCryptoId, keycloakUserIdAndState: nil)
+    
+    func onboardingRequiresToRegisterAndUploadOwnedIdentityToKeycloakServer(ownedCryptoId: ObvTypes.ObvCryptoId, keycloakUserIdAndState: (keycloakUserId: String, obvKeycloakState: ObvTypes.ObvKeycloakState)?) async throws {
+        try await KeycloakManagerSingleton.shared.uploadOwnIdentity(ownedCryptoId: ownedCryptoId, keycloakUserIdAndState: keycloakUserIdAndState)
     }
 
     
-    func onboardingRequiresKeycloakAuthentication(onboardingFlow: NewOnboardingFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState) {
+    func onboardingRequiresKeycloakAuthentication(
+        onboardingFlow: NewOnboardingFlowViewController,
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)
+    ) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState) {
         let authState = try await KeycloakManagerSingleton.shared.authenticate(configuration: keycloakServerKeyAndConfig.serviceConfig,
                                                                                clientId: keycloakConfiguration.clientId,
                                                                                clientSecret: keycloakConfiguration.clientSecret,
@@ -1295,7 +1416,19 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
     func userProvidesProofOfAuthenticationOnKeycloakServer(onboardingFlow: NewOnboardingFlowViewController, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, proof: ObvKeycloakTransferProofAndAuthState) async throws {
         try await obvEngine.userProvidesProofOfAuthenticationOnKeycloakServer(ownedCryptoId: ownedCryptoId, protocolInstanceUID: protocolInstanceUID, proof: proof)
     }
+    
+    
+    /// This method is the last method called by the `NewOnboardingFlowViewController` when it was launched to bind an existing profile to a keycloak server. At the moment it is called,
+    /// the existing profile was successfully bound, so there is nothing left to do except to dismiss the onboarding flow.
+    func onboardingIsFinished(onboardingFlow: NewOnboardingFlowViewController, existingOwnedCryptoIdBoundToKeycloak: ObvCryptoId) async {
+        
+        onboardingFlow.dismiss(animated: true)
+        
+        Self.logger.fault("End of the onboarding flow allowing to bind an existing profile to a keycloak server")
+        
+    }
 
+    
 }
 
 
@@ -1342,7 +1475,7 @@ extension MetaFlowController {
     
     /// This method is called from the onboarding or from the settings during the profile backup restore process. At the end of this process, just before actually restoring the profile,
     /// the user may be in a situation where restoring will deactivate all their older devices. The user then has the option to subscribe to Olvid+ to keep all their devices active by tapping on a button that eventually calls this method.
-    /// In this case, we want to present the subscription flow and recalculate the value of `ObvDeviceDeactivationConsiquence` when it is dismissed.
+    /// In this case, we want to present the subscription flow and recalculate the value of `ObvDeviceDeactivationConsequence` when it is dismissed.
     func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvAppBackup.ObvDeviceDeactivationConsequence, any Error>) in
             if let currentContinuation = self.continuationAndOwnedCryptoIdentity?.continuation {
@@ -1350,8 +1483,7 @@ extension MetaFlowController {
                 currentContinuation.resume(throwing: ObvError.userCancelled)
             }
             self.continuationAndOwnedCryptoIdentity = (continuation, ownedCryptoIdentity)
-            let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity.getObvCryptoIdentity())
-            self.userWantsToSubscribeOlvidPlus(ownedCryptoId: ownedCryptoId)
+            self.userWantsToSubscribeOlvidPlus()
         }
     }
     
@@ -1534,6 +1666,37 @@ extension MetaFlowController {
 }
 
 
+// MARK: - Implementing OlvidShopViewNavigation
+
+extension MetaFlowController: OlvidShopViewNavigation {
+
+    /// This method is called when the user explicitly wants to dismiss the `OlvidShopView`.
+    /// After dismissal, the `OlvidShopViewController` delegate’s `olvidShopViewControllerDidDisappear(_:)` method is automatically invoked,
+    /// allowing for UI updates (e.g., refreshing the onboarding flow if the shop was presented during onboarding).
+    func userWantsToDismissPresentedOlvidShopView(_ view: ObvSubscription.OlvidShopView) {
+        self.presentedViewController?.dismiss(animated: true)
+    }
+    
+}
+
+
+// MARK: - Implementing OlvidShopViewControllerNavigation
+
+extension MetaFlowController: OlvidShopViewControllerNavigation {
+    
+    /// Called after the `OlvidShopViewController` is dismissed.
+    ///
+    /// This method is triggered when the user dismisses the view controller,
+    /// either by tapping a button in the `OlvidShopView` or by swiping to dismiss.
+    /// If the shop was presented during onboarding, this callback allows to update the onboarding UI as needed.
+    func olvidShopViewControllerDidDisappear(_ vc: ObvSubscription.OlvidShopViewController) {
+        (self.dataSources.tipCellViewAppDataSource as? TipCellViewAppDataSource)?.olvidShopViewControllerDidDisappear()
+        Task { await processOnboardingContinuationIfRequired() }
+    }
+    
+}
+
+
 // MARK: - SubscriptionPlansViewActionsProtocol (required for NewOnboardingFlowViewControllerDelegate)
 
 extension MetaFlowController {
@@ -1556,9 +1719,8 @@ extension MetaFlowController {
     }
     
     
-    func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws -> APIKeyElements {
-        let newAPIKeyElements = try await obvEngine.startFreeTrial(for: ownedCryptoId)
-        return newAPIKeyElements
+    func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws {
+        try await obvEngine.startFreeTrial(for: ownedCryptoId)
     }
     
     
@@ -1578,7 +1740,108 @@ extension MetaFlowController {
 
 // MARK: - MainFlowViewControllerDelegate
 
-extension MetaFlowController: MainFlowViewControllerDelegate {
+extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
+    
+    func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ mainFlowViewController: MainFlowViewController) {
+        userDefaults?.set(nil, forKey: ObvMessengerConstants.UserDefaultsKeys.olvidPlusSubscriptionConfirmationTipToDisplay.rawValue)
+        (dataSources.tipCellViewAppDataSource as? TipCellViewAppDataSource)?.refreshTip()
+    }
+    
+    func userWantsToDiscoverOlvidPlus(_ mainFlowViewController: MainFlowViewController) {
+        userWantsToSubscribeOlvidPlus()
+    }
+
+    func userWantsToUpdateOwnedCustomDisplayName(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvTypes.ObvCryptoId, newCustomDisplayName: String?) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToUpdateOwnedCustomDisplayName(self, ownedCryptoId: ownedCryptoId, newCustomDisplayName: newCustomDisplayName)
+    }
+
+    func userWantsToUnhideOwnedIdentity(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToUnhideOwnedIdentity(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+    func userWantsToHideOwnedIdentity(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, password: String) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToHideOwnedIdentity(self, ownedCryptoId: ownedCryptoId, password: password)
+    }
+    
+    func userWantsToAddOwnedProfile(_ mainFlowViewController: MainFlowViewController) {
+        Task { await processUserWantsToAddOwnedProfileNotification() }
+    }
+    
+    func userWantsToUpdateGroupNameAndPicture(_ mainFlowViewController: MainFlowViewController, groupV1Identifier: ObvTypes.ObvGroupV1Identifier, changes: Set<ObvUIGroupSharedBetweenV1AndV2.EditGroupNameAndPictureView.Change>) async throws {
+        let obvContactGroup = try await obvEngine.getContactGroupOwned(groupUid: groupV1Identifier.groupV1Identifier.groupUid, ownedCryptoId: groupV1Identifier.ownedCryptoId)
+        var coreDetails: ObvGroupCoreDetails = obvContactGroup.trustedOrLatestCoreDetails
+        var photoURL: URL? = obvContactGroup.trustedOrLatestPhotoURL
+        for change in changes {
+            switch change {
+            case .groupDetails(let groupCoreDetails):
+                coreDetails = groupCoreDetails
+            case .groupPhoto(let newPhotoURL):
+                photoURL = newPhotoURL
+            }
+        }
+        let newObvGroupDetails = ObvGroupDetails(coreDetails: coreDetails, photoURL: photoURL)
+        try await obvEngine.updateDetailsOfOwnedContactGroup(using: newObvGroupDetails, ownedCryptoId: groupV1Identifier.ownedCryptoId, groupUid: groupV1Identifier.groupV1Identifier.groupUid)
+    }
+    
+    func userWantsToAddSelectedUsersToExistingGroup(_ mainFlowViewController: MainFlowViewController, groupV1Identifier: ObvGroupV1Identifier, newGroupMembers: Set<ObvCryptoId>) async throws {
+        try await self.obvEngine.inviteContactsToGroupOwned(groupUid: groupV1Identifier.groupV1Identifier.groupUid, ownedCryptoId: groupV1Identifier.ownedCryptoId, newGroupMembers: newGroupMembers)
+    }
+    
+    func userWantsToRemoveMembersFromGroupV1(_ mainFlowViewController: MainFlowViewController, groupV1Identifier: ObvGroupV1Identifier, removedGroupMembers: Set<ObvCryptoId>) async throws {
+        try await self.obvEngine.removeContactsFromGroupOwned(groupUid: groupV1Identifier.groupV1Identifier.groupUid, ownedCryptoId: groupV1Identifier.ownedCryptoId, removedGroupMembers: removedGroupMembers)
+    }
+    
+    func userHasSeenPublishedDetails(_ mainFlowViewController: MainFlowViewController, publishedDetails: PublishedDetailsValidationViewModel) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userHasSeenPublishedDetails(self, publishedDetails: publishedDetails)
+    }
+    
+    func userDidSeeNewDetailsOfContact(_ mainFlowViewController: MainFlowViewController, contactIdentifier: ObvTypes.ObvContactIdentifier) {
+        guard let metaFlowControllerDelegate else { assertionFailure(); return }
+        metaFlowControllerDelegate.userDidSeeNewDetailsOfContact(self, contactIdentifier: contactIdentifier)
+    }
+    
+    func userWantsToUpdatePersonalNote(_ mainFlowViewController: MainFlowViewController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToUpdatePersonalNote(self, with: newText, about: about)
+    }
+    
+    func userWantsToProcessReceiptsStoredForLater(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, returnReceiptElements: Set<ObvReturnReceiptElements>) async {
+        guard let metaFlowControllerDelegate else { assertionFailure(); return }
+        await metaFlowControllerDelegate.userWantsToProcessReceiptsStoredForLater(self, ownedCryptoId: ownedCryptoId, returnReceiptElements: returnReceiptElements)
+    }
+    
+    func userWantsToDeleteDiscussionsAndHasConfirmed(_ mainFlowViewController: MainFlowViewController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>], deletionType: DeletionType) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToDeleteDiscussionsAndHasConfirmed(self, discussionObjectIDs: discussionObjectIDs, deletionType: deletionType)
+    }
+    
+    func userWantsToArchiveDiscussions(_ mainFlowViewController: MainFlowViewController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToArchiveDiscussions(self, discussionObjectIDs: discussionObjectIDs)
+    }
+    
+    
+    func userWantsToUnarchiveDiscussions(_ mainFlowViewController: MainFlowViewController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToUnarchiveDiscussions(self, discussionObjectIDs: discussionObjectIDs)
+    }
+    
+    
+    func userWantsToReorderPinnedDiscussions(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, objectIDOfPinnedDiscussions: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToReorderPinnedDiscussions(self, ownedCryptoId: ownedCryptoId, objectIDOfPinnedDiscussions: objectIDOfPinnedDiscussions)
+    }
+    
+    
+    func userWantsToMarkAllMessagesAsReadInDiscussion(_ mainFlowViewController: MainFlowViewController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToMarkAllMessagesAsReadInDiscussion(self, discussionObjectID: discussionObjectID)
+    }
+    
     
     func userWantsToDeleteOwnedIdentityAndHasConfirmed(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
@@ -1588,8 +1851,8 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
     /// This is called when the user taps the "refresh" button on her own identity screen. This method request the current subscriptions to store
     /// kit. If a valid subscription is found, it associated to each owned identity present on this device by contacting Olvid's servers.
     /// Then, if there is a "current" owned identity, we refresh the permissions by requesting them from Olvid's servers.
-    func userWantsToRefreshSubscriptionStatus(_ mainFlowViewController: MainFlowViewController) async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult] {
-        return try await refreshSubscriptionStatus()
+    func userWantsToRefreshSubscriptionStatus(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId?) async throws -> [StoreKitDelegatePurchaseResult] {
+        return try await refreshSubscriptionStatus(ownedCryptoId: ownedCryptoId)
     }
     
     
@@ -1656,21 +1919,6 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
     }
     
     
-    func fetchAvatarImage(_ mainFlowViewController: MainFlowViewController, profileCryptoId: ObvTypes.ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage? {
-        do {
-            return try await self.avatarHelper.fetchAvatarImage(ownedCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, size: frameSize)
-        } catch {
-            let nsError = error as NSError
-            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
-                return nil
-            } else {
-                assertionFailure()
-                return nil
-            }
-        }
-    }
-    
-    
     func userWantsToDeleteProfileBackupFromSettings(_ mainFlowViewController: MainFlowViewController, infoForDeletion: ObvProfileBackupFromServer.InfoForDeletion) async throws {
         try await obvEngine.userWantsToDeleteProfileBackup(infoForDeletion: infoForDeletion)
     }
@@ -1693,8 +1941,7 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
     
     
     func userWantsToSubscribeOlvidPlus(_ mainFlowViewController: MainFlowViewController) {
-        guard let currentOwnedCryptoId else { assertionFailure(); return }
-        self.userWantsToSubscribeOlvidPlus(ownedCryptoId: currentOwnedCryptoId)
+        self.userWantsToSubscribeOlvidPlus()
     }
     
     
@@ -1727,8 +1974,8 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
     
     func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws {
         if #available(iOS 17.0, *) {
-            let dataSource = ObvMapViewControllerAppDataSource(ownedCryptoId: ownedCryptoId, delegate: self)
-            let mapViewController = ObvMapViewController(dataSource: dataSource, actions: self)
+            let dataSource = ObvMapViewControllerAppDataSource(ownedCryptoId: ownedCryptoId, viewContext: ObvStack.shared.viewContext)
+            let mapViewController = ObvMapViewController(dataSource: dataSource, avatarViewDataSource: self.dataSources.avatarViewDataSource, actions: self)
             mapViewController.modalPresentationStyle = .overFullScreen
             presentingViewController.presentOnTop(mapViewController, animated: true)
         } else {
@@ -1740,8 +1987,8 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
     func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws {
         if #available(iOS 17.0, *) {
             let initialDeviceIdentifierToSelect = try await determineObvDeviceIdentifierAssociatedToMessageObjectID(messageObjectID)
-            let dataSource = try ObvMapViewControllerAppDataSource(messageObjectID: messageObjectID, delegate: self)
-            let mapViewController = ObvMapViewController(dataSource: dataSource, actions: self, initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
+            let dataSource = try ObvMapViewControllerAppDataSource(messageObjectID: messageObjectID, viewContext: ObvStack.shared.viewContext)
+            let mapViewController = ObvMapViewController(dataSource: dataSource, avatarViewDataSource: self.dataSources.avatarViewDataSource, actions: self, initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
             mapViewController.modalPresentationStyle = .overFullScreen
             presentingViewController.presentOnTop(mapViewController, animated: true)
         } else {
@@ -1755,6 +2002,34 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
         try await metaFlowControllerDelegate.userWantsToShowMapToSendOrShareLocationContinuously(self, presentingViewController: presentingViewController, discussionIdentifier: discussionIdentifier)
     }
     
+    func userWantsToCreatePoll(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToCreatePoll(self, presentingViewController: presentingViewController, discussionIdentifier: discussionIdentifier)
+    }
+    
+    /// Called when the user wants to display the interface allowing to see the details of a specific poll.
+    func userWantsToDisplayPollView(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, pollObjectID: TypeSafeManagedObjectID<PersistedPoll>) async throws {
+        
+        _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
+        
+        if #available(iOS 17, *) {
+
+            let vc = PollHostingController(
+                pollIdentifier: PollIdentifier.persistedPollObjectID(pollObjectID.objectID),
+                pollDataSource: dataSources.pollViewDataSource,
+                avatarViewDataSource: self.dataSources.avatarViewDataSource)
+            
+            presentingViewController.present(vc, animated: true, completion: nil)
+            
+        } else {
+            
+            guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+            metaFlowControllerDelegate.presentAlertAsOsUpgradeIsRequired(self, presentingViewController: presentingViewController)
+            
+            
+        }
+
+    }
     
     func userWantsToStopSharingLocationInDiscussion(_ mainFlowViewController: MainFlowViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
@@ -1773,6 +2048,11 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
         try await metaFlowControllerDelegate.userWantsToUpdateReaction(self, ownedCryptoId: ownedCryptoId, messageObjectID: messageObjectID, newEmoji: newEmoji)
     }
     
+    func userWantsToUpdatePollVote(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, voted: Bool, version: Int) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToUpdatePollVote(self, ownedCryptoId: ownedCryptoId, messageObjectID: messageObjectID, pollVoteCandidateUuid: pollVoteCandidateUuid, voted: voted, version: version)
+    }
+
     
     func messagesAreNotNewAnymore(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
@@ -1851,21 +2131,21 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
     }
     
     
-    func userWantsToAddAttachmentsToDraftFromURLs(_ mainFlowViewController: MainFlowViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws {
+    func userWantsToAddAttachmentsToDraftFromURLs(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
-        try await metaFlowControllerDelegate.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: urls)
+        try await metaFlowControllerDelegate.userWantsToAddAttachmentsToDraftFromURLs(self, draftObjectID: draftObjectID, urls: urls)
     }
     
     
-    func userWantsToAddAttachmentsToDraft(_ mainFlowViewController: MainFlowViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws {
+    func userWantsToAddAttachmentsToDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste] {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
-        try await metaFlowControllerDelegate.userWantsToAddAttachmentsToDraft(self, draftPermanentID: draftPermanentID, itemProviders: itemProviders)
+        return try await metaFlowControllerDelegate.userWantsToAddAttachmentsToDraft(self, draftObjectID: draftObjectID, itemProviders: itemProviders, source: source)
     }
     
     
-    func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
-        try await metaFlowControllerDelegate.userWantsToSendDraft(self, draftPermanentID: draftPermanentID, textBody: textBody, mentions: mentions)
+        try await metaFlowControllerDelegate.userWantsToSendDraft(self, draftObjectID: draftObjectID, textBody: textBody, mentions: mentions)
     }
     
     
@@ -1879,6 +2159,8 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
     func userWantsToPublishGroupV2Modification(_ mainFlowViewController: MainFlowViewController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
         
+        Self.logger.debug("🧑‍🧑‍🧒‍🧒 Call to userWantsToPublishGroupV2Modification(_ mainFlowViewController: MainFlowViewController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset)")
+
         guard let group = try PersistedGroupV2.get(objectID: groupObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
         guard group.ownedIdentityIsAdmin else { assertionFailure(); return }
         guard !changeset.isEmpty else { return }
@@ -1974,20 +2256,58 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
         }
     }
     
+    func userWantsToPublishGroupV1Creation(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, groupDetails: ObvGroupDetails, otherGroupMembers: Set<ObvCryptoId>) async throws {
+        try await obvEngine.startGroupV1CreationProtocol(groupName: groupDetails.coreDetails.name,
+                                                         groupDescription: groupDetails.coreDetails.description,
+                                                         groupMembers: otherGroupMembers,
+                                                         ownedCryptoId: ownedCryptoId,
+                                                         photoURL: groupDetails.photoURL)
+    }
     
-    @MainActor
-    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws {
+    func userWantsToPublishGroupV2Creation(_ mainFlowViewController: MainFlowViewController, groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvGroupType) async throws {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
+        
+        // Make sure all the members can be reached (i.e., have a prekey or/and a channel with our current owned device)
+        let contactsThatCannotBeReached = try await self.contactsThatCannotBeReached(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(otherGroupMembers.map({ $0.identity })))
+        assert(contactsThatCannotBeReached.isEmpty, "Those contacts should have been filtered out earlier in the group creation/clone process")
+        
+        // Remove the members that cannot be reached (this should not happen, we should have removed those earlier in the process)
+        let otherGroupMembersToConsider = otherGroupMembers.filter({ !contactsThatCannotBeReached.contains($0.identity) })
+        
         automaticallyNavigateToCreatedDisplayedContactGroup = true
         let obvEngine = self.obvEngine
         let serializedGroupCoreDetails = try groupCoreDetails.jsonEncode()
         let serializedGroupType = try groupType.toSerializedGroupType()
         try await obvEngine.startGroupV2CreationProtocol(serializedGroupCoreDetails: serializedGroupCoreDetails,
                                                          ownPermissions: ownPermissions,
-                                                         otherGroupMembers: otherGroupMembers,
+                                                         otherGroupMembers: otherGroupMembersToConsider,
                                                          ownedCryptoId: ownedCryptoId,
                                                          photoURL: photoURL,
                                                          serializedGroupType: serializedGroupType)
+    }
+    
+    
+    /// Returns a subset of `contactCryptoIds`, only containing the `ObvCryptoId`s of the contacts that cannot be reached. This is used when creating a group, in order to discard non-reachable contacts
+    /// from the set of requested other group members.
+    private func contactsThatCannotBeReached(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>) async throws -> Set<ObvCryptoId> {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<ObvCryptoId>, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                var contactsThatCannotBeReached = Set<ObvCryptoId>()
+                do {
+                    for contactCryptoId in contactCryptoIds {
+                        let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+                        let canBeReached = try PersistedObvContactIdentity.atLeastOneDeviceAllowsThisContactToReceiveMessages(contactIdentifier: contactIdentifier, within: context)
+                        if !canBeReached {
+                            contactsThatCannotBeReached.insert(contactCryptoId)
+                        }
+                    }
+                    return continuation.resume(returning: contactsThatCannotBeReached)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
     }
     
     
@@ -1995,7 +2315,7 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
         guard let (ownedDetails, isKeycloakManaged) = try? await getOwnedIdentityDetails(ownedCryptoId: ownedCryptoId) else { assertionFailure(); return }
         let isTransferRestricted: Bool
         if isKeycloakManaged {
-            guard let _isTransferRestricted = (try? obvEngine.getOwnedIdentityKeycloakState(with: ownedCryptoId))?.obvKeycloakState?.isTransferRestricted else { assertionFailure(); return }
+            guard let _isTransferRestricted = (try? await obvEngine.getOwnedIdentityKeycloakState(with: ownedCryptoId))?.keycloakState.isTransferRestricted else { assertionFailure(); return }
             isTransferRestricted = _isTransferRestricted
         } else {
             isTransferRestricted = false
@@ -2004,8 +2324,11 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
             logSubsystem: ObvAppCoreConstants.logSubsystem,
             directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
             mode: .addNewDevice(ownedCryptoId: ownedCryptoId, ownedDetails: ownedDetails, isTransferRestricted: isTransferRestricted),
-            dataSource: self)
+            dataSource: self,
+            olvidShopViewActions: self,
+            olvidShopViewDataSources: self.dataSources.olvidShopViewDataSources)
         newOnboardingFlowViewController.delegate = self
+        await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
         present(newOnboardingFlowViewController, animated: true)
     }
     
@@ -2027,24 +2350,33 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
         }
     }
     
-    func fetchAvatarImage(_ mainFlowViewController: MainFlowViewController, localPhotoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
-        return try await self.avatarHelper.fetchAvatarImage(localPhotoURL: localPhotoURL, size: avatarSize)
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV1Identifier) async throws {
+        try await obvEngine.trustPublishedDetailsOfJoinedContactGroup(ownedCryptoId: groupIdentifier.ownedCryptoId, groupUid: groupIdentifier.groupV1Identifier.groupUid, groupOwner: groupIdentifier.groupV1Identifier.groupOwner)
     }
-    
-    
+
     func userWantsToReplaceTrustedDetailsByPublishedDetails(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
         try await metaFlowControllerDelegate.userWantsToReplaceTrustedDetailsByPublishedDetails(self, groupIdentifier: groupIdentifier)
     }
     
     
-    func userWantsToLeaveGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws {
-        try await obvEngine.leaveGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
+    func userWantsToLeaveGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupIdentifier) async throws {
+        switch groupIdentifier {
+        case .groupV1(let groupIdentifier):
+            try await obvEngine.leaveGroupV1Joined(groupV1Identifier: groupIdentifier)
+        case .groupV2(let groupIdentifier):
+            try await obvEngine.leaveGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
+        }
     }
     
     
-    func userWantsToDisbandGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws {
-        try await obvEngine.performDisbandOfGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
+    func userWantsToDisbandGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupIdentifier) async throws {
+        switch groupIdentifier {
+        case .groupV1(let groupIdentifier):
+            try await obvEngine.performDisbandOfGroupV1(groupV1Identifier: groupIdentifier)
+        case .groupV2(let groupIdentifier):
+            try await obvEngine.performDisbandOfGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
+        }
     }
         
     
@@ -2062,28 +2394,6 @@ extension MetaFlowController: ObvMapViewControllerActionsProtocol {
     
     func userWantsToDismissObvMapView(_ vc: ObvMapViewController) {
         vc.dismiss(animated: true)
-    }
-    
-}
-
-
-// MARK: - Implementing ObvMapViewControllerAppDataSourceDelegate
-
-@available(iOS 17.0, *)
-extension MetaFlowController: ObvMapViewControllerAppDataSourceDelegate {
-    
-    func fetchAvatar(_ vc: ObvMapViewControllerAppDataSource, photoURL: URL, avatarSize: ObvAvatarSize) async throws -> UIImage? {
-        do {
-            return try await self.avatarHelper.fetchAvatarImage(localPhotoURL: photoURL, size: avatarSize)
-        } catch {
-            let nsError = error as NSError
-            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
-                return nil
-            } else {
-                assertionFailure()
-                return nil
-            }
-        }
     }
     
 }
@@ -2160,116 +2470,69 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDataSource {
 extension MetaFlowController {
     
     
-    private func observeUserWantsToDeleteOwnedContactGroupNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToDeleteOwnedContactGroup { [weak self] ownedCryptoId, groupUid in
-            Task { await self?.deleteOwnedContactGroup(groupUid: groupUid, ownedCryptoId: ownedCryptoId, confirmed: false) }
-        })
-    }
+//    private func observeUserWantsToUserWantsToLeaveJoinedContactGroupNotifications() {
+//        let NotificationType = MessengerInternalNotification.UserWantsToLeaveJoinedContactGroup.self
+//        let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
+//            guard let (groupOwner, groupUid, ownedCryptoId, sourceView) = NotificationType.parse(notification) else { return }
+//            Task { [weak self] in
+//                await self?.processUserWantsToLeaveJoinedContactGroup(groupOwner: groupOwner,
+//                                                                      groupUid: groupUid,
+//                                                                      ownedCryptoId: ownedCryptoId,
+//                                                                      sourceView: sourceView)
+//            }
+//        }
+//        observationTokens.append(token)
+//    }
+    
+    
+//    @MainActor
+//    private func processUserWantsToLeaveJoinedContactGroup(groupOwner: ObvCryptoId, groupUid: UID, ownedCryptoId: ObvCryptoId, sourceView: UIView) {
+//        guard self.currentOwnedCryptoId == ownedCryptoId else { return }
+//        self.leaveJoinedContactGroup(groupOwner: groupOwner, groupUid: groupUid, ownedCryptoId: ownedCryptoId, sourceView: sourceView, confirmed: false)
+//    }
 
     
-    @MainActor
-    private func deleteOwnedContactGroup(groupUid: UID, ownedCryptoId: ObvCryptoId, confirmed: Bool) async {
-        
-        if confirmed {
-
-            do {
-                try await obvEngine.disbandGroupV1(groupUid: groupUid, ownedCryptoId: ownedCryptoId)
-            } catch {
-                let uiAlert = UIAlertController(title: Strings.AlertDeleteOwnedGroupFailed.title, message: Strings.AlertDeleteOwnedGroupFailed.message, preferredStyle: .alert)
-                let okAction = UIAlertAction(title: CommonString.Word.Ok, style: .default, handler: nil)
-                uiAlert.addAction(okAction)
-                
-                if let presentedViewController {
-                    presentedViewController.present(uiAlert, animated: true)
-                } else {
-                    present(uiAlert, animated: true)
-                }
-            }
-            
-        } else {
-            
-            let alert = UIAlertController(title: CommonString.Title.deleteGroup,
-                                          message: Strings.deleteGroupExplanation,
-                                          preferredStyleForTraitCollection: self.traitCollection)
-            alert.addAction(UIAlertAction(title: CommonString.AlertButton.performDeletionAction, style: .destructive, handler: { [weak self] (action) in
-                Task { await self?.deleteOwnedContactGroup(groupUid: groupUid, ownedCryptoId: ownedCryptoId, confirmed: true) }
-            }))
-            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-            
-            if let presentedViewController = presentedViewController {
-                presentedViewController.present(alert, animated: true)
-            } else {
-                present(alert, animated: true)
-            }
-            
-        }
-        
-    }
-    
-    
-    private func observeUserWantsToLeaveJoinedContactGroupNotifications() {
-        let NotificationType = MessengerInternalNotification.UserWantsToLeaveJoinedContactGroup.self
-        let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-            guard let (groupOwner, groupUid, ownedCryptoId, sourceView) = NotificationType.parse(notification) else { return }
-            Task { [weak self] in
-                await self?.processUserWantsToLeaveJoinedContactGroup(groupOwner: groupOwner,
-                                                                      groupUid: groupUid,
-                                                                      ownedCryptoId: ownedCryptoId,
-                                                                      sourceView: sourceView)
-            }
-        }
-        observationTokens.append(token)
-    }
-    
-    
-    @MainActor
-    private func processUserWantsToLeaveJoinedContactGroup(groupOwner: ObvCryptoId, groupUid: UID, ownedCryptoId: ObvCryptoId, sourceView: UIView) {
-        guard self.currentOwnedCryptoId == ownedCryptoId else { return }
-        self.leaveJoinedContactGroup(groupOwner: groupOwner, groupUid: groupUid, ownedCryptoId: ownedCryptoId, sourceView: sourceView, confirmed: false)
-    }
-
-    
-    private func leaveJoinedContactGroup(groupOwner: ObvCryptoId, groupUid: UID, ownedCryptoId: ObvCryptoId, sourceView: UIView, confirmed: Bool) {
-        
-        if confirmed {
-            
-            let log = self.log
-            let localEngine = self.obvEngine
-            DispatchQueue(label: "Background queue for requesting leaveContactGroupJoined to engine").async {
-                do {
-                    try localEngine.leaveContactGroupJoined(ownedCryptoId: ownedCryptoId, groupUid: groupUid, groupOwner: groupOwner)
-                } catch {
-                    os_log("Could not leave contact group joined", log: log, type: .error)
-                }
-            }
-
-        } else {
-            let alert = UIAlertController(title: CommonString.Title.leaveGroup,
-                                          message: Strings.leaveGroupExplanation,
-                                          preferredStyleForTraitCollection: self.traitCollection)
-            alert.addAction(UIAlertAction(title: CommonString.Title.leaveGroup, style: .destructive, handler: { [weak self] (action) in
-                if let presentedViewController = self?.presentedViewController {
-                    presentedViewController.dismiss(animated: true, completion: {
-                        self?.leaveJoinedContactGroup(groupOwner: groupOwner, groupUid: groupUid, ownedCryptoId: ownedCryptoId, sourceView: sourceView, confirmed: true)
-                    })
-                } else {
-                    self?.leaveJoinedContactGroup(groupOwner: groupOwner, groupUid: groupUid, ownedCryptoId: ownedCryptoId, sourceView: sourceView, confirmed: true)
-                }
-            }))
-            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-            DispatchQueue.main.async { [weak self] in
-                guard let _self = self else { return }
-                alert.popoverPresentationController?.sourceView = sourceView
-                if let presentedViewController = _self.presentedViewController {
-                    presentedViewController.present(alert, animated: true)
-                } else {
-                    _self.present(alert, animated: true)
-                }
-            }
-            
-        }
-
-    }
+//    private func leaveJoinedContactGroup(groupOwner: ObvCryptoId, groupUid: UID, ownedCryptoId: ObvCryptoId, sourceView: UIView, confirmed: Bool) {
+//        
+//        if confirmed {
+//            
+//            let log = self.log
+//            let localEngine = self.obvEngine
+//            DispatchQueue(label: "Background queue for requesting leaveContactGroupJoined to engine").async {
+//                do {
+//                    try localEngine.leaveContactGroupJoined(ownedCryptoId: ownedCryptoId, groupUid: groupUid, groupOwner: groupOwner)
+//                } catch {
+//                    os_log("Could not leave contact group joined", log: log, type: .error)
+//                }
+//            }
+//
+//        } else {
+//            let alert = UIAlertController(title: CommonString.Title.leaveGroup,
+//                                          message: Strings.leaveGroupExplanation,
+//                                          preferredStyleForTraitCollection: self.traitCollection)
+//            alert.addAction(UIAlertAction(title: CommonString.Title.leaveGroup, style: .destructive, handler: { [weak self] (action) in
+//                if let presentedViewController = self?.presentedViewController {
+//                    presentedViewController.dismiss(animated: true, completion: {
+//                        self?.leaveJoinedContactGroup(groupOwner: groupOwner, groupUid: groupUid, ownedCryptoId: ownedCryptoId, sourceView: sourceView, confirmed: true)
+//                    })
+//                } else {
+//                    self?.leaveJoinedContactGroup(groupOwner: groupOwner, groupUid: groupUid, ownedCryptoId: ownedCryptoId, sourceView: sourceView, confirmed: true)
+//                }
+//            }))
+//            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
+//            DispatchQueue.main.async { [weak self] in
+//                guard let _self = self else { return }
+//                alert.popoverPresentationController?.sourceView = sourceView
+//                if let presentedViewController = _self.presentedViewController {
+//                    presentedViewController.present(alert, animated: true)
+//                } else {
+//                    _self.present(alert, animated: true)
+//                }
+//            }
+//            
+//        }
+//
+//    }
     
     
     private func observeUserWantsToIntroduceContactToAnotherContactNotifications() {
@@ -2386,28 +2649,6 @@ extension MetaFlowController {
 
 extension MetaFlowController {
     
-    private func processUserWantsToRestartChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        do {
-            try obvEngine.restartAllOngoingChannelEstablishmentProtocolsWithContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
-        } catch {
-            DispatchQueue.main.async { [weak self] in
-                let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestartedFailed.title, message: "", preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
-                self?.present(alert, animated: true)
-            }
-            return
-        }
-        
-        // Display a feedback alert
-        DispatchQueue.main.async { [weak self] in
-            let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestarted.title, message: "", preferredStyle: .alert)
-            alert.addAction(UIAlertAction.init(title: CommonString.Word.Ok, style: .default))
-            self?.present(alert, animated: true)
-        }
-
-    }
-    
-
     private func observeUserTriedToAccessCameraButAccessIsDeniedNotifications() {
         let NotificationType = MessengerInternalNotification.UserTriedToAccessCameraButAccessIsDenied.self
         let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
@@ -2434,23 +2675,6 @@ extension MetaFlowController {
     }
     
 
-    private func processUserWantsToCreateNewGroupV1(groupName: String, groupDescription: String?, groupMembersCryptoIds: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?) {
-        assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
-        automaticallyNavigateToCreatedDisplayedContactGroup = true
-        let obvEngine = self.obvEngine
-        let log = self.log
-        DispatchQueue(label: "Background queue for calling obvEngine.startGroupCreationProtocol").async {
-            do {
-                try obvEngine.startGroupCreationProtocol(groupName: groupName, groupDescription: groupDescription, groupMembers: groupMembersCryptoIds, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
-            } catch {
-                os_log("Failed to create GroupV1: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-        }
-    }
-    
-
     @MainActor
     private func processDisplayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) async {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
@@ -2471,12 +2695,14 @@ extension MetaFlowController {
     
     @MainActor
     private func processUserWantsToAddOwnedProfileNotification() async {
-        presentedViewController?.dismiss(animated: true)
+        await presentedViewController?.dismissAndAwaitCompletion(animated: true)
         let newOnboardingFlowViewController = NewOnboardingFlowViewController(
             logSubsystem: ObvAppCoreConstants.logSubsystem,
             directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
             mode: .addProfile,
-            dataSource: self)
+            dataSource: self,
+            olvidShopViewActions: self,
+            olvidShopViewDataSources: self.dataSources.olvidShopViewDataSources)
         newOnboardingFlowViewController.delegate = self
         present(newOnboardingFlowViewController, animated: true)
     }
@@ -2488,7 +2714,7 @@ extension MetaFlowController {
 
 extension MetaFlowController {
     
-    /// Changes the current owned identity of the user. Called as a response to the corresponding notification and from the MainFlowViewController as well, when processing an externally tapped or scanned `OlvidURL`.
+    /// Changes the current owned identity of the user. Called as a response to the corresponding notification.
     @MainActor func processUserWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ObvCryptoId) async {
         presentedViewController?.dismiss(animated: true)
         await switchToOwnedIdentity(ownedCryptoId: ownedCryptoId)
@@ -2549,10 +2775,7 @@ extension MetaFlowController {
         guard let mainFlowViewController else { assertionFailure(); return }
         self.currentOwnedCryptoId = ownedCryptoId
         await LatestCurrentOwnedIdentityStorage.shared.storeLatestCurrentOwnedCryptoId(ownedCryptoId, isHidden: isHidden)
-        await mainFlowViewController.switchCurrentOwnedCryptoId(to: ownedCryptoId)
-        
-        ObvMessengerInternalNotification.metaFlowControllerDidSwitchToOwnedIdentity(ownedCryptoId: ownedCryptoId)
-            .postOnDispatchQueue()
+        await mainFlowViewController.switchCurrentOwnedCryptoId(to: ownedCryptoId)        
     }
     
 }
@@ -2560,36 +2783,321 @@ extension MetaFlowController {
 
 // MARK: OlvidURLHandler
 
-extension MetaFlowController {
+extension MetaFlowController: OlvidURLRouter {
 
-    func handleOlvidURL(_ olvidURL: OlvidURL) async {
-        // If the OlvidURL is an openId redirect, we handle it immediately.
-        // Otherwise, we passe it down to the olvidURLHandler
-        if let opendIdRedirectURL = olvidURL.isOpenIdRedirectWithURL {
+    /// The `NewAppStateManager` calls this method from its `func handleOlvidURL(_ olvidURL: OlvidURL)`, as we are its `olvidURLHandler`.
+    /// This method should **always** be called first during the processing of an `OlvidURL`. One possible way of doing this is to call `NewAppStateManager.shared.handleOlvidURL(...)`.
+    func routeOlvidURL(_ olvidURL: OlvidURL) async {
+        
+        switch olvidURL.category {
+            
+        case .openIdRedirect:
+            
+            // If the OlvidURL is an openId redirect, we handle it immediately.
+            await handleOlvidURLOfTypeOpenIdRedirectWithURL(opendIdRedirectURL: olvidURL.url)
+            
+        case .configuration(let configurationKind):
+            
+            switch configurationKind {
+                
+            case .serverAndAPIKey(let serverAndAPIKey):
+                await handleOlvidURLOfTypeConfigurationWithServerAndAPIKey(serverAndAPIKey: serverAndAPIKey)
+                
+            case .betaConfiguration(let betaConfiguration):
+                await handleOlvidURLOfTypeConfigurationWithBetaConfiguration(betaConfiguration: betaConfiguration)
+                
+            case .keycloakConfig(let keycloakConfig):
+                await handleOlvidURLOfTypeConfigurationWithKeycloakConfiguration(keycloakConfig: keycloakConfig)
+                
+            }
+            
+        case .mutualScan(mutualScanURL: let mutualScanURL):
+            
             do {
-                _ = try await KeycloakManagerSingleton.shared.resumeExternalUserAgentFlow(with: opendIdRedirectURL)
-                os_log("Successfully resumed the external user agent flow", log: Self.log, type: .info)
+                try await self.mainFlowViewController?.handleOlvidURLOfTypeMutualScan(mutualScanURL: mutualScanURL)
             } catch {
-                os_log("Failed to resume external user agent flow: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                Self.logger.fault("Could not handle OlvidURL of type mutual scan: \(error)")
+                assertionFailure()
+            }
+                            
+        case .invitation(urlIdentity: let remoteURLIdentity):
+            
+            await handleOlvidURLOfTypeInvitation(remoteURLIdentity: remoteURLIdentity)
+            
+        }
+
+    }
+    
+    
+    /// Handles the activation and the deactivation of Beta settings.
+    ///
+    /// This is a helper method for `func handleOlvidURL(_ olvidURL: OlvidURL)`.
+    ///
+    private func handleOlvidURLOfTypeConfigurationWithBetaConfiguration(betaConfiguration: BetaConfiguration) async {
+        await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+        let vc = BetaSettingsActivationViewController(isAccessToAdvancedSettingsEnabled: betaConfiguration.beta)
+        self.present(vc, animated: true)
+    }
+    
+    
+    /// Handles license assignment to a user's profile.
+    ///
+    /// This is a helper method for `func handleOlvidURL(_ olvidURL: OlvidURL)`.
+    ///
+    /// Four scenarios are considered:
+    /// 1. Initial Onboarding: If the user has no profiles, the license is passed to the onboarding flow.
+    /// 2. Adding a New Profile: If an onboarding is already presented, the license is passed to create a new profile.
+    /// 3. Single Profile: If only one profile exists, the license activation screen is shown for that profile.
+    /// 4. Multiple Profiles: If multiple profiles exist, the user selects the target profile, switches to it, and the license activation screen is displayed.
+    private func handleOlvidURLOfTypeConfigurationWithServerAndAPIKey(serverAndAPIKey: ServerAndAPIKey) async {
+        
+        if let onboardingFlowViewController {
+            // We are performing the initial onboarding.
+            await onboardingFlowViewController.handleOlvidURLOfTypeConfigurationWithServerAndAPIKey(serverAndAPIKey: serverAndAPIKey)
+        } else if let onboardingFlowViewController = presentedViewController as? NewOnboardingFlowViewController {
+            // We are creating a new profile.
+            await onboardingFlowViewController.handleOlvidURLOfTypeConfigurationWithServerAndAPIKey(serverAndAPIKey: serverAndAPIKey)
+        } else {
+            // Since there is no onboarding, we expect to have at least one existing profile.
+            // Let the user choose the profile she wants to use for this license.
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            let chosenOwnedCryptoId: ObvCryptoId
+            do {
+                guard let _chosenOwnedCryptoId = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() else {
+                    // The user dismissed the profile chooser, we discard the OlvidURL
+                    return
+                }
+                chosenOwnedCryptoId = _chosenOwnedCryptoId
+            } catch {
+                Self.logger.fault("Could not handle OlvidURL of type .configuration containing a serverAndAPIKey: \(error)")
                 assertionFailure()
                 return
             }
-        } else {
-            if let olvidURLHandler = self.presentedViewController as? OlvidURLHandler {
-                // When the onboarding is presented (e.g., to create a second profile), this allows to pass any scanned URL to it (in particular, keycloak configurations)
-                await olvidURLHandler.handleOlvidURL(olvidURL)
-            } else {
-                guard let olvidURLHandler = self.children.compactMap({ $0 as? OlvidURLHandler }).first else { assertionFailure(); return }
-                await olvidURLHandler.handleOlvidURL(olvidURL)
+            // Switch to the chosen profile
+            await self.switchToOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
+            // Present the view allowing the user to consult and accept the license
+            let dataSource = self.dataSources.licenseActivationViewDataSource
+            let vc = NewLicenseActivationViewController(ownedCryptoId: chosenOwnedCryptoId, serverAndAPIKey: serverAndAPIKey, dataSource: dataSource, actions: self)
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            self.present(vc, animated: true)
+        }
+
+    }
+    
+    
+    private func handleOlvidURLOfTypeInvitation(remoteURLIdentity: ObvURLIdentity) async {
+        
+        // Let the user choose the profile she wants to use for this license.
+        await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+        let chosenOwnedCryptoId: ObvCryptoId
+        do {
+            guard let _chosenOwnedCryptoId = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() else {
+                // The user dismissed the profile chooser, we discard the OlvidURL
+                return
             }
+            chosenOwnedCryptoId = _chosenOwnedCryptoId
+        } catch {
+            Self.logger.fault("Could not handle OlvidURL of type .invitation: \(error)")
+            assertionFailure()
+            return
+        }
+        // Switch to the chosen profile
+        await self.switchToOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
+
+        // Handle the invitation link with the chosent profile
+        assert(self.mainFlowViewController != nil)
+        await self.mainFlowViewController?.handleExternalInvitation(remoteURLIdentity: remoteURLIdentity)
+        
+    }
+    
+    /// Handles a scanned (or tapped) keycloak configuration.
+    ///
+    /// This is a helper method for `func handleOlvidURL(_ olvidURL: OlvidURL)`.
+    ///
+    /// Four scenarios are considered:
+    /// 1. Initial Onboarding: If the user has no profiles, the keycloak configuration is passed to the onboarding flow.
+    /// 2. Adding a New Profile: If an onboarding is already presented, the keycloak configuration is passed to create a new profile.
+    /// 3. Single Profile: If only one profile exists, we launch a new onboarding in the `.bindExistingProfileToKeycloak` mode, allowing the user to bind the profile to a keycloak server.
+    /// 4. Multiple Profiles: If multiple profiles exist, the user selects the target profile, switches to it. We then launch a new onboarding in the `.bindExistingProfileToKeycloak` mode, allowing the user to bind the profile to a keycloak server.
+    private func handleOlvidURLOfTypeConfigurationWithKeycloakConfiguration(keycloakConfig: ObvKeycloakConfigurationAndServer) async {
+        
+        if let onboardingFlowViewController {
+            // We are performing the initial onboarding.
+            await onboardingFlowViewController.handleOlvidURLOfTypeConfigurationWithKeycloakConfigurationAndServer(keycloakConfig: keycloakConfig)
+        } else if let onboardingFlowViewController = presentedViewController as? NewOnboardingFlowViewController {
+            // We are creating a new profile.
+            await onboardingFlowViewController.handleOlvidURLOfTypeConfigurationWithKeycloakConfigurationAndServer(keycloakConfig: keycloakConfig)
+        } else {
+            // Since there is no onboarding, we expect to have at least one existing profile.
+            // Let the user choose the profile she wants to use for this keycloak configuration.
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            let chosenOwnedCryptoId: ObvCryptoId
+            do {
+                guard let _chosenOwnedCryptoId = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() else {
+                    // The user dismissed the profile chooser, we discard the OlvidURL
+                    return
+                }
+                chosenOwnedCryptoId = _chosenOwnedCryptoId
+            } catch {
+                Self.logger.fault("Could not handle OlvidURL of type .configuration containing a serverAndAPIKey: \(error)")
+                assertionFailure()
+                return
+            }
+            // Switch to the chosen profile
+            await self.switchToOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
+            // The user chose the profile to bind. We launch an onboarding flow in the .bindExistingProfileToKeycloak mode
+            let vc = NewOnboardingFlowViewController(
+                logSubsystem: ObvAppCoreConstants.logSubsystem,
+                directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
+                mode: .bindExistingProfileToKeycloak(ownedCryptoId: chosenOwnedCryptoId,
+                                                     keycloakConfigurationAndServer: keycloakConfig),
+                dataSource: self,
+                olvidShopViewActions: self,
+                olvidShopViewDataSources: self.dataSources.olvidShopViewDataSources)
+            vc.delegate = self
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            self.present(vc, animated: true)
+        }
+
+    }
+    
+    
+    private func handleOlvidURLOfTypeOpenIdRedirectWithURL(opendIdRedirectURL: URL) async {
+        do {
+            _ = try await KeycloakManagerSingleton.shared.resumeExternalUserAgentFlow(with: opendIdRedirectURL)
+            os_log("Successfully resumed the external user agent flow", log: Self.log, type: .info)
+        } catch {
+            os_log("Failed to resume external user agent flow: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return
         }
     }
+    
+}
 
+
+// MARK: - Implementing NewLicenseActivationViewActions
+
+extension MetaFlowController: NewLicenseActivationViewActions {
+    
+    /// Called when the user accepts to activate a new license for the owned crypto id.
+    func userWantsToActivateNewLicense(_ view: ObvLicenceActivationFlow.NewLicenseActivationView, ownedCryptoId: ObvTypes.ObvCryptoId, serverAndAPIKey: ObvTypes.ServerAndAPIKey) async throws {
+        try await obvEngine.registerOwnedAPIKeyOnServerNow(ownedCryptoId: ownedCryptoId, apiKey: serverAndAPIKey.apiKey)
+    }
+    
+    func userWantsToDismissNewLicenseActivationView(_ view: ObvLicenceActivationFlow.NewLicenseActivationView) {
+        self.presentedViewController?.dismiss(animated: true)
+    }
+    
+}
+
+
+// MARK: - Helper to choose an owned identity when required for an OlvidURL
+
+extension MetaFlowController {
+    
+    /// Highly asynchronous sequence that allows to present the owned identity chooser (if appropriate) and that returns the user choice.
+    ///
+    /// If there is no profile on this device, this method throws. If there is exactly one profile on this device, it is immediately returned.
+    /// Otherwise, it presents an `OwnedIdentityChooserViewController` and returns the
+    /// chosen owned `ObvCryptoId`. If the user cancels by either dismissing the controller or tapping the cancel button, this method returns nil.
+    private func requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() async throws -> ObvCryptoId? {
+
+        let ownedIdentities: [PersistedObvOwnedIdentity]
+        do {
+            let notHiddenOwnedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext)
+            if let currentOwnedCryptoId = self.currentOwnedCryptoId, let currentOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: currentOwnedCryptoId, within: ObvStack.shared.viewContext), currentOwnedIdentity.isHidden {
+                ownedIdentities = [currentOwnedIdentity] + notHiddenOwnedIdentities
+            } else {
+                ownedIdentities = notHiddenOwnedIdentities
+            }
+        } catch {
+            Self.logger.fault("Could not get all owned identities: \(error)")
+            assertionFailure()
+            throw error
+        }
+        
+        if let currentOrFirstOwnedCryptoId = self.currentOwnedCryptoId ?? ownedIdentities.first?.cryptoId {
+            
+            if ownedIdentities.count == 1 {
+                
+                // There is exactly one profile on this phone, we return it now
+
+                return currentOrFirstOwnedCryptoId
+
+            } else {
+                
+                // There is more than one profile to choose from
+
+                return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<ObvCryptoId?, any Error>) in
+                    
+                    guard let self else { return continuation.resume(throwing: ObvError.ownedIdentityChooserViewControllerFlowWasCancelled) }
+
+                    self.localOwnedIdentityChooserViewControllerDelegate.set(continuation: continuation)
+                    
+                    let callbackOnViewDidDisappear: (() -> Void) = { [weak self] in
+                        Task { await self?.localOwnedIdentityChooserViewControllerDelegate.userDismissedTheOwnedIdentityChooserViewController() }
+                    }
+                    
+                    let ownedIdentityChooserVC = OwnedIdentityChooserViewController(
+                        currentOwnedCryptoId: currentOrFirstOwnedCryptoId,
+                        actions: localOwnedIdentityChooserViewControllerDelegate,
+                        dataSource: self.dataSources.ownedIdentityChooserViewDataSource,
+                        avatarViewDataSource: self.dataSources.avatarViewDataSource,
+                        configuration: .init(mode: .selectProfile,
+                                             explanation: String(localized: "PLEASE_SELECT_A_PROFILE_BEFORE_CONTINUING"),
+                                             title: "MY_PROFILES",
+                                             isEmbeddedInHostingController: true),
+                        callbackOnViewDidDisappear: callbackOnViewDidDisappear,
+                        toggleToDismiss: .init(get: { false }, set: { [weak self] value in
+                            guard value else { return }
+                            (self?.presentedViewController as? OwnedIdentityChooserViewController)?.dismiss(animated: true)
+                        }))
+                    
+                    // Under iPhone, we use a popover presentation style. Since we have no source view, we cannot do the same under iPad or mac.
+                    // Note that this method gets also called when the user taps an invitation link in a Safari window. In that case, we cannot have a source view anyway.
+                    if traitCollection.userInterfaceIdiom == .phone {
+                        ownedIdentityChooserVC.modalPresentationStyle = .popover
+                        if let popover = ownedIdentityChooserVC.popoverPresentationController {
+                            let sheet = popover.adaptiveSheetPresentationController
+                            sheet.detents = [.medium(), .large()]
+                            sheet.prefersGrabberVisible = true
+                            if #available(iOS 26.0, *) {
+                                // Keep the default preferredCornerRadius
+                            } else {
+                                sheet.preferredCornerRadius = 16.0
+                            }
+                        }
+                    } else {
+                        ownedIdentityChooserVC.modalPresentationStyle = .formSheet
+                    }
+
+                    present(ownedIdentityChooserVC, animated: true)
+                    
+                }
+
+            }
+            
+        } else {
+            
+            // There are no profiles on this device
+            
+            throw ObvError.noProfileToChoose
+            
+        }
+        
+    }
+    
+    
+    private func configureAndPresentOwnedIdentityChooserViewControllerWhenProcessingExternallyScannedOrTappedOlvidURL() async {
+        
+    }
+
+    
 }
 
 
 // MARK: - Refreshing the view context on certain Core Data notifications
-
 
 extension MetaFlowController {
     
@@ -2620,6 +3128,7 @@ extension MetaFlowController {
 extension MetaFlowController {
     
     enum ObvError: LocalizedError {
+        case noProfileToChoose
         case couldNotFindOwnedIdentity
         case couldNotCompressImage
         case theAppBackupDelegateIsNotSet
@@ -2633,9 +3142,14 @@ extension MetaFlowController {
         case couldNotDetermineGroupMemberPermissions
         case noDeviceBackupFoundForThisBackupSeed
         case osUpgradeRequired
+        case ownedIdentityChooserViewControllerFlowWasCancelled
         
         var errorDescription: String? {
             switch self {
+            case .ownedIdentityChooserViewControllerFlowWasCancelled:
+                return "Owned identity chooser view controller flow was cancelled"
+            case .noProfileToChoose:
+                return "No profile to choose"
             case .couldNotFindOwnedIdentity:
                 return "Could not find owned identity"
             case .couldNotCompressImage:
@@ -2667,6 +3181,10 @@ extension MetaFlowController {
         
         var recoverySuggestion: String? {
             switch self {
+            case .ownedIdentityChooserViewControllerFlowWasCancelled:
+                return nil
+            case .noProfileToChoose:
+                return nil
             case .couldNotFindOwnedIdentity:
                 return nil
             case .couldNotCompressImage:
@@ -2708,12 +3226,12 @@ extension MetaFlowController {
     /// This is called when the user taps the "refresh" button on her own identity screen and when a new owned identity is inserted in the app database.
     /// This method request the current subscriptions to store
     /// kit. If a valid subscription is found, it associated to each owned identity present on this device by contacting Olvid's servers.
-    /// Then, if there is a "current" owned identity, we refresh the permissions by requesting them from Olvid's servers.
-    func refreshSubscriptionStatus() async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult] {
+    /// Then, if an owned identity is specified, we refresh the permissions by requesting them from Olvid's servers.
+    func refreshSubscriptionStatus(ownedCryptoId: ObvCryptoId?) async throws -> [ObvAppTypes.StoreKitDelegatePurchaseResult] {
         guard let storeKitDelegate else { assertionFailure(); throw ObvError.storeKitDelegateIsNil }
-        let results = try await storeKitDelegate.userWantsToRefreshSubscriptionStatus()
-        if let currentOwnedCryptoId {
-            _ = try await obvEngine.refreshAPIPermissions(of: currentOwnedCryptoId)
+        let results = try await storeKitDelegate.refreshSubscriptionStatus()
+        if let ownedCryptoId {
+            _ = try await obvEngine.refreshAPIPermissions(of: ownedCryptoId)
         }
         return results
     }
@@ -2828,16 +3346,24 @@ extension MetaFlowController {
     
 }
 
+// MARK: - Private helpers
 
-// MARK: - Helper functions for subscriptions and implementing SubscriptionPlansViewDismissActionsProtocol
-
-extension MetaFlowController: SubscriptionPlansViewDismissActionsProtocol {
+extension MetaFlowController {
     
-    private func userWantsToSubscribeOlvidPlus(ownedCryptoId: ObvCryptoId) {
-        let model = SubscriptionPlansViewModel(
-            ownedCryptoId: ownedCryptoId,
-            showFreePlanIfAvailable: true)
-        let vc = SubscriptionPlansHostingView(model: model, actions: self, dismissActions: self)
+    /// Presents the `OlvidShopView`, allowing the user to subscribe to an Olvid+ plan.
+    ///
+    /// This method is primarily used during a device transfer process, where the user is shown a list of devices that will be deactivated after the transfer.
+    /// In this context, the user has the option to tap a button to keep all their devices active by subscribing to Olvid+.
+    ///
+    /// Also used when the user taps on the "Discover Olvid+" button on one of the Olvid+ tips.
+    ///
+    /// - Note: One of the methods calling this one stores a continuation locally, enabling the onboarding flow to update the UI accordingly.
+    private func userWantsToSubscribeOlvidPlus() {
+        let vc = OlvidShopViewController(
+            dataSources: self.dataSources.olvidShopViewDataSources,
+            navigation: self,
+            actions: self,
+            viewControllerNavigation: self)
         if let presentedViewController = self.presentedViewController {
             presentedViewController.present(vc, animated: true)
         } else {
@@ -2845,18 +3371,6 @@ extension MetaFlowController: SubscriptionPlansViewDismissActionsProtocol {
         }
     }
 
-    
-    func userWantsToDismissSubscriptionPlansView() async {
-        presentedViewController?.dismiss(animated: true)
-        await processOnboardingContinuationIfRequired()
-    }
-    
-    
-    func dismissSubscriptionPlansViewAfterPurchaseWasMade() async {
-        presentedViewController?.dismiss(animated: true)
-        await processOnboardingContinuationIfRequired()
-    }
-    
     
     private func processOnboardingContinuationIfRequired() async {
         guard let (continuation, ownedCryptoIdentity) = self.continuationAndOwnedCryptoIdentity else { return }
@@ -2869,7 +3383,8 @@ extension MetaFlowController: SubscriptionPlansViewDismissActionsProtocol {
         }
                 
     }
-            
+
+    
 }
 
 
@@ -2895,11 +3410,7 @@ extension MetaFlowController {
 
             let imageFromPicker = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
                 self.continuationsForObtainingAvatar = continuation
-                if let presentedViewController = self.presentedViewController {
-                    presentedViewController.present(picker, animated: true)
-                } else {
-                    present(picker, animated: true)
-                }
+                self.presentOnTop(picker, animated: true)
             }
 
             guard let imageFromPicker else { return nil }
@@ -3091,94 +3602,35 @@ extension MetaFlowController: UIImagePickerControllerDelegate, UINavigationContr
 }
 
 
-// MARK: - Internal helper pour fetch avatars during onboarding and settings, while showing profile backups that can be restored
-
-private actor AvatarHelper {
-    
-    let obvEngine: ObvEngine
-    
-    init(obvEngine: ObvEngine) {
-        self.obvEngine = obvEngine
-    }
-    
-    private var cache = NSCache<NSData, UIImage>()
-    
-    private var cacheOfLocalImages = NSCache<NSURL, UIImage>()
-    
-    func fetchAvatarImage(ownedCryptoId: ObvTypes.ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, size: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
-        
-        let frameSizeInPixels = await size.frameSizeInPixels
-        
-        // Try to fetch the image from the local app database
-        if let image = try await fetchAvatarImageOfPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId) {
-            let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
-            return thumbnail
-        }
-        
-        if let image = cache.object(forKey: ownedCryptoId.getIdentity() as NSData) {
-            let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
-            return thumbnail
-        }
-
-        // Forward the request to the engine, so as to fetch the image from the server
-        if let imageData = try await obvEngine.getUserDataNow(ownedCryptoId: ownedCryptoId, encodedServerKeyAndLabel: encodedPhotoServerKeyAndLabel), let image = UIImage(data: imageData) {
-            self.cache.setObject(image, forKey: ownedCryptoId.getIdentity() as NSData, cost: imageData.count)
-            let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
-            return thumbnail
-        }
-                
-        return nil
-        
-    }
-    
-    /// Appropriate function to call to fetch an avatar image (for an owned identity, a contact, a group member, a group, ...), when the local URL of the photo is known.
-    func fetchAvatarImage(localPhotoURL: URL, size: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
-        
-        let image: UIImage
-        
-        if let cachedImage = cacheOfLocalImages.object(forKey: localPhotoURL as NSURL) {
-            image = cachedImage
-        } else {
-            let data = try Data(contentsOf: localPhotoURL)
-            guard let imageFromDisk = UIImage(data: data) else { return nil }
-            cacheOfLocalImages.setObject(imageFromDisk, forKey: localPhotoURL as NSURL, cost: data.count)
-            image = imageFromDisk
-        }
-        
-        let frameSizeInPixels = await size.frameSizeInPixels
-        let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
-        return thumbnail
-        
-    }
-    
-
-    /// Helper function for `fetchAvatarImage(_:ownedCryptoId:)`. It allows to fetch an return an avatar photo for the owned identity asynchronously.
-    private func fetchAvatarImageOfPersistedObvOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> UIImage? {
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UIImage?, any Error>) in
-            ObvStack.shared.performBackgroundTask { context in
-                do {
-                    guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context) else {
-                        return continuation.resume(returning: nil)
-                    }
-                    guard let photoURL = ownedIdentity.photoURL else {
-                        return continuation.resume(returning: nil)
-                    }
-                    let data = try Data(contentsOf: photoURL)
-                    let image = UIImage(data: data)
-                    return continuation.resume(returning: image)
-                } catch {
-                    return continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-
-}
-
-
 // MARK: - Observing the app database
 
 extension MetaFlowController: PersistedObvOwnedIdentityObserver {
+    
+    /// Handles the transition of `APIPermissions` from `[]` to `[.canCall, .multidevice]` to determine whether an
+    /// `olvidPlusSuccessfulSubscription` tip should be displayed.
+    ///
+    /// When this transition occurs, the method checks if the user has either:
+    /// - Subscribed to Olvid+ directly, or
+    /// - Received access via family sharing.
+    ///
+    /// If a valid subscription is detected:
+    /// 1. A `userDefaults` value is set to track the subscription type.
+    /// 2. A refresh of the tips displayed at the top of the recent discussions list is requested. This refresh displays a tip confirming the user's access to Olvid+ features.
+    ///
+    /// The displayed tip includes a dismiss button, which calls `MetaFlowController.userWantsToDismissOlvidPlusSuccessfulSubscriptionView`.
+    /// This method removes the `userDefaults` value and triggers another refresh to hide the tip.
+    func theAPIPermissionsOfOwnedIdentityDidChange(ownedCryptoId: ObvCryptoId, oldAPIPermissions: APIPermissions, newAPIPermissions: APIPermissions) async {
+        do {
+            guard oldAPIPermissions == [] && newAPIPermissions.contains([.canCall, .multidevice]) else { return }
+            guard let storeKitDelegate else { throw ObvError.storeKitDelegateIsNil }
+            guard let ownershipType = try await storeKitDelegate.getOwnershipTypeForTipNotificationOfJustMadeSubscription() else { return }
+            userDefaults?.set(ownershipType.rawValue, forKey: ObvMessengerConstants.UserDefaultsKeys.olvidPlusSubscriptionConfirmationTipToDisplay.rawValue)
+            (dataSources.tipCellViewAppDataSource as? TipCellViewAppDataSource)?.refreshTip()
+        } catch {
+            assertionFailure()
+        }
+    }
+    
     
     func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {
         do {
@@ -3188,12 +3640,11 @@ extension MetaFlowController: PersistedObvOwnedIdentityObserver {
         }
     }
     
-    
-    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId, isActive: Bool) async {
+    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) async {
         // When a new owned identity is created, we refresh the subscriptions to make sure any existing valid subscription
         // is immediately associated to this new owned identity
         do {
-            let results = try await refreshSubscriptionStatus()
+            let results = try await refreshSubscriptionStatus(ownedCryptoId: nil)
             var aSubscriptionIfValidOnServer = false
             for result in results {
                 switch result {
@@ -3208,7 +3659,8 @@ extension MetaFlowController: PersistedObvOwnedIdentityObserver {
                 case .userCancelled,
                         .pending,
                         .expired,
-                        .revoked:
+                        .revoked,
+                        .isUpgraded:
                     continue
                 }
             }
@@ -3355,4 +3807,216 @@ extension MetaFlowController: PersistedDiscussionObserver {
         }
     }
     
+}
+
+
+// MARK: - Helper class
+
+/// This private helper class is used to allow the MetaFlowController to offer a simple API allowing the user to choose one of her profiles when processing
+/// an OlvidURL.
+@MainActor
+private final class LocalOwnedIdentityChooserViewControllerDelegate: OwnedIdentityChooserViewActionsProtocol {
+        
+    private var continuation: CheckedContinuation<ObvCryptoId?, any Error>?
+    
+    func set(continuation: CheckedContinuation<ObvCryptoId?, any Error>) {
+        failExistingContinuationIfRequired() // This sets self.continuation to nil
+        self.continuation = continuation
+    }
+    
+    func failExistingContinuationIfRequired() {
+        guard let continuation = self.continuation else { return }
+        self.continuation = nil
+        continuation.resume(returning: nil)
+    }
+    
+    func userDismissedTheOwnedIdentityChooserViewController() async {
+        guard let continuation = self.continuation else { return }
+        self.continuation = nil
+        continuation.resume(returning: nil)
+    }
+
+    // Implementing OwnedIdentityChooserViewActionsProtocol
+    
+    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
+        guard let continuation = self.continuation else { return }
+        self.continuation = nil
+        continuation.resume(returning: chosenOwnedCryptoId)
+    }
+    
+    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
+        assertionFailure("Unexpected as the OwnedIdentityChooserViewController is in selectProfile mode")
+    }
+    
+    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView) async {
+        assertionFailure("Unexpected as the OwnedIdentityChooserViewController is in selectProfile mode")
+    }
+
+}
+
+
+// MARK: - Helper struct
+
+private actor LocalAvatarViewAppDataSource: ObvAvatarViewAppDataSourceDelegate {
+    
+    private let obvEngine: ObvEngine
+    
+    init(obvEngine: ObvEngine) {
+        self.obvEngine = obvEngine
+    }
+    
+    func getUserDataNow(ownedCryptoId: ObvTypes.ObvCryptoId, encodedServerKeyAndLabel: Data?) async throws -> Data? {
+        return try await obvEngine.getUserDataNow(ownedCryptoId: ownedCryptoId, encodedServerKeyAndLabel: encodedServerKeyAndLabel)
+    }
+    
+    nonisolated
+    func performBackgroundTask(_ block: @escaping (NSManagedObjectContext) -> Void) {
+        ObvStack.shared.performBackgroundTask(block)
+    }
+    
+    
+}
+
+
+// MARK: - Helper struct
+
+private protocol LocalObvSingleContactViewAppDataSourceDelegateImplementationDelegate: AnyObject {
+    func freshContactIdentityReceivedWhileShowingSingleContactView(_ implementation: LocalObvSingleContactViewAppDataSourceDelegateImplementation, contactIdentity: ObvContactIdentity) async
+}
+
+private final class LocalObvSingleContactViewAppDataSourceDelegateImplementation: ObvSingleContactViewAppDataSourceDelegate {
+        
+    private let engine: ObvEngine
+    weak var delegate: LocalObvSingleContactViewAppDataSourceDelegateImplementationDelegate?
+    
+    init(engine: ObvEngine) {
+        self.engine = engine
+    }
+    
+    func getAsyncStreamOfObvContactIdentity(_ dataSource: ObvSingleContactViewAppDataSource, for contactIdentifier: ObvContactIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvContactIdentity>) {
+        return try await engine.getAsyncStreamOfObvContactIdentity(for: contactIdentifier)
+    }
+
+    func finishAsyncSequenceOfObvContactIdentity(_ dataSource: ObvSingleContactViewAppDataSource, streamUUID: UUID) {
+        engine.finishAsyncSequenceOfObvContactIdentity(streamUUID: streamUUID)
+    }
+ 
+    
+    func freshContactIdentityReceivedWhileShowingSingleContactView(_ dataSource: ObvSingleContactViewAppDataSource, contactIdentity: ObvContactIdentity) async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.freshContactIdentityReceivedWhileShowingSingleContactView(self, contactIdentity: contactIdentity)
+    }
+    
+}
+
+
+// MARK: - Helper struct
+
+private final class LocalNewLicenseActivationViewControllerAppDataSourceDelegate: NewLicenseActivationViewControllerAppDataSourceDelegate {
+
+    private let engine: ObvEngine
+    
+    init(engine: ObvEngine) {
+        self.engine = engine
+    }
+
+    func getApiKeyElementsFromServer(_ dataSource: NewLicenseActivationViewControllerAppDataSource, ownedCryptoId: ObvCryptoId, apiKey: UUID) async throws -> ObvTypes.APIKeyElements {
+        let apiKeyElements = try await engine.queryAPIKeyStatus(for: ownedCryptoId, apiKey: apiKey)
+        return apiKeyElements
+    }
+
+}
+
+
+// Helper
+
+private final class LocalTrustOriginsListViewAppDataSourceDelegate: ObvTrustOriginsListViewAppDataSourceDelegate {
+            
+    private let engine: ObvEngine
+    
+    init(engine: ObvEngine) {
+        self.engine = engine
+    }
+
+    func getAsyncStreamOfObvTrustOrigin(_ dataSource: ObvTrustOriginsListViewAppDataSource, contactIdentifier: ObvTypes.ObvContactIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<[ObvTypes.ObvTrustOrigin]>) {
+        return try await engine.getAsyncStreamOfObvTrustOrigin(contactIdentifier: contactIdentifier)
+    }
+
+    func finishAsyncStreamOfObvTrustOrigin(_ dataSource: ObvTrustOriginsListViewAppDataSource, streamUUID: UUID) {
+        engine.finishAsyncStreamOfObvTrustOrigin(streamUUID: streamUUID)
+    }
+
+}
+
+
+private final class LocalSingleGroupV1MainViewAppDataSourceDelegate: SingleGroupV1MainViewAppDataSourceDelegate {
+            
+    private let engine: ObvEngine
+    
+    init(engine: ObvEngine) {
+        self.engine = engine
+    }
+
+
+    func getAsyncStreamOfJoinedGroupV1Details(_ dataSource: SingleGroupV1MainViewAppDataSource, groupIdentifier: ObvTypes.ObvGroupV1Identifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvTypes.ObvGroupTrustedAndPublishedDetails>) {
+        return try await engine.getAsyncStreamOfJoinedGroupV1Details(groupIdentifier: groupIdentifier)
+    }
+    
+    func finishAsyncStreamOfJoinedGroupV1Details(_ dataSource: SingleGroupV1MainViewAppDataSource, streamUUID: UUID) {
+        engine.finishAsyncStreamOfJoinedGroupV1Details(streamUUID: streamUUID)
+    }
+
+}
+
+
+private final class LocalEditGroupNameAndPictureViewAppDataSourceDelegate: EditGroupNameAndPictureViewAppDataSourceDelegate {
+    
+    private let engine: ObvEngine
+    
+    init(engine: ObvEngine) {
+        self.engine = engine
+    }
+
+    func getAsyncStreamOfJoinedGroupV1Details(_ dataSource: EditGroupNameAndPictureViewAppDataSource, groupIdentifier: ObvTypes.ObvGroupV1Identifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvTypes.ObvGroupTrustedAndPublishedDetails>) {
+        return try await engine.getAsyncStreamOfJoinedGroupV1Details(groupIdentifier: groupIdentifier)
+    }
+    
+    func finishAsyncStreamOfJoinedGroupV1Details(_ dataSource: EditGroupNameAndPictureViewAppDataSource, streamUUID: UUID) {
+        engine.finishAsyncStreamOfJoinedGroupV1Details(streamUUID: streamUUID)
+    }
+    
+}
+
+
+private final class LocalChooseDeviceToReactivateViewAppDataSourceDelegate: ObvChooseDeviceToReactivateViewAppDataSourceDelegate {
+    
+    private let engine: ObvEngine
+    
+    init(engine: ObvEngine) {
+        self.engine = engine
+    }
+
+    func performOwnedDeviceDiscoveryNow(_ dataSource: ObvChooseDeviceToReactivateViewAppDataSource, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> ObvTypes.ObvOwnedDeviceDiscoveryResult {
+        try await engine.performOwnedDeviceDiscoveryNow(ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+private final class LocalOwnedDetailedInfosViewAppDataSourceDelegate: ObvOwnedDetailedInfosViewAppDataSourceDelegate {
+        
+    private let engine: ObvEngine
+    
+    init(engine: ObvEngine) {
+        self.engine = engine
+    }
+
+    func getOwnedIdentityKeycloakState(_ dataSource: ObvOwnedDetailedInfosViewAppDataSource, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> ObvTypes.ObvKeycloakStateAndUserDetails? {
+        return try await engine.getOwnedIdentityKeycloakState(with: ownedCryptoId)
+    }
+    
+    func getRegisteredKeycloakAPIKey(_ dataSource: ObvOwnedDetailedInfosViewAppDataSource, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> UUID? {
+        return try await engine.getKeycloakAPIKey(ownedCryptoId: ownedCryptoId)
+    }
+
 }

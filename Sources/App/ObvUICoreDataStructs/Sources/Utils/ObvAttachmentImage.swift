@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import Foundation
 import CoreGraphics
 import UIKit
 
-public enum ObvAttachmentImage {
+public enum ObvAttachmentImage: Sendable {
 
     case cgImage(attachmentNumber: Int, CGImage)
     case data(attachmentNumber: Int, Data)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,7 +37,7 @@ final class ChangeAttachmentStatusToPausedOperation: ContextualOperationWithSpec
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         do {
-            guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
+            guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else { return }
             try attachment.pauseDownload()
         } catch {
             return cancel(withReason: .coreDataError(error: error))

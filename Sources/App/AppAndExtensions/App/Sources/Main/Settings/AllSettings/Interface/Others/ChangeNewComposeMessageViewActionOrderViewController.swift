@@ -23,6 +23,7 @@ import ObvUICoreData
 import Combine
 import ObvSettings
 import ObvDesignSystem
+import ObvAppTypes
 
 
 enum ComposeMessageViewSettingsViewControllerInput {
@@ -32,7 +33,7 @@ enum ComposeMessageViewSettingsViewControllerInput {
 
 
 
-final class ComposeMessageViewSettingsViewController: UITableViewController {
+final class ComposeMessageViewSettingsViewController: KeyboardTableViewController {
 
     private var notificationTokens = [NSObjectProtocol]()
     private var cancellables = Set<AnyCancellable>()
@@ -531,15 +532,27 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
                     debugPrint("Test")
                 }
                 let vc = EmojiPickerHostingViewController(model: model)
-                if let sheet = vc.sheetPresentationController {
-                    sheet.detents = [.medium()]
-                    sheet.prefersGrabberVisible = true
-                    sheet.preferredCornerRadius = 30.0
-                }
-                present(vc, animated: true) {
-                    tableView.deselectRow(at: indexPath, animated: true)
-                }
+                
+                if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+                    
+                    let nav = UINavigationController(rootViewController: vc)
+                    present(nav, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
 
+                } else {
+                
+                    if let sheet = vc.sheetPresentationController {
+                        sheet.detents = [.medium()]
+                        sheet.prefersGrabberVisible = true
+                        sheet.preferredCornerRadius = 30.0
+                    }
+                    present(vc, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
+
+                }
+                
             case .resetButton:
                 ObvMessengerSettings.Emoji.preferredEmojisList = ObvMessengerSettings.Emoji.defaultPreferredEmojisList
                 // We rely on the observed published preferredEmojisList to reload the table view rows
@@ -564,13 +577,25 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
                     tableView.reloadRows(at: indexPathsToReload, with: .automatic)
                 }
                 let vc = EmojiPickerHostingViewController(model: model)
-                if let sheet = vc.sheetPresentationController {
-                    sheet.detents = [.medium()]
-                    sheet.prefersGrabberVisible = true
-                    sheet.preferredCornerRadius = 30.0
-                }
-                present(vc, animated: true) {
-                    tableView.deselectRow(at: indexPath, animated: true)
+                
+                if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+                    
+                    let nav = UINavigationController(rootViewController: vc)
+                    present(nav, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
+
+                } else {
+                    
+                    if let sheet = vc.sheetPresentationController {
+                        sheet.detents = [.medium()]
+                        sheet.prefersGrabberVisible = true
+                        sheet.preferredCornerRadius = 30.0
+                    }
+                    present(vc, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
+
                 }
 
             case .resetButton:
@@ -594,15 +619,27 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
                         .postOnDispatchQueue()
                 }
                 let vc = EmojiPickerHostingViewController(model: model)
-                if let sheet = vc.sheetPresentationController {
-                    sheet.detents = [.medium()]
-                    sheet.prefersGrabberVisible = true
-                    sheet.preferredCornerRadius = 30.0
-                }
-                present(vc, animated: true) {
-                    tableView.deselectRow(at: indexPath, animated: true)
-                }
+                
+                if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+                    
+                    let nav = UINavigationController(rootViewController: vc)
+                    present(nav, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
 
+                } else {
+                
+                    if let sheet = vc.sheetPresentationController {
+                        sheet.detents = [.medium()]
+                        sheet.prefersGrabberVisible = true
+                        sheet.preferredCornerRadius = 30.0
+                    }
+                    present(vc, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
+
+                }
+                
             case .resetButton:
                 let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(nil)
                 ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: discussionConfiguration.typedObjectID)

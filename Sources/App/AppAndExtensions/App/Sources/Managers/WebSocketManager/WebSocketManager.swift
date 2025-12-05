@@ -53,7 +53,7 @@ actor WebSocketManager {
     }
 
     
-    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
+    func applicationWasInitializedButWasNeverOnScreen() async {
         // This is required when performing a cold launch, not clear why.
         setiOSLifecycleStateRequiresWebSocket(to: true)
     }

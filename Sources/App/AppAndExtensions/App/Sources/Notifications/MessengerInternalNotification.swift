@@ -76,25 +76,4 @@ struct MessengerInternalNotification {
         static let name = NSNotification.Name("MessengerInternalNotification.UserTriedToAccessCameraButAccessIsDenied")
     }
     
-    // MARK: - UserWantsToLeaveJoinedContactGroup
-    
-    struct UserWantsToLeaveJoinedContactGroup {
-        static let name = NSNotification.Name("MessengerInternalNotification.UserWantsToLeaveJoinedContactGroup")
-        struct Key {
-            static let groupUid = "groupUid"
-            static let groupOwner = "groupOwner"
-            static let ownedCryptoId = "ownedCryptoId"
-            static let sourceView = "sourceView"
-        }
-        static func parse(_ notification: Notification) -> (groupOwner: ObvCryptoId, groupUid: UID, ownedCryptoId: ObvCryptoId, sourceView: UIView)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let groupUid = userInfo[Key.groupUid] as? UID else { return nil }
-            guard let ownedCryptoId = userInfo[Key.ownedCryptoId] as? ObvCryptoId else { return nil }
-            guard let groupOwner = userInfo[Key.groupOwner] as? ObvCryptoId else { return nil }
-            guard let sourceView = userInfo[Key.sourceView] as? UIView else { return nil }
-            return (groupOwner, groupUid, ownedCryptoId, sourceView)
-        }
-    }
-
 }

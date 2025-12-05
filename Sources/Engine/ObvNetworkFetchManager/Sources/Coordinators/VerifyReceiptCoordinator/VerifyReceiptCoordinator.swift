@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvCrypto
 import ObvTypes
 import ObvMetaManager
@@ -50,13 +50,13 @@ actor VerifyReceiptCoordinator {
 
 extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
     
-    func verifyReceipt(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
+    func verifyReceipt(appStoreReceiptElements: ObvAppStoreReceipt, environment: ObvAppStoreEnvironment, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
         
         let requestUUID = UUID()
 
         os_log("💰[%{public}@] Call to verifyReceipt", log: Self.log, type: .info, requestUUID.debugDescription)
 
-        let result = try await verifyReceipt(appStoreReceiptElements: appStoreReceiptElements, flowId: flowId, requestUUID: requestUUID)
+        let result = try await verifyReceipt(appStoreReceiptElements: appStoreReceiptElements, environment: environment, flowId: flowId, requestUUID: requestUUID)
         
         os_log("💰[%{public}@] End if call to verifyReceipt", log: Self.log, type: .info, requestUUID.debugDescription)
 
@@ -65,17 +65,18 @@ extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
     }
     
     
-    private func verifyReceipt(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier, requestUUID: UUID) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
+    private func verifyReceipt(appStoreReceiptElements: ObvAppStoreReceipt, environment: ObvAppStoreEnvironment, flowId: FlowIdentifier, requestUUID: UUID) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
         
         return try await requestAppStoreReceiptVerificationFromServer(
             appStoreReceiptElements: appStoreReceiptElements,
+            environment: environment,
             flowId: flowId,
             requestUUID: requestUUID)
 
     }
 
     
-    private func requestAppStoreReceiptVerificationFromServer(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier, requestUUID: UUID) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
+    private func requestAppStoreReceiptVerificationFromServer(appStoreReceiptElements: ObvAppStoreReceipt, environment: ObvAppStoreEnvironment, flowId: FlowIdentifier, requestUUID: UUID) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
         
         if let cached = cache[appStoreReceiptElements] {
             switch cached {
@@ -87,14 +88,14 @@ extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
         
         os_log("💰[%{public}@] Not in cache", log: Self.log, type: .info, requestUUID.debugDescription)
 
-        let task = try createTaskAllowingToVerifyReceiptForAllIdentities(appStoreReceiptElements: appStoreReceiptElements, flowId: flowId)
+        let task = try createTaskAllowingToVerifyReceiptForAllIdentities(appStoreReceiptElements: appStoreReceiptElements, environment: environment, flowId: flowId)
         
         cache[appStoreReceiptElements] = .inProgress(task)
+        defer { cache.removeValue(forKey: appStoreReceiptElements) }
 
         os_log("💰[%{public}@] In progress", log: Self.log, type: .info, requestUUID.debugDescription)
         
         let results = await task.value
-        cache.removeValue(forKey: appStoreReceiptElements)
         return results
 
     }
@@ -103,7 +104,7 @@ extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
     /// Returns a task that, on execution, performs one `VerifyReceiptServerMethod` for each owned identity indicated in the receipt elements.
     /// All the verifications are performed in parallel, and the same receipt is used for each owned identity.
     /// The task never throws, and returns a dictionary mapping each owned identity to a Boolean indicating whether the receipt verification was successful (`true`) or not (`false`).
-    private func createTaskAllowingToVerifyReceiptForAllIdentities(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier) throws -> Task<[ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus], Never> {
+    private func createTaskAllowingToVerifyReceiptForAllIdentities(appStoreReceiptElements: ObvAppStoreReceipt, environment: ObvAppStoreEnvironment, flowId: FlowIdentifier) throws -> Task<[ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus], Never> {
         
         guard let delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
@@ -134,36 +135,46 @@ extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
                             
                             let serverSessionToken = try await delegateManager.serverSessionDelegate.getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: nil, flowId: flowId).serverSessionToken
                             
-                            let method = VerifyReceiptServerMethod(
-                                ownedIdentity: ownedCryptoIdentity,
-                                token: serverSessionToken,
-                                signedAppStoreTransactionAsJWS: signedAppStoreTransactionAsJWS,
-                                identityDelegate: identityDelegate,
-                                flowId: flowId)
-                            
-                            let (data, response) = try await URLSession.shared.data(for: method.getURLRequest())
-                            
-                            guard let httpResponse = response as? HTTPURLResponse,
-                                  httpResponse.statusCode == 200 else {
-                                throw ObvError.invalidServerResponse
-                            }
-                            
-                            let result = VerifyReceiptServerMethod.parseObvServerResponse(responseData: data, using: Self.log)
-                            
-                            switch result {
-                            case .failure:
-                                throw ObvError.couldNotParseReturnStatusFromServer
-                            case .success(let returnStatus):
-                                switch returnStatus {
-                                case .ok(apiKey: _):
-                                    verificationStatus = .succeededAndSubscriptionIsValid
-                                case .invalidSession:
-                                    throw ObvError.serverReportedInvalidSession
-                                case .receiptIsExpired:
-                                    verificationStatus = .succeededButSubscriptionIsExpired
-                                case .generalError:
-                                    throw ObvError.serverReportedGeneralError
+                            switch environment {
+                            case .production, .sandbox:
+                                
+                                let method = VerifyReceiptServerMethod(
+                                    ownedIdentity: ownedCryptoIdentity,
+                                    token: serverSessionToken,
+                                    signedAppStoreTransactionAsJWS: signedAppStoreTransactionAsJWS,
+                                    identityDelegate: identityDelegate,
+                                    flowId: flowId)
+                                
+                                let (data, response) = try await URLSession.shared.data(for: method.getURLRequest())
+                                
+                                guard let httpResponse = response as? HTTPURLResponse,
+                                      httpResponse.statusCode == 200 else {
+                                    throw ObvError.invalidServerResponse
                                 }
+                                
+                                let result = VerifyReceiptServerMethod.parseObvServerResponse(responseData: data, using: Self.log)
+                                
+                                switch result {
+                                case .failure:
+                                    throw ObvError.couldNotParseReturnStatusFromServer
+                                case .success(let returnStatus):
+                                    switch returnStatus {
+                                    case .ok(apiKey: _):
+                                        verificationStatus = .succeededAndSubscriptionIsValid
+                                    case .invalidSession:
+                                        throw ObvError.serverReportedInvalidSession
+                                    case .receiptIsExpired:
+                                        verificationStatus = .succeededButSubscriptionIsExpired
+                                    case .generalError:
+                                        throw ObvError.serverReportedGeneralError
+                                    }
+                                }
+                                
+                            case .xcode:
+                                
+                                /// An Xcode receipt cannot be validated by the server as the signature is invalid. We simulate a success.
+                                verificationStatus = .succeededAndSubscriptionIsValid
+                                
                             }
                             
                         } catch {

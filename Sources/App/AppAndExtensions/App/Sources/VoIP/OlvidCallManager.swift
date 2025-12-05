@@ -784,23 +784,6 @@ extension OlvidCallManager {
         await call.userWantsToStopVideoCamera()
     }
 
-
-    func callViewDidDisappear(uuidForCallKit: UUID) async {
-        os_log("☎️ callViewDidDisappear %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
-        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else { return }
-        await call.callViewDidDisappear()
-    }
-    
-    
-    func callViewDidAppear(uuidForCallKit: UUID) async {
-        os_log("☎️ callViewDidAppear %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
-        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else {
-            assertionFailure()
-            return
-        }
-        await call.callViewDidAppear()
-    }
-    
 }
 
 

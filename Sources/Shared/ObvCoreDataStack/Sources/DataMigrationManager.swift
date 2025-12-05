@@ -709,7 +709,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
             try performPreMigrationWork(forSourceModel: currentStoreModel, destinationModel: destinationModel)
 
             migrationRunningLog.addEvent(message: "Migrating the store from \(currentStoreModel.versionIdentifier) to \(destinationModel.versionIdentifier)")
-            os_log("Starting the store migration", log: log, type: .info)
+            logger.info("Starting the store migration from \(currentStoreModel.versionIdentifier) to \(destinationModel.versionIdentifier)")
 
             let migrationProgress = Progress(totalUnitCount: 1000)
             kvObservations.append(migrationManager.observe(\.migrationProgress) { migrationManager, _ in
@@ -733,6 +733,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
                 
             } catch {
                 
+                debugPrint("The call to migrateStore failed: \(error)")
                 migrationRunningLog.addEvent(message: "The call to migrateStore failed: \(error.localizedDescription)")
                 logDebugInformation()
                 if FileManager.default.isDeletableFile(atPath: destinationStoreURL.path) {
@@ -828,7 +829,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
             }
 
             migrationRunningLog.addEvent(message: "The store was migrated from \(currentStoreModel.versionIdentifier) to \(destinationModel.versionIdentifier)")
-            os_log("The store was migrated", log: log, type: .info)
+            logger.info("The store was migrated from \(currentStoreModel.versionIdentifier) to \(destinationModel.versionIdentifier)")
 
             let psc = NSPersistentStoreCoordinator(managedObjectModel: destinationModel)
 

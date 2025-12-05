@@ -26,7 +26,6 @@ import ObvTypes
 @MainActor
 public protocol ObvMapViewControllerDataSource: AnyObject {
     func getAsyncStreamOfObvMapViewModel(_ vc: ObvMapViewController) throws -> AsyncStream<ObvMapViewModel>
-    func fetchAvatar(_ vc: ObvMapViewController, photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
 }
 
 
@@ -49,10 +48,10 @@ public final class ObvMapViewController: UIHostingController<ObvMapView> {
     private let dataSourceForView = DataSourceForView()
     private let actionsForView = ActionsForView()
     
-    public init(dataSource: ObvMapViewControllerDataSource, actions: ObvMapViewControllerActionsProtocol, initialDeviceIdentifierToSelect: ObvDeviceIdentifier? = nil) {
+    public init(dataSource: ObvMapViewControllerDataSource, avatarViewDataSource: ObvAvatarViewDataSource, actions: ObvMapViewControllerActionsProtocol, initialDeviceIdentifierToSelect: ObvDeviceIdentifier? = nil) {
         self.dataSource = dataSource
         self.actions = actions
-        let rootView = ObvMapView(dataSource: dataSourceForView, actions: actionsForView, initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
+        let rootView = ObvMapView(dataSource: dataSourceForView, avatarViewDataSource: avatarViewDataSource, actions: actionsForView, initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
         super.init(rootView: rootView)
         self.dataSourceForView.viewController = self
         self.actionsForView.viewController = self
@@ -78,12 +77,6 @@ private final class DataSourceForView: ObvMapViewDataSource {
         guard let viewController else { assertionFailure(); throw ObvError.viewControllerNotSet }
         let dataSource = viewController.dataSource
         return try dataSource.getAsyncStreamOfObvMapViewModel(viewController)
-    }
-    
-    func fetchAvatar(photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
-        guard let viewController else { throw ObvError.viewControllerNotSet } // This can happen when dismissing the view controller
-        let dataSource = viewController.dataSource
-        return try await dataSource.fetchAvatar(viewController, photoURL: photoURL, avatarSize: avatarSize)
     }
     
     enum ObvError: Error {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -46,14 +46,21 @@ final class ProcessMessagesThatWereDeletedFromServerOrMarkedAsListedOnServerOper
             switch category {
             case .requestDeletion:
                 do {
-                    try InboxMessage.deleteMessage(messageId: messageId, inbox: inbox, within: obvContext)
+                    let attachmentsDirectory = try InboxMessage.deleteMessage(messageId: messageId, inbox: inbox, within: obvContext.context)
+                    if let attachmentsDirectory {
+                        try obvContext.addContextDidSaveCompletionHandler { error in
+                            guard error == nil else { return }
+                            guard FileManager.default.fileExists(atPath: attachmentsDirectory.path) else { return }
+                            try? FileManager.default.removeItem(at: attachmentsDirectory)
+                        }
+                    }
                 } catch {
                     assertionFailure()
                     // In production, continue anyway
                 }
             case .markAsListed:
                 do {
-                    try InboxMessage.markAsListedOnServer(messageId: messageId, within: obvContext)
+                    try InboxMessage.markAsListedOnServer(messageId: messageId, within: obvContext.context)
                 } catch {
                     assertionFailure()
                     // In production, continue anyway

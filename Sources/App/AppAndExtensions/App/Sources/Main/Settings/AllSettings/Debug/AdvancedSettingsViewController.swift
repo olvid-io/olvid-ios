@@ -333,12 +333,19 @@ extension AdvancedSettingsViewController {
                 let ownedCryptoId = self.ownedCryptoId
                 Task {
                     let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-                    let newWebSocketStatus = try? await obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) { [weak self] in
-                        self?.currentWebSocketStatus = newWebSocketStatus
-                        guard let tableView = self?.tableView else { return }
-                        guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                        tableView.reconfigureRows(at: [indexPath])
+                    await obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId) { (result: Result<(URLSessionTask.State, TimeInterval?), Error>) in
+                        Task { @MainActor [weak self] in
+                            switch result {
+                            case .failure(_):
+                                break
+                            case .success(let newWebSocketStatus):
+                                self?.currentWebSocketStatus = newWebSocketStatus
+                                try await Task.sleep(seconds: Double(AdvancedSettingsViewController.websocketRefreshTimeInterval))
+                                guard let tableView = self?.tableView else { return }
+                                guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
+                                tableView.reconfigureRows(at: [indexPath])
+                            }
+                        }
                     }
                 }
                 return cell
@@ -374,6 +381,7 @@ extension AdvancedSettingsViewController {
                 cell.switchIsOn = ObvMessengerSettings.Advanced.enableRunningLogs
                 cell.blockOnSwitchValueChanged = { (value) in
                     ObvMessengerSettings.Advanced.enableRunningLogs = value
+                    ObvDisplayableLogs.shared.doEnableRunningLogs(value)
                     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
                         tableView.reloadData()
                     }

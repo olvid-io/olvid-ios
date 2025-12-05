@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,32 +18,19 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvTypes
 import ObvCrypto
 import ObvEncoder
 import ObvMetaManager
-import OlvidUtils
 
 @objc(InboxAttachmentChunk)
-final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
+final class InboxAttachmentChunk: NSManagedObject {
         
     // MARK: Internal constants
     
     private static let entityName = "InboxAttachmentChunk"
-    private static let attachmentKey = "attachment"
-    private static let cleartextChunkWasWrittenToAttachmentFileKey = "cleartextChunkWasWrittenToAttachmentFile"
-    private static let rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
-    private static let rawMessageIdUidKey = "rawMessageIdUid"
-    private static let attachmentNumberKey = "attachmentNumber"
-
-    private static let errorDomain = "InboxAttachmentChunk"
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
 
     // MARK: Attributes
 
@@ -61,8 +48,6 @@ final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
     @NSManaged private(set) var attachment: InboxAttachment?
 
     // MARK: Variables
-    
-    weak var obvContext: ObvContext?
     
     // Known as soon as the decryption key is known
     private(set) var cleartextChunkLength: Int? {
@@ -100,10 +85,10 @@ final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
     // MARK: Initializer
 
     convenience init?(attachment: InboxAttachment, chunkNumber: Int, ciphertextChunkLength: Int) {
-        guard let obvContext = attachment.obvContext else { return nil }
+        guard let context = attachment.managedObjectContext else { assertionFailure(); return nil }
         guard let attachmentId = attachment.attachmentId else { assertionFailure(); return nil }
-        let entityDescription = NSEntityDescription.entity(forEntityName: InboxAttachmentChunk.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: InboxAttachmentChunk.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.attachmentId = attachmentId
         self.chunkNumber = chunkNumber
         self.cleartextChunkWasWrittenToAttachmentFile = false
@@ -113,6 +98,16 @@ final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
         self.attachment = attachment
     }
 
+    
+    func deleteInboxAttachmentChunk() throws {
+        guard let context = self.managedObjectContext else {
+            assertionFailure()
+            throw ObvError.noContext
+        }
+        self.resetDownload()
+        context.delete(self)
+    }
+    
 }
 
 
@@ -131,7 +126,7 @@ extension InboxAttachmentChunk {
     }
 
     func setCleartextChunkLengthForDecryptionKey(_ key: AuthenticatedEncryptionKey) throws -> Int {
-        guard self.cleartextChunkLength == nil else { throw InboxAttachmentChunk.makeError(message: "Cleartext chunk length already set")}
+        guard self.cleartextChunkLength == nil else { throw ObvError.cleartextChunkLengthAlreadySet }
         let cleartextChunkLength = try Chunk.cleartextLengthFromEncryptedLength(self.ciphertextChunkLength, whenUsingEncryptionKey: key)
         self.cleartextChunkLength = cleartextChunkLength
         return cleartextChunkLength
@@ -144,33 +139,87 @@ extension InboxAttachmentChunk {
 
 extension InboxAttachmentChunk {
     
+    struct Predicate {
+        
+        enum Key: String {
+            // Attributes
+            case attachmentNumber = "attachmentNumber"
+            case chunkNumber = "chunkNumber"
+            case ciphertextChunkLength = "ciphertextChunkLength"
+            case cleartextChunkWasWrittenToAttachmentFile = "cleartextChunkWasWrittenToAttachmentFile"
+            case rawCleartextChunkLength = "rawCleartextChunkLength"
+            case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUid = "rawMessageIdUid"
+            case signedURL = "signedURL"
+            // Relationships
+            case attachment = "attachment"
+        }
+        
+        static var withNoAttachment: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.attachment)
+        }
+        
+        static func withMessageId(_ messageId: ObvMessageIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: messageId.ownedCryptoIdentity.getIdentity()),
+                NSPredicate(Key.rawMessageIdUid, EqualToData: messageId.uid.raw),
+            ])
+        }
+        
+        static func withAttachmentId(_ attachmentId: ObvAttachmentIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Self.withMessageId(attachmentId.messageId),
+                NSPredicate(Key.attachmentNumber, EqualToInt: attachmentId.attachmentNumber),
+            ])
+        }
+        
+        static func cleartextChunkWasWrittenToAttachmentFile(is bool: Bool) -> NSPredicate {
+            NSPredicate(Key.cleartextChunkWasWrittenToAttachmentFile, is: bool)
+        }
+        
+    }
+
+    
     @nonobjc static func fetchRequest() -> NSFetchRequest<InboxAttachmentChunk> {
         return NSFetchRequest<InboxAttachmentChunk>(entityName: InboxAttachmentChunk.entityName)
     }
 
-    static func deleteAllOrphaned(within obvContext: ObvContext) throws {
+    static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: InboxAttachmentChunk.entityName)
-        fetch.predicate = NSPredicate(format: "%K == NIL", attachmentKey)
+        fetch.predicate = Predicate.withNoAttachment
         let request = NSBatchDeleteRequest(fetchRequest: fetch)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }
     }
 
-    static func getAllMissingAttachmentChunks(ofAttachmentId attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) throws -> [InboxAttachmentChunk] {
+    static func getAllMissingAttachmentChunks(ofAttachmentId attachmentId: ObvAttachmentIdentifier, within context: NSManagedObjectContext) throws -> [InboxAttachmentChunk] {
         let request: NSFetchRequest<InboxAttachmentChunk> = InboxAttachmentChunk.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %d AND %K == FALSE",
-                                        rawMessageIdOwnedIdentityKey, attachmentId.messageId.ownedCryptoIdentity.getIdentity() as NSData,
-                                        rawMessageIdUidKey, attachmentId.messageId.uid.raw as NSData,
-                                        attachmentNumberKey, attachmentId.attachmentNumber,
-                                        cleartextChunkWasWrittenToAttachmentFileKey)
-        return try obvContext.fetch(request)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withAttachmentId(attachmentId),
+            Predicate.cleartextChunkWasWrittenToAttachmentFile(is: false),
+        ])
+        request.fetchBatchSize = 1_000
+        return try context.fetch(request)
     }
+    
+}
+
+
+// MARK: - Errors
+
+extension InboxAttachmentChunk {
+    
+    enum ObvError: Error {
+        case noContext
+        case cleartextChunkLengthAlreadySet
+    }
+    
 }

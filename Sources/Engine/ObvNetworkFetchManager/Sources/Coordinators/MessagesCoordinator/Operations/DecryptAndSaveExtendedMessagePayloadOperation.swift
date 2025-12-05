@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -44,7 +44,7 @@ final class DecryptAndSaveExtendedMessagePayloadOperation: ContextualOperationWi
         
         do {
             
-            guard let message = try InboxMessage.get(messageId: messageId, within: obvContext) else { return }
+            guard let message = try InboxMessage.get(messageId: messageId, within: obvContext.context) else { return }
             
             guard let extendedMessagePayloadKey = message.extendedMessagePayloadKey else {
                 return cancel(withReason: .extendedMessagePayloadKeyIsNil)

@@ -32,16 +32,16 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
     private let pendingServerQueryObjectID: NSManagedObjectID
     private let responseData: Data
     private let log: OSLog
-    private let delegateManager: ObvNetworkFetchDelegateManager
+    private let logger: Logger
     private let downloadedUserData: URL
     private let sessionTokenUsed: Data?
     
     
-    init(pendingServerQueryObjectID: NSManagedObjectID, responseData: Data, log: OSLog, delegateManager: ObvNetworkFetchDelegateManager, downloadedUserData: URL, sessionTokenUsed: Data?) {
+    init(pendingServerQueryObjectID: NSManagedObjectID, responseData: Data, log: OSLog, logger: Logger, downloadedUserData: URL, sessionTokenUsed: Data?) {
         self.pendingServerQueryObjectID = pendingServerQueryObjectID
         self.responseData = responseData
         self.log = log
-        self.delegateManager = delegateManager
+        self.logger = logger
         self.downloadedUserData = downloadedUserData
         self.sessionTokenUsed = sessionTokenUsed
         super.init()
@@ -78,10 +78,12 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
+        let pendingServerQueryObjectIDDebugDescription = pendingServerQueryObjectID.debugDescription
+        
         do {
             
-            guard let serverQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectID, delegateManager: delegateManager, within: obvContext) else {
-                os_log("Could not find server query in database %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+            guard let serverQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectID, within: obvContext.context) else {
+                logger.fault("Could not find server query in database \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                 return postOperationAction = .pendingServerQueryNotFound
             }
             
@@ -92,14 +94,14 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
             case .deviceDiscovery: // ok
                 
                 guard let status = ObvServerDeviceDiscoveryMethod.parseObvServerResponse(responseData: responseData, using: log) else {
-                    os_log("Could not parse the server response for the ObvServerDeviceDiscoveryMethod task of pending server query %{public}@", log: log, type: .error, pendingServerQueryObjectID.debugDescription)
+                    logger.error("Could not parse the server response for the ObvServerDeviceDiscoveryMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
                 switch status {
 
                 case .ok(result: let result):
-                    os_log("The ObvServerDeviceDiscoveryMethod returned %d devices", log: log, type: .debug, result.devices.count)
+                    logger.debug("The ObvServerDeviceDiscoveryMethod returned \(result.devices.count) devices")
 
                     let serverResponseType = ServerResponse.ResponseType.deviceDiscovery(result: .success(result: result))
                     serverQuery.responseType = serverResponseType
@@ -107,7 +109,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 case .generalError:
-                    os_log("Server reported general error during the ObvServerDeviceDiscoveryMethod task for pending server query %@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    logger.fault("Server reported general error during the ObvServerDeviceDiscoveryMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
@@ -119,7 +121,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
                     
-                    os_log("The ObvServerOwnedDeviceDiscoveryMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The ObvServerOwnedDeviceDiscoveryMethod returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                     case .ok(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
@@ -137,7 +139,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     
                 case .failure(let error):
                     
-                    os_log("The ObvServerOwnedDeviceDiscoveryMethod failed: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    logger.fault("The ObvServerOwnedDeviceDiscoveryMethod failed: \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 }
@@ -149,7 +151,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
 
-                    os_log("The OwnedDeviceManagementServerMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The OwnedDeviceManagementServerMethod returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                         
@@ -189,7 +191,8 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
                                         
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    let debugDescription = pendingServerQueryObjectID.debugDescription
+                    logger.fault("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query \(debugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
                 
@@ -200,7 +203,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
 
-                    os_log("The OwnedDeviceManagementServerMethod (deactivateOwnedDevice) returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The OwnedDeviceManagementServerMethod (deactivateOwnedDevice) returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                         
@@ -229,7 +232,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
                                         
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
@@ -240,7 +243,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
 
-                    os_log("The OwnedDeviceManagementServerMethod (setUnexpiringOwnedDevice) returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The OwnedDeviceManagementServerMethod (setUnexpiringOwnedDevice) returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                         
@@ -275,7 +278,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
                                         
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
@@ -287,7 +290,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 case .success(let status):
                     switch status {
                     case .ok:
-                        os_log("The ObvServerPutUserDataMethod returned .ok", log: log, type: .debug)
+                        logger.debug("The ObvServerPutUserDataMethod returned .ok")
                         let serverResponseType = ServerResponse.ResponseType.putUserData
                         serverQuery.responseType = serverResponseType
                         return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
@@ -303,30 +306,31 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                             invalidToken: sessionTokenUsed)
 
                     case .generalError:
-                        os_log("Server reported general error during the ObvServerPutUserDataMethod task for pending server query %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                        logger.fault("Server reported general error during the ObvServerPutUserDataMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                         return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                     }
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerPutUserDataMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerPutUserDataMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
                 
             case .getUserData(of: _, label: let label): // ok
 
                 guard let status = ObvServerGetUserDataMethod.parseObvServerResponse(responseData: responseData, using: log, downloadedUserData: downloadedUserData, serverLabel: label) else {
-                    os_log("Could not parse the server response for the ObvServerGetUserDataMethod task of pending server query %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    
+                    logger.fault("Could not parse the server response for the ObvServerGetUserDataMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
                 switch status {
                     
                 case .generalError:
-                    os_log("Server reported general error during the ObvServerGetUserDataMethod task for pending server query %@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    logger.fault("Server reported general error during the ObvServerGetUserDataMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 case .ok(userDataFilename: let userDataFilename):
-                    os_log("The ObvServerGetUserDataMethod returned .ok", log: log, type: .debug)
+                    logger.debug("The ObvServerGetUserDataMethod returned .ok")
 
                     let serverResponseType = ServerResponse.ResponseType.getUserData(result: .downloaded(userDataFilename: userDataFilename))
                     serverQuery.responseType = serverResponseType
@@ -334,7 +338,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
 
                 case .deletedFromServer:
                     
-                    os_log("Server reported deleted form server data during the ObvServerGetUserDataMethod task for pending server query %@", log: log, type: .info, pendingServerQueryObjectID.debugDescription)
+                    logger.info("Server reported deleted form server data during the ObvServerGetUserDataMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     
                     let serverResponseType = ServerResponse.ResponseType.getUserData(result: .deletedFromServer)
                     serverQuery.responseType = serverResponseType
@@ -345,20 +349,20 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
             case .checkKeycloakRevocation: // ok
 
                 guard let status = ObvServerCheckKeycloakRevocationMethod.parseObvServerResponse(responseData: responseData, using: log) else {
-                    os_log("Could not parse the server response for the ObvServerCheckKeycloakRevocationMethod task of pending server query %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    logger.fault("Could not parse the server response for the ObvServerCheckKeycloakRevocationMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
                 switch status {
                 case .ok(verificationSuccessful: let verificationSuccessful):
-                    os_log("The ObvServerCheckKeycloakRevocationMethod returned .ok", log: log, type: .debug)
+                    logger.debug("The ObvServerCheckKeycloakRevocationMethod returned .ok")
 
                     let serverResponseType = ServerResponse.ResponseType.checkKeycloakRevocation(verificationSuccessful: verificationSuccessful)
                     serverQuery.responseType = serverResponseType
                     return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 case .generalError:
-                    os_log("Server reported general error during the ObvServerCheckKeycloakRevocationMethod task for pending server query %@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    logger.fault("Server reported general error during the ObvServerCheckKeycloakRevocationMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
@@ -369,7 +373,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
 
-                    os_log("The ObvServerCreateGroupBlobServerMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The ObvServerCreateGroupBlobServerMethod returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                         
@@ -397,7 +401,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
                     
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
@@ -408,7 +412,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
 
-                    os_log("The ObvServerGetGroupBlobServerMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The ObvServerGetGroupBlobServerMethod returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                         
@@ -429,7 +433,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
 
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerGetGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerGetGroupBlobServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
                 
@@ -440,7 +444,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
                     
-                    os_log("The ObvServerDeleteGroupBlobServerMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The ObvServerDeleteGroupBlobServerMethod returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                         
@@ -458,7 +462,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
 
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerDeleteGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerDeleteGroupBlobServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
@@ -469,7 +473,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
                     
-                    os_log("The ObvServerPutGroupLogServerMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The ObvServerPutGroupLogServerMethod returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                         
@@ -483,7 +487,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
                     
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerPutGroupLogServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerPutGroupLogServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
@@ -494,7 +498,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
                     
-                    os_log("The ObvServerGroupBlobLockServerMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The ObvServerGroupBlobLockServerMethod returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                     
@@ -515,7 +519,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
                     
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerGroupBlobLockServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerGroupBlobLockServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 }
@@ -527,7 +531,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 switch result {
                 case .success(let status):
                     
-                    os_log("The ObvServerGroupBlobUpdateServerMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+                    logger.debug("The ObvServerGroupBlobUpdateServerMethod returned status is \(String(reflecting: status), privacy: .public)")
 
                     switch status {
                         
@@ -549,7 +553,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     }
                     
                 case .failure(let error):
-                    os_log("Could not parse the server response for the ObvServerGroupBlobUpdateServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription, error.localizedDescription)
+                    logger.fault("Could not parse the server response for the ObvServerGroupBlobUpdateServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 }
@@ -558,23 +562,23 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
 
                 guard let status = GetKeycloakDataServerMethod.parseObvServerResponse(responseData: responseData, using: log, downloadedUserData: downloadedUserData, serverLabel: serverLabel) else {
                     assertionFailure()
-                    os_log("Could not parse the server response for the GetKeycloakDataServerMethod task of pending server query %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    logger.fault("Could not parse the server response for the GetKeycloakDataServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
 
                 switch status {
                     
                 case .generalError:
-                    os_log("Server reported general error during the GetKeycloakDataServerMethod task for pending server query %@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    logger.fault("Server reported general error during the GetKeycloakDataServerMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 case .ok(userDataFilename: let userDataFilename):
-                    os_log("The GetKeycloakDataServerMethod returned .ok", log: log, type: .debug)
+                    logger.debug("The GetKeycloakDataServerMethod returned .ok")
                     serverQuery.responseType = .getKeycloakData(result: .downloaded(userDataFilename: userDataFilename))
                     return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 case .deletedFromServer:
-                    os_log("Server reported deleted form server data during the ObvServerGetUserDataMethod task for pending server query %@", log: log, type: .info, pendingServerQueryObjectID.debugDescription)
+                    logger.info("Server reported deleted form server data during the ObvServerGetUserDataMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     serverQuery.responseType = .getKeycloakData(result: .deletedFromServer)
                     return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
@@ -584,7 +588,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                 
                 guard let status = UploadPreKeyServerMethod.parseObvServerResponse(responseData: responseData, using: log) else {
                     assertionFailure()
-                    os_log("Could not parse the server response for the UploadPreKeyServerMethod task of pending server query %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    logger.fault("Could not parse the server response for the UploadPreKeyServerMethod task of pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
                 
@@ -601,7 +605,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                         invalidToken: sessionTokenUsed)
 
                 case .generalError:
-                    os_log("Server reported general error during the UploadPreKeyServerMethod task for pending server query %@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    logger.fault("Server reported general error during the UploadPreKeyServerMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                 case .deviceNotRegistered:

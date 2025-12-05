@@ -169,29 +169,28 @@ public extension ObvCryptoIdentity {
     
 }
 
+//public class ObvCryptoIdentityTransformer: ValueTransformer {
+//    
+//    override public class func transformedValueClass() -> AnyClass {
+//        return ObvCryptoIdentity.self
+//    }
+//    
+//    override public class func allowsReverseTransformation() -> Bool {
+//        return true
+//    }
+//    
+//    /// Transform an ObvIdentity into an instance of Data
+//    override public func transformedValue(_ value: Any?) -> Any? {
+//        guard let obvCryptoIdentity = value as? ObvCryptoIdentity else { return nil }
+//        return obvCryptoIdentity.getIdentity()
+//    }
+//    
+//    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+//        guard let data = value as? Data else { return nil }
+//        return ObvCryptoIdentity(from: data)
+//    }
+//}
 
-public class ObvCryptoIdentityTransformer: ValueTransformer {
-    
-    override public class func transformedValueClass() -> AnyClass {
-        return ObvCryptoIdentity.self
-    }
-    
-    override public class func allowsReverseTransformation() -> Bool {
-        return true
-    }
-    
-    /// Transform an ObvIdentity into an instance of Data
-    override public func transformedValue(_ value: Any?) -> Any? {
-        guard let obvCryptoIdentity = value as? ObvCryptoIdentity else { return nil }
-        return obvCryptoIdentity.getIdentity()
-    }
-    
-    override public func reverseTransformedValue(_ value: Any?) -> Any? {
-        guard let data = value as? Data else { return nil }
-        return ObvCryptoIdentity(from: data)
-    }
-}
-
-public extension NSValueTransformerName {
-    static let obvCryptoIdentityTransformerName = NSValueTransformerName(rawValue: "ObvCryptoIdentityTransformer")
-}
+//public extension NSValueTransformerName {
+//    static let obvCryptoIdentityTransformerName = NSValueTransformerName(rawValue: "ObvCryptoIdentityTransformer")
+//}

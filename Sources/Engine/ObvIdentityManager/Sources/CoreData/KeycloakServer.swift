@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,35 +18,30 @@
  */
 
 import Foundation
+import OSLog
 import CoreData
 import ObvCrypto
 import ObvTypes
 import OlvidUtils
-import os.log
 import ObvMetaManager
 import ObvJWS
 
 
 @objc(KeycloakServer)
-final class KeycloakServer: NSManagedObject, ObvManagedObject {
+final class KeycloakServer: NSManagedObject {
 
     // MARK: Internal constants
+    
+    static weak var delegateManager: ObvIdentityDelegateManager?
 
     private static let entityName = "KeycloakServer"
-    private static let serverURLKey = "serverURL"
-    private static let rawOwnedIdentityKey = "rawOwnedIdentity"
-    private static let rawJwksKey = "rawJwks"
-    private static let clientIdKey = "clientId"
-    private static let clientSecretKey = "clientSecret"
-    private static let keycloakUserIdKey = "keycloakUserId"
-    private static let rawAuthStateKey = "rawAuthState"
-    private static let signedOwnedDetailsKey = "signedOwnedDetails"
-    private static let selfRevocationTestNonceKey = "selfRevocationTestNonce"
-    private static let rawServerSignatureKeyKey = "rawServerSignatureKey"
 
     private static let errorDomain = "KeycloakServer"
     private static func makeError(message: String) -> Error { NSError(domain: KeycloakServer.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { KeycloakServer.makeError(message: message) }
+
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: KeycloakServer.logSubsystem, category: "KeycloakServer") }()
 
     // MARK: Attributes
 
@@ -72,8 +67,6 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     
     // MARK: Other variables
     
-    weak var obvContext: ObvContext?
-
     var toObvKeycloakState: ObvKeycloakState {
         get throws {
             let jwks = try self.jwks
@@ -131,16 +124,15 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
 
     
     private var changedKeys = Set<String>()
-    weak var delegateManager: ObvIdentityDelegateManager?
 
     // MARK: Init
     
     convenience init(keycloakState: ObvKeycloakState, managedOwnedIdentity: OwnedIdentity) throws {
-        guard let obvContext = managedOwnedIdentity.obvContext else { throw KeycloakServer.makeError(message: "KeycloakServer initialization failed, cannot find appropriate ObvContext") }
-        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakServer.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        guard let context = managedOwnedIdentity.managedObjectContext else { throw KeycloakServer.makeError(message: "KeycloakServer initialization failed, cannot find appropriate context") }
+        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakServer.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.serverURL = keycloakState.keycloakServer
-        self.rawOwnedIdentity = managedOwnedIdentity.cryptoIdentity.getIdentity()
+        self.rawOwnedIdentity = try managedOwnedIdentity.cryptoIdentity.getIdentity()
         self.selfRevocationTestNonce = nil
         try self.setJwks(keycloakState.jwks)
         self.clientId = keycloakState.clientId
@@ -151,15 +143,14 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         self.rawAuthState = keycloakState.rawAuthState
         self.serverSignatureVerificationKey = keycloakState.signatureVerificationKey
         self.managedOwnedIdentity = managedOwnedIdentity
-        self.delegateManager = managedOwnedIdentity.delegateManager
         self.isTransferRestricted = keycloakState.isTransferRestricted
     }
 
 
     /// Used *exclusively* during a backup restore for creating an instance, relationships are recreated in a second step
-    fileprivate convenience init(backupItem: KeycloakServerBackupItem, rawOwnedIdentity: Data, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakServer.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(backupItem: KeycloakServerBackupItem, rawOwnedIdentity: Data, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakServer.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.clientId = backupItem.clientId
         self.clientSecret = backupItem.clientSecret
         self.rawPushTopics = nil
@@ -175,9 +166,9 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
 
     
     /// Used *exclusively* during a snapshot restore for creating an instance, relationships are recreated in a second step
-    fileprivate convenience init(snapshotNode: KeycloakServerSnapshotNode, rawOwnedIdentity: Data, within obvContext: ObvContext) throws {
-        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakServer.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(snapshotNode: KeycloakServerSnapshotNode, rawOwnedIdentity: Data, within context: NSManagedObjectContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakServer.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         guard let clientId = snapshotNode.clientId else {
             assertionFailure()
             throw KeycloakServerSnapshotNode.ObvError.tryingToRestoreIncompleteSnapshot
@@ -221,8 +212,8 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     }
     
     func delete() throws {
-        guard let obvContext = self.obvContext else { assertionFailure(); throw makeError(message: "Could not delete KeycloakServer instance since no context could be found.") }
-        obvContext.delete(self)
+        guard let context = self.managedObjectContext else { assertionFailure(); throw makeError(message: "Could not delete KeycloakServer instance since no context could be found.") }
+        context.delete(self)
     }
     
     func setServerSignatureVerificationKey(_ key: ObvJWK?) {
@@ -255,9 +246,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     
     /// This method is called during a keycloak managed profile transfer, if the keycloak enforces a restriction on the transfer. It is called on the source device, when it receives a proof from the target device that it was able to authenticate against the keycloak server.
     /// This method verifies the signature and checks that the payload contained in the signature contains the elements that we expect.
-    func verifyKeycloakSignature(keycloakTransferProof: ObvKeycloakTransferProof, keycloakTransferProofElements: ObvKeycloakTransferProofElements, delegateManager: ObvIdentityDelegateManager) throws(ObvIdentityManagerError) {
-        
-        let logger = Logger(subsystem: delegateManager.logSubsystem, category: KeycloakServer.entityName)
+    func verifyKeycloakSignature(keycloakTransferProof: ObvKeycloakTransferProof, keycloakTransferProofElements: ObvKeycloakTransferProofElements) throws(ObvIdentityManagerError) {
         
         guard let serverSignatureVerificationKey = serverSignatureVerificationKey else {
             throw .keycloakServerSignatureVerificationKeyIsNil
@@ -267,7 +256,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         do {
             (payload, _) = try JWSUtil.verifySignature(signatureVerificationKey: serverSignatureVerificationKey, signature: keycloakTransferProof.signature)
         } catch {
-            logger.fault("The keycloak transfer proof signature verification failed: \(error.localizedDescription)")
+            Self.logger.fault("The keycloak transfer proof signature verification failed: \(error.localizedDescription)")
             throw .signatureVerificationFailed
         }
 
@@ -277,7 +266,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         do {
             keycloakTransferProofContent = try ObvKeycloakTransferProofContent.jsonDecode(payload: payload)
         } catch {
-            logger.fault("Parsing failed: \(error.localizedDescription)")
+            Self.logger.fault("Parsing failed: \(error.localizedDescription)")
             throw .parsingFailed
         }
         
@@ -288,7 +277,14 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             throw .keycloakUserIdIsNil
         }
         
-        guard keycloakTransferProofContent.isValid(ownedCryptoId: self.managedOwnedIdentity.cryptoIdentity, keycloakId: keycloakUserId, keycloakTransferProofElements: keycloakTransferProofElements) else {
+        let ownedCryptoId: ObvCryptoIdentity
+        do {
+            ownedCryptoId = try self.managedOwnedIdentity.cryptoIdentity
+        } catch {
+            throw .parsingFailed
+        }
+        
+        guard keycloakTransferProofContent.isValid(ownedCryptoId: ownedCryptoId, keycloakId: keycloakUserId, keycloakTransferProofElements: keycloakTransferProofElements) else {
             assertionFailure()
             throw .signaturePayloadVerificationFailed
         }
@@ -299,17 +295,15 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     // MARK: - Identity revocation
 
     /// Called from `OwnedIdentity`. Returns a set of compromised contacts that are not forcefully trusted by the user.
-    func verifyAndAddRevocationList(signedRevocations: [String], revocationListTimetamp: Date, delegateManager: ObvIdentityDelegateManager) throws -> Set<ObvCryptoIdentity> {
-
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakServer.entityName)
+    func verifyAndAddRevocationList(signedRevocations: [String], revocationListTimetamp: Date) throws -> Set<ObvCryptoIdentity> {
 
         guard let serverSignatureVerificationKey = serverSignatureVerificationKey else {
             throw makeError(message: "Could not verify nor add signed revocations since we did not store the server signature verification key")
         }
         
-        guard let obvContext = obvContext else {
-            os_log("The ObvContext is nil, we cannot process the revocation list", log: log, type: .fault)
-            throw makeError(message: "The ObvContext is nil, we cannot process the revocation list")
+        guard let context = self.managedObjectContext else {
+            Self.logger.fault("The context is nil, we cannot process the revocation list")
+            throw makeError(message: "The context is nil, we cannot process the revocation list")
         }
         
         var compromisedContacts = Set<ObvCryptoIdentity>()
@@ -320,7 +314,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             do {
                 (signedRevocationPayload, _) = try JWSUtil.verifySignature(signatureVerificationKey: serverSignatureVerificationKey, signature: signedRevocation)
             } catch {
-                os_log("The signature verification of one of the signed revocation failed. We ignore this revocation: %{public}@", log: log, type: .error, error.localizedDescription)
+                Self.logger.error("The signature verification of one of the signed revocation failed. We ignore this revocation: \(error.localizedDescription, privacy: .public)")
                 return
             }
             
@@ -330,7 +324,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             do {
                 keycloakRevocation = try JsonKeycloakRevocation.jsonDecode(data: signedRevocationPayload)
             } catch {
-                os_log("The raw revocation could not be parsed. We ignore this revocation: %{public}@", log: log, type: .error, error.localizedDescription)
+                Self.logger.error("The raw revocation could not be parsed. We ignore this revocation: \(error.localizedDescription, privacy: .public)")
                 return
             }
             
@@ -338,9 +332,9 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             
             do {
                 // This call makes sure there is no duplicate in the database
-                _ = try KeycloakRevokedIdentity(keycloakServer: self, keycloakRevocation: keycloakRevocation, delegateManager: delegateManager)
+                _ = try KeycloakRevokedIdentity(keycloakServer: self, keycloakRevocation: keycloakRevocation)
             } catch {
-                os_log("Could not creat an entry in the KeycloakRevokedIdentity table. We ignore this revocation: %{public}@", log: log, type: .error, error.localizedDescription)
+                Self.logger.error("Could not creat an entry in the KeycloakRevokedIdentity table. We ignore this revocation: \(error.localizedDescription)")
                 return
             }
             
@@ -348,13 +342,13 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             
             let contact: ContactIdentity
             do {
-                guard let _contact = try ContactIdentity.get(contactIdentity: keycloakRevocation.cryptoIdentity, ownedIdentity: managedOwnedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(), delegateManager: delegateManager, within: obvContext) else {
+                guard let _contact = try ContactIdentity.get(contactIdentity: keycloakRevocation.cryptoIdentity, ownedIdentity: managedOwnedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(), within: context) else {
                     // The revoked identity is not part of our contacts, we can continue with the next signed revocation
                     return
                 }
                 contact = _contact
             } catch {
-                os_log("Could not check whether the revoked identity is part of our contacts. We continue.", log: log, type: .fault, error.localizedDescription)
+                Self.logger.fault("Could not check whether the revoked identity is part of our contacts. We continue.")
                 return
             }
             
@@ -368,13 +362,13 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
                 if !contact.isForcefullyTrustedByUser, let contactCryptoIdentity = contact.cryptoIdentity {
                     compromisedContacts.insert(contactCryptoIdentity)
                 }
-                contact.revokeAsCompromised(delegateManager: delegateManager) // This deletes the devices of the contact
+                contact.revokeAsCompromised() // This deletes the devices of the contact
             }
 
             do {
-                try contact.refreshCertifiedByOwnKeycloakAndTrustedDetails(delegateManager: delegateManager)
+                try contact.refreshCertifiedByOwnKeycloakAndTrustedDetails()
             } catch {
-                os_log("Could not refresh the certified by keycloak status of a contact. We continue.", log: log, type: .fault, error.localizedDescription)
+                Self.logger.fault("Could not refresh the certified by keycloak status of a contact: \(error.localizedDescription). We continue.")
                 assertionFailure()
             }
 
@@ -441,21 +435,21 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             case revokedIdentities = "revokedIdentities"
         }
         static func withRawOwnedIdentity(_ identity: Data) -> NSPredicate {
-            NSPredicate(format: "%K == %@", KeycloakServer.rawOwnedIdentityKey, identity as NSData)
+            NSPredicate(Key.rawOwnedIdentity, EqualToData: identity)
         }
         static func withServerURL(_ server: URL) -> NSPredicate {
-            NSPredicate(format: "%K == %@", KeycloakServer.serverURLKey, server as NSURL)
+            NSPredicate(Key.serverURL, EqualToUrl: server)
         }
     }
     
-    static func get(serverURL: URL, identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> KeycloakServer? {
+    static func get(serverURL: URL, identity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> KeycloakServer? {
         let request: NSFetchRequest<KeycloakServer> = KeycloakServer.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withRawOwnedIdentity(identity.getIdentity()),
             Predicate.withServerURL(serverURL),
         ])
         request.fetchLimit = 1
-        let item = (try obvContext.fetch(request)).first
+        let item = try context.fetch(request).first
         return item
     }
     
@@ -463,7 +457,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     // MARK: - Keycloak pushed groups
     
     /// Processes the group informations received from the keycloak server.
-    func processSignedKeycloakGroups(signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> [KeycloakGroupV2UpdateOutput] {
+    func processSignedKeycloakGroups(signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, within context: NSManagedObjectContext) throws -> [KeycloakGroupV2UpdateOutput] {
         
         // Determine the appropriate key to validate the signatures.
         // If we have a serverSignatureVerificationKey, this is the one to use.
@@ -480,9 +474,9 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         
         // Process the signed group informations
 
-        try processSignedGroupDeletions(signedGroupDeletions, validatingSignaturesWith: jwks, delegateManager: delegateManager)
-        try processSignedGroupKicks(signedGroupKicks, validatingSignaturesWith: jwks, delegateManager: delegateManager)
-        let keycloakGroupV2UpdateOutputs = try processSignedGroupBlobs(signedGroupBlobs, validatingSignaturesWith: jwks, keycloakCurrentTimestamp: keycloakCurrentTimestamp, delegateManager: delegateManager, within: obvContext)
+        try processSignedGroupDeletions(signedGroupDeletions, validatingSignaturesWith: jwks)
+        try processSignedGroupKicks(signedGroupKicks, validatingSignaturesWith: jwks)
+        let keycloakGroupV2UpdateOutputs = try processSignedGroupBlobs(signedGroupBlobs, validatingSignaturesWith: jwks, keycloakCurrentTimestamp: keycloakCurrentTimestamp, within: context)
         
         // Save the keycloak timestamp
         
@@ -493,7 +487,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     }
 
     
-    private func processSignedGroupDeletions(_ signedGroupDeletions: Set<String>, validatingSignaturesWith jwks: ObvJWKSet, delegateManager: ObvIdentityDelegateManager) throws {
+    private func processSignedGroupDeletions(_ signedGroupDeletions: Set<String>, validatingSignaturesWith jwks: ObvJWKSet) throws {
         
         // Verify the signatures on the signedGroupDeletions and key the payload of group deletions with valid signatures
         
@@ -522,7 +516,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         for keycloakGroupDeletionData in keycloakGroupDeletionDatas {
             
             let groupId = GroupV2.Identifier(groupUID: keycloakGroupDeletionData.groupUid, serverURL: serverURL, category: .keycloak)
-            guard let groupV2 = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: groupId, of: self.managedOwnedIdentity, delegateManager: delegateManager) else {
+            guard let groupV2 = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: groupId, of: self.managedOwnedIdentity) else {
                 // We could not find the group. This happens if we, e.g., updated our identity on the keycloak server.
                 continue
             }
@@ -539,7 +533,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     }
     
     
-    private func processSignedGroupKicks(_ signedGroupKicks: Set<String>, validatingSignaturesWith jwks: ObvJWKSet, delegateManager: ObvIdentityDelegateManager) throws {
+    private func processSignedGroupKicks(_ signedGroupKicks: Set<String>, validatingSignaturesWith jwks: ObvJWKSet) throws {
         
         // Verify the signatures on the signedGroupKicks and key the payload of group deletions with valid signatures
         
@@ -568,13 +562,13 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         for keycloakGroupMemberKickedData in keycloakGroupMemberKickedDatas {
             
             // Verify we are the one being kicked
-            guard self.managedOwnedIdentity.ownedCryptoIdentity.getObvCryptoIdentity() == keycloakGroupMemberKickedData.identity else {
+            guard try self.managedOwnedIdentity.ownedCryptoIdentity.getObvCryptoIdentity() == keycloakGroupMemberKickedData.identity else {
                 // We are not the one being kicked. This happens if we just updated our identity on a keycloak server.
                 continue
             }
             
             let groupId = GroupV2.Identifier(groupUID: keycloakGroupMemberKickedData.groupUid, serverURL: serverURL, category: .keycloak)
-            guard let groupV2 = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: groupId, of: self.managedOwnedIdentity, delegateManager: delegateManager) else {
+            guard let groupV2 = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: groupId, of: self.managedOwnedIdentity) else {
                 // We could not find the group. It may be an "old kick".
                 continue
             }
@@ -592,7 +586,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     
     
     /// Processes the signed group blobs received from the keycloak server. This method filters out blobs with invalid signatures, those that cannot be parsed, etc. It resturns a list of valid groups to be sent back to the protocol manager.
-    private func processSignedGroupBlobs(_ signedGroupBlobs: Set<String>, validatingSignaturesWith jwks: ObvJWKSet, keycloakCurrentTimestamp: Date, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> [KeycloakGroupV2UpdateOutput] {
+    private func processSignedGroupBlobs(_ signedGroupBlobs: Set<String>, validatingSignaturesWith jwks: ObvJWKSet, keycloakCurrentTimestamp: Date, within context: NSManagedObjectContext) throws -> [KeycloakGroupV2UpdateOutput] {
         
         // Verify the signatures on the signedGroupBlobs and key the payload of group deletions with valid signatures
         
@@ -634,8 +628,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
                     serverURL: serverURL,
                     for: self.managedOwnedIdentity,
                     validatingSignaturesWith: jwks,
-                    delegateManager: delegateManager,
-                    within: obvContext)
+                    within: context)
                 keycloakGroupV2UpdateOutputs += [keycloakGroupV2UpdateOutput]
             } catch {
                 if (error as NSError).code == 1 {
@@ -668,29 +661,22 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             changedKeys.removeAll()
         }
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: KeycloakServer.entityName)
-            os_log("The delegate manager is not set (can happen during backup restore)", log: log, type: .fault)
+        guard let delegateManager = Self.delegateManager else {
+            Self.logger.fault("The delegate manager is not set (can happen during backup restore)")
+            assertionFailure()
             return
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakServer.entityName)
-
         // Send a backupableManagerDatabaseContentChanged notification
         if isInserted || isDeleted || isUpdated ||
-            changedKeys.contains(KeycloakServer.serverURLKey) ||
-            changedKeys.contains(KeycloakServer.rawJwksKey) ||
-            changedKeys.contains(KeycloakServer.clientIdKey) ||
-            changedKeys.contains(KeycloakServer.clientSecretKey) ||
-            changedKeys.contains(KeycloakServer.keycloakUserIdKey) ||
-            changedKeys.contains(KeycloakServer.selfRevocationTestNonceKey) ||
-            changedKeys.contains(KeycloakServer.rawServerSignatureKeyKey) {
-            guard let flowId = obvContext?.flowId else {
-                os_log("Could not notify that this backupable manager database content changed", log: log, type: .fault)
-                assertionFailure()
-                return
-            }
-            ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
+            changedKeys.contains(Predicate.Key.serverURL.rawValue) ||
+            changedKeys.contains(Predicate.Key.rawJwks.rawValue) ||
+            changedKeys.contains(Predicate.Key.clientId.rawValue) ||
+            changedKeys.contains(Predicate.Key.clientSecret.rawValue) ||
+            changedKeys.contains(Predicate.Key.keycloakUserId.rawValue) ||
+            changedKeys.contains(Predicate.Key.selfRevocationTestNonce.rawValue) ||
+            changedKeys.contains(Predicate.Key.rawServerSignatureKey.rawValue) {
+            ObvBackupNotification.backupableManagerDatabaseContentChanged
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
@@ -729,9 +715,13 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
                 previousBackedUpProfileSnapShotIsObsolete = false
             }
             if previousBackedUpProfileSnapShotIsObsolete {
-                let ownedCryptoIdentity = self.managedOwnedIdentity.cryptoIdentity
-                let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
-                Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsKeycloakServerChanged  (ownedCryptoId: ownedCryptoId) }
+                do {
+                    let ownedCryptoIdentity = try self.managedOwnedIdentity.cryptoIdentity
+                    let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsKeycloakServerChanged  (ownedCryptoId: ownedCryptoId) }
+                } catch {
+                    assertionFailure()
+                }
             }
         }
 
@@ -836,12 +826,12 @@ struct KeycloakServerBackupItem: Codable, Hashable {
         }
     }
 
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations, rawOwnedIdentity: Data) throws {
-        let keycloakServer = KeycloakServer(backupItem: self, rawOwnedIdentity: rawOwnedIdentity, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout BackupItemObjectAssociations, rawOwnedIdentity: Data) throws {
+        let keycloakServer = KeycloakServer(backupItem: self, rawOwnedIdentity: rawOwnedIdentity, within: context)
         try associations.associate(keycloakServer, to: self)
     }
 
-    func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
 
@@ -1039,7 +1029,7 @@ struct KeycloakServerSnapshotNode: ObvSyncSnapshotNode {
     }
 
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations, rawOwnedIdentity: Data) throws {
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout SnapshotNodeManagedObjectAssociations, rawOwnedIdentity: Data) throws {
         
         let mandatoryDomain = Set<CodingKeys>([.serverURL, .clientId, .keycloakUserId, .clientSecret, .rawJwks])
         guard mandatoryDomain.isSubset(of: domain) else {
@@ -1047,12 +1037,12 @@ struct KeycloakServerSnapshotNode: ObvSyncSnapshotNode {
             throw ObvError.tryingToRestoreIncompleteSnapshot
         }
         
-        let keycloakServer = try KeycloakServer(snapshotNode: self, rawOwnedIdentity: rawOwnedIdentity, within: obvContext)
+        let keycloakServer = try KeycloakServer(snapshotNode: self, rawOwnedIdentity: rawOwnedIdentity, within: context)
         try associations.associate(keycloakServer, to: self)
     }
 
     
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing do to here
     }
 

@@ -9,7 +9,9 @@ let name = "ObvAppTypes"
 
 private let frameworkTarget = Target.makeFrameworkTarget(
     name: name,
-    resources: [],
+    resources: [
+        "Resources/Localizable.xcstrings",
+    ],
     dependencies: [
         .Olvid.App.obvAppCoreConstants,
         .Olvid.Shared.obvTypes,

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,18 +22,39 @@ import ObvTypes
 import ObvAppCoreConstants
 
 
-public struct OlvidURL {
+public struct OlvidURL: Sendable {
     
     public let url: URL
     public let category: Category
     
-    public enum Category {
+    public enum Category: Sendable {
         case invitation(urlIdentity: ObvURLIdentity)
         case mutualScan(mutualScanURL: ObvMutualScanUrl)
-        case configuration(serverAndAPIKey: ServerAndAPIKey?, betaConfiguration: BetaConfiguration?, keycloakConfig: ObvKeycloakConfigurationAndServer?)
+        case configuration(ConfigurationKind)
         case openIdRedirect
-    }
         
+        public enum ConfigurationKind: Sendable {
+            case serverAndAPIKey(ServerAndAPIKey)
+            case betaConfiguration(BetaConfiguration)
+            case keycloakConfig(ObvKeycloakConfigurationAndServer)
+        }
+        
+    }
+    
+    public var canProcessInvitation: Bool {
+        switch category {
+        case .invitation, .mutualScan:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    public init(url: URL, category: Category) {
+        self.url = url
+        self.category = category
+    }
+    
     public init?(urlRepresentation: URL) {
         
         // If the scheme of the URL is "olvid", try to replace it by "https"
@@ -46,19 +67,19 @@ public struct OlvidURL {
             if let serverAndAPIKey = ServerAndAPIKey(urlRepresentation: updatedURL) {
                 // For now, if the URL representation decodes to a ServerAndAPIKey, we do not expect to find a BetaConfiguration nor a KeycloakConfiguration
                 assert(BetaConfiguration(urlRepresentation: updatedURL) == nil && ObvKeycloakConfigurationAndServer(urlRepresentation: updatedURL) == nil)
-                self.category = .configuration(serverAndAPIKey: serverAndAPIKey, betaConfiguration: nil, keycloakConfig: nil)
+                self.category = .configuration(.serverAndAPIKey(serverAndAPIKey))
                 self.url = updatedURL
                 return
             } else if let betaConfiguration = BetaConfiguration(urlRepresentation: updatedURL) {
                 // For now, if the URL representation decodes to a BetaConfiguration, we do not expect to find a ServerAndAPIKey nor a KeycloakConfiguration
                 assert(ServerAndAPIKey(urlRepresentation: updatedURL) == nil && ObvKeycloakConfigurationAndServer(urlRepresentation: updatedURL) == nil)
-                self.category = .configuration(serverAndAPIKey: nil, betaConfiguration: betaConfiguration, keycloakConfig: nil)
+                self.category = .configuration(.betaConfiguration(betaConfiguration))
                 self.url = updatedURL
                 return
             } else if let keycloakConfig = ObvKeycloakConfigurationAndServer(urlRepresentation: updatedURL) {
                 // For now, if the URL representation decodes to a KeycloakConfiguration, we do not expect to find a ServerAndAPIKey nor a BetaConfiguration
                 assert(ServerAndAPIKey(urlRepresentation: updatedURL) == nil && BetaConfiguration(urlRepresentation: updatedURL) == nil)
-                self.category = .configuration(serverAndAPIKey: nil, betaConfiguration: nil, keycloakConfig: keycloakConfig)
+                self.category = .configuration(.keycloakConfig(keycloakConfig))
                 self.url = updatedURL
                 return
             } else {
@@ -110,11 +131,19 @@ public struct OlvidURL {
     
 }
 
+extension OlvidURL: Equatable {
+    
+    public static func == (lhs: OlvidURL, rhs: OlvidURL) -> Bool {
+        lhs.url == rhs.url
+    }
+    
+}
+
 
 /// This struct represents custom settings that can be scanned for beta testing.
 /// For now, we do not support "skipSas" nor "scaledTurn". We only support `beta`,
 /// which can allow a standard user to access the same settings than a TestFlight user.
-public struct BetaConfiguration: Decodable, CodableOlvidURL {
+public struct BetaConfiguration: Sendable, Decodable, CodableOlvidURL {
     
     public let beta: Bool
     

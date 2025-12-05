@@ -27,6 +27,7 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import ObvAppCoreConstants
+import ObvSettings
 
 
 final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWithSpecificReasonForCancel<UpdateDiscussionLocalConfigurationOperation.ReasonForCancel>, @unchecked Sendable {
@@ -94,12 +95,20 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
             }
             
             let doSendReadReceiptBeforeUpdate = localConfiguration.doSendReadReceipt
+            let muteNotificationsEndDateBeforeUpdate = localConfiguration.muteNotificationsEndDate
+            let mentionNotificationModeBeforeUpdate = localConfiguration.mentionNotificationMode
             
             localConfiguration.update(with: value)
 
             let doSendReadReceiptAfterUpdate = localConfiguration.doSendReadReceipt
             let doSendReadReceiptWasUpdated = doSendReadReceiptBeforeUpdate != doSendReadReceiptAfterUpdate
 
+            let muteNotificationsEndDateAfterUpdate = localConfiguration.muteNotificationsEndDate
+            let muteNotificationsEndDateWasUpdated = muteNotificationsEndDateBeforeUpdate != muteNotificationsEndDateAfterUpdate
+            
+            let mentionNotificationModeAfterUpdate = localConfiguration.mentionNotificationMode
+            let mentionNotificationModeWasUpdated = mentionNotificationModeBeforeUpdate != mentionNotificationModeAfterUpdate
+            
             let value = self.value
             try obvContext.addContextDidSaveCompletionHandler { error in
                 guard error == nil else { return }
@@ -132,6 +141,59 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
                         assertionFailure()
                         return
                     }
+                    try? obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        Task.detached {
+                            await syncAtomRequestDelegate.requestPropagationToOtherOwnedDevices(of: syncAtom, for: ownedCryptoId)
+                        }
+                    }
+                }
+            }
+            
+            if makeSyncAtomRequest && (muteNotificationsEndDateWasUpdated || mentionNotificationModeWasUpdated) {
+                assert(self.syncAtomRequestDelegate != nil)
+                if let syncAtomRequestDelegate = self.syncAtomRequestDelegate {
+                    guard let discussion = localConfiguration.discussion else { assertionFailure(); return }
+                    guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { assertionFailure(); return }
+                    let syncAtom: ObvSyncAtom
+                    
+                    let muteNotification: ObvSyncAtom.MuteNotification
+                    
+                    let globalOptions = ObvMessengerSettings.Discussions.notificationOptions
+                    let exceptMentioned: Bool
+                    
+                    if localConfiguration.mentionNotificationMode == .globalDefault {
+                        exceptMentioned = globalOptions.contains(.alwaysNotifyWhenMentionnedEvenInMutedDiscussion)
+                    } else {
+                        exceptMentioned = localConfiguration.mentionNotificationMode == .alwaysNotifyWhenMentionned
+                    }
+
+                    if let muteNotificationsEndDate = localConfiguration.muteNotificationsEndDate {
+                        muteNotification = ObvSyncAtom.MuteNotification(muted: true,
+                                                                        muteTimestamp: muteNotificationsEndDate,
+                                                                        exceptMentioned: exceptMentioned)
+                    } else {
+                        muteNotification = ObvSyncAtom.MuteNotification(muted: false,
+                                                                        muteTimestamp: nil,
+                                                                        exceptMentioned: exceptMentioned)
+                    }
+
+                    switch try? discussion.kind {
+                    case .oneToOne(withContactIdentity: let contact):
+                        guard let contact else { assertionFailure(); return }
+                        syncAtom = .discussionsMute(discussionIdentifiers: [.oneToOne(contactCryptoId: contact.cryptoId)], muteNotification: muteNotification)
+                    case .groupV1(withContactGroup: let groupV1):
+                        guard let groupV1 else { assertionFailure(); return }
+                        guard let groupId = try? groupV1.getGroupId() else { assertionFailure(); return }
+                        syncAtom = .discussionsMute(discussionIdentifiers: [.groupV1(groupIdentifier: groupId)], muteNotification: muteNotification)
+                    case .groupV2(withGroup: let groupV2):
+                        guard let groupV2 else { assertionFailure(); return }
+                        syncAtom = .discussionsMute(discussionIdentifiers: [.groupV2(groupIdentifier: groupV2.groupIdentifier)], muteNotification: muteNotification)
+                    case .none:
+                        assertionFailure()
+                        return
+                    }
+                    
                     try? obvContext.addContextDidSaveCompletionHandler { error in
                         guard error == nil else { return }
                         Task.detached {

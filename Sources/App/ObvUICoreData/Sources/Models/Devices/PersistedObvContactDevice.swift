@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,6 +52,10 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable {
     // MARK: Other variables
     
     private var changedKeys = Set<String>()
+
+    public var name: String {
+        return String(identifier.hexString().prefix(4))
+    }
 
     public private(set) var identity: PersistedObvContactIdentity? {
         get {
@@ -232,7 +236,7 @@ extension PersistedObvContactDevice {
     func createOrUpdatePersistedLocationContinuousReceived(locationData: ObvLocationData, count: Int, sharingExpiration: ObvLocationSharingExpirationDate) throws -> PersistedLocationContinuousReceived {
         
         if let location {
-            try location.updateContentForContinuousLocation(with: locationData, count: count)
+            location.updateContentForContinuousLocation(with: locationData, count: count)
             return location
         } else {
             let location = try PersistedLocationContinuousReceived(locationData: locationData, count: count, sharingExpiration: sharingExpiration, contactDevice: self)
@@ -272,6 +276,12 @@ extension PersistedObvContactDevice {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 withOwnedCryptoId(contactIdentifier.ownedCryptoId),
                 withContactCryptoId(contactIdentifier.contactCryptoId),
+            ])
+        }
+        static func withObvContactDeviceIdentifier(_ identifier: ObvContactDeviceIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Self.withContactIdentifier(identifier.contactIdentifier),
+                Self.withContactDeviceIdentifier(identifier.deviceUID.raw),
             ])
         }
     }
@@ -320,6 +330,32 @@ extension PersistedObvContactDevice {
         })
         
     }
+    
+    
+    public static func getFetchedResultsController(contactDeviceIdentifier: ObvContactDeviceIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactDevice> {
+        let request: NSFetchRequest<PersistedObvContactDevice> = self.fetchRequest()
+        request.predicate = Predicate.withObvContactDeviceIdentifier(contactDeviceIdentifier)
+        request.fetchLimit = 1
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.identifier.rawValue, ascending: true)]
+        let frc = NSFetchedResultsController(fetchRequest: request,
+                                             managedObjectContext: context,
+                                             sectionNameKeyPath: nil,
+                                             cacheName: nil)
+        return frc
+    }
+
+    
+    public static func getFetchedResultsController(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactDevice> {
+        let request: NSFetchRequest<PersistedObvContactDevice> = self.fetchRequest()
+        request.predicate = Predicate.withContactIdentifier(contactIdentifier)
+        request.fetchBatchSize = 100
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.identifier.rawValue, ascending: true)]
+        let frc = NSFetchedResultsController(fetchRequest: request,
+                                             managedObjectContext: context,
+                                             sectionNameKeyPath: nil,
+                                             cacheName: nil)
+        return frc
+    }
 
 }
 
@@ -356,18 +392,6 @@ extension PersistedObvContactDevice {
             return
         }
 
-        if isInserted, let contactCryptoId = self.identity?.cryptoId {
-            
-            ObvMessengerCoreDataNotification.newPersistedObvContactDevice(contactDeviceObjectID: self.objectID, contactCryptoId: contactCryptoId)
-                .postOnDispatchQueue()
-            
-        } else if isDeleted, let contactCryptoId = self.contactIdentityCryptoIdForDeletion {
-            
-            ObvMessengerCoreDataNotification.deletedPersistedObvContactDevice(contactCryptoId: contactCryptoId)
-                .postOnDispatchQueue()
-            
-        }
-        
         if !isDeleted && changedKeys.contains(Predicate.Key.rawSecureChannelStatus.rawValue), let secureChannelStatus {
             switch secureChannelStatus {
             case .creationInProgress:

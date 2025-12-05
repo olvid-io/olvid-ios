@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,6 @@
  */
 
 import Foundation
-
 import ObvMetaManager
 import ObvCrypto
 import ObvTypes
@@ -33,13 +32,13 @@ struct CoreProtocolMessage {
     let partOfFullRatchetProtocolOfTheSendSeed: Bool
     let timestamp: Date
     
-    init(with message: ReceivedMessage) {
+    init(with message: ReceivedMessage) throws {
         self.channelType = nil
-        self.receptionChannelInfo = message.receptionChannelInfo
-        self.toOwnedIdentity = message.messageId.ownedCryptoIdentity
-        self.protocolInstanceUid = message.protocolInstanceUid
+        self.receptionChannelInfo = try message.receptionChannelInfo
+        self.toOwnedIdentity = try message.messageId.ownedCryptoIdentity
+        self.protocolInstanceUid = try message.protocolInstanceUid
         self.partOfFullRatchetProtocolOfTheSendSeed = false // Always false for received message, because this information only concerns the sending oblivious channel
-        self.cryptoProtocolId = message.cryptoProtocolId
+        self.cryptoProtocolId = try message.cryptoProtocolId
         self.timestamp = message.timestamp
     }
     

@@ -29,11 +29,11 @@ struct QuicklookPreviewModifier<Model: StorageManagementFileListViewModelProtoco
     @ViewBuilder
     func body(content: Content) -> some View {
         
-        if ObvAppCoreConstants.targetEnvironmentIsMacCatalyst {
+        #if targetEnvironment(macCatalyst)
             content.modifier(QuicklookPreviewForCatalystModifier(model: model))
-        } else {
+        #else
             content.quickLookPreview(Binding(get: { self.model.quicklookURL }, set: { self.model.setQuicklookURL($0) }), in: model.quicklookURLs)
-        }
+        #endif
     }
 }
 

@@ -41,7 +41,7 @@ final class MarkContactAsRecentlyOnlineOperation: ContextualOperationWithSpecifi
         
         do {
 
-            guard try identityDelegate.isIdentity(contactIdentifier.contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, within: obvContext) else {
+            guard try identityDelegate.isIdentity(contactIdentifier.contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, within: obvContext.context) else {
                 // This can happen if the contact was deleted right after decrypting a message
                 return
             }

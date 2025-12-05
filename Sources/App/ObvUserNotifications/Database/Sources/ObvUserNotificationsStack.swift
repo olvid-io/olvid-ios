@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ import OlvidUtils
 
 public actor ObvUserNotificationsStack {
 
-    private static var _shared: CoreDataStack<ObvUserNotificationsPersistentContainer>!
+    nonisolated(unsafe) private static var _shared: CoreDataStack<ObvUserNotificationsPersistentContainer>!
     
     public static func initSharedInstance(transactionAuthor: String, runningLog: RunningLogError, enableMigrations: Bool, deleteStoreOnFailure: Bool) throws {
         guard _shared == nil else { return }

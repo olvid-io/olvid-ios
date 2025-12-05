@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,7 +59,7 @@ final class GateKeeper {
 
 fileprivate final class ObvContextSlotManager {
 
-    private static let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: "ObvContextSlotManager")
+    private static let logger = Logger(subsystem: "io.olvid.channel", category: "ObvContextSlotManager")
 
     private let semaphore = DispatchSemaphore(value: 1) // Tested
 
@@ -75,11 +75,12 @@ fileprivate final class ObvContextSlotManager {
         }
         
         //assert(Task.currentPriority.rawValue > TaskPriority.medium.rawValue)
-        os_log("🚪[%{public}@] Context %{public}@ will wait. Current context in slot: %{public}@", log: Self.log, type: .debug, Task.currentPriority.debugDescription, obvContext.debugDescription, currentContextInSlot?.debugDescription ?? "None")
+        let slotDescription: String = currentContextInSlot?.debugDescription ?? "None"
+        Self.logger.debug("🚪[\(Task.currentPriority.debugDescription)] Context \(obvContext.debugDescription, privacy: .public) will wait. Current context in slot: \(slotDescription, privacy: .public)")
         
         semaphore.wait()
         
-        os_log("🚪 Context %{public}@ will take the slot and continue", log: Self.log, type: .debug, obvContext.debugDescription)
+        Self.logger.debug("🚪 Context \(obvContext.debugDescription, privacy: .public) will take the slot and continue")
 
         assert(currentContextInSlot == nil)
         
@@ -90,9 +91,9 @@ fileprivate final class ObvContextSlotManager {
         obvContext.addEndOfScopeCompletionHandler { [weak self] in
             guard let self else { assertionFailure(); return }
             currentContextInSlot = nil
-            os_log("🚪 Context %{public}@ will free the slot", log: Self.log, type: .debug, contextDescription)
+            Self.logger.debug("🚪 Context \(contextDescription, privacy: .public) will free the slot")
             semaphore.signal()
-            os_log("🚪 Context %{public}@ did free the slot", log: Self.log, type: .debug, contextDescription)
+            Self.logger.debug("🚪 Context \(contextDescription, privacy: .public) did free the slot")
         }
 
     }

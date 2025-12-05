@@ -31,26 +31,29 @@ struct StorageManagementInlineFilesView<Model: StorageManagementInlineFilesViewM
     }
     
     @ViewBuilder
-    private func cellForRemainingStorageFiles(_ remainingStorageFiles: [Model.StorageFileRepresentation]) -> some View {
+    private func cellForRemainingStorageFiles(_ elementsDisplayedCount: Int) -> some View {
         ZStack {
-            if let firstRemainingFile = remainingStorageFiles.first {
+            if elementsDisplayedCount < model.storageFiles.count {
+                let firstRemainingFile = model.storageFiles[elementsDisplayedCount]
                 model.cellForStorageFile(firstRemainingFile)
             } else {
                 Rectangle()
                     .background(Color(uiColor: .tertiarySystemGroupedBackground))
             }
             
-            Text(verbatim: "+ \(remainingStorageFiles.count)")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.5))
+            if model.storageFiles.count > elementsDisplayedCount {
+                Text(verbatim: "+ \(model.storageFiles.count - elementsDisplayedCount)")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.5))
+            }
         }
         .padding(1.0)
     }
     
     var body: some View {
-//        let _ = Self._printChanges() // Use to print changes to observable
+        //        let _ = Self._printChanges() // Use to print changes to observable
         
         return GeometryReader() { proxy in
             
@@ -60,18 +63,24 @@ struct StorageManagementInlineFilesView<Model: StorageManagementInlineFilesViewM
                 
                 let cellWidth = (proxy.size.width / CGFloat(numberOfFiles)) - 0.1
                 
-                WrappingHStack(data: model.storageFiles,
+                WrappingHStack(data: model.displayableStorageFiles,
                                cellAlignment: .top,
                                cellSpacing: 0.0,
                                width: proxy.size.width,
                                maxRows: 1,
                                cornerRadius: 12.0,
-                               contentForTruncatedElements: { remainingStorageFiles in
-                    cellForRemainingStorageFiles(remainingStorageFiles)
+                               contentForSizing: {
+                    model.cellForSizing()
+                        .padding(1.0)
+                        .frame(width: cellWidth,
+                               height:cellWidth)
+                },
+                               contentForTruncatedElements: { elementsDisplayedCount in
+                    cellForRemainingStorageFiles(elementsDisplayedCount)
                         .frame(width: cellWidth,
                                height:cellWidth)
                 }, content: { storageFile in
-                    return model.cellForStorageFile(storageFile)
+                    model.cellForStorageFile(storageFile)
                         .padding(1.0)
                         .frame(width: cellWidth,
                                height:cellWidth)

@@ -186,6 +186,16 @@ extension PersistedMessage {
         messages.forEach { context.delete($0) }
     }
 
+    public static func getFetchedResultsController(objectID: TypeSafeManagedObjectID<PersistedMessage>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessage> {
+        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID.objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
 }
 
 

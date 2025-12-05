@@ -1,0 +1,584 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "CLONE_THIS_GROUP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Gruppe klonen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clone this group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clonar este grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloner ce groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clona questo gruppo"
+          }
+        }
+      }
+    },
+    "CLONE_THIS_GROUP_V1_TO_GROUP_V2": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Gruppe klonen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clone this group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clonar este grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloner ce groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clona questo gruppo"
+          }
+        }
+      }
+    },
+    "DISBAND_GROUP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Gruppe auflösen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disband this group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disolver este grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer ce groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sciogliere questo gruppo"
+          }
+        }
+      }
+    },
+    "EDIT_NICKNAME_AND_CUSTOM_PHOTO": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benutzerdefinierten Namen und Foto bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit custom name and photo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar nombre y foto personalizados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éditer le surnom et la photo personnalisée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifica nome e foto personalizzati"
+          }
+        }
+      }
+    },
+    "EDIT_PERSONAL_NOTE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Persönliche Notiz bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit personal note"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar nota personal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éditer la note personnelle"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifica nota personale"
+          }
+        }
+      }
+    },
+    "EXPLANATION_FOR_CLONING_A_GROUP_V1_TO_GROUP_V2": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Gruppe unterstützt nicht mehr als einen Administrator. Du kannst diese Gruppe jedoch in eine neue klonen, die 🚀!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This group does not support more than one administrator. But you can clone this group into a new one that will 🚀!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este grupo no admite más de un administrador. Pero puedes clonar este grupo en uno nuevo que tendrá 🚀!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce groupe ne permet pas d'avoir plusieurs administrateurs. Mais vous pouvez le cloner en un nouveau groupe de dernière génération qui le permettra 🚀 !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo gruppo non supporta più di un amministratore. Ma puoi clonare questo gruppo in uno nuovo che sarai tu ad amministrare!"
+          }
+        }
+      }
+    },
+    "GROUP_ADMINISTRATION_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppenverwaltung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group administration"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administración del grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administration du groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amministrazione gruppo"
+          }
+        }
+      }
+    },
+    "GROUP_WAS_DELETED_DESCRIPTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie wurden aus dieser Gruppe entfernt. Falls Sie der Meinung sind, dass dies ein Fehler ist, wenden Sie sich bitte an einen der Gruppen-Administratoren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You have been removed from this group. If you believe this is a mistake, please reach out to one of the group admins for assistance."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has sido eliminado de este grupo. Si crees que se trata de un error, ponte en contacto con alguno de los administradores del grupo para obtener ayuda.\n"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez été retiré de ce groupe. Si vous pensez qu’il s’agit d’une erreur, veuillez contacter un administrateur du groupe pour obtenir de l’aide."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sei stato rimosso da questo gruppo. Se ritieni che si tratti di un errore, contatta uno degli amministratori del gruppo per assistenza.\n\n"
+          }
+        }
+      }
+    },
+    "GROUP_WAS_DELETED_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppe nicht mehr verfügbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group no longer available"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupo ya no disponible"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groupe non disponible"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppo non più disponibile"
+          }
+        }
+      }
+    },
+    "LEAVE_GROUP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppe verlassen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave this group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salir de este grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter ce groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lascia questo gruppo"
+          }
+        }
+      }
+    },
+    "MODIFY_GROUP_NAME_AND_PHOTO_BUTTON_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppenname und bild"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group name and picture"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre y foto del grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom et image du groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome e immagine del gruppo"
+          }
+        }
+      }
+    },
+    "MODIFY_MEMBERS_BUTTON_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitglieder"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Miembros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membri"
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V1_VIEW_SHEET_CONFIRM_DISBAND_GROUP_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte beachten Sie, dass diese Aktion nicht rückgängig gemacht werden kann. Wenn Sie bestätigen, wird diese Gruppe für alle Mitglieder gelöscht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please note that this action is irreversible. If you confirm, this group will be deleted for all members."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten en cuenta que esta acción es irreversible. Si confirmas, este grupo se eliminará para todos los miembros."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer un groupe est une opération irréversible. Si vous continuez, le groupe sera supprimé chez tous les membres."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si prega di notare che questa azione è irreversibile. Se confermi, questo gruppo verrà eliminato per tutti i membri."
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V1_VIEW_SHEET_CONFIRM_DISBAND_GROUP_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Achtung! Möchtest du diese Gruppe wirklich auflösen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heads-up! Do you really wish to disband this group?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Atención! ¿De verdad quieres disolver este grupo?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attention ! Voulez-vous vraiment supprimer ce groupe ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attenzione! Sei sicuro di voler sciogliere questo gruppo?"
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V1_VIEW_SHEET_CONFIRM_LEAVE_GROUP_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte beachten Sie, dass diese Aktion unwiderruflich ist (es sei denn, ein Gruppenadministrator beschließt, Sie später erneut einzuladen)."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please note that this action is irreversible (unless a group administrator decides to invite you again later on)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten en cuenta que esta acción es irreversible (a menos que un administrador del grupo decida invitarte nuevamente más tarde)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attention, cette action est irréversible (sauf si un administrateur du groupe vous y invite à nouveau après que vous l'ayez quitté)."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si prega di notare che questa azione è irreversibile (a meno che un amministratore del gruppo non decida di invitarti nuovamente in seguito)."
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V1_VIEW_SHEET_CONFIRM_LEAVE_GROUP_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Möchten Sie diese Gruppe wirklich verlassen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do you really wish to leave this group?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿De verdad quieres salir de este grupo?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voulez-vous vraiment quitter le groupe ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vuoi davvero lasciare questo gruppo?"
+          }
+        }
+      }
+    },
+    "TITLE_MANAGE_GROUP_MEMBERS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitglieder verwalten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrar miembros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gérer les membres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestisci membri"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.1"
+}

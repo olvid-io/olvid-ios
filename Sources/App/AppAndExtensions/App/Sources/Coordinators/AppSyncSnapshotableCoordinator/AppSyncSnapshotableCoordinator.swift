@@ -50,9 +50,6 @@ final class AppSyncSnapshotableCoordinator: OlvidCoordinator, ObvAppSnapshotable
         }
     }
 
-    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {}
-
-    
     // MARK: - ObvAppSnapshotable
     
     @MainActor

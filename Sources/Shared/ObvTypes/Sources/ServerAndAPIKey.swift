@@ -20,7 +20,7 @@
 import Foundation
 
 
-public struct ServerAndAPIKey: Codable, Equatable {
+public struct ServerAndAPIKey: Sendable, Codable, Equatable {
 
     public let server: URL
     public let apiKey: UUID

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,10 +26,11 @@ import ObvDesignSystem
 
 protocol ManagedDetailsViewerViewActionsProtocol: AnyObject {
     func userWantsToCreateProfileWithDetailsFromIdentityProvider(keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)) async
+    func userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: ObvCryptoId, keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)) async
 }
 
 
-struct ManagedDetailsViewerView: View, ManagedDetailsViewerInnerViewActionsProtocol {
+struct ManagedDetailsViewerView: View {
 
     let actions: ManagedDetailsViewerViewActionsProtocol
     let model: Model
@@ -37,14 +38,11 @@ struct ManagedDetailsViewerView: View, ManagedDetailsViewerInnerViewActionsProto
     struct Model {
         let keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff
         let keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff
+        let existingOwnedCryptoIdToBind: ObvCryptoId? // Non-nil iff we are binding a profile that already exists on this device.
     }
 
     private var coreDetails: ObvIdentityCoreDetails? {
         try? model.keycloakUserDetailsAndStuff.signedUserDetails.userDetails.getCoreDetails()
-    }
-
-    fileprivate func createProfileAction() async {
-        await actions.userWantsToCreateProfileWithDetailsFromIdentityProvider(keycloakDetails: (model.keycloakUserDetailsAndStuff, model.keycloakServerRevocationsAndStuff))
     }
     
     private var anOldIdentityAlreadyExistsOnTheIdentityProvider: Bool {
@@ -55,65 +53,82 @@ struct ManagedDetailsViewerView: View, ManagedDetailsViewerInnerViewActionsProto
         model.keycloakServerRevocationsAndStuff.revocationAllowed
     }
     
+    private var modelForInnerView: ManagedDetailsViewerInnerView.Model {
+        .init(coreDetails: self.coreDetails,
+              anOldIdentityAlreadyExistsOnTheIdentityProvider: self.anOldIdentityAlreadyExistsOnTheIdentityProvider,
+              identityProviderAllowsRevocation: self.identityProviderAllowsRevocation,
+              existingOwnedCryptoIdToBind: self.model.existingOwnedCryptoIdToBind)
+    }
+    
     var body: some View {
         ManagedDetailsViewerInnerView(
-            actions: self,
-            model: .init(coreDetails: coreDetails, 
-                         anOldIdentityAlreadyExistsOnTheIdentityProvider: anOldIdentityAlreadyExistsOnTheIdentityProvider, 
-                         identityProviderAllowsRevocation: identityProviderAllowsRevocation))
+            model: modelForInnerView,
+            actions: self)
+    }
+        
+}
+
+
+extension ManagedDetailsViewerView: ManagedDetailsViewerInnerViewActionsProtocol {
+    
+    func userWantsToCreateProfileWithDetailsFromIdentityProvider() async {
+        await self.actions.userWantsToCreateProfileWithDetailsFromIdentityProvider(keycloakDetails: (keycloakUserDetailsAndStuff: model.keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: model.keycloakServerRevocationsAndStuff))
     }
     
+    func userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: ObvTypes.ObvCryptoId) async {
+        await actions.userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: existingOwnedCryptoIdToBind,
+                                                                 keycloakDetails: (keycloakUserDetailsAndStuff: model.keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: model.keycloakServerRevocationsAndStuff))
+    }
+
 }
 
 
+// MARK: - Internal view: struct ManagedDetailsViewerInnerView
 
-// MARK: - ManagedDetailsViewerInnerView
-
-
-private protocol ManagedDetailsViewerInnerViewActionsProtocol {
-    func createProfileAction() async
+protocol ManagedDetailsViewerInnerViewActionsProtocol {
+    func userWantsToCreateProfileWithDetailsFromIdentityProvider() async
+    func userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: ObvCryptoId) async
 }
 
-
+/// The sole purpose of this inner view is to make it possible to have previews (since the model of the `ManagedDetailsViewerInnerView` cannot be easily instantiated)
 private struct ManagedDetailsViewerInnerView: View {
     
-    let actions: ManagedDetailsViewerInnerViewActionsProtocol
     let model: Model
-    @State private var isProfileCreationInProgress = false
+    let actions: ManagedDetailsViewerInnerViewActionsProtocol
     
     struct Model {
-        let coreDetails: ObvIdentityCoreDetails? // Expected to be non nil, unless the identity provider did a bad job
+        let coreDetails: ObvIdentityCoreDetails?
         let anOldIdentityAlreadyExistsOnTheIdentityProvider: Bool
         let identityProviderAllowsRevocation: Bool
+        let existingOwnedCryptoIdToBind: ObvCryptoId?
     }
     
-    @MainActor
-    private func createProfile() async {
-        isProfileCreationInProgress = true
-        await actions.createProfileAction()
-        isProfileCreationInProgress = false
-    }
-    
-    
-    private var warningPanelConfig: (icon: SystemIcon, iconColor: Color, body: LocalizedStringKey)? {
-        guard model.anOldIdentityAlreadyExistsOnTheIdentityProvider else { return nil }
-        if model.identityProviderAllowsRevocation {
-            return (SystemIcon.exclamationmarkCircle, Color(UIColor.systemYellow), "TEXT_EXPLANATION_WARNING_IDENTITY_CREATION_KEYCLOAK_REVOCATION_NEEDED")
-        } else {
-            return (SystemIcon.xmarkCircle, Color(UIColor.systemRed), "TEXT_EXPLANATION_WARNING_IDENTITY_CREATION_KEYCLOAK_REVOCATION_IMPOSSIBLE")
+    @State private var isProfileCreationOrBindingInProgress = false
+
+    private func userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: ObvCryptoId) {
+        withAnimation { isProfileCreationOrBindingInProgress = true }
+        Task {
+            await actions.userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: existingOwnedCryptoIdToBind)
+            withAnimation { isProfileCreationOrBindingInProgress = false }
         }
     }
-    
-    
+
     private var indentityProviderWouldRejectProfileCreation: Bool {
         model.anOldIdentityAlreadyExistsOnTheIdentityProvider && !model.identityProviderAllowsRevocation
     }
-    
-    
-    private var createProfileButtonIsDisabled: Bool {
-        isProfileCreationInProgress || indentityProviderWouldRejectProfileCreation
+
+    private var buttonIsDisabled: Bool {
+        isProfileCreationOrBindingInProgress || indentityProviderWouldRejectProfileCreation
     }
-    
+
+    fileprivate func createProfile() {
+        withAnimation { isProfileCreationOrBindingInProgress = true }
+        Task {
+            await actions.userWantsToCreateProfileWithDetailsFromIdentityProvider()
+            withAnimation { isProfileCreationOrBindingInProgress = false }
+        }
+    }
+
     var body: some View {
         VStack {
             
@@ -148,22 +163,36 @@ private struct ManagedDetailsViewerInnerView: View {
                             .padding(.top)
                         }
                         
-                        if isProfileCreationInProgress {
-                            HStack {
-                                Spacer()
-                                ProgressView()
-                                    .controlSize(.large)
-                                Spacer()
-                            }.padding(.top)
-                        }
+                        HStack(alignment: .firstTextBaseline) {
+                            Image(systemIcon: .infoCircle)
+                                .foregroundStyle(.yellow)
+                            Text("EXPLANATION_KEYCLOAK_BIND")
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
+                        }.padding(.top)
                         
                     }
                     
                 }
                 
-                InternalButton("ONBOARDING_NAME_CHOOSER_BUTTON_TITLE", action: { Task { await createProfile() } })
-                    .disabled(createProfileButtonIsDisabled)
+                // Display a button allowing to start the creation of the new profile, or to bind the existing profile.
+                
+                if let existingOwnedCryptoIdToBind = model.existingOwnedCryptoIdToBind {
+                    
+                    SwitchToManagedProfileButton(existingOwnedCryptoIdToBind: existingOwnedCryptoIdToBind) {
+                        userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: existingOwnedCryptoIdToBind)
+                    }
+                    .disabled(buttonIsDisabled)
                     .padding(.bottom)
+
+                } else {
+                    
+                    CreateProfileButton("ONBOARDING_NAME_CHOOSER_BUTTON_TITLE", action: createProfile)
+                        .disabled(buttonIsDisabled)
+                        .padding(.bottom)
+                    
+                }
+                
                 
             } else {
 
@@ -173,6 +202,53 @@ private struct ManagedDetailsViewerInnerView: View {
             
         }
         .padding(.horizontal)
+    }
+
+}
+
+
+// MARK: - Internal view: SwitchToManagedProfileButton
+
+private struct SwitchToManagedProfileButton: View {
+    
+    let existingOwnedCryptoIdToBind: ObvCryptoId
+    let action: () -> Void
+    
+    @Environment(\.isEnabled) var isEnabled
+
+    @ViewBuilder
+    private var buttonLabel: some View {
+        Label {
+            Text("SWITCH_TO_A_MANAGED_PROFILE")
+        } icon: {
+            Image(systemIcon: .serverRack)
+        }
+        .padding(.vertical, 8)
+    }
+        
+    var body: some View {
+
+        if #available(iOS 26, *) {
+            Button(action: action) {
+                HStack {
+                    if !isEnabled { ProgressView().tint(.white) }
+                    buttonLabel
+                }
+            }
+                .buttonStyle(.glassProminent)
+                .buttonSizing(.flexible)
+        } else {
+            Button(action: action) {
+                HStack {
+                    Spacer(minLength: 0)
+                    if !isEnabled { ProgressView() }
+                    buttonLabel
+                    Spacer(minLength: 0)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        
     }
 }
 
@@ -259,7 +335,9 @@ private struct BadInformationsReturnedByIdentityProviderView: View {
 }
 
 
-private struct InternalButton: View {
+// MARK: - Internal view: CreateProfileButton
+
+private struct CreateProfileButton: View {
     
     private let key: LocalizedStringKey
     private let action: () -> Void
@@ -271,16 +349,25 @@ private struct InternalButton: View {
     }
         
     var body: some View {
-        Button(action: action) {
-            Text(key)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 26)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity)
+        if #available(iOS 26, *) {
+            Button(action: action) {
+                Text(key)
+                    .padding(.vertical, 8)
+            }
+            .buttonStyle(.glassProminent)
+            .buttonSizing(.flexible)
+        } else {
+            Button(action: action) {
+                Text(key)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 26)
+                    .padding(.vertical, 16)
+                    .frame(maxWidth: .infinity)
+            }
+            .background(Color.blue01)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(isEnabled ? 1.0 : 0.6)
         }
-        .background(Color.blue01)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
     }
     
 }
@@ -289,26 +376,45 @@ private struct InternalButton: View {
 
 // MARK: - Previews
 
-struct ManagedDetailsViewerInnerView_Previews: PreviewProvider {
+#if DEBUG
+
+private final class ActionsForPreviews: ManagedDetailsViewerInnerViewActionsProtocol {
     
-    private static let model = ManagedDetailsViewerInnerView.Model(
-        coreDetails: try? .init(
-            firstName: "Alice",
-            lastName: nil,
-            company: nil,
-            position: nil,
-            signedUserDetails: nil),
-        anOldIdentityAlreadyExistsOnTheIdentityProvider: false,
-        identityProviderAllowsRevocation: false)
     
-    private struct ActionsForPreviews: ManagedDetailsViewerInnerViewActionsProtocol {
-        func createProfileAction() async {}
+    func userWantsToCreateProfileWithDetailsFromIdentityProvider() async {
+        print("User tapped the userWantsToCreateProfileWithDetailsFromIdentityProvider button")
+        try? await Task.sleep(seconds: 2)
     }
     
-    private static let actions = ActionsForPreviews()
-    
-    static var previews: some View {
-        ManagedDetailsViewerInnerView(actions: actions, model: model)
+    func userWantsToBindExistingProfileWithKeycloak(existingOwnedCryptoIdToBind: ObvTypes.ObvCryptoId) async {
+        print("User tapped the userWantsToBindExistingProfileWithKeycloak button")
+        try? await Task.sleep(seconds: 2)
     }
+
+}
+
+@MainActor
+private let actionsForPreviews = ActionsForPreviews()
+
+private let coreDetailsForPreviews = try? ObvIdentityCoreDetails(
+    firstName: "Alice",
+    lastName: "Cooper",
+    company: nil,
+    position: nil,
+    signedUserDetails: nil)
+
+let cryptoIdForPreviews = try! ObvCryptoId(identity: Data(hexString: "68747470733a2f2f7365727665722e6465762e6f6c7669642e696f0000b82ae0c57e570389cb03d5ad93dab4606bda7bbe01c09ce5e423094a8603a61e01693046e10e04606ef4461d31e1aa1819222a0a606a250e91749095a4410778c1")!)
+
+private let modelForPreviews = ManagedDetailsViewerInnerView.Model(
+    coreDetails: coreDetailsForPreviews,
+    anOldIdentityAlreadyExistsOnTheIdentityProvider: false,
+    identityProviderAllowsRevocation: false,
+    existingOwnedCryptoIdToBind: cryptoIdForPreviews)
+
+#Preview {
+    
+    ManagedDetailsViewerInnerView(model: modelForPreviews, actions: actionsForPreviews)
     
 }
+
+#endif // DEBUG

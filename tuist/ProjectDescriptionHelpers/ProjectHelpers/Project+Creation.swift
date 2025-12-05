@@ -139,7 +139,7 @@ extension Project {
             case .app:
                 
                 let runActionOptions = RunActionOptions.options(
-                    storeKitConfigurationPath: .relativeToManifest("App/TestConfiguration.storekit"),
+                    storeKitConfigurationPath: .relativeToManifest("App/NewStoreKitConfiguration.storekit"),
                     enableGPUFrameCaptureMode: .default
                 )
                 

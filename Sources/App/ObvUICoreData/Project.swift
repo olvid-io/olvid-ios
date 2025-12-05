@@ -26,6 +26,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.App.obvAppDatabase,
         .Olvid.App.obvUICoreDataStructs,
         .Olvid.App.obvAppTypes,
+        .Olvid.App.obvAppCoreConstants,
     ])
 
 

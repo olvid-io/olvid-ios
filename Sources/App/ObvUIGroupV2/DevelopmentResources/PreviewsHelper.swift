@@ -21,6 +21,7 @@ import Foundation
 import ObvTypes
 import ObvCrypto
 import ObvCircleAndTitlesView
+import ObvUIGroupSharedBetweenV1AndV2
 
 
 struct PreviewsHelper {
@@ -72,24 +73,26 @@ struct PreviewsHelper {
     
     @MainActor
     static var profilePictureForURL: [URL: UIImage] = [
-        photoURL[0]: UIImage(named: "avatar00", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
-        photoURL[1]: UIImage(named: "avatar01", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
-        photoURL[2]: UIImage(named: "avatar02", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
+        photoURLForProfilePicture[0]: UIImage(named: "avatar00", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
+        photoURLForProfilePicture[1]: UIImage(named: "avatar01", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
+        photoURLForProfilePicture[2]: UIImage(named: "avatar02", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
+        photoURLForGroupPicture[0]: UIImage(named: "group00", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
+        photoURLForGroupPicture[1]: UIImage(named: "group01", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
+        photoURLForGroupPicture[2]: UIImage(named: "group02", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
     ]
     
-    @MainActor
-    static var groupPictureForURL: [URL: UIImage] = [
-        photoURL[0]: UIImage(named: "group00", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
-        photoURL[1]: UIImage(named: "group01", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
-        photoURL[2]: UIImage(named: "group02", in: ObvUIGroupV2Resources.bundle, compatibleWith: nil)!,
-    ]
-
-    @MainActor static let photoURL: [URL] = [
+    @MainActor static let photoURLForProfilePicture: [URL] = [
         URL(string: "https://dev.olvid.io/avatar00")!,
         URL(string: "https://dev.olvid.io/avatar01")!,
         URL(string: "https://dev.olvid.io/avatar02")!,
     ]
-    
+
+    @MainActor static let photoURLForGroupPicture: [URL] = [
+        URL(string: "https://dev.olvid.io/group00")!,
+        URL(string: "https://dev.olvid.io/group01")!,
+        URL(string: "https://dev.olvid.io/group02")!,
+    ]
+
     fileprivate static let allPermissions = Set(ObvGroupV2.Permission.allCases)
     private static let allPermissionsButAdmin = {
         var allPermissions = Set(ObvGroupV2.Permission.allCases)
@@ -98,13 +101,13 @@ struct PreviewsHelper {
     }()
     
     @MainActor
-    static let groupMembers: [SingleGroupMemberViewModel] = [
+    static let groupMembers: [SingleGroupMemberView.Model] = [
         .init(contactIdentifier: contactIdentifiers[0],
-              permissions: allPermissions,
+              isGroupAdmin: allPermissions.contains(.groupAdmin),
               isKeycloakManaged: false,
               profilePictureInitial: "A",
               circleColors: .init(background: .blue, foreground: .red),
-              identityDetails: .init(coreDetails: coreDetails[0], photoURL: photoURL[0]),
+              identityDetails: .init(coreDetails: coreDetails[0], photoURL: photoURLForProfilePicture[0]),
               isOneToOneContact: .yes,
               isRevokedAsCompromised: false,
               isPending: false,
@@ -112,11 +115,11 @@ struct PreviewsHelper {
               customDisplayName: "CustomDisplayName",
               customPhotoURL: nil),
         .init(contactIdentifier: contactIdentifiers[1],
-              permissions: allPermissionsButAdmin,
+              isGroupAdmin: allPermissionsButAdmin.contains(.groupAdmin),
               isKeycloakManaged: true,
               profilePictureInitial: "B",
               circleColors: .init(background: .green, foreground: .cyan),
-              identityDetails: .init(coreDetails: coreDetails[1], photoURL: photoURL[1]),
+              identityDetails: .init(coreDetails: coreDetails[1], photoURL: photoURLForProfilePicture[1]),
               isOneToOneContact: .yes,
               isRevokedAsCompromised: false,
               isPending: false,
@@ -124,11 +127,11 @@ struct PreviewsHelper {
               customDisplayName: nil,
               customPhotoURL: nil),
         .init(contactIdentifier: contactIdentifiers[2],
-              permissions: allPermissions,
+              isGroupAdmin: allPermissions.contains(.groupAdmin),
               isKeycloakManaged: false,
               profilePictureInitial: "C",
               circleColors: .init(background: .yellow, foreground: .systemPink),
-              identityDetails: .init(coreDetails: coreDetails[2], photoURL: photoURL[2]),
+              identityDetails: .init(coreDetails: coreDetails[2], photoURL: photoURLForProfilePicture[2]),
               isOneToOneContact: .no(canSendOneToOneInvitation: true),
               isRevokedAsCompromised: false,
               isPending: true,
@@ -144,7 +147,7 @@ struct PreviewsHelper {
         .init(groupIdentifier: PreviewsHelper.obvGroupV2Identifiers[0],
               trustedName: "The group trusted name",
               trustedDescription: "The group trusted description",
-              trustedPhotoURL: PreviewsHelper.photoURL[0],
+              trustedPhotoURL: PreviewsHelper.photoURLForGroupPicture[0],
               customPhotoURL: nil,
               nickname: nil,
               isKeycloakManaged: false,
@@ -153,10 +156,10 @@ struct PreviewsHelper {
               ownedIdentityIsAdmin: true,
               ownedIdentityCanLeaveGroup: .canLeaveGroup,
               publishedDetailsForValidation: .init(
-                groupIdentifier: PreviewsHelper.obvGroupV2Identifiers[0],
+                groupIdentifier: .groupV2(PreviewsHelper.obvGroupV2Identifiers[0]),
                 publishedName: "The published name",
                 publishedDescription: "The published description",
-                publishedPhotoURL: PreviewsHelper.photoURL[1],
+                publishedPhotoURL: PreviewsHelper.photoURLForGroupPicture[1],
                 circleColors: InitialCircleView.Model.Colors(background: .cyan, foreground: .systemPink),
                 differences: [.name, .description, .photo],
                 isKeycloakManaged: false),
@@ -164,7 +167,23 @@ struct PreviewsHelper {
               groupType: .advanced(isReadOnly: true, remoteDeleteAnythingPolicy: .everyone))
     ]
 
-    
+    @MainActor
+    static let editGroupNameAndPictureViewModels: [EditGroupNameAndPictureView.Model] = [
+        .init(isKeycloakManaged: false,
+              circleColors: InitialCircleView.Model.Colors(background: .red, foreground: .blue),
+              trustedName: "The group trusted name",
+              publishedDetailsForValidation: .init(
+                groupIdentifier: .groupV2(PreviewsHelper.obvGroupV2Identifiers[0]),
+                publishedName: "The published name",
+                publishedDescription: "The published description",
+                publishedPhotoURL: PreviewsHelper.photoURLForGroupPicture[1],
+                circleColors: InitialCircleView.Model.Colors(background: .cyan, foreground: .systemPink),
+                differences: [.name, .description, .photo],
+                isKeycloakManaged: false),
+              trustedDescription: "The group trusted description",
+              trustedPhotoURL: PreviewsHelper.photoURLForGroupPicture[0]),
+    ]
+
     @MainActor
     static let allUserIdentifiers: [SelectUsersToAddViewModel.User.Identifier] = {
         contactIdentifiers.map({ .contactIdentifier(contactIdentifier: $0) })
@@ -183,7 +202,7 @@ struct PreviewsHelper {
                                        isKeycloakManaged: false,
                                        profilePictureInitial: "A",
                                        circleColors: .init(background: .blue, foreground: .red),
-                                       identityDetails: .init(coreDetails: coreDetails[0], photoURL: photoURL[0]),
+                                       identityDetails: .init(coreDetails: coreDetails[0], photoURL: photoURLForProfilePicture[0]),
                                        isRevokedAsCompromised: false,
                                        customDisplayName: "CustomDisplayName",
                                        customPhotoURL: nil),
@@ -191,7 +210,7 @@ struct PreviewsHelper {
                                        isKeycloakManaged: true,
                                        profilePictureInitial: "B",
                                        circleColors: .init(background: .green, foreground: .cyan),
-                                       identityDetails: .init(coreDetails: coreDetails[1], photoURL: photoURL[1]),
+                                       identityDetails: .init(coreDetails: coreDetails[1], photoURL: photoURLForProfilePicture[1]),
                                        isRevokedAsCompromised: false,
                                        customDisplayName: nil,
                                        customPhotoURL: nil),
@@ -199,7 +218,7 @@ struct PreviewsHelper {
                                        isKeycloakManaged: false,
                                        profilePictureInitial: "C",
                                        circleColors: .init(background: .yellow, foreground: .systemPink),
-                                       identityDetails: .init(coreDetails: coreDetails[2], photoURL: photoURL[2]),
+                                       identityDetails: .init(coreDetails: coreDetails[2], photoURL: photoURLForProfilePicture[2]),
                                        isRevokedAsCompromised: false,
                                        customDisplayName: nil,
                                        customPhotoURL: nil),
@@ -231,7 +250,7 @@ struct PreviewsHelper {
                                      isKeycloakManaged: false,
                                      profilePictureInitial: "A",
                                      circleColors: .init(background: .blue, foreground: .red),
-                                     identityDetails: .init(coreDetails: coreDetails[0], photoURL: photoURL[0]),
+                                     identityDetails: .init(coreDetails: coreDetails[0], photoURL: photoURLForProfilePicture[0]),
                                      kind: .invitableGroupMembers(invitationSentAlready: false),
                                      isRevokedAsCompromised: false,
                                      detailedProfileCanBeShown: true,
@@ -241,7 +260,7 @@ struct PreviewsHelper {
                                      isKeycloakManaged: false,
                                      profilePictureInitial: "B",
                                      circleColors: .init(background: .green, foreground: .cyan),
-                                     identityDetails: .init(coreDetails: coreDetails[1], photoURL: photoURL[1]),
+                                     identityDetails: .init(coreDetails: coreDetails[1], photoURL: photoURLForProfilePicture[1]),
                                      kind: .invitableGroupMembers(invitationSentAlready: true),
                                      isRevokedAsCompromised: false,
                                      detailedProfileCanBeShown: true,
@@ -251,7 +270,7 @@ struct PreviewsHelper {
                                      isKeycloakManaged: false,
                                      profilePictureInitial: "C",
                                      circleColors: .init(background: .yellow, foreground: .systemPink),
-                                     identityDetails: .init(coreDetails: coreDetails[2], photoURL: photoURL[2]),
+                                     identityDetails: .init(coreDetails: coreDetails[2], photoURL: photoURLForProfilePicture[2]),
                                      kind: .notInvitableGroupMembers,
                                      isRevokedAsCompromised: false,
                                      detailedProfileCanBeShown: true,
@@ -270,8 +289,8 @@ extension OwnedIdentityAsGroupMemberViewModel {
               isKeycloakManaged: false,
               profilePictureInitial: "A",
               circleColors: .init(background: .blue, foreground: .red),
-              identityDetails: .init(coreDetails: PreviewsHelper.coreDetails[0], photoURL: PreviewsHelper.photoURL[0]),
-              permissions: PreviewsHelper.allPermissions,
+              identityDetails: .init(coreDetails: PreviewsHelper.coreDetails[0], photoURL: PreviewsHelper.photoURLForProfilePicture[0]),
+              isAdmin: PreviewsHelper.allPermissions.contains(.groupAdmin),
               customDisplayName: nil,
               customPhotoURL: nil)
     }

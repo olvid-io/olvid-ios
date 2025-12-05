@@ -23,19 +23,25 @@ import ObvTypes
 import ObvUICoreData
 import ObvAppTypes
 
-
+/// Represents a user's activity state within the Olvid app.
+///
+/// Equality for `OlvidUserActivity` is determined by comparing the `ownedCryptoId`, `currentFlow`, and `currentDiscussion` properties.
+/// If additional properties are added to this type in the future, ensure both `isEqual(_:)` and `==(lhs:rhs:)` are updated to include them in the comparison.
+///
+/// - Warning: Custom implementations of `isEqual(_:)` and `==(lhs:rhs:)` are provided to enforce value-based equality.
+///   Always update these methods when modifying the properties that define equality.
 final class OlvidUserActivity: NSUserActivity {
     
     let ownedCryptoId: ObvCryptoId
-    let selectedTab: TabType
+    let currentFlow: ObvAppTypes.ObvFlow
     let currentDiscussion: ObvDiscussionIdentifier?
     
     
-    init(ownedCryptoId: ObvCryptoId, selectedTab: TabType, currentDiscussion: ObvDiscussionIdentifier?) {
-        self.selectedTab = selectedTab
+    init(ownedCryptoId: ObvCryptoId, currentFlow: ObvAppTypes.ObvFlow, currentDiscussion: ObvDiscussionIdentifier?) {
+        self.currentFlow = currentFlow
         self.currentDiscussion = currentDiscussion
         self.ownedCryptoId = ownedCryptoId
-        super.init(activityType: Self.nsUserActivityType(selectedTab: selectedTab, currentDiscussion: currentDiscussion))
+        super.init(activityType: Self.nsUserActivityType(currentFlow: currentFlow, currentDiscussion: currentDiscussion))
         self.updateNSUserActivityProperties()
     }
 
@@ -48,12 +54,12 @@ final class OlvidUserActivity: NSUserActivity {
         guard let receivedUserInfo = receivedNSUserActivity.userInfo else { assertionFailure(); return nil }
         guard let rawOwnedCryptoIdHex = receivedUserInfo["ownedCryptoId"] as? String,
               let rawOwnedCryptoId = Data(hexString: rawOwnedCryptoIdHex),
-              let rawSelectedTab = receivedUserInfo["selectedTab"] as? String else {
+              let rawCurrentFlow = receivedUserInfo["currentFlow"] as? String ?? receivedUserInfo["selectedTab"] as? String else { // 2025-09-17 "selectedTab" kepts for legacy reasons. "currentFlow" used since version 4.0
             assertionFailure()
             return nil
         }
         guard let ownedCryptoId = try? ObvCryptoId(identity: rawOwnedCryptoId) else { assertionFailure(); return nil }
-        guard let selectedTab = TabType(rawValue: rawSelectedTab) else { assertionFailure(); return nil }
+        guard let currentFlow = ObvFlow(rawValue: rawCurrentFlow) else { assertionFailure(); return nil }
         
         let currentDiscussion: ObvDiscussionIdentifier?
         if let rawCurrentDiscussion = receivedUserInfo["currentDiscussion"] as? String {
@@ -62,23 +68,28 @@ final class OlvidUserActivity: NSUserActivity {
             currentDiscussion = nil
         }
         
-        self.init(ownedCryptoId: ownedCryptoId, selectedTab: selectedTab, currentDiscussion: currentDiscussion)
+        self.init(ownedCryptoId: ownedCryptoId, currentFlow: currentFlow, currentDiscussion: currentDiscussion)
         
     }
     
     
     func withUpdatedCurrentDiscussion(_ currentDiscussion: ObvDiscussionIdentifier?) -> OlvidUserActivity {
-        return OlvidUserActivity(ownedCryptoId: ownedCryptoId, selectedTab: selectedTab, currentDiscussion: currentDiscussion)
+        return OlvidUserActivity(ownedCryptoId: ownedCryptoId, currentFlow: currentFlow, currentDiscussion: currentDiscussion)
     }
     
     
     func withUpdatedOwnedCryptoId(_ newOwnedCryptoId: ObvCryptoId) -> OlvidUserActivity {
-        return OlvidUserActivity(ownedCryptoId: newOwnedCryptoId, selectedTab: selectedTab, currentDiscussion: currentDiscussion)
+        return OlvidUserActivity(ownedCryptoId: newOwnedCryptoId, currentFlow: currentFlow, currentDiscussion: currentDiscussion)
+    }
+    
+    
+    func widthUpdatedCurrentFlow(_ newCurrentFlow: ObvFlow) -> OlvidUserActivity {
+        return OlvidUserActivity(ownedCryptoId: ownedCryptoId, currentFlow: newCurrentFlow, currentDiscussion: currentDiscussion)
     }
     
     
     override var debugDescription: String {
-        return "NewObvUserActivityType<\(ownedCryptoId.debugDescription)|\(selectedTab.debugDescription)|\(currentDiscussion?.debugDescription ?? "None")>"
+        return "NewObvUserActivityType<\(ownedCryptoId.debugDescription)|\(currentFlow.debugDescription)|\(currentDiscussion?.debugDescription ?? "None")>"
     }
     
     
@@ -92,11 +103,11 @@ final class OlvidUserActivity: NSUserActivity {
     
     
     // NSUserActivityTypes (as declared in info.plist)
-    private static func nsUserActivityType(selectedTab: TabType, currentDiscussion: ObvDiscussionIdentifier?) -> String {
+    private static func nsUserActivityType(currentFlow: ObvAppTypes.ObvFlow, currentDiscussion: ObvDiscussionIdentifier?) -> String {
         if currentDiscussion != nil {
             return DeclaredNSUserActivityType.continueDiscussion.rawValue
         } else {
-            switch selectedTab {
+            switch currentFlow {
             case .latestDiscussions:
                 return DeclaredNSUserActivityType.displayLatestDiscussions.rawValue
             case .contacts:
@@ -122,7 +133,7 @@ final class OlvidUserActivity: NSUserActivity {
         if currentDiscussion != nil {
             return NSLocalizedString("NS_USER_ACTIVITY_TITLE_CONTINUE_DISCUSSION", comment: "NSUserActivity title")
         } else {
-            switch selectedTab {
+            switch currentFlow {
             case .latestDiscussions:
                 return NSLocalizedString("NS_USER_ACTIVITY_TITLE_LATEST_DISCUSSIONS", comment: "NSUserActivity title")
             case .contacts:
@@ -141,7 +152,7 @@ final class OlvidUserActivity: NSUserActivity {
         var userInfo = [NSString: NSString]()
         
         userInfo["ownedCryptoId"] = ownedCryptoId.description as NSString
-        userInfo["selectedTab"] = selectedTab.rawValue as NSString
+        userInfo["currentFlow"] = currentFlow.rawValue as NSString
         
         if let currentDiscussion {
             userInfo["currentDiscussion"] = currentDiscussion.description as NSString
@@ -154,23 +165,19 @@ final class OlvidUserActivity: NSUserActivity {
 }
 
 
-
-// MARK: - TabType
-
 extension OlvidUserActivity {
     
-    enum TabType: String, Equatable, CustomDebugStringConvertible {
-        
-        case latestDiscussions = "latestDiscussions"
-        case contacts = "contacts"
-        case groups = "groups"
-        case invitations = "invitations"
-        
-        var debugDescription: String {
-            self.rawValue
-        }
-        
+    override func isEqual(_ object: Any?) -> Bool {
+        guard let otherUserActivity = object as? OlvidUserActivity else { assertionFailure(); return false }
+        return self == otherUserActivity
     }
+    
+    static func == (lhs: OlvidUserActivity, rhs: OlvidUserActivity) -> Bool {
+        return lhs.ownedCryptoId == rhs.ownedCryptoId &&
+        lhs.currentFlow == rhs.currentFlow &&
+        lhs.currentDiscussion == rhs.currentDiscussion
+    }
+    
 }
 
 

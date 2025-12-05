@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvCrypto
 import ObvTypes
@@ -66,7 +66,7 @@ extension ObliviousChannelLifeManager {
 
     private func deleteExpiredKeyMaterialsAndProvisions(delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) {
         do {
-            try ObvObliviousChannel.clean(within: obvContext)
+            try ObvObliviousChannel.deleteExpiredKeyMaterialAndEmptyProvisions(within: obvContext.context)
         } catch {
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("Could not clean ObvObliviousChannels (i.e., could not delete expired key material)", log: log, type: .fault)
@@ -104,7 +104,9 @@ extension ObliviousChannelLifeManager {
         
         obvContext.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
 
-        try ObvObliviousChannel.delete(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: contactCryptoIdentity, within: obvContext)
+        try ObvObliviousChannel.delete(currentDeviceUID: currentDeviceUid,
+                                       remoteCryptoId: ObvCryptoId(cryptoIdentity: contactCryptoIdentity),
+                                       within: obvContext.context)
         
         os_log("We deleted all the oblivious channels that the owned identity %@ has with the contact identity %@", log: log, type: .debug, ownedIdentity.debugDescription, contactCryptoIdentity.debugDescription)
         
@@ -128,7 +130,7 @@ extension ObliviousChannelLifeManager {
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
         
-        try ObvObliviousChannel.delete(currentDeviceUid: currentDeviceUid, remoteDeviceUid: remoteDeviceUid, remoteIdentity: remoteIdentity, within: obvContext)
+        try ObvObliviousChannel.delete(currentDeviceUID: currentDeviceUid, remoteDeviceUID: remoteDeviceUid, remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteIdentity), within: obvContext.context)
         
         os_log("We deleted the oblivious channels that the owned identity %@ has with the remote device UID %@", log: log, type: .debug, ownedIdentity.debugDescription, remoteDeviceUid.debugDescription)
 
@@ -136,7 +138,7 @@ extension ObliviousChannelLifeManager {
     }
     
     func deleteObliviousChannelBetweenCurentDeviceWithUid(currentDeviceUid: UID, andTheRemoteDeviceWithUid remoteDeviceUid: UID, ofRemoteIdentity remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        try ObvObliviousChannel.delete(currentDeviceUid: currentDeviceUid, remoteDeviceUid: remoteDeviceUid, remoteIdentity: remoteIdentity, within: obvContext)
+        try ObvObliviousChannel.delete(currentDeviceUID: currentDeviceUid, remoteDeviceUID: remoteDeviceUid, remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteIdentity), within: obvContext.context)
     }
     
     func createObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity remoteCryptoIdentity: ObvCryptoIdentity, withRemoteDeviceUid remoteDeviceUid: UID, with seed: Seed, cryptoSuiteVersion: Int, within obvContext: ObvContext) throws {
@@ -159,7 +161,7 @@ extension ObliviousChannelLifeManager {
         // We check that the remote device uid is either a remote device uid of the owned identity or the device uid of a trusted contact of this owned identity
         
         let doCreateChannel: Bool
-        if try identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) {
+        if try identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context) {
             let contactDeviceUids = try identityDelegate.getDeviceUidsOfContactIdentity(remoteCryptoIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
             guard contactDeviceUids.contains(remoteDeviceUid) else {
                 os_log("The device uid is not part of the trusted contact identity's list of device uids", log: log, type: .fault)
@@ -182,12 +184,12 @@ extension ObliviousChannelLifeManager {
             throw Self.makeError(message: "The contact device is neither a contact device nor an owned (remote) device")
         }
         
-        _ = ObvObliviousChannel(currentDeviceUid: currentDeviceUid,
-                                remoteCryptoIdentity: remoteCryptoIdentity,
-                                remoteDeviceUid: remoteDeviceUid,
-                                seed: seed,
-                                cryptoSuiteVersion: cryptoSuiteVersion,
-                                within: obvContext)
+        _ = try ObvObliviousChannel(currentDeviceUID: currentDeviceUid,
+                                    remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteCryptoIdentity),
+                                    remoteDeviceUID: remoteDeviceUid,
+                                    seed: seed,
+                                    cryptoSuiteVersion: cryptoSuiteVersion,
+                                    within: obvContext.context)
     }
     
     
@@ -231,11 +233,11 @@ extension ObliviousChannelLifeManager {
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-        let channel = try ObvObliviousChannel.get(currentDeviceUid: currentDeviceUid,
-                                                  remoteCryptoIdentity: remoteIdentity,
-                                                  remoteDeviceUid: remoteDeviceUid,
+        let channel = try ObvObliviousChannel.get(currentDeviceUID: currentDeviceUid,
+                                                  remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteIdentity),
+                                                  remoteDeviceUID: remoteDeviceUid,
                                                   necessarilyConfirmed: false,
-                                                  within: obvContext)
+                                                  within: obvContext.context)
         return channel != nil
 
     }
@@ -243,11 +245,11 @@ extension ObliviousChannelLifeManager {
     
     public func anObliviousChannelExistsBetweenCurrentDeviceUid(_ currentDeviceUid: UID, andRemoteDeviceUid remoteDeviceUid: UID, of remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
     
-        let channel = try ObvObliviousChannel.get(currentDeviceUid: currentDeviceUid,
-                                                  remoteCryptoIdentity: remoteIdentity,
-                                                  remoteDeviceUid: remoteDeviceUid,
+        let channel = try ObvObliviousChannel.get(currentDeviceUID: currentDeviceUid,
+                                                  remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteIdentity),
+                                                  remoteDeviceUID: remoteDeviceUid,
                                                   necessarilyConfirmed: false,
-                                                  within: obvContext)
+                                                  within: obvContext.context)
         return channel != nil
         
     }
@@ -269,11 +271,11 @@ extension ObliviousChannelLifeManager {
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-        let channel = try ObvObliviousChannel.get(currentDeviceUid: currentDeviceUid,
-                                                  remoteCryptoIdentity: remoteIdentity,
-                                                  remoteDeviceUid: remoteDeviceUid,
+        let channel = try ObvObliviousChannel.get(currentDeviceUID: currentDeviceUid,
+                                                  remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteIdentity),
+                                                  remoteDeviceUID: remoteDeviceUid,
                                                   necessarilyConfirmed: true,
-                                                  within: obvContext)
+                                                  within: obvContext.context)
         return channel != nil
     }
 
@@ -294,9 +296,10 @@ extension ObliviousChannelLifeManager {
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-        let channels = try ObvObliviousChannel.getAllConfirmedChannels(currentDeviceUid: currentDeviceUid,
-                                                                       remoteCryptoIdentity: remoteIdentity,
-                                                                       within: obvContext)
+        let channels = try ObvObliviousChannel.getAllConfirmedChannels(
+            currentDeviceUID: currentDeviceUid,
+            remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteIdentity),
+            within: obvContext.context)
         return !channels.isEmpty
         
     }
@@ -317,11 +320,11 @@ extension ObliviousChannelLifeManager {
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-        let channel = try ObvObliviousChannel.get(currentDeviceUid: currentDeviceUid,
-                                                  remoteCryptoIdentity: remoteIdentity,
-                                                  remoteDeviceUid: remoteDeviceUid,
+        let channel = try ObvObliviousChannel.get(currentDeviceUID: currentDeviceUid,
+                                                  remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteIdentity),
+                                                  remoteDeviceUID: remoteDeviceUid,
                                                   necessarilyConfirmed: false,
-                                                  within: obvContext)
+                                                  within: obvContext.context)
         return channel
     }
     
@@ -342,11 +345,14 @@ extension ObliviousChannelLifeManager {
 
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
 
-        let channels = try ObvObliviousChannel.getAllConfirmedChannels(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: remoteIdentity, within: obvContext)
+        let channels = try ObvObliviousChannel.getAllConfirmedChannels(
+            currentDeviceUID: currentDeviceUid,
+            remoteCryptoId: ObvCryptoId(cryptoIdentity: remoteIdentity),
+            within: obvContext.context)
         
-        let remoteDeviceUids = channels.map { $0.remoteDeviceUid }
+        let remoteDeviceUIDs = channels.compactMap { try? $0.remoteDeviceUID }
         
-        return remoteDeviceUids
+        return remoteDeviceUIDs
         
     }
 }

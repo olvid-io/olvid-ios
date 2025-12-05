@@ -230,7 +230,7 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
     
     // MARK: - Observers
     
-    private static var observersHolder = ReceivedFyleMessageJoinWithStatusObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = ReceivedFyleMessageJoinWithStatusObserversHolder()
     
     public static func addObvObserver(_ newObserver: ReceivedFyleMessageJoinWithStatusObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -370,6 +370,34 @@ extension ReceivedFyleMessageJoinWithStatus {
         return receivedFyleMessageJoinWithStatuses.first
     }
  
+    /// Returns a dictionary where each key is the objectID of a `PersistedDiscussion` having at least one `FyleMessageJoinWithStatus`, and the value is the sum of total byte count of those fyles..
+    /// Note that if a discussion has no relevant attachment, it does *not* appear in the returned dictionary.
+    ///
+    public static func getAllDiscussionsWithReceivedFyleMessageJoinWithStatusDownloadedTotalByteCount(for ownedCryptoId: ObvCryptoId) -> NSFetchRequest<any NSFetchRequestResult> {
+        
+        let expressionDescription = NSExpressionDescription()
+        expressionDescription.name = "sumOfTotalByteCount"
+        expressionDescription.expression = NSExpression(forFunction: "sum:", arguments: [NSExpression(forKeyPath: "totalByteCount")])
+        expressionDescription.expressionResultType = .integer64AttributeType
+
+        let receivedDiscussionPredicate = [Predicate.Key.receivedMessage.rawValue,
+                                           PersistedMessage.Predicate.Key.discussion.rawValue].joined(separator: ".")
+        
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        request.resultType = .dictionaryResultType
+        request.propertiesToFetch = [expressionDescription, receivedDiscussionPredicate]
+        request.includesPendingChanges = true
+        request.sortDescriptors = [NSSortDescriptor(key: FyleMessageJoinWithStatus.Predicate.Key.index.rawValue, ascending: true)]
+        request.propertiesToGroupBy = [receivedDiscussionPredicate]
+        let subPredicates = [
+            FyleMessageJoinWithStatus.Predicate.forStatus(ReceivedFyleMessageJoinWithStatus.FyleStatus.complete.rawValue),
+            FyleMessageJoinWithStatus.Predicate.forReceivedOwnedCryptoId(ownedCryptoId),
+            FyleMessageJoinWithStatus.Predicate.isWiped(is: false)
+        ]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subPredicates)
+        
+        return request
+    }
     
     static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
@@ -445,7 +473,7 @@ extension ReceivedFyleMessageJoinWithStatus {
                                                                      contactIdentifier: contactIdentifier,
                                                                      contactDeviceUIDs: contactDeviceUIDs,
                                                                      attachmentNumber: index)
-                    Task { await Self.observersHolder.newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: returnReceiptToSend) }
+                    Task { await ReceivedFyleMessageJoinWithStatus.observersHolder.newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: returnReceiptToSend) }
                 } else {
                     assertionFailure()
                 }
@@ -466,7 +494,7 @@ extension ReceivedFyleMessageJoinWithStatus {
                                                                  contactIdentifier: contactIdentifier,
                                                                  contactDeviceUIDs: contactDeviceUIDs,
                                                                  attachmentNumber: index)
-                Task { await Self.observersHolder.newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: returnReceiptToSend) }
+                Task { await ReceivedFyleMessageJoinWithStatus.observersHolder.newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: returnReceiptToSend) }
             } else {
                 assertionFailure()
             }
@@ -479,7 +507,7 @@ extension ReceivedFyleMessageJoinWithStatus {
 
 // MARK: - ReceivedFyleMessageJoinWithStatus observers
 
-public protocol ReceivedFyleMessageJoinWithStatusObserver {
+public protocol ReceivedFyleMessageJoinWithStatusObserver: Sendable {
     func newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: ObvReturnReceiptToSend) async
 }
 

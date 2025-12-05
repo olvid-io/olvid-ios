@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -73,7 +73,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             (contactIdentity, contactDeviceUid) = try message.encodedInputs.obvDecode()
         }
         
@@ -103,8 +103,8 @@ extension ChannelCreationWithContactDeviceProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (contactIdentity, contactDeviceUid, signature) = try encodedElements.obvDecode()
         }
         
@@ -138,8 +138,8 @@ extension ChannelCreationWithContactDeviceProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 4 else {
                 throw ChannelCreationWithContactDeviceProtocol.makeError(message: "Expecting 4 encoded elements in AliceIdentityAndEphemeralKeyMessage, got \(encodedElements.count)")
             }
@@ -181,8 +181,8 @@ extension ChannelCreationWithContactDeviceProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 2 else {
                 throw ChannelCreationWithContactDeviceProtocol.makeError(message: "Expecting 2 encoded elements in BobEphemeralKeyAndK1Message, got \(encodedElements.count)")
             }
@@ -219,7 +219,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             c2 = try message.encodedInputs.obvDecode()
         }
         
@@ -249,7 +249,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }
@@ -280,7 +280,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }

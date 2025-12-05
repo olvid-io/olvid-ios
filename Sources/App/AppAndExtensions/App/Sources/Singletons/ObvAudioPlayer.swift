@@ -25,42 +25,92 @@ import ObvAppCoreConstants
 
 protocol ObvAudioPlayerDelegate: AnyObject {
     func audioPlayerDidFinishPlaying()
+    func audioPlayerDidPause()
     func audioPlayerDidStopPlaying()
     func audioIsPlaying(currentTime: TimeInterval)
+    func playerWillChangeCurrentFyle(previousHardlink: HardLinkToFyle?)
 }
 
-final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
+final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate, ObservableObject {
 
-    public static let shared: ObvAudioPlayer = ObvAudioPlayer()
-    private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ObvAudioPlayer.self))
-
-    override init() {
-        super.init()
-        setupRemoteTransportControls()
+    enum PlayRate: NSNumber {
+        case `default` = 1
+        case OneAndhalf = 1.5
+        case double = 2
+        
+        var title: String? {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            if let str = formatter.string(from: self.rawValue) {
+                return str + " x"
+            }
+            
+            return nil
+        }
+        
+        var next: PlayRate {
+            switch self {
+            case .default:
+                return .OneAndhalf
+            case .OneAndhalf:
+                return .double
+            case .double:
+                return .default
+            }
+        }
     }
+    
+    public static let shared: ObvAudioPlayer = ObvAudioPlayer()
+    private let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ObvAudioPlayer.self))
 
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
     var current: HardLinkToFyle?
-    weak var delegate: ObvAudioPlayerDelegate?
+    
+    @Published var currentPlayRate: PlayRate = .default // We need to save the current play rate in order to reset it everytime a new player is created
+    
+    weak var delegate: ObvAudioPlayerDelegate? {
+        willSet { // When delegate changed, we stop previous audioURL attached to this delegate to play.
+            delegate?.playerWillChangeCurrentFyle(previousHardlink: current)
+        }
+    }
+    
     var timeObserverToken: Any?
 
     var currentPosition: TimeInterval? {
         audioPlayer?.currentTime
     }
-
+    
+    var totalDuration: TimeInterval? {
+        audioPlayer?.duration
+    }
+        
     var isPlaying: Bool { audioPlayer?.isPlaying ?? false }
 
-    func play(_ hardLink: HardLinkToFyle, enableSpeaker speaker: Bool, at time: TimeInterval? = 0) -> Bool {
+    override init() {
+        super.init()
+        setupRemoteTransportControls()
+        // Observe audio route changes
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleRouteChange(_:)),
+                                               name: AVAudioSession.routeChangeNotification,
+                                               object: nil)
+    }
+
+    func play(_ hardLink: HardLinkToFyle, at time: TimeInterval? = 0) -> Bool {
         guard let url = hardLink.hardlinkURL else { return false }
         current = hardLink
         do {
             audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.enableRate = true
             audioPlayer?.delegate = self
             if let timer = timer {
                 timer.invalidate()
             }
             guard let audioPlayer = self.audioPlayer else { assertionFailure(); return false }
+            
+            self.setRate(rate: currentPlayRate)
+            
             timer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) {_ in
                 guard self.isPlaying else { return }
                 self.delegate?.audioIsPlaying(currentTime: audioPlayer.currentTime)
@@ -68,29 +118,33 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
             }
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playAndRecord, options: [.allowBluetooth, .allowBluetoothA2DP])
+                try session.setCategory(.playAndRecord, options: [.allowBluetoothHFP, .allowBluetoothA2DP])
+                try session.setActive(true)
             } catch {
+                try? session.setActive(false)
                 return false
             }
             if let time = time {
                 audioPlayer.currentTime = time
             }
-            setSpeaker(to: speaker)
-            os_log("🎵 Start playing %{public}@ with speaker %{public}@", log: self.log, type: .info, url.lastPathComponent, speaker ? "enable" : "disable")
+            // Decide output based on current route: if no external output, use speaker; otherwise, default route
+            let shouldUseSpeaker = !isExternalOutputConnected
+            setSpeaker(to: shouldUseSpeaker)
+            logger.info("🎵 Start playing \(url.lastPathComponent, privacy: .public) with speaker \(shouldUseSpeaker ? "enabled" : "disabled", privacy: .public)")
             let success = audioPlayer.play()
             if success {
                 setupNowPlaying()
             }
             return success
         } catch(let error) {
-            os_log("🎵 Failed to play: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+            logger.fault("🎵 Failed to play: \(error.localizedDescription, privacy: .public)")
             return false
         }
     }
 
     func stop() {
         guard let audioPlayer = audioPlayer else { return }
-        os_log("🎵 Stop %{public}@", log: self.log, type: .info, audioPlayer.url?.lastPathComponent ?? "nil")
+        logger.info("🎵 Stop \(audioPlayer.url?.lastPathComponent ?? "nil", privacy: .public)")
         audioPlayer.stop()
         self.audioPlayer = nil
         self.current = nil
@@ -102,18 +156,27 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
 
     func pause() {
         guard let audioPlayer = audioPlayer else { return }
-        os_log("🎵 Pause %{public}@", log: self.log, type: .info, audioPlayer.url?.lastPathComponent ?? "nil")
+        logger.info("🎵 Pause \(audioPlayer.url?.lastPathComponent ?? "nil", privacy: .public)")
         audioPlayer.pause()
+        self.delegate?.audioPlayerDidPause()
         self.clearNowPlaying()
     }
 
-    func resume(enableSpeaker speaker: Bool, at time: TimeInterval? = 0) {
+    func setRate(rate: PlayRate) {
+        self.currentPlayRate = rate
+        guard let audioPlayer = audioPlayer else { return }
+        logger.info("🎵 Changing rate \(audioPlayer.url?.lastPathComponent ?? "nil", privacy: .public)")
+        
+        audioPlayer.rate = rate.rawValue.floatValue
+    }
+    
+    func resume(at time: TimeInterval? = 0) {
         guard let audioPlayer = audioPlayer else { return }
         if let time = time {
             audioPlayer.currentTime = time
         }
-        setSpeaker(to: speaker)
-        os_log("🎵 Resume %{public}@ with speaker %{public}@", log: self.log, type: .info, audioPlayer.url?.lastPathComponent ?? "nil", speaker ? "enable" : "disable")
+        // Persist the desired output so route changes can react appropriately
+        logger.info("🎵 Resume \(audioPlayer.url?.lastPathComponent ?? "nil", privacy: .public)")
         audioPlayer.play()
         self.delegate?.audioIsPlaying(currentTime: audioPlayer.currentTime)
         self.setupNowPlaying()
@@ -121,21 +184,46 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully successfull: Bool) {
         guard successfull else { return }
-        os_log("🎵 Audio did finish playing %{public}@", log: self.log, type: .info, player.url?.lastPathComponent ?? "nil")
+        logger.info("🎵 Audio did finish playing \(player.url?.lastPathComponent ?? "nil", privacy: .public)")
         self.delegate?.audioPlayerDidFinishPlaying()
         self.clearNowPlaying()
     }
 
-    static func duration(of url: URL) -> Double {
+    static func duration(of url: URL) async throws -> Double {
         let audioAsset = AVURLAsset.init(url: url, options: nil)
-        let duration = audioAsset.duration
+        let duration = try await audioAsset.load(.duration)
+//        let duration = audioAsset.duration
         let durationInSeconds = CMTimeGetSeconds(duration)
         return durationInSeconds
     }
 
     var isSpeakerEnable: Bool {
         let session = AVAudioSession.sharedInstance()
-        return session.currentRoute.outputs.contains(where: { $0.isSpeaker })
+        return session.currentRoute.outputs.contains(where: { (output: AVAudioSessionPortDescription) -> Bool in
+            return output.portType == AVAudioSession.Port.builtInSpeaker
+        })
+    }
+
+    private var isExternalOutputConnected: Bool {
+        let session = AVAudioSession.sharedInstance()
+        // Consider headphones, Bluetooth, HDMI, AirPlay as external (non-speaker) outputs
+        return session.currentRoute.outputs.contains(where: { (output: AVAudioSessionPortDescription) -> Bool in
+            switch output.portType {
+            case AVAudioSession.Port.headphones,
+                 AVAudioSession.Port.bluetoothA2DP,
+                 AVAudioSession.Port.bluetoothLE,
+                 AVAudioSession.Port.bluetoothHFP,
+                 AVAudioSession.Port.HDMI,
+                 AVAudioSession.Port.airPlay,
+                 AVAudioSession.Port.lineOut,
+                 AVAudioSession.Port.carAudio,
+                 AVAudioSession.Port.displayPort,
+                 AVAudioSession.Port.usbAudio:
+                return true
+            default:
+                return false
+            }
+        })
     }
 
     func setSpeaker(to value: Bool) {
@@ -147,10 +235,31 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
             } else {
                 try session.overrideOutputAudioPort(.none)
             }
-            os_log("🎵 Speaker was %{public}@", log: log, type: .info, value ? "enable" : "disable")
+            logger.info("🎵 Speaker was \(value ? "enabled" : "disabled", privacy: .public)")
         } catch {
-            os_log("🎵 Could not %{public}@ speaker: %{public}@", log: log, type: .info, value ? "enable" : "disable", error.localizedDescription)
+            logger.error("🎵 Could not \(value ? "enable" : "disable", privacy: .public) speaker: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    @objc private func handleRouteChange(_ notification: Notification) {
+        
+        if let userInfo = notification.userInfo,
+           let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+           let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) {
+            guard reason == .newDeviceAvailable || reason == .oldDeviceUnavailable else { return } // Only handle connected or disconnected devices.
+        }
+        
+        // Always apply output logic for subsequent notifications
+        applyOutputForCurrentRoute()
+    }
+
+    private func applyOutputForCurrentRoute() {
+        let shouldUseSpeaker = !isExternalOutputConnected
+        // If we are moving to speaker and playback is ongoing, pause as requested
+        if shouldUseSpeaker && isPlaying {
+            pause()
+        }
+        setSpeaker(to: shouldUseSpeaker)
     }
 
 }

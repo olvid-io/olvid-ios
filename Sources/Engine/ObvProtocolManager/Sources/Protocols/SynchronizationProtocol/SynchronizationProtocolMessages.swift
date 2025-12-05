@@ -80,7 +80,7 @@ extension SynchronizationProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             syncAtom = try message.encodedInputs.obvDecode()
         }
 
@@ -110,7 +110,7 @@ extension SynchronizationProtocol {
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             syncAtom = try message.encodedInputs.obvDecode()
         }
 
@@ -140,7 +140,7 @@ extension SynchronizationProtocol {
 //        // Init when receiving this message
 //
 //        init(with message: ReceivedMessage) throws {
-//            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+//            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
 //            otherOwnedDeviceUID = try message.encodedInputs.obvDecode()
 //        }
 //
@@ -170,7 +170,7 @@ extension SynchronizationProtocol {
 //        // Init when receiving this message
 //
 //        init(with message: ReceivedMessage) throws {
-//            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+//            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
 //            forceSendSnapshot = try message.encodedInputs.obvDecode()
 //        }
 //
@@ -205,7 +205,7 @@ extension SynchronizationProtocol {
 //        // Init when receiving this message
 //
 //        init(with message: ReceivedMessage) throws {
-//            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+//            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
 //            let (removeVersion, localVersion, remoteSnapshot): (Int, Int, ObvSyncSnapshot) = try message.encodedInputs.obvDecode()
 //            self.remoteSyncSnapshotAndVersion = ObvSyncSnapshotAndVersion(version: removeVersion, syncSnapshot: remoteSnapshot)
 //            self.localVersionKnownBySender = (localVersion == -1) ? nil : localVersion
@@ -232,7 +232,7 @@ extension SynchronizationProtocol {
 //        // Init when receiving this message
 //
 //        init(with message: ReceivedMessage) throws {
-//            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+//            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
 //        }
 //
 //    }

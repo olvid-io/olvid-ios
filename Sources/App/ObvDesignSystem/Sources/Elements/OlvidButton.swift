@@ -57,6 +57,7 @@ fileprivate extension OlvidButton.Style {
 
 /// This SwiftUI view represents a large blue or standard button with rounded corners.
 /// This `View` is the equivalent of the `ObvImageButton` in UIKit
+/// 2025-10-23: Use `OlvidButtonNew` instead.
 public struct OlvidButton: View {
     
     static let height: CGFloat = 50

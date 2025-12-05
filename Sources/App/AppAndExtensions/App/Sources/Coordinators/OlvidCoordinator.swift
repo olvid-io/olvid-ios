@@ -170,19 +170,34 @@ extension OlvidCoordinator {
         await queueForSyncHintsComputationOperation.addAndAwaitOperation(op)
         assert(op.isFinished && !op.isCancelled)
         for groupToDelete in op.contactGroupsToDelete {
-            let op1 = SyncPersistedContactGroupWithEngineOperation(syncType: .deleteFromApp(groupIdentifier: groupToDelete), obvEngine: obvEngine)
-            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-            operationsToQueueOnQueueForComposedOperation.append(composedOp)
+            do {
+                let obvContactGroupWithinEngine = try await obvEngine.getContactGroup(groupIdentifier: groupToDelete)
+                let op1 = SyncPersistedContactGroupWithEngineOperation(syncType: .deleteFromApp(groupIdentifier: groupToDelete), obvContactGroupWithinEngine: obvContactGroupWithinEngine)
+                let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                operationsToQueueOnQueueForComposedOperation.append(composedOp)
+            } catch {
+                assertionFailure(error.localizedDescription) // In production, continue anyway
+            }
         }
         for groupToAdd in op.missingContactGroups {
-            let op1 = SyncPersistedContactGroupWithEngineOperation(syncType: .addToApp(groupIdentifier: groupToAdd, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup), obvEngine: obvEngine)
-            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-            operationsToQueueOnQueueForComposedOperation.append(composedOp)
+            do {
+                let obvContactGroupWithinEngine = try await obvEngine.getContactGroup(groupIdentifier: groupToAdd)
+                let op1 = SyncPersistedContactGroupWithEngineOperation(syncType: .addToApp(groupIdentifier: groupToAdd, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup), obvContactGroupWithinEngine: obvContactGroupWithinEngine)
+                let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                operationsToQueueOnQueueForComposedOperation.append(composedOp)
+            } catch {
+                assertionFailure(error.localizedDescription) // In production, continue anyway
+            }
         }
         for groupToUpdate in op.contactGroupsToUpdate {
-            let op1 = SyncPersistedContactGroupWithEngineOperation(syncType: .syncWithEngine(groupIdentifier: groupToUpdate), obvEngine: obvEngine)
-            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-            operationsToQueueOnQueueForComposedOperation.append(composedOp)
+            do {
+                let obvContactGroupWithinEngine = try await obvEngine.getContactGroup(groupIdentifier: groupToUpdate)
+                let op1 = SyncPersistedContactGroupWithEngineOperation(syncType: .syncWithEngine(groupIdentifier: groupToUpdate), obvContactGroupWithinEngine: obvContactGroupWithinEngine)
+                let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                operationsToQueueOnQueueForComposedOperation.append(composedOp)
+            } catch {
+                assertionFailure(error.localizedDescription) // In production, continue anyway
+            }
         }
 
         operationsToQueueOnQueueForComposedOperation.makeEachOperationDependentOnThePreceedingOne()

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,7 @@ import ObvCrypto
 import CryptoKit
 
 
-public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable {
+public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable, Sendable {
     
     let groupIdentifier: Identifier
     public let ownIdentity: ObvCryptoId
@@ -252,7 +252,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     
     // MARK: - IdentityAndPermissions
 
-    public struct IdentityAndPermissions: Hashable, ObvCodable {
+    public struct IdentityAndPermissions: Hashable, ObvCodable, Sendable {
             
         public let identity: ObvCryptoId
         public let permissions: Set<Permission>
@@ -290,7 +290,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     
     // MARK: - IdentityAndPermissionsAndDetails
 
-    public struct IdentityAndPermissionsAndDetails: Hashable, ObvCodable {
+    public struct IdentityAndPermissionsAndDetails: Hashable, ObvCodable, Sendable {
             
         private let identityAndPermissions: IdentityAndPermissions
         public let serializedIdentityCoreDetails: Data
@@ -400,12 +400,12 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     
     // MARK: - DetailsAndPhoto
     
-    public struct DetailsAndPhoto: ObvFailableCodable, Equatable {
+    public struct DetailsAndPhoto: ObvFailableCodable, Equatable, Sendable {
         
         public let serializedGroupCoreDetails: Data
         public let photoURLFromEngine: PhotoURLFromEngineType
         
-        public enum PhotoURLFromEngineType: ObvCodable, Equatable {
+        public enum PhotoURLFromEngineType: ObvCodable, Equatable, Sendable {
             case none
             case downloaded(url: URL)
             case downloading
@@ -918,6 +918,24 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         case createdOrUpdatedBySomeoneElse
         case createdByMe
         case updatedByMe
+    }
+    
+}
+
+
+extension ObvGroupV2.Identifier: Identifiable {
+    
+    public var id: Data {
+        groupUID.raw + serverURL.dataRepresentation + category.id
+    }
+    
+}
+
+
+extension ObvGroupV2.Identifier.Category: Identifiable {
+    
+    public var id: Data {
+        return Data(repeating: 1, count: self.rawValue)
     }
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,7 +29,7 @@ final class MarkForDeletionOldInboxMessagesExpectingContactForReProcessingOperat
         
         do {
             
-            try InboxMessage.markMessagesAndAttachmentsForDeletionIfOldAndExpectingContactForReProcessing(with: obvContext)
+            try InboxMessage.markMessagesAndAttachmentsForDeletionIfOldAndExpectingContactForReProcessing(with: obvContext.context)
             
         } catch {
             assertionFailure()

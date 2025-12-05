@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import OlvidUtils
 import ObvMetaManager
 
@@ -210,18 +210,18 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             // Verify the signature is fresh
             
-            guard try MutualScanSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext) == false else {
+            guard try MutualScanSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext.context) == false else {
                 os_log("Signature was already received", log: log, type: .error)
                 return CancelledState()
             }
             
             // Store the signature
 
-            _ = MutualScanSignatureReceived(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext)
+            _ = MutualScanSignatureReceived(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext.context)
             
             // Signature is valid and is fresh --> create the contact (if it does not already exists)
 
-            if (try? identityDelegate.isIdentity(aliceIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+            if (try? identityDelegate.isIdentity(aliceIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                 guard try identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: aliceIdentity, within: obvContext) else {
                     os_log("Contact is not active", log: log, type: .error)
                     return CancelledState()
@@ -263,19 +263,6 @@ extension TrustEstablishmentWithMutualScanProtocol {
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
-            // Send a notification so the app can automatically open the contact discussion
-
-            let ownedIdentity = self.ownedIdentity
-            if let notificationDelegate = delegateManager.notificationDelegate {
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { return }
-                    ObvProtocolNotification.mutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: aliceIdentity, signature: signature)
-                        .postOnBackgroundQueue(within: notificationDelegate)
-                }
-            } else {
-                assertionFailure("The notification delegate is not set")
-            }
-
             // Return the new state
 
             return FinishedState()
@@ -323,37 +310,24 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             // Verify the signature is fresh
             
-            guard try MutualScanSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext) == false else {
+            guard try MutualScanSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext.context) == false else {
                 os_log("Signature was already received", log: log, type: .error)
                 return CancelledState()
             }
             
             // Store the signature
 
-            _ = MutualScanSignatureReceived(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext)
+            _ = MutualScanSignatureReceived(ownedCryptoIdentity: ownedIdentity, signature: signature, within: obvContext.context)
             
             // Signature is valid and is fresh --> create the contact (if it does not already exists)
 
-            if (try? identityDelegate.isIdentity(aliceIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+            if (try? identityDelegate.isIdentity(aliceIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                 try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
             } else {
                 try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
             }
             for uid in aliceDeviceUids {
                 try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
-            }
-
-            // Send a notification so the app can automatically open the contact discussion
-
-            let ownedIdentity = self.ownedIdentity
-            if let notificationDelegate = delegateManager.notificationDelegate {
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { return }
-                    ObvProtocolNotification.mutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: aliceIdentity, signature: signature)
-                        .postOnBackgroundQueue(within: notificationDelegate)
-                }
-            } else {
-                assertionFailure("The notification delegate is not set")
             }
 
             // Return the new state
@@ -391,7 +365,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             // Bob added Alice to his contacts --> time for Alice to do the same
 
-            if (try? identityDelegate.isIdentity(bobIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+            if (try? identityDelegate.isIdentity(bobIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                 guard try identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: bobIdentity, within: obvContext) else {
                     os_log("The identity is not active", log: log, type: .fault)
                     return CancelledState()

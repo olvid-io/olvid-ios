@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import OSLog
 import CoreData
 import ObvMetaManager
 import ObvCrypto
@@ -29,6 +30,10 @@ import ObvEncoder
 @objc(PreKeyAbstract)
 class PreKeyAbstract: NSManagedObject {
     
+    static weak var delegateManager: ObvIdentityDelegateManager?
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: PreKeyAbstract.logSubsystem, category: "PreKeyAbstract") }()
+
     // MARK: Attributes
 
     @NSManaged private var rawPreKeyId: Data? // Expected to be non-nil
@@ -156,7 +161,7 @@ final class PreKeyForContactDevice: PreKeyAbstract {
         
         let devicePreKey = deviceBlobOnServer.deviceBlob.devicePreKey
         
-        guard contactDevice.uid == devicePreKey.deviceUID else {
+        guard try contactDevice.uid == devicePreKey.deviceUID else {
             assertionFailure()
             throw ObvError.uidMismatch
         }
@@ -199,7 +204,7 @@ final class PreKeyForContactDevice: PreKeyAbstract {
             throw ObvError.noContactDevice
         }
         
-        let toDeviceUID = contactDevice.uid
+        let toDeviceUID = try contactDevice.uid
         
         guard let contactIdentity = contactDevice.contactIdentity else {
             assertionFailure()
@@ -216,9 +221,9 @@ final class PreKeyForContactDevice: PreKeyAbstract {
             throw ObvError.noOwnedIdentity
         }
         
-        let currentDeviceUID = ownedIdentity.currentDeviceUid
+        let currentDeviceUID = try ownedIdentity.currentDeviceUid
         
-        let ownedCryptoId = ownedIdentity.cryptoIdentity
+        let ownedCryptoId = try ownedIdentity.cryptoIdentity
 
         let wrappedMessageKey = try self.wrap(messageKey,
                                               with: ownedPrivateKeyForAuthentication,
@@ -259,7 +264,7 @@ final class PreKeyForRemoteOwnedDevice: PreKeyAbstract {
         
         // Check the signature of the PreKey on server
         
-        guard let cryptoIdentity = ownedDevice.identity?.cryptoIdentity else {
+        guard let cryptoIdentity = try ownedDevice.identity?.cryptoIdentity else {
             assertionFailure()
             throw ObvError.noOwnedCryptoId
         }
@@ -270,7 +275,7 @@ final class PreKeyForRemoteOwnedDevice: PreKeyAbstract {
         
         let devicePreKey = deviceBlobOnServer.deviceBlob.devicePreKey
         
-        guard ownedDevice.uid == devicePreKey.deviceUID else {
+        guard try ownedDevice.uid == devicePreKey.deviceUID else {
             assertionFailure()
             throw ObvError.uidMismatch
         }
@@ -299,16 +304,16 @@ final class PreKeyForRemoteOwnedDevice: PreKeyAbstract {
             throw ObvError.noRemoteOwnedDevice
         }
         
-        let toDeviceUID = remoteOwnedDevice.uid
+        let toDeviceUID = try remoteOwnedDevice.uid
         
         guard let ownedIdentity = remoteOwnedDevice.identity else {
             assertionFailure()
             throw ObvError.noOwnedIdentity
         }
         
-        let ownedCryptoId = ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
+        let ownedCryptoId = try ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
         
-        let currentDeviceUID = ownedIdentity.currentDeviceUid
+        let currentDeviceUID = try ownedIdentity.currentDeviceUid
         
         let wrappedMessageKey = try self.wrap(messageKey,
                                               with: ownedPrivateKeyForAuthentication,
@@ -390,7 +395,7 @@ final class PreKeyForCurrentOwnedDevice: PreKeyAbstract {
     static func createPreKeyForCurrentOwnedDevice(forCurrentOwnedDevice currentOwnedDevice: OwnedDevice, serverCurrentTimestamp: Date, prng: PRNGService) throws -> DevicePreKey {
         
         let expirationTimestamp = serverCurrentTimestamp.addingTimeInterval(ObvConstants.preKeyValidityTimeInterval)
-        let (devicePreKey, sk) = DevicePreKey.generate(prng: prng, forDeviceUID: currentOwnedDevice.uid, withExpirationTimestamp: expirationTimestamp)
+        let (devicePreKey, sk) = DevicePreKey.generate(prng: prng, forDeviceUID: try currentOwnedDevice.uid, withExpirationTimestamp: expirationTimestamp)
         
         _ = try self.init(currentOwnedDevice: currentOwnedDevice, devicePreKeyDecryptionKey: sk, devicePreKey: devicePreKey, serverCurrentTimestamp: serverCurrentTimestamp)
         
@@ -455,14 +460,14 @@ final class PreKeyForCurrentOwnedDevice: PreKeyAbstract {
             throw ObvError.noCurrentOwnedDevice
         }
         
-        let toDeviceUID = currentOwnedDevice.uid
+        let toDeviceUID = try currentOwnedDevice.uid
         
         guard let ownedIdentity = currentOwnedDevice.identity else {
             assertionFailure()
             throw ObvError.noOwnedIdentity
         }
         
-        let toIdentity = ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
+        let toIdentity = try ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
         
         guard let cryptoKeyId else {
             assertionFailure()
@@ -487,7 +492,7 @@ final class PreKeyForCurrentOwnedDevice: PreKeyAbstract {
     var preKey: DevicePreKey? {
         guard let cryptoKeyId,
               let encryptionKey,
-              let deviceUID = currentOwnedDevice?.uid,
+              let deviceUID = try? currentOwnedDevice?.uid,
               let expirationTimestamp else {
             assertionFailure()
             return nil

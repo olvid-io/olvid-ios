@@ -24,7 +24,7 @@ import Foundation
 /// - `globalDefault`: Nothing specified, uses the default setting
 /// - `alwaysNotifyWhenMentionned`: Always be notified when mentioned
 /// - `neverNotifyWhenDiscussionIsMuted`: Never be notified when mentioned
-public enum DiscussionMentionNotificationMode: CaseIterable, Hashable {
+public enum DiscussionMentionNotificationMode: CaseIterable, Hashable, Sendable {
     /// Nothing specified, uses the default setting
     case globalDefault
     /// Never be notified when mentioned

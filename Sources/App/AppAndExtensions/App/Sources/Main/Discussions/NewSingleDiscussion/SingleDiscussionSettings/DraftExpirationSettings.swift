@@ -23,6 +23,7 @@ import CoreData
 import ObvUICoreData
 import ObvSettings
 import ObvUI
+import ObvAppTypes
 import ObvDesignSystem
 
 
@@ -31,7 +32,7 @@ protocol DraftSettingsHostingViewControllerDelegate: AnyObject {
 }
 
 
-final class DraftSettingsHostingViewController: UIHostingController<DraftExpirationSettingsWrapperView> {
+final class DraftSettingsHostingViewController: KeyboardHostingController<DraftExpirationSettingsWrapperView> {
 
     fileprivate let model: DraftExpirationSettingsViewModel
 

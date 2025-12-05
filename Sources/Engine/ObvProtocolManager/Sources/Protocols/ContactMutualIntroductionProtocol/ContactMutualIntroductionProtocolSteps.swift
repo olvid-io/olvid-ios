@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvTypes
 import ObvCrypto
@@ -111,7 +111,7 @@ extension ContactMutualIntroductionProtocol {
             // Make sure both contacts are trusted (i.e., are part of the ContactIdentity database of the owned identity), active and OneToOne.
             
             for contactIdentity in [contactIdentityA, contactIdentityB] {
-                guard (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+                guard (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true else {
                     os_log("One of the contact identities is not yet trusted", log: log, type: .debug)
                     return CancelledState()
                 }
@@ -351,18 +351,17 @@ extension ContactMutualIntroductionProtocol {
                 
                 do {
                     
-                    guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+                    guard let thisProtocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, within: obvContext.context) else {
                         os_log("Could not retrive this protocol instance", log: log, type: .fault)
                         assertionFailure()
                         return CancelledState()
                     }
 
-                    _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(
+                    _ = try ProtocolInstanceWaitingForContactUpgradeToOneToOne(
                         ownedCryptoIdentity: ownedIdentity,
                         contactCryptoIdentity: contactIdentity,
                         messageToSendRawId: MessageId.trustLevelIncreased.rawValue,
-                        protocolInstance: thisProtocolInstance,
-                        delegateManager: delegateManager)
+                        protocolInstance: thisProtocolInstance)
 
                 }
                 
@@ -615,7 +614,7 @@ extension ContactMutualIntroductionProtocol {
                 
                 let trustOrigin = TrustOrigin.introduction(timestamp: Date(), mediator: mediatorIdentity)
                 
-                if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+                if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                     try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 } else {
                     try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
@@ -710,7 +709,7 @@ extension ContactMutualIntroductionProtocol {
                 
                 let trustOrigin = TrustOrigin.introduction(timestamp: Date(), mediator: mediatorIdentity)
                 
-                if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+                if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                     try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 } else {
                     try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
@@ -877,7 +876,7 @@ extension ContactMutualIntroductionProtocol {
                 
                 // If we reach this point, the introduced contact is not trusted yet (i.e., not OneToOne or not a contact at all).
 
-                guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+                guard let thisProtocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, within: obvContext.context) else {
                     os_log("Could not retrive this protocol instance", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -887,8 +886,7 @@ extension ContactMutualIntroductionProtocol {
                 do {
                     try ProtocolInstanceWaitingForContactUpgradeToOneToOne.deleteRelatedToProtocolInstance(
                         thisProtocolInstance,
-                        contactCryptoIdentity: mediatorIdentity,
-                        delegateManager: delegateManager)
+                        contactCryptoIdentity: mediatorIdentity)
                 } catch {
                     os_log("Could not delete previous ProtocolInstanceWaitingForContactUpgradeToOneToOne entries", log: log, type: .fault)
                     return CancelledState()
@@ -896,11 +894,10 @@ extension ContactMutualIntroductionProtocol {
                 
                 // Insert an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database, so as to be notified if the Trust Level we have in the contact (remote identity) increases
                 
-                guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
+                guard let _ = try? ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
                                                                                  contactCryptoIdentity: contactIdentity,
                                                                                  messageToSendRawId: MessageId.trustLevelIncreased.rawValue,
-                                                                                 protocolInstance: thisProtocolInstance,
-                                                                                 delegateManager: delegateManager)
+                                                                                 protocolInstance: thisProtocolInstance)
                     else {
                         os_log("Could not create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
                         return CancelledState()
@@ -955,7 +952,7 @@ extension ProtocolStep {
         let signature: Data
         do {
             let challengeType = ChallengeType.mutualIntroduction(mediatorIdentity: mediatorIdentity, firstIdentity: contactIdentity, secondIdentity: ownedIdentity)
-            guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
+            guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext.context) else {
                 os_log("Could not compute signature", log: log, type: .fault)
                 throw Self.makeError(message: "Could not compute signature")
             }

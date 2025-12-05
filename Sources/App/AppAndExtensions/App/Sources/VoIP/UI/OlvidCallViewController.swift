@@ -48,11 +48,6 @@ final class OlvidCallViewController: UIHostingController<OlvidCallView<OlvidCall
         fatalError("init(coder:) has not been implemented")
     }
     
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        //overrideUserInterfaceStyle = .dark
-    }
-    
 }
 
 

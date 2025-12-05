@@ -19,7 +19,7 @@
 
 import UIKit
 import SwiftUI
-
+import ObvAppTypes
 
 @MainActor
 protocol AddProfileViewControllerDelegate: AnyObject {
@@ -30,7 +30,7 @@ protocol AddProfileViewControllerDelegate: AnyObject {
 }
 
 
-final class AddProfileViewController: UIHostingController<AddProfileView> {
+final class AddProfileViewController: KeyboardHostingController<AddProfileView> {
         
     private weak var delegate: AddProfileViewControllerDelegate?
     
@@ -45,6 +45,11 @@ final class AddProfileViewController: UIHostingController<AddProfileView> {
         actions.delegate = self
     }
     
+    public override func escapeKeyPressed() {
+        if self.showCloseButton {
+            super.escapeKeyPressed()
+        }
+    }
     
     @MainActor required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")

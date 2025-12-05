@@ -22,6 +22,7 @@ import ObvTypes
 import ObvDesignSystem
 import ObvUserNotificationsSounds
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 public struct ObvMessengerSettings {
@@ -161,8 +162,13 @@ public struct ObvMessengerSettings {
         
         public static var identityColorStyle: IdentityColorStyle {
             get {
+                #if DEBUG
+                // For previews, as userDefaults is nil in that case
+                return .hue
+                #else
                 let raw = userDefaults.integerOrNil(forKey: Key.identityColorStyle.path) ?? 0
                 return IdentityColorStyle(rawValue: raw) ?? IdentityColorStyle.hue
+                #endif
             }
             set {
                 userDefaults.set(newValue.rawValue, forKey: Key.identityColorStyle.path)
@@ -201,11 +207,45 @@ public struct ObvMessengerSettings {
         
     }
     
+    /// These settings will allow to replace Apple's Tips with an internal implementation
+    public struct ObvTips {
+        
+        private enum Key: String {
+            case dateWhenUserDimissedTip = "dateWhenUserDimissedTip"
+            
+            private var kDiscussions: String { "ObvTips" }
+
+            var path: String {
+                [kSettingsKeyPath, kDiscussions, self.rawValue].joined(separator: ".")
+            }
+
+        }
+        
+        public static var dateWhenUserDimissedTip: Date? {
+            return userDefaults.dateOrNil(forKey: Key.dateWhenUserDimissedTip.path)
+        }
+        
+        public static func setDateWhenUserDimissedTip(to date: Date) {
+            if date > dateWhenUserDimissedTip ?? .distantPast {
+                userDefaults.set(date, forKey: Key.dateWhenUserDimissedTip.path)
+                ObvMessengerSettingsObservableObject.shared.dateWhenUserDimissedTip = date
+            }
+        }
+        
+        public static var previousTipWasShownLongTimeAgo: Bool {
+            guard let dateWhenUserDimissedTip else { return true }
+            let timeIntervalSinceNow = abs(dateWhenUserDimissedTip.timeIntervalSinceNow)
+            return timeIntervalSinceNow > TimeInterval(hours: 1)
+        }
+        
+    }
+    
     public struct Discussions {
         
         private enum Key: String {
             
             case doSendReadReceipt = "doSendReadReceipt"
+            case unarchiveDiscussions = "unarchiveDiscussions"
             case visibilityDuration = "visibilityDuration"
             case existenceDuration = "existenceDuration"
             case countBasedRetentionPolicyIsActive = "countBasedRetentionPolicyIsActive"
@@ -241,9 +281,35 @@ public struct ObvMessengerSettings {
         }
         
         public static func setDoSendReadReceipt(to newValue: Bool, changeMadeFromAnotherOwnedDevice: Bool) {
-            guard newValue != doSendReadReceipt else { return }
+            guard newValue != userDefaults.boolOrNil(forKey: Key.doSendReadReceipt.path) else { return }
             self.doSendReadReceipt = newValue
             ObvMessengerSettingsObservableObject.shared.doSendReadReceipt = (doSendReadReceipt, changeMadeFromAnotherOwnedDevice)
+        }
+        
+        /// Returns `true` iff the user decided whether to send read receipts
+        public static var doSendReadReceiptIsSet: Bool {
+            return userDefaults.value(forKey: Key.doSendReadReceipt.path) != nil
+        }
+        
+        // MARK: Archive Discussions
+        
+        public static var isUnarchiveDiscussionsSet: Bool {
+            return userDefaults.boolOrNil(forKey: Key.unarchiveDiscussions.path) != nil
+        }
+        
+        public private(set) static var unarchiveDiscussions: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Key.unarchiveDiscussions.path) ?? true
+            }
+            set {
+                userDefaults.set(newValue, forKey: Key.unarchiveDiscussions.path)
+            }
+        }
+        
+        public static func setUnarchiveDiscussions(to newValue: Bool, changeMadeFromAnotherOwnedDevice: Bool) {
+            guard newValue != unarchiveDiscussions || !isUnarchiveDiscussionsSet else { return }
+            self.unarchiveDiscussions = newValue
+            ObvMessengerSettingsObservableObject.shared.unarchiveDiscussions = (unarchiveDiscussions, changeMadeFromAnotherOwnedDevice)
         }
         
         
@@ -1023,12 +1089,14 @@ public final class ObvMessengerSettingsObservableObject: ObservableObject {
     @Published public fileprivate(set) var defaultEmojiButton: String?
     @Published public fileprivate(set) var preferredEmojisList: [String]
     @Published public fileprivate(set) var doSendReadReceipt: (doSendReadReceipt: Bool, changeMadeFromAnotherOwnedDevice: Bool)
+    @Published public fileprivate(set) var unarchiveDiscussions: (unarchiveDiscussions: Bool, changeMadeFromAnotherOwnedDevice: Bool)
     @Published public fileprivate(set) var autoAcceptGroupInviteFrom: (autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice: Bool)
     @Published public fileprivate(set) var hideGroupMemberChangeMessages: Bool
     @Published public fileprivate(set) var sendMessageShortcutType: ObvMessengerSettings.Interface.SendMessageShortcutType
     @Published public fileprivate(set) var performInteractionDonation: Bool
     @Published public fileprivate(set) var userDidSetupBackupsAtLeastOnce: Bool
     @Published public fileprivate(set) var dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: Date?
+    @Published public fileprivate(set) var dateWhenUserDimissedTip: Date?
     
     private init() {
         defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton
@@ -1038,8 +1106,10 @@ public final class ObvMessengerSettingsObservableObject: ObservableObject {
         hideGroupMemberChangeMessages = ObvMessengerSettings.ContactsAndGroups.hideGroupMemberChangeMessages
         sendMessageShortcutType = ObvMessengerSettings.Interface.sendMessageShortcutType
         performInteractionDonation = ObvMessengerSettings.Discussions.performInteractionDonation
+        unarchiveDiscussions = (ObvMessengerSettings.Discussions.unarchiveDiscussions, false)
         userDidSetupBackupsAtLeastOnce = ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce
         dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = ObvMessengerSettings.Backup.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey
+        dateWhenUserDimissedTip = ObvMessengerSettings.ObvTips.dateWhenUserDimissedTip
     }
     
 }
@@ -1088,7 +1158,8 @@ public extension ObvMessengerSettings {
     static var syncSnapshotNode: GlobalSettingsSyncSnapshotNode {
         .init(
             autoAcceptGroupInviteFrom: ContactsAndGroups.autoAcceptGroupInviteFrom,
-            doSendReadReceipt: Discussions.doSendReadReceipt)
+            doSendReadReceipt: Discussions.doSendReadReceipt,
+            unarchiveOnNotification: Discussions.unarchiveDiscussions)
     }
     
 }
@@ -1099,21 +1170,24 @@ public struct GlobalSettingsSyncSnapshotNode: ObvSyncSnapshotNode {
     private let domain: Set<CodingKeys>
     private let autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom?
     private let doSendReadReceipt: Bool?
+    private let unarchiveOnNotification: Bool?
     
     public let id = Self.generateIdentifier()
 
     enum CodingKeys: String, CodingKey, CaseIterable, Codable {
         case autoAcceptGroupInviteFrom = "auto_join_groups"
         case doSendReadReceipt = "send_read_receipt"
+        case unarchiveOnNotification = "unarchive_on_notification"
         case domain = "domain"
     }
 
     private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
 
     
-    init(autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom, doSendReadReceipt: Bool) {
+    init(autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom, doSendReadReceipt: Bool, unarchiveOnNotification: Bool) {
         self.autoAcceptGroupInviteFrom = autoAcceptGroupInviteFrom
         self.doSendReadReceipt = doSendReadReceipt
+        self.unarchiveOnNotification = unarchiveOnNotification
         self.domain = Self.defaultDomain
     }
     
@@ -1123,6 +1197,7 @@ public struct GlobalSettingsSyncSnapshotNode: ObvSyncSnapshotNode {
         try container.encode(domain, forKey: .domain)
         try container.encodeIfPresent(autoAcceptGroupInviteFrom?.rawValue, forKey: .autoAcceptGroupInviteFrom)
         try container.encodeIfPresent(doSendReadReceipt, forKey: .doSendReadReceipt)
+        try container.encodeIfPresent(unarchiveOnNotification, forKey: .unarchiveOnNotification)
     }
     
     
@@ -1137,6 +1212,7 @@ public struct GlobalSettingsSyncSnapshotNode: ObvSyncSnapshotNode {
             self.autoAcceptGroupInviteFrom = nil
         }
         self.doSendReadReceipt = try values.decodeIfPresent(Bool.self, forKey: .doSendReadReceipt)
+        self.unarchiveOnNotification = try values.decodeIfPresent(Bool.self, forKey: .unarchiveOnNotification)
     }
     
     public func useToUpdateGlobalSettings() {
@@ -1147,6 +1223,10 @@ public struct GlobalSettingsSyncSnapshotNode: ObvSyncSnapshotNode {
         
         if domain.contains(.doSendReadReceipt), let doSendReadReceipt {
             ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: doSendReadReceipt, changeMadeFromAnotherOwnedDevice: false)
+        }
+        
+        if domain.contains(.unarchiveOnNotification), let unarchiveOnNotification {
+            ObvMessengerSettings.Discussions.setUnarchiveDiscussions(to: unarchiveOnNotification, changeMadeFromAnotherOwnedDevice: false)
         }
         
     }

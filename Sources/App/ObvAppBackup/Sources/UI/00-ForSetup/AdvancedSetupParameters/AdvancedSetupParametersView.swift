@@ -178,6 +178,7 @@ struct AdvancedSetupParametersView: View {
                     HStack {
                         Spacer()
                         Text("VALIDATE")
+                            .fontWeight(.bold)
                         Spacer()
                     }
                     .padding(.vertical, 8)

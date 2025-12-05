@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -61,7 +61,7 @@ extension ContactDeviceDiscoveryProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             contactIdentity = try message.encodedInputs.obvDecode()
         }
         
@@ -89,8 +89,8 @@ extension ContactDeviceDiscoveryProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard let inputs = ChildToParentProtocolMessageInputs(message.encodedInputs) else { assertionFailure(); throw Self.makeError(message: "Failed to obtain inputs") }
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            guard let inputs = ChildToParentProtocolMessageInputs(try message.encodedInputs) else { assertionFailure(); throw Self.makeError(message: "Failed to obtain inputs") }
             childToParentProtocolMessageInputs = inputs
             deviceUidsSentState = try DeviceDiscoveryForRemoteIdentityProtocol.DeviceUidsReceivedState(childToParentProtocolMessageInputs.childProtocolInstanceEncodedReachedState)
         }

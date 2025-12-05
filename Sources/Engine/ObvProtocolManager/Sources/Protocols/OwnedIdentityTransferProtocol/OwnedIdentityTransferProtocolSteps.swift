@@ -664,7 +664,7 @@ extension OwnedIdentityTransferProtocol {
                     // Since the transfer is restricted, we request a successfull authentication of the target device before sending the snapshot.
                     // For now, we send what the target device needs to authenticate
                     
-                    guard let keycloakConfiguration = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext).obvKeycloakState?.keycloakConfiguration else {
+                    guard let keycloakConfiguration = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext)?.keycloakState.keycloakConfiguration else {
                         assertionFailure()
                         throw OwnedIdentityTransferError.couldNotObtainKeycloakConfiguration
                     }

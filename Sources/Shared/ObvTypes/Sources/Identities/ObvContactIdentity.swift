@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,12 +24,12 @@ import ObvEncoder
 import OlvidUtils
 
 
-public struct ObvContactIdentity: ObvIdentity {    
+public struct ObvContactIdentity: ObvIdentity, Sendable, Equatable {    
     
     public let cryptoId: ObvCryptoId
+    public let ownedCryptoId: ObvCryptoId
     public let trustedIdentityDetails: ObvIdentityDetails
     public let publishedIdentityDetails: ObvIdentityDetails?
-    public let ownedIdentity: ObvOwnedIdentity
     public let isCertifiedByOwnKeycloak: Bool
     public let isActive: Bool
     public let isRevokedAsCompromised: Bool
@@ -41,21 +41,33 @@ public struct ObvContactIdentity: ObvIdentity {
     }
     
     public var contactIdentifier: ObvContactIdentifier {
-        ObvContactIdentifier(contactCryptoId: cryptoId, ownedCryptoId: ownedIdentity.cryptoId)
+        ObvContactIdentifier(contactCryptoId: cryptoId, ownedCryptoId: ownedCryptoId)
     }
 
-    public init(cryptoIdentity: ObvCryptoIdentity, trustedIdentityDetails: ObvIdentityDetails, publishedIdentityDetails: ObvIdentityDetails?, ownedIdentity: ObvOwnedIdentity, isCertifiedByOwnKeycloak: Bool, isActive: Bool, isRevokedAsCompromised: Bool, isOneToOne: Bool, wasRecentlyOnline: Bool) {
+    public init(cryptoIdentity: ObvCryptoIdentity, trustedIdentityDetails: ObvIdentityDetails, publishedIdentityDetails: ObvIdentityDetails?, ownedCryptoId: ObvCryptoId, isCertifiedByOwnKeycloak: Bool, isActive: Bool, isRevokedAsCompromised: Bool, isOneToOne: Bool, wasRecentlyOnline: Bool) {
         self.cryptoId = ObvCryptoId(cryptoIdentity: cryptoIdentity)
         self.trustedIdentityDetails = trustedIdentityDetails
         self.publishedIdentityDetails = publishedIdentityDetails
-        self.ownedIdentity = ownedIdentity
+        self.ownedCryptoId = ownedCryptoId
         self.isCertifiedByOwnKeycloak = isCertifiedByOwnKeycloak
         self.isActive = isActive
         self.isRevokedAsCompromised = isRevokedAsCompromised
         self.isOneToOne = isOneToOne
         self.wasRecentlyOnline = wasRecentlyOnline
     }
-    
+
+    public init(contactCryptoId: ObvCryptoId, trustedIdentityDetails: ObvIdentityDetails, publishedIdentityDetails: ObvIdentityDetails?, ownedCryptoId: ObvCryptoId, isCertifiedByOwnKeycloak: Bool, isActive: Bool, isRevokedAsCompromised: Bool, isOneToOne: Bool, wasRecentlyOnline: Bool) {
+        self.cryptoId = contactCryptoId
+        self.trustedIdentityDetails = trustedIdentityDetails
+        self.publishedIdentityDetails = publishedIdentityDetails
+        self.ownedCryptoId = ownedCryptoId
+        self.isCertifiedByOwnKeycloak = isCertifiedByOwnKeycloak
+        self.isActive = isActive
+        self.isRevokedAsCompromised = isRevokedAsCompromised
+        self.isOneToOne = isOneToOne
+        self.wasRecentlyOnline = wasRecentlyOnline
+    }
+
     public func getGenericIdentityWithPublishedOrTrustedDetails() -> ObvGenericIdentity {
         let details = publishedIdentityDetails ?? trustedIdentityDetails
         return ObvGenericIdentity.init(cryptoId: cryptoId, currentIdentityDetails: details)

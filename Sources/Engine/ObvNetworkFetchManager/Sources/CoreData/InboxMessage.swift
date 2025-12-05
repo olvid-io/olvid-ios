@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,57 +19,40 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvCrypto
 import ObvTypes
-import OlvidUtils
 import ObvEncoder
 import ObvServerInterface
 
-@objc(InboxMessage)
-final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
-    
-    enum InternalError: Error {
-        case aMessageWithTheSameMessageIdAlreadyExists
-        case tryingToInsertAMessageThatWasAlreadyDeleted
-        
-        var localizedDescription: String {
-            switch self {
-            case .aMessageWithTheSameMessageIdAlreadyExists:
-                return "A message with the same messageId already exists in DB"
-            case .tryingToInsertAMessageThatWasAlreadyDeleted:
-                return "Trying to insert a message in DB with a messageId that is identical to the one of a message that was recently deleted"
-            }
-        }
-    }
 
+@objc(InboxMessage)
+final class InboxMessage: NSManagedObject {
+    
     // MARK: Internal constants
     
     private static let entityName = "InboxMessage"
-    private static let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: "InboxMessage")
     private static let logger = Logger(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: "InboxMessage")
-    static var errorDomain = "InboxMessage"
 
 
     // MARK: Attributes
     @NSManaged private(set) var downloadTimestampFromServer: Date
     @NSManaged private(set) var extendedMessagePayload: Data?
-    //@NSManaged private(set) var fromCryptoIdentity: ObvCryptoIdentity? // Only set for application messages, at the same time than the attachments' infos
     @NSManaged private(set) var fromRawDeviceUID: Data? // Only set for application messages, at the same time than the attachments' infos
     @NSManaged private(set) var hasEncryptedExtendedMessagePayload: Bool
+    @NSManaged private(set) var isOnHold: Bool // If the app cannot process a message yet, it can requests this message to be put on hold. It will request it at a later time, when it can process it.
     @NSManaged private(set) var localDownloadTimestamp: Date
-    @NSManaged private(set) var markedForDeletion: Bool // If true, a message will be deleted asap (i.e., when all its attachments are also marked for deletion)
     @NSManaged private(set) var markedAsListedOnServer: Bool // Set to true after having notified the server that we are aware of a message. Once this Boolean is true, this message won't appear again when listing messages.
+    @NSManaged private(set) var markedForDeletion: Bool // If true, a message will be deleted asap (i.e., when all its attachments are also marked for deletion)
     @NSManaged private(set) var messagePayload: Data? // Not set at download time, but at the same time than the attachments' infos
+    @NSManaged private(set) var messageUploadTimestampFromServer: Date
     @NSManaged private var rawEncryptedContent: Data? // Expected to be non nil
     @NSManaged private var rawExpectedContactForReProcessing: Data? // Non-nil iff the received message could be decrypted using a PreKey, but sent by an unknown remote identity
     @NSManaged private var rawExtendedMessagePayloadKey: Data?
     @NSManaged private var rawFromIdentity: Data? // Only set for application messages, at the same time than the attachments' infos
     @NSManaged private var rawMessageIdOwnedIdentity: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
     @NSManaged private var rawMessageIdUid: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
-    @NSManaged private(set) var messageUploadTimestampFromServer: Date
-    //@NSManaged private(set) var wrappedKey: EncryptedData
     @NSManaged private var rawWrappedKey: Data? // Expected to be non-nil
     
     // MARK: Relationships
@@ -78,8 +61,8 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     @NSManaged private var dbAttachments: [InboxAttachment]?
     
     var attachments: [InboxAttachment] {
-        let values = dbAttachments
-        return values?.map { $0.obvContext = self.obvContext; return $0 } ?? []
+        return dbAttachments ?? []
+        //return values?.map { $0.obvContext = self.obvContext; return $0 } ?? []
     }
     
     var attachmentIds: [ObvAttachmentIdentifier] {
@@ -155,38 +138,35 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
             self.rawMessageIdUid = newValue.uid.raw
         }
     }
-    
-    weak var obvContext: ObvContext?
-    
+        
     var canBeDeletedFromServer: Bool {
         return markedForDeletion && attachments.allSatisfy({ $0.markedForDeletion })
     }
 
     
-    private func deleteInboxMessage(inbox: URL, obvContext: ObvContext) throws {
+    /// Returns the attachments
+    private func deleteInboxMessage(inbox: URL) throws -> URL? {
         guard let context = self.managedObjectContext else {
             assertionFailure()
             throw ObvError.contextIsNil
-        }
-        guard self.managedObjectContext == obvContext.context else {
-            assertionFailure()
-            throw ObvError.unexpectedContext
         }
         guard self.canBeDeletedFromServer else {
             throw ObvError.cannotBeDeleted
         }
         if let dbAttachments {
             dbAttachments.forEach { attachment in
-                try? attachment.deleteDownload(fromInbox: inbox, within: obvContext)
+                _ = try? attachment.deleteDownload(fromInbox: inbox)
             }
         }
-        try? self.deleteAttachmentsDirectory(fromInbox: inbox)
+        let attachmentsDirectory = getAttachmentsDirectory(withinInbox: inbox)
+        //try? self.deleteAttachmentsDirectory(fromInbox: inbox)
         context.delete(self)
+        return attachmentsDirectory
     }
     
     
     /// We expect to return a non-nil URL, unless this `InboxMessage` was deleted on another thread.
-    func getAttachmentDirectory(withinInbox inbox: URL) -> URL? {
+    func getAttachmentsDirectory(withinInbox inbox: URL) -> URL? {
         guard let messageId else { return nil }
         // Return a legacy value if appropriate
         if let url = Self.getLegacyAttachmentDirectoryIfItExistsOnDisk(withinInbox: inbox, messageId: messageId) {
@@ -211,26 +191,27 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     // MARK: - Initializer
     
-    convenience init(messageId: ObvMessageIdentifier, encryptedContent: EncryptedData, hasEncryptedExtendedMessagePayload: Bool, wrappedKey: EncryptedData, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, within obvContext: ObvContext) throws {
+    convenience init(messageId: ObvMessageIdentifier, encryptedContent: EncryptedData, hasEncryptedExtendedMessagePayload: Bool, wrappedKey: EncryptedData, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, within context: NSManagedObjectContext) throws {
         
         guard !Self.thisMessageWasRecentlyDeleted(messageId: messageId) else {
-            throw InternalError.tryingToInsertAMessageThatWasAlreadyDeleted
+            throw ObvError.tryingToInsertAMessageThatWasAlreadyDeleted
         }
         
-        os_log("🔑 Creating InboxMessage with id %{public}@", log: Self.log, type: .info, messageId.debugDescription)
+        Self.logger.info("🔑 Creating InboxMessage with id \(messageId.debugDescription)")
         
-        guard try InboxMessage.get(messageId: messageId, within: obvContext) == nil else {
-            os_log("🔑 An InboxMessage with id %{public}@ already exists", log: Self.log, type: .info, messageId.debugDescription)
-            throw InternalError.aMessageWithTheSameMessageIdAlreadyExists
+        guard try InboxMessage.get(messageId: messageId, within: context) == nil else {
+            Self.logger.info("🔑 An InboxMessage with id \(messageId.debugDescription) already exists")
+            throw ObvError.aMessageWithTheSameMessageIdAlreadyExists
         }
-        let entityDescription = NSEntityDescription.entity(forEntityName: InboxMessage.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: InboxMessage.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         
         self.rawEncryptedContent = encryptedContent.raw
         self.extendedMessagePayload = nil
         self.rawFromIdentity = nil
         self.fromRawDeviceUID = nil
         self.hasEncryptedExtendedMessagePayload = hasEncryptedExtendedMessagePayload
+        self.isOnHold = false
         self.localDownloadTimestamp = localDownloadTimestamp
         self.messageId = messageId
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer
@@ -350,33 +331,34 @@ extension InboxMessage {
 extension InboxMessage {
         
     func createAttachmentsDirectoryIfRequired(withinInbox inbox: URL) throws {
-        let attachmentsDirectory = getAttachmentDirectory(withinInbox: inbox)
+        let attachmentsDirectory = getAttachmentsDirectory(withinInbox: inbox)
         guard let attachmentsDirectory else {
-            throw Self.makeError(message: "Could not create the attachments directory for this InboxMessage. This happens if this message was deleted on another thread")
+            throw ObvError.couldNotCreateAttachmentsDirectory // This happens if this message was deleted on another thread
         }
         guard !FileManager.default.fileExists(atPath: attachmentsDirectory.path) else { return }
         try FileManager.default.createDirectory(at: attachmentsDirectory, withIntermediateDirectories: false)
     }
     
     
-    private func deleteAttachmentsDirectory(fromInbox inbox: URL) throws {
-        let attachmentsDirectory = getAttachmentDirectory(withinInbox: inbox)
-        guard let attachmentsDirectory else {
-            throw Self.makeError(message: "Could not delete the attachments directory for this InboxMessage. This happens if this message was deleted on another thread")
-        }
-        guard FileManager.default.fileExists(atPath: attachmentsDirectory.path) else { return }
-        try FileManager.default.removeItem(at: attachmentsDirectory)
-    }
+//    private func deleteAttachmentsDirectory(fromInbox inbox: URL) throws {
+//        let attachmentsDirectory = getAttachmentsDirectory(withinInbox: inbox)
+//        guard let attachmentsDirectory else {
+//            throw ObvError.couldNotDeleteAttachmentsDirectory // This happens if this message was deleted on another thread
+//        }
+//        guard FileManager.default.fileExists(atPath: attachmentsDirectory.path) else { return }
+//        try FileManager.default.removeItem(at: attachmentsDirectory)
+//    }
     
     
     func setFromCryptoIdentity(_ fromCryptoIdentity: ObvCryptoIdentity, remoteDeviceUID: UID, andMessagePayload messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?) throws {
-        os_log("🔑 Setting fromCryptoIdentity and messagePayload of message %{public}@", log: Self.log, type: .info, messageId.debugDescription)
+        let messageIdDebugDescription = messageId.debugDescription
+        Self.logger.info("🔑 Setting fromCryptoIdentity and messagePayload of message \(messageIdDebugDescription)")
         if self.fromCryptoIdentity == nil {
            self.fromCryptoIdentity = fromCryptoIdentity
         } else {
             guard self.fromCryptoIdentity == fromCryptoIdentity else {
                 assertionFailure()
-                throw Self.makeError(message: "Incoherent from identity")
+                throw ObvError.incoherentFromIdentity
             }
         }
         if self.fromDeviceUID == nil {
@@ -384,7 +366,7 @@ extension InboxMessage {
         } else {
             guard self.fromDeviceUID == remoteDeviceUID else {
                 assertionFailure()
-                throw Self.makeError(message: "Incoherent from contact device")
+                throw ObvError.incoherentFromContactDevice
             }
         }
         if self.messagePayload == nil {
@@ -392,7 +374,7 @@ extension InboxMessage {
         } else {
             guard self.messagePayload == messagePayload else {
                 assertionFailure()
-                throw Self.makeError(message: "Incoherent message payload")
+                throw ObvError.incoherentMessagePayload
             }
         }
         self.extendedMessagePayloadKey = extendedMessagePayloadKey
@@ -412,7 +394,7 @@ extension InboxMessage {
     
     // MARK: - Setters
     
-    func markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: InboxAttachmentsSet, within obvContext: ObvContext) throws {
+    func markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: InboxAttachmentsSet) throws {
         guard !isDeleted else { return }
         if !markedForDeletion {
             markedForDeletion = true
@@ -464,105 +446,178 @@ extension InboxMessage {
     
 }
 
+// MARK: On hold feature
+
+extension InboxMessage {
+    
+    private func putOnHold() {
+        guard !self.isOnHold else { return }
+        self.isOnHold = true
+    }
+    
+}
+
 
 // MARK: - Convenience DB getters
 
 extension InboxMessage {
     
-    @nonobjc class func fetchRequest() -> NSFetchRequest<InboxMessage> {
-        return NSFetchRequest<InboxMessage>(entityName: InboxMessage.entityName)
-    }
-    
-    
     struct Predicate {
         enum Key: String {
             // Attributes
-            case messagePayloadKey = "messagePayload"
-            case rawExpectedContactForReProcessing = "rawExpectedContactForReProcessing"
-            case rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
-            case rawMessageIdUidKey = "rawMessageIdUid"
             case downloadTimestampFromServer = "downloadTimestampFromServer"
-            case messageUploadTimestampFromServer = "messageUploadTimestampFromServer"
-            case markedForDeletion = "markedForDeletion"
+            case extendedMessagePayload = "extendedMessagePayload"
+            case fromRawDeviceUID = "fromRawDeviceUID"
+            case hasEncryptedExtendedMessagePayload = "hasEncryptedExtendedMessagePayload"
+            case isOnHold = "isOnHold"
+            case localDownloadTimestamp = "localDownloadTimestamp"
             case markedAsListedOnServer = "markedAsListedOnServer"
+            case markedForDeletion = "markedForDeletion"
+            case messagePayload = "messagePayload"
+            case messageUploadTimestampFromServer = "messageUploadTimestampFromServer"
+            case rawEncryptedContent = "rawEncryptedContent"
+            case rawExpectedContactForReProcessing = "rawExpectedContactForReProcessing"
+            case rawExtendedMessagePayloadKey = "rawExtendedMessagePayloadKey"
             case rawFromIdentity = "rawFromIdentity"
+            case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUid = "rawMessageIdUid"
+            case rawWrappedKey = "rawWrappedKey"
             // Relationships
             case dbAttachments = "dbAttachments"
         }
+        
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            NSPredicate(withObjectID: objectID)
+        }
+
+        static func isOnHold(is bool: Bool) -> NSPredicate {
+            NSPredicate(Key.isOnHold, is: bool)
+        }
+        
         static func withMessageIdOwnedCryptoId(_ ownedCryptoId: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(Key.rawMessageIdOwnedIdentityKey, EqualToData: ownedCryptoId.getIdentity())
+            NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
+
         static func withMessageIdUid(_ uid: UID) -> NSPredicate {
-            NSPredicate(Key.rawMessageIdUidKey, EqualToData: uid.raw)
+            NSPredicate(Key.rawMessageIdUid, EqualToData: uid.raw)
         }
+
         static func withMessageIdentifier(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 withMessageIdOwnedCryptoId(messageId.ownedCryptoIdentity),
                 withMessageIdUid(messageId.uid),
             ])
         }
-        static var isProcessable: NSPredicate {
+
+        static var toBeProcessByChannel: NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 isNotMarkedForDeletion,
+                Predicate.isOnHold(is: false),
                 isNotExpectingContactForReProcessing,
                 hasNoFromIdentityOrNoMessagePayload,
             ])
         }
+
+        static var toBeProcessByApp: NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                isNotMarkedForDeletion,
+                Predicate.isOnHold(is: false),
+                hasFromIdentityAndMessagePayload,
+            ])
+        }
+
         static var isMarkedForDeletion: NSPredicate {
             NSPredicate(Key.markedForDeletion, is: true)
         }
+
         static var isNotMarkedForDeletion: NSPredicate {
             NSPredicate(Key.markedForDeletion, is: false)
         }
+
         static func markedAsListedOnServerIs(_ bool: Bool) -> NSPredicate {
             NSPredicate(Key.markedAsListedOnServer, is: bool)
         }
+
         static var allDBAttachmentsAreMarkedForDeletion: NSPredicate {
             let dbAttachments = Predicate.Key.dbAttachments.rawValue
             let rawStatus = InboxAttachment.Predicate.Key.rawStatus.rawValue
             return NSPredicate(format: "SUBQUERY(\(dbAttachments), $attachment, $attachment.\(rawStatus) == %d).@count == \(dbAttachments).@count", InboxAttachment.Status.markedForDeletion.rawValue)
         }
+
         static var canBeDeletedFromServer: NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 Predicate.isMarkedForDeletion,
                 Predicate.allDBAttachmentsAreMarkedForDeletion,
             ])
         }
+
         static var cannotBeDeletedFromServer: NSPredicate {
             NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.canBeDeletedFromServer)
         }
+
         private static var isNotExpectingContactForReProcessing: NSPredicate {
             NSPredicate(withNilValueForKey: Key.rawExpectedContactForReProcessing)
         }
+
         static var isExpectingContactForReProcessing: NSPredicate {
             NSPredicate(withNonNilValueForKey: Key.rawExpectedContactForReProcessing)
         }
+
         private static var hasNoFromIdentityOrNoMessagePayload: NSPredicate {
             NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.hasFromIdentityAndMessagePayload)
         }
+
         static var hasFromIdentityAndMessagePayload: NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(withNonNilValueForKey: Key.rawFromIdentity),
-                NSPredicate(withNonNilValueForKey: Key.messagePayloadKey),
+                NSPredicate(withNonNilValueForKey: Key.messagePayload),
             ])
         }
+
         static func withExpectedContactForReProcessing(contactIdentifier: ObvContactIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 Predicate.withMessageIdOwnedCryptoId(contactIdentifier.ownedCryptoId.cryptoIdentity),
                 NSPredicate(Key.rawExpectedContactForReProcessing, EqualToData: contactIdentifier.contactCryptoId.getIdentity()),
             ])
         }
+
         static var hasSomeExpectedContactForReProcessing: NSPredicate {
             NSPredicate(withNonNilValueForKey: Key.rawExpectedContactForReProcessing)
         }
+
         fileprivate static func downloadTimestampFromServer(earlierThan date: Date) -> NSPredicate {
             NSPredicate(Key.downloadTimestampFromServer, earlierThan: date)
         }
+
     }
 
     
+    @nonobjc class func fetchRequest() -> NSFetchRequest<InboxMessage> {
+        return NSFetchRequest<InboxMessage>(entityName: InboxMessage.entityName)
+    }
+    
+    
+    static func putOnHold(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.predicate = Predicate.withMessageIdentifier(messageId)
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.isOnHold.rawValue]
+        let item = try context.fetch(request).first
+        item?.putOnHold()
+    }
+    
+    
+    static func fetchOnHoldMessage(messageId: ObvMessageIdentifier, inbox: URL, within context: NSManagedObjectContext) throws -> ObvMessageOrObvOwnedMessage? {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.predicate = Predicate.withMessageIdentifier(messageId)
+        request.fetchLimit = 1
+        guard let item = try context.fetch(request).first else { return nil }
+        return item.getObvMessageOrObvOwnedMessage(inbox: inbox)
+    }
+    
+    
     /// Called during bootstrap, to delete orphaned directories, and during an owned identity deletion.
-    static func getAll(forIdentity cryptoIdentity: ObvCryptoIdentity? = nil, within obvContext: ObvContext) throws -> [InboxMessage] {
+    static func getAll(forIdentity cryptoIdentity: ObvCryptoIdentity? = nil, within context: NSManagedObjectContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         if let cryptoIdentity = cryptoIdentity {
             request.predicate = Predicate.withMessageIdOwnedCryptoId(cryptoIdentity)
@@ -570,32 +625,32 @@ extension InboxMessage {
         request.fetchBatchSize = 500
         // Make sure we fetch the properties requires to compute the messageId. This ensures we don't crash if the message gets deleted concurrently.
         request.propertiesToFetch = [
-            Predicate.Key.rawMessageIdUidKey.rawValue,
-            Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
+            Predicate.Key.rawMessageIdUid.rawValue,
+            Predicate.Key.rawMessageIdOwnedIdentity.rawValue,
         ]
-        return try obvContext.fetch(request)
+        return try context.fetch(request)
     }
     
     
-    static func getBatchOfProcessableMessages(ownedCryptoIdentity: ObvCryptoIdentity, fetchLimit: Int, within obvContext: ObvContext) throws -> [InboxMessage] {
+    static func getBatchOfMessagesToBeProcessByChannel(ownedCryptoIdentity: ObvCryptoIdentity, fetchLimit: Int, within context: NSManagedObjectContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withMessageIdOwnedCryptoId(ownedCryptoIdentity),
-            Predicate.isProcessable,
+            Predicate.toBeProcessByChannel,
         ])
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true)]
         request.fetchLimit = fetchLimit
-        return try obvContext.fetch(request)
+        return try context.fetch(request)
     }
     
     
-    static func getBatchOfProcessableMessages(restrictTo messageIdentifiers: [ObvMessageIdentifier], within obvContext: ObvContext) throws -> [InboxMessage] {
+    static func getBatchOfMessagesToBeProcessByChannel(restrictTo messageIdentifiers: [ObvMessageIdentifier], within context: NSManagedObjectContext) throws -> [InboxMessage] {
 
         var unprocessedMessages = [InboxMessage]()
 
         for messageIdentifier in messageIdentifiers {
             do {
-                if let message = try getProcessableMessage(messageIdentifier: messageIdentifier, within: obvContext) {
+                if let message = try getMessageToBeProcessedByChannel(messageIdentifier: messageIdentifier, within: context) {
                     unprocessedMessages.append(message)
                 }
             } catch {
@@ -609,16 +664,41 @@ extension InboxMessage {
     }
     
     
-    static func getProcessableMessage(messageIdentifier: ObvMessageIdentifier, within obvContext: ObvContext) throws -> InboxMessage? {
+    static func getMessageToBeProcessedByChannel(messageIdentifier: ObvMessageIdentifier, within context: NSManagedObjectContext) throws -> InboxMessage? {
         
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withMessageIdentifier(messageIdentifier),
-            Predicate.isProcessable,
+            Predicate.toBeProcessByChannel,
         ])
         request.fetchLimit = 1
-        return try obvContext.fetch(request).first
+        return try context.fetch(request).first
 
+    }
+    
+    
+    static func getObvMessageOrObvOwnedMessageToBeProcessedByApp(inboxMessageObjectID: NSManagedObjectID, inbox: URL, within context: NSManagedObjectContext) throws -> ObvMessageOrObvOwnedMessage? {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withObjectID(inboxMessageObjectID),
+            Predicate.toBeProcessByApp,
+        ])
+        request.fetchLimit = 1
+        guard let item = try context.fetch(request).first else { return nil }
+        return item.getObvMessageOrObvOwnedMessage(inbox: inbox)
+    }
+    
+    
+    static func getObjectIDsOfInboxMessagesToBeProcessedByApp(within context: NSManagedObjectContext) throws -> [NSManagedObjectID] {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        request.predicate = Predicate.toBeProcessByApp
+        request.fetchBatchSize = 1_000
+        request.resultType = .managedObjectIDResultType
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true)]
+        let items = try context.fetch(request)
+        let result = items as? [NSManagedObjectID] ?? []
+        assert(items.count == result.count)
+        return result
     }
 
 
@@ -639,19 +719,19 @@ extension InboxMessage {
             Predicate.markedAsListedOnServerIs(false),
         ])
         request.propertiesToFetch = [
-            Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
-            Predicate.Key.rawMessageIdUidKey.rawValue,
+            Predicate.Key.rawMessageIdOwnedIdentity.rawValue,
+            Predicate.Key.rawMessageIdUid.rawValue,
         ]
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true)]
         request.fetchLimit = fetchLimit
 
-        guard let results = try context.fetch(request) as? [[String: Data]] else { assertionFailure(); throw makeError(message: "Could cast fetched result") }
+        guard let results = try context.fetch(request) as? [[String: Data]] else { assertionFailure(); throw ObvError.couldNotCastFetchedResult }
 
         let valuesToReturn: [ObvMessageIdentifier] = results.compactMap { dict in
-            guard let rawMessageIdOwnedIdentity = dict[Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue] else {
+            guard let rawMessageIdOwnedIdentity = dict[Predicate.Key.rawMessageIdOwnedIdentity.rawValue] else {
                 assertionFailure(); return nil
             }
-            guard let rawMessageIdUid = dict[Predicate.Key.rawMessageIdUidKey.rawValue] else {
+            guard let rawMessageIdUid = dict[Predicate.Key.rawMessageIdUid.rawValue] else {
                 assertionFailure(); return nil
             }
             return ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
@@ -676,19 +756,19 @@ extension InboxMessage {
             Predicate.canBeDeletedFromServer,
         ])
         request.propertiesToFetch = [
-            Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
-            Predicate.Key.rawMessageIdUidKey.rawValue,
+            Predicate.Key.rawMessageIdOwnedIdentity.rawValue,
+            Predicate.Key.rawMessageIdUid.rawValue,
         ]
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true)]
         request.fetchLimit = fetchLimit
         
-        guard let results = try context.fetch(request) as? [[String: Data]] else { assertionFailure(); throw makeError(message: "Could cast fetched result") }
+        guard let results = try context.fetch(request) as? [[String: Data]] else { assertionFailure(); throw ObvError.couldNotCastFetchedResult }
 
         let valueToReturn: [ObvMessageIdentifier] = results.compactMap { dict in
-            guard let rawMessageIdOwnedIdentity = dict[Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue] else {
+            guard let rawMessageIdOwnedIdentity = dict[Predicate.Key.rawMessageIdOwnedIdentity.rawValue] else {
                 assertionFailure(); return nil
             }
-            guard let rawMessageIdUid = dict[Predicate.Key.rawMessageIdUidKey.rawValue] else {
+            guard let rawMessageIdUid = dict[Predicate.Key.rawMessageIdUid.rawValue] else {
                 assertionFailure(); return nil
             }
             return ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
@@ -730,59 +810,61 @@ extension InboxMessage {
     
     
     /// Used during bootstrap to notify the app about decrypted application messages (either ones that were never notified, or about attachments' statuses of notified ones).
-    static func fetchApplicationMessagesToReNotify(within obvContext: ObvContext) throws -> [InboxMessage] {
+    static func fetchApplicationMessagesToReNotify(within context: NSManagedObjectContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.fetchBatchSize = 500
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true)]
         // Make sure we fetch the properties required to compute the messageId. This ensure we don't crash if the message gets deleted concurrently.
         request.propertiesToFetch = [
-            Predicate.Key.rawMessageIdUidKey.rawValue,
-            Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
+            Predicate.Key.rawMessageIdUid.rawValue,
+            Predicate.Key.rawMessageIdOwnedIdentity.rawValue,
         ]
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.hasFromIdentityAndMessagePayload,
             Predicate.cannotBeDeletedFromServer,
         ])
-        return try obvContext.fetch(request)
+        return try context.fetch(request)
     }
     
 
-    static func get(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws -> InboxMessage? {
+    static func get(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws -> InboxMessage? {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageIdentifier(messageId)
         request.fetchLimit = 1
-        return (try obvContext.fetch(request)).first
+        return (try context.fetch(request)).first
     }
 
     
-    static func markAsListedOnServer(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
+    static func markAsListedOnServer(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageIdentifier(messageId)
         request.fetchLimit = 1
         request.propertiesToFetch = [Predicate.Key.markedAsListedOnServer.rawValue]
-        guard let message = (try obvContext.fetch(request)).first else { return }
+        guard let message = (try context.fetch(request)).first else { return }
         message.markAsListedOnServer()
     }
     
     
-    static func deleteMessage(messageId: ObvMessageIdentifier, inbox: URL, within obvContext: ObvContext) throws {
+    /// Returns the attachments' directory, to be deleted once the context is saved.
+    static func deleteMessage(messageId: ObvMessageIdentifier, inbox: URL, within context: NSManagedObjectContext) throws -> URL? {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageIdentifier(messageId)
         request.fetchLimit = 1
         request.propertiesToFetch = []
-        guard let message = (try obvContext.fetch(request)).first else { return }
-        try message.deleteInboxMessage(inbox: inbox, obvContext: obvContext)
+        guard let message = (try context.fetch(request)).first else { return nil }
+        let attachmentsDirectory = try message.deleteInboxMessage(inbox: inbox)
+        return attachmentsDirectory
     }
     
 
     /// Marks the message and all this attachments for deletion. Since they are all marked for deletion, we expect ``canBeDeletedFromServer`` to `true`.
-    static func markMessageAndAttachmentsForDeletion(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
+    static func markMessageAndAttachmentsForDeletion(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageIdentifier(messageId)
         request.fetchLimit = 1
         request.propertiesToFetch = [Predicate.Key.markedForDeletion.rawValue]
-        guard let message = (try obvContext.fetch(request)).first else { return }
-        try message.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: .all, within: obvContext)
+        guard let message = (try context.fetch(request)).first else { return }
+        try message.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: .all)
         assert(message.canBeDeletedFromServer)
     }
     
@@ -797,7 +879,7 @@ extension InboxMessage {
             Predicate.cannotBeDeletedFromServer,
         ])
         request.propertiesToFetch = [
-            Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
+            Predicate.Key.rawMessageIdOwnedIdentity.rawValue,
             Predicate.Key.rawExpectedContactForReProcessing.rawValue,
         ]
         let messages = try context.fetch(request)
@@ -818,7 +900,7 @@ extension InboxMessage {
     
     
     /// Inbox messages expecting a contact before re-processing shall be deleted after a certain retention period.
-    static func markMessagesAndAttachmentsForDeletionIfOldAndExpectingContactForReProcessing(with obvContext: ObvContext) throws {
+    static func markMessagesAndAttachmentsForDeletionIfOldAndExpectingContactForReProcessing(with context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.fetchBatchSize = 500
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -826,10 +908,10 @@ extension InboxMessage {
             Predicate.downloadTimestampFromServer(earlierThan: Date.now.addingTimeInterval(-ObvConstants.inboxMessageRetentionWhenContactIsExpected))
         ])
         request.propertiesToFetch = [Predicate.Key.markedForDeletion.rawValue]
-        let messages = try obvContext.fetch(request)
+        let messages = try context.fetch(request)
         try messages.forEach { message in
             assertionFailure("During development, it is unlikely to reach this point")
-            try message.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: .all, within: obvContext)
+            try message.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: .all)
         }
     }
 
@@ -869,6 +951,14 @@ extension InboxMessage {
         case cannotDetermineMessageId
         case cannotBeDeleted
         case unexpectedContext
+        case couldNotCreateAttachmentsDirectory
+        case couldNotDeleteAttachmentsDirectory
+        case incoherentFromIdentity
+        case incoherentFromContactDevice
+        case incoherentMessagePayload
+        case couldNotCastFetchedResult
+        case aMessageWithTheSameMessageIdAlreadyExists
+        case tryingToInsertAMessageThatWasAlreadyDeleted
     }
     
 }

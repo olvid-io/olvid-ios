@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
   
 
 import CoreData
+import OSLog
 import ObvCoreDataStack
 import Foundation
 import Intents
@@ -27,7 +28,6 @@ import ObvAppCoreConstants
 import ObvEngine
 import ObvTypes
 import OlvidUtils
-import os.log
 import SwiftUI
 import ObvUICoreData
 import ObvSettings
@@ -365,6 +365,7 @@ protocol ShareViewHostingControllerDelegate: AnyObject {
 final class ShareViewHostingController: UIHostingController<ShareView>, ShareViewModelDelegate {
 
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: "ShareViewHostingController"))
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: "ShareViewHostingController"))
     private static let errorDomain = "ShareViewHostingController"
     private static func makeError(message: String) -> Error { NSError(domain: Self.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
@@ -380,6 +381,8 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
 
     private var cacheOfLinkMetadata = [URL: ObvLinkMetadata]()
     
+    private let loadItemProviderHelper = LoadItemProviderHelper()
+
     weak var delegate: ShareViewHostingControllerDelegate?
 
     init(obvEngine: ObvEngine, model: ShareViewModel, internalQueue: OperationQueue, userDefaults: UserDefaults?) {
@@ -415,33 +418,25 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.initializeOperations()
         
-        if let conversationIdentifier = delegate?.conversationIdentifier,
-           let discussionIdentifier = ObvDiscussionIdentifier(conversationIdentifier),
-           let discussion = try? PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: discussionIdentifier, within: ObvStack.shared.viewContext) {
-
-            Task {
-                do {
-                    try await model.setSelectedDiscussions(to: [discussion])
-                } catch {
-                    os_log("When setting selected discussions", log: Self.log, type: .error)
-                }
+        Task {
+            // Set the appropriate discussion
+            try await model.setSelectedDiscussions(to: [])
+            if let conversationIdentifier = delegate?.conversationIdentifier,
+               let discussionIdentifier = ObvDiscussionIdentifier(conversationIdentifier),
+               let discussion = try? PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: discussionIdentifier, within: ObvStack.shared.viewContext) {
+                try await model.setSelectedDiscussions(to: [discussion])
             }
-
-        } else {
-            
-            Task {
-                do {
-                    try await model.setSelectedDiscussions(to: [])
-                } catch {
-                    os_log("When setting selected discussions", log: Self.log, type: .error)
-                }
+            // Load the attachments
+            do {
+                try await initializeOperations()
+            } catch {
+                Self.logger.fault("Failed to load attachments: \(error.localizedDescription, privacy: .public)")
+                delegate?.showErrorAndCancelRequest()
             }
-
         }
-
     }
+    
 
     private func badge() -> UIImage? {
         guard let image = UIImage(named: "badge") else { return nil }
@@ -455,56 +450,77 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
 
     private func setupNavigationBar() {
         guard let item = navigationController?.navigationBar.items?.first else { return }
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 18.0, weight: .bold)
-        item.rightBarButtonItem?.image = UIImage(systemIcon: .paperplaneFill, withConfiguration: symbolConfiguration)
+        item.rightBarButtonItem?.image = UIImage(systemIcon: .paperplaneFill)
         if let image = badge() {
             let imageView = UIImageView(image: image)
             item.titleView = imageView
         }
     }
+    
+    
+    private enum ObvError: Error {
+        case noAttachmentToProcess
+        case couldNotLoadAnyAttachment
+    }
 
     /// This method queues operations that can be executed independently of the discussion that will be selected by the user. The result of these operations will be used by operations later queued in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
     /// The last operation RequestHardLinksToFylesOperation is not required to send messages, but it is used to show previews of attachments in ShareView.
-    private func initializeOperations() {
+    private func initializeOperations() async throws {
 
+        // Load the item providers
+        
         guard let content = delegate?.firstInputItems else { return }
+        let logger = Self.logger
 
         guard let itemProviders = content.attachments else {
-            os_log("No attachment to process within the share extension", log: Self.log, type: .error)
-            return
+            Self.logger.fault("No attachment to process within the share extension")
+            throw ObvError.noAttachmentToProcess
         }
+        
+        let loadedItemProviders = try await self.loadItemProviderHelper.load(itemProviders, source: .shareExtension, progressProvider: nil)
 
-        // Compute [LoadedItemProvider] from [NSItemProvider]
-        let op1 = LoadFileRepresentationsOperation(itemProviders: itemProviders)
-        op1.completionBlock = {
-            os_log("📤 Load File Representations Operation done.", log: Self.log, type: .info)
+        guard !loadedItemProviders.isEmpty else {
+            Self.logger.fault("No attachment to process within the share extension")
+            throw ObvError.couldNotLoadAnyAttachment
         }
-
+        
         // Compute [Fyle] and [String] from [LoadedItemProvider]
-        let op2 = CreateFylesFromLoadedFileRepresentationsOperation(loadedItemProviderProvider: op1, log: Self.log)
-        self.fyleJoinsProvider = op2
-        op2.viewContext = ObvStack.shared.viewContext
-        op2.obvContext = obvContext
+        
+        let op1 = CreateFylesFromLoadedFileRepresentationsOperation(loadedItemProviders: loadedItemProviders)
+        self.fyleJoinsProvider = op1
+        op1.viewContext = ObvStack.shared.viewContext
+        op1.obvContext = obvContext
+        op1.completionBlock = { [weak self] in
+            guard let _self = self else { return }
+            logger.info("📤 Create Fyles From Loaded File Representations Operation done.")
+            guard let bodyTexts = op1.bodyTexts else { assertionFailure(); return }
+            Task { @MainActor in
+                _self.model.setBodyTexts(bodyTexts)
+            }
+        }
+        internalQueue.addOperation(op1) // Don't wait
+        
+        let op2 = RequestHardLinksToFylesOperation(hardLinksToFylesManager: hardLinksToFylesManager, fyleJoinsProvider: op1)
         op2.completionBlock = { [weak self] in
             guard let _self = self else { return }
-            os_log("📤 Create Fyles From Loaded File Representations Operation done.", log: Self.log, type: .info)
-            guard let bodyTexts = op2.bodyTexts else { assertionFailure(); return }
-            _self.model.setBodyTexts(bodyTexts)
-        }
-
-        let op3 = RequestHardLinksToFylesOperation(hardLinksToFylesManager: hardLinksToFylesManager, fyleJoinsProvider: op2)
-        op3.completionBlock = { [weak self] in
-            guard let _self = self else { return }
-            os_log("📤 Request HardLinks To Fyle Operation done.", log: Self.log, type: .info)
-            guard let hardlinks = op3.hardlinks else { assertionFailure(); return }
+            logger.info("📤 Request HardLinks To Fyle Operation done.")
+            guard let hardlinks = op2.hardlinks else { assertionFailure(); return }
+            // Make sure we have a non-empty set of hardlinks. If this is not the case, we have nothing to share and thus show an error screen.
+            guard !hardlinks.isEmpty else {
+                logger.fault("📤 The set of hardlinks is empty. Nothing to share.")
+                return
+            }
             _self.model.setHardlinks(hardlinks)
         }
-
-        internalQueue.addOperations([op1, op2, op3], waitUntilFinished: false)
+        op2.addDependency(op1)
+        internalQueue.addOperation(op2) // Don't wait
 
         // If there is a link among the [LoadedItemProvider], this operation fetches a "link preview" for it so that we can add it to the message once the message is sent.
+        
         if ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent {
-            let op4 = FetchAndCacheObvLinkMetadataForFirstURLInLoadedItemProvidersOperation(loadedItemProviderProvider: op1, currentURLsInCache: Set(cacheOfLinkMetadata.keys))
+            let op4 = FetchAndCacheObvLinkMetadataForFirstURLInLoadedItemProvidersOperation(
+                loadedItemProvidersToPaste: loadedItemProviders.toPaste,
+                currentURLsInCache: Set(cacheOfLinkMetadata.keys))
             op4.addDependency(op1)
             op4.completionBlock = {
                 guard let (url, linkMetadata) = op4.fetchedMetadata else { return }
@@ -512,7 +528,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
                     self?.cacheOfLinkMetadata[url] = linkMetadata
                 }
             }
-            internalQueue.addOperations([op4], waitUntilFinished: false)
+            internalQueue.addOperation(op4)
         }
                 
         // Note that the (global) obvContext is *not* saved at this point. We will do it later, in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
@@ -543,13 +559,12 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         if ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent {
             if let urlInBody = body?.extractURLs().filter({ $0.scheme?.lowercased() == "https" }).first, let linkMetadata = cacheOfLinkMetadata[urlInBody] {
                 let itemProvider = NSItemProvider(item: linkMetadata, typeIdentifier: UTType.olvidLinkPreview.identifier)
-                let op1 = LoadFileRepresentationsOperation(itemProviders: [itemProvider])
-                let op2 = CreateFylesFromLoadedFileRepresentationsOperation(loadedItemProviderProvider: op1, log: Self.log)
-                op2.addDependency(op1)
-                op2.viewContext = ObvStack.shared.viewContext
-                op2.obvContext = obvContext
-                await internalQueue.addAndAwaitOperations([op1, op2])
-                if let linkPreviewFyleJoins = op2.fyleJoins {
+                let loadedItemProviders = try await self.loadItemProviderHelper.load(itemProvider, source: .shareExtension, progressProvider: nil)
+                let op1 = CreateFylesFromLoadedFileRepresentationsOperation(loadedItemProviders: loadedItemProviders)
+                op1.viewContext = ObvStack.shared.viewContext
+                op1.obvContext = obvContext
+                await internalQueue.addAndAwaitOperation(op1)
+                if let linkPreviewFyleJoins = op1.fyleJoins {
                     fyleJoins?.append(contentsOf: linkPreviewFyleJoins)
                 }
             }
@@ -607,12 +622,22 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         // 2024-12-18: Since we set callCompletionWhenMessageAndAttachmentsAreSent=true, the completion is called when all attachments are sent (i.e., stored on the server).
         
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            // When callCompletionWhenMessageAndAttachmentsAreSent is set to true, the engine waits until the message to sent is deleted from the outbox before calling the completion
+            // handler passed to SendUnprocessedPersistedMessageSentOperation. This is not ok under macOS, as it is often the case that the message is actually sent by the app instead of
+            // the extension (probably, because the attachment is sent by a background session, which makes it possible for the app to be notified instead of the share extension).
+            // In that case, the engine (of the share extension) is never notified that the message was deleted from its outbox, and thus our callback is never called. For this reason,
+            // under macOS, we don't wait until the message is sent to call the completion handler.
+            #if targetEnvironment(macCatalyst)
+            let op = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: messageSentPermanentID, alsoPostToOtherOwnedDevices: true, extendedPayloadProvider: nil, obvEngine: obvEngine)
+            progress.completedUnitCount += 1
+            #else
             dispatchGroupForEngine.enter()
             let op = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: messageSentPermanentID, alsoPostToOtherOwnedDevices: true, extendedPayloadProvider: nil, obvEngine: obvEngine, callCompletionWhenMessageAndAttachmentsAreSent: true) {
                 // Called by the engine when the message and its attachments were taken into account
                 progress.completedUnitCount += 1
                 dispatchGroupForEngine.leave()
             }
+            #endif
             op.viewContext = ObvStack.shared.viewContext
             op.obvContext = obvContext
             internalQueue.addOperations([op], waitUntilFinished: true)

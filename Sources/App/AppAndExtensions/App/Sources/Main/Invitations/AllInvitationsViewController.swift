@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,9 @@
 import UIKit
 import ObvUICoreData
 import ObvTypes
+import ObvDesignSystem
+import ObvSharedDataSources
+import ObvOwnedIdentityChooser
 
 
 protocol AllInvitationsViewControllerDelegate: AnyObject {
@@ -35,8 +38,8 @@ final class AllInvitationsViewController: ShowOwnedIdentityButtonUIViewControlle
     weak var delegate: AllInvitationsViewControllerDelegate?
     private var viewDidLoadWasCalled = false
 
-    init(ownedCryptoId: ObvCryptoId) {
-        super.init(ownedCryptoId: ownedCryptoId, logCategory: "AllInvitationsViewController")
+    init(ownedCryptoId: ObvCryptoId, avatarViewDataSource: ObvAvatarViewDataSource, ownedIdentityChooserViewDataSource: OwnedIdentityChooserViewDataSource) {
+        super.init(ownedCryptoId: ownedCryptoId, logCategory: "AllInvitationsViewController", avatarViewDataSource: avatarViewDataSource, ownedIdentityChooserViewDataSource: ownedIdentityChooserViewDataSource)
         self.setTitle(CommonString.Word.Invitations)
     }
     
@@ -51,7 +54,8 @@ final class AllInvitationsViewController: ShowOwnedIdentityButtonUIViewControlle
         viewDidLoadWasCalled = true
         // Set navigationItem.title instead of title: this prevents showing a title on the tabbar button item
         navigationItem.title = CommonString.Word.Invitations
-        navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem()
+        navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem(menu: self.defaultMenu())
+
         addAndConfigureAllInvitationsHostingController()
         definesPresentationContext = true
     }
@@ -66,8 +70,8 @@ final class AllInvitationsViewController: ShowOwnedIdentityButtonUIViewControlle
     // MARK: - Switching current owned identity
 
     @MainActor
-    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
-        await super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) {
+        super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
         guard viewDidLoadWasCalled else { return }
         for multipleContactsHostingViewController in children.compactMap({ $0 as? AllInvitationsHostingController }) {
             multipleContactsHostingViewController.view.removeFromSuperview()

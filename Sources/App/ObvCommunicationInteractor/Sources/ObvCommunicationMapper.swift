@@ -46,6 +46,10 @@ final class ObvCommunicationMapper {
             let messageOrReaction: MessageOrReactionMetadata = .reaction(sentMessageReactedTo: sentMessageReactedTo)
             intent = try Self.incomingMessageOrReaction(contact: reactor, messageOrReaction: messageOrReaction)
             
+        case .incomingPollVote(reactor: let reactor, sentMessageVotedTo: let sentMessageVotedTo):
+            let messageOrReaction: MessageOrReactionMetadata = .vote(sentMessageVotedTo: sentMessageVotedTo)
+            intent = try Self.incomingMessageOrReaction(contact: reactor, messageOrReaction: messageOrReaction)
+            
         case .outgoingMessage(sentMessage: let sentMessage):
             intent = Self.outgoingMessage(sentMessage: sentMessage)
             
@@ -71,6 +75,12 @@ final class ObvCommunicationMapper {
             interaction.direction = .incoming
             interaction.groupIdentifier = sentMessageReactedTo.discussionKind.discussionIdentifier.description
 
+        case .incomingPollVote(reactor: _, sentMessageVotedTo: let sentMessageVotedTo):
+            
+            interaction.direction = .incoming
+            interaction.groupIdentifier = sentMessageVotedTo.discussionKind.discussionIdentifier.description
+
+            
         case .outgoingMessage(sentMessage: let sentMessage):
             
             interaction.direction = .outgoing
@@ -300,6 +310,9 @@ extension ObvCommunicationMapper {
             metadata.mentionsCurrentUser = false
             metadata.isReplyToCurrentUser = true
             
+        case .vote:
+            metadata.mentionsCurrentUser = false
+            metadata.isReplyToCurrentUser = true
         }
 
         return metadata
@@ -392,12 +405,16 @@ extension ObvCommunicationMapper {
     private enum MessageOrReactionMetadata {
         case message(discussionKind: PersistedDiscussionAbstractStructure.StructureKind, mentions: [ObvCryptoId], messageRepliedTo: RepliedToMessageStructure?)
         case reaction(sentMessageReactedTo: PersistedMessageSentStructure)
+        case vote(sentMessageVotedTo: PersistedMessageSentStructure)
+        
         var discussionKind: PersistedDiscussionAbstractStructure.StructureKind {
             switch self {
             case .message(discussionKind: let discussionKind, mentions: _, messageRepliedTo: _):
                 return discussionKind
             case .reaction(let sentMessageReactedTo):
                 return sentMessageReactedTo.discussionKind
+            case .vote(let sentMessageVotedTo):
+                return sentMessageVotedTo.discussionKind
             }
         }
     }

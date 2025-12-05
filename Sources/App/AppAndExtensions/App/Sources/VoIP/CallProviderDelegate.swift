@@ -766,7 +766,6 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
     
     /// Required method of the `CXProviderDelegate` protocol.
     func providerDidReset(_ provider: CallProviderHolder) async {
-        assertionFailure()
         os_log("☎️ Provider did reset", log: Self.log, type: .info)
     }
     

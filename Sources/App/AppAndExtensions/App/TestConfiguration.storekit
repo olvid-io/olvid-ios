@@ -1,4 +1,14 @@
 {
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
   "identifier" : "D2AEBB39",
   "nonRenewingSubscriptions" : [
 
@@ -7,56 +17,53 @@
 
   ],
   "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
     "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
     "_storeKitErrors" : [
       {
-        "current" : null,
         "enabled" : false,
         "name" : "Load Products"
       },
       {
-        "current" : null,
         "enabled" : false,
         "name" : "Purchase"
       },
       {
-        "current" : null,
         "enabled" : false,
         "name" : "Verification"
       },
       {
-        "current" : null,
         "enabled" : false,
         "name" : "App Store Sync"
       },
       {
-        "current" : null,
         "enabled" : false,
         "name" : "Subscription Status"
       },
       {
-        "current" : null,
         "enabled" : false,
         "name" : "App Transaction"
       },
       {
-        "current" : null,
         "enabled" : false,
         "name" : "Manage Subscriptions Sheet"
       },
       {
-        "current" : null,
         "enabled" : false,
         "name" : "Refund Request Sheet"
       },
       {
-        "current" : null,
         "enabled" : false,
         "name" : "Offer Code Redeem Sheet"
       }
-    ]
+    ],
+    "_timeRate" : 0
   },
   "subscriptionGroups" : [
     {
@@ -73,7 +80,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "0.99",
+          "displayPrice" : "4.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "C43ECCD9",
@@ -94,13 +101,16 @@
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Olvid Premium Features",
           "subscriptionGroupID" : "98BEABAA",
-          "type" : "RecurringSubscription"
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         }
       ]
     }
   ],
   "version" : {
-    "major" : 3,
+    "major" : 4,
     "minor" : 0
   }
 }

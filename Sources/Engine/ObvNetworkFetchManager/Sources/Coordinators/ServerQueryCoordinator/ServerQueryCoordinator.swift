@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,6 +35,7 @@ actor ServerQueryCoordinator {
     private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     private static let logCategory = "ServerQueryCoordinator"
     private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+    private static var logger = Logger(subsystem: defaultLogSubsystem, category: logCategory)
 
     private weak var delegateManager: ObvNetworkFetchDelegateManager?
     
@@ -82,6 +83,7 @@ actor ServerQueryCoordinator {
         self.downloadedUserData = downloadedUserData
         let logSubsystem = "\(logPrefix).\(Self.defaultLogSubsystem)"
         Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
+        Self.logger = Logger(subsystem: logSubsystem, category: Self.logCategory)
     }
 
     
@@ -99,10 +101,10 @@ actor ServerQueryCoordinator {
     func finalizeInitialization(flowId: FlowIdentifier) async {
         guard let notificationDelegate = delegateManager?.notificationDelegate else { assertionFailure(); return }
         notificationCenterTokens.append(contentsOf: [
-            ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: notificationDelegate) { [weak self] (ownedCryptoId, flowId) in
+            ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: notificationDelegate) { [weak self] ownedCryptoId in
                 Task { [weak self] in
                     do {
-                        try await self?.processAllPendingServerQueries(for: ownedCryptoId, flowId: flowId)
+                        try await self?.processAllPendingServerQueries(for: ownedCryptoId, flowId: FlowIdentifier())
                     } catch {
                         assertionFailure()
                     }
@@ -168,16 +170,17 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
     /// server ``PendingServerQuery`` is fully processed and deleted from database.
     func processPendingServerQuery(pendingServerQueryObjectID: NSManagedObjectID, flowId: FlowIdentifier) async throws {
 
-        os_log("🖲️ Call to processPendingServerQuery for pending server query %{public}@", log: Self.log, type: .info, pendingServerQueryObjectID.debugDescription)
+        let pendingServerQueryObjectIDDebugDescription = pendingServerQueryObjectID.debugDescription
+        Self.logger.info("🖲️ Call to processPendingServerQuery for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
 
         guard let delegateManager else {
-            os_log("🖲️ The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("🖲️ The Delegate Manager is not set")
             assertionFailure()
             throw ObvError.delegateManagerIsNil
         }
         
         guard let channelDelegate = delegateManager.channelDelegate else {
-            os_log("🖲️ The channel delegate is not set", log: Self.log, type: .fault)
+            Self.logger.fault("🖲️ The channel delegate is not set")
             assertionFailure()
             throw ObvError.channelDelegateIsNil
         }
@@ -248,8 +251,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
         
         let pendingServerQueryObjectIDs = try await getObjectIDsOfNonWebSocketServerQueries(
             ownedCryptoId: ownedCryptoId,
-            delegateManager: delegateManager,
-            flowId: flowId)
+            delegateManager: delegateManager)
         
         for pendingServerQueryObjectID in pendingServerQueryObjectIDs {
             do {
@@ -263,7 +265,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
     }
     
     
-    func processAllPendingServerQuery(flowId: FlowIdentifier) async throws {
+    func processAllPendingServerQueryOnBootstrap(flowId: FlowIdentifier) async throws {
         
         guard let delegateManager else {
             os_log("🖲️ The delegate manager is not set", log: Self.log, type: .fault)
@@ -273,15 +275,19 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
         
         let pendingServerQueryObjectIDs = try await getObjectIDsOfNonWebSocketServerQueries(
             ownedCryptoId: nil,
-            delegateManager: delegateManager,
-            flowId: flowId)
+            delegateManager: delegateManager)
+        
+        Self.logger.debug("We will process \(pendingServerQueryObjectIDs.count) PendingServerQuery")
         
         for pendingServerQueryObjectID in pendingServerQueryObjectIDs {
-            do {
-                try await processPendingServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID, flowId: flowId)
-            } catch {
-                os_log("🖲️ Could not post server query: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                continue
+            // Execute server queries in parallel to avoid blocking subsequent requests,
+            // especially if one fails or takes an unusually long time to complete.
+            Task {
+                do {
+                    try await processPendingServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID, flowId: flowId)
+                } catch {
+                    Self.logger.fault("🖲️ Could not post server query: \(error.localizedDescription, privacy: .public)")
+                }
             }
         }
 
@@ -304,7 +310,6 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
         }
 
         let op1 = DeletePendingServerQueryOfNonExistingOwnedIdentitiesOperation(
-            delegateManager: delegateManager,
             identityDelegate: identityDelegate)
         do {
             try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
@@ -337,7 +342,6 @@ extension ServerQueryCoordinator {
                 let op1 = RespondAndDeleteServerQueryOperation(
                     objectIdOfPendingServerQuery: objectId,
                     prng: prng,
-                    delegateManager: delegateManager,
                     channelDelegate: channelDelegate)
                 do {
                     try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
@@ -443,8 +447,8 @@ extension ServerQueryCoordinator {
                 pendingServerQueryObjectID: pendingServerQueryObjectID,
                 responseData: responseData,
                 log: Self.log,
-                delegateManager: delegateManager,
-                downloadedUserData: downloadedUserData, 
+                logger: Self.logger,
+                downloadedUserData: downloadedUserData,
                 sessionTokenUsed: sessionTokenUsed)
             do {
                 try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op2, log: Self.log, flowId: flowId)
@@ -570,12 +574,12 @@ extension ServerQueryCoordinator {
             if let error = error as? ObvError {
                 switch error {
                 case .serverQueryPayloadIsTooLargeForServer:
-                    op1 = SetFailureResponseOnPendingServerQueryIfAppropriate(pendingServerQueryObjectID: pendingServerQueryObjectID, condition: .none, delegateManager: delegateManager)
+                    op1 = SetFailureResponseOnPendingServerQueryIfAppropriate(pendingServerQueryObjectID: pendingServerQueryObjectID, condition: .none)
                 default:
-                    op1 = SetFailureResponseOnPendingServerQueryIfAppropriate(pendingServerQueryObjectID: pendingServerQueryObjectID, condition: .ifServerQueryIsTooOld, delegateManager: delegateManager)
+                    op1 = SetFailureResponseOnPendingServerQueryIfAppropriate(pendingServerQueryObjectID: pendingServerQueryObjectID, condition: .ifServerQueryIsTooOld)
                 }
             } else {
-                op1 = SetFailureResponseOnPendingServerQueryIfAppropriate(pendingServerQueryObjectID: pendingServerQueryObjectID, condition: .ifServerQueryIsTooOld, delegateManager: delegateManager)
+                op1 = SetFailureResponseOnPendingServerQueryIfAppropriate(pendingServerQueryObjectID: pendingServerQueryObjectID, condition: .ifServerQueryIsTooOld)
             }
             
             try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
@@ -585,7 +589,6 @@ extension ServerQueryCoordinator {
                 let op1 = RespondAndDeleteServerQueryOperation(
                     objectIdOfPendingServerQuery: pendingServerQueryObjectID,
                     prng: prng,
-                    delegateManager: delegateManager,
                     channelDelegate: channelDelegate)
                 try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
                 return
@@ -606,7 +609,7 @@ extension ServerQueryCoordinator {
     }
 
     
-    private func getObjectIDsOfNonWebSocketServerQueries(ownedCryptoId: ObvCryptoIdentity?, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) async throws -> Set<NSManagedObjectID> {
+    private func getObjectIDsOfNonWebSocketServerQueries(ownedCryptoId: ObvCryptoIdentity?, delegateManager: ObvNetworkFetchDelegateManager) async throws -> Set<NSManagedObjectID> {
         
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("🖲️ The context creator manager is not set", log: Self.log, type: .fault)
@@ -615,13 +618,13 @@ extension ServerQueryCoordinator {
         }
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<NSManagedObjectID>, Error>) in
-            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+            contextCreator.performBackgroundTask { context in
                 do {
                     let serverQueries: [PendingServerQuery]
                     if let ownedCryptoId {
-                        serverQueries = try PendingServerQuery.getAllServerQuery(for: ownedCryptoId, isWebSocket: .bool(false), delegateManager: delegateManager, within: obvContext)
+                        serverQueries = try PendingServerQuery.getAllServerQuery(for: ownedCryptoId, isWebSocket: .bool(false), within: context)
                     } else {
-                        serverQueries = try PendingServerQuery.getAllServerQuery(isWebSocket: .bool(false), delegateManager: delegateManager, within: obvContext)
+                        serverQueries = try PendingServerQuery.getAllServerQuery(isWebSocket: .bool(false), within: context)
                     }
                     let objectIDs = serverQueries.map { $0.objectID }
                     return continuation.resume(returning: Set(objectIDs))

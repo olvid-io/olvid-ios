@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -103,7 +103,7 @@ final class ResumeTaskForGettingAttachmentSignedURLsOperation: Operation, @unche
         
         obvContext.performAndWait {
             
-            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else {
                 return cancel(withReason: .cannotFindAttachmentInDatabase)
             }
 

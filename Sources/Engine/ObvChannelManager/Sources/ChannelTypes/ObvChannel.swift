@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 import ObvCrypto
 import ObvMetaManager
@@ -36,12 +36,10 @@ protocol ObvChannel {
     
 }
 
-/// Only relevant for an `ObvObliviousChannel`.
-typealias UpdateGKMV2SupportOnMessageContentAvailable = (Data) throws -> Void
 
 protocol ObvNetworkChannel: ObvChannel {
     
-    func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header?
+    func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, isAppMessage: Bool, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header?
     
     static func unwrapMessageKey(wrappedKey: EncryptedData, toOwnedIdentity: ObvCryptoIdentity, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> UnwrapMessageKeyResult
 
@@ -49,7 +47,7 @@ protocol ObvNetworkChannel: ObvChannel {
 
 
 enum UnwrapMessageKeyResult {
-    case unwrapSucceeded(messageKey: AuthenticatedEncryptionKey, receptionChannelInfo: ObvProtocolReceptionChannelInfo, updateOrCheckGKMV2SupportOnMessageContentAvailable: UpdateGKMV2SupportOnMessageContentAvailable?)
+    case unwrapSucceeded(messageKey: AuthenticatedEncryptionKey, receptionChannelInfo: ObvProtocolReceptionChannelInfo)
     case unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: ObvCryptoIdentity) // Only used by PreKey channel
     case couldNotUnwrap
     case contactIsRevokedAsCompromised
@@ -58,22 +56,15 @@ enum UnwrapMessageKeyResult {
 
 extension ObvNetworkChannel {
     
-    private static var errorDomain: String { "ObvNetworkChannel" }
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
     /// Generates one or more `ObvNetworkMessageToSend` for the given `ObvChannelMessageToSend`. The reasons why multiple messages can be returned is that we generate one message for server URL found in the destination identities.
-    private static func generateObvNetworkMessagesToSend(from message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog) throws -> [ObvNetworkMessageToSend] {
+    private static func generateObvNetworkMessagesToSend(from message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService) throws -> [ObvNetworkMessageToSend] {
         
         let wrapperMessage: ObvChannelMessageToSendWrapper?
         switch message.messageType {
         case .ProtocolMessage:
-            wrapperMessage = ObvChannelProtocolMessageToSendWrapper(message: message, acceptableChannels: acceptableChannels, randomizedWith: prng, log: log)
+            wrapperMessage = ObvChannelProtocolMessageToSendWrapper(message: message, acceptableChannels: acceptableChannels, randomizedWith: prng)
         case .ApplicationMessage:
-            wrapperMessage = ObvChannelApplicationMessageToSendWrapper(message: message, acceptableChannels: acceptableChannels, randomizedWith: prng, log: log)
+            wrapperMessage = ObvChannelApplicationMessageToSendWrapper(message: message, acceptableChannels: acceptableChannels, randomizedWith: prng)
         case .DialogMessage,
              .DialogResponseMessage,
              .ServerQuery,
@@ -81,32 +72,33 @@ extension ObvNetworkChannel {
             // Dialog/Server Queries messages are not intended to be sent over the network as protocol or application messages
             wrapperMessage = nil
         }
-        guard let msg = wrapperMessage else { throw makeError(message: "Could not construct wrapper message") }
+        guard let msg = wrapperMessage else { throw ObvNetworkChannelError.couldNotConstructWrapperMessage }
         return try msg.generateObvNetworkMessagesToSend()
         
     }
     
     static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>] {
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: "ObvNetworkChannel")
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: "ObvNetworkChannel")
                 
         guard let networkPostDelegate = delegateManager.networkPostDelegate else {
-            os_log("The network post delegate is not set", log: log, type: .fault)
-            throw Self.makeError(message: "The network post delegate is not set")
+            logger.fault("The network post delegate is not set")
+            assertionFailure()
+            throw ObvNetworkChannelError.networkPostDelegateIsNil
         }
 
         guard let acceptableChannels = try Self.acceptableChannelsForPosting(message, delegateManager: delegateManager, within: obvContext) as? [ObvNetworkChannel] else {
-            throw Self.makeError(message: "Could not cast to [ObvNetworkChannel]")
+            throw ObvNetworkChannelError.couldNotCastToListOfObvNetworkChannel
         }
         
         guard !acceptableChannels.isEmpty else {
-            os_log("Could not find any acceptable channel for posting message", log: log, type: .error)
+            logger.error("Could not find any acceptable channel for posting message")
             return [:]
         }
         
-        let networkMessages = try generateObvNetworkMessagesToSend(from: message, acceptableChannels: acceptableChannels, randomizedWith: prng, log: log)
+        let networkMessages = try generateObvNetworkMessagesToSend(from: message, acceptableChannels: acceptableChannels, randomizedWith: prng)
         guard !networkMessages.isEmpty else {
-            throw Self.makeError(message: "Could not generate obv network message to send")
+            throw ObvNetworkChannelError.couldNotGenerateObvNetworkMessageToSend
         }
         
         try networkMessages.forEach { networkMessage in
@@ -126,4 +118,14 @@ extension ObvNetworkChannel {
         return messageIdsForCryptoIdentities
                 
     }
+}
+
+
+// MARK: - Errors
+
+enum ObvNetworkChannelError: Error {
+    case couldNotConstructWrapperMessage
+    case networkPostDelegateIsNil
+    case couldNotCastToListOfObvNetworkChannel
+    case couldNotGenerateObvNetworkMessageToSend
 }

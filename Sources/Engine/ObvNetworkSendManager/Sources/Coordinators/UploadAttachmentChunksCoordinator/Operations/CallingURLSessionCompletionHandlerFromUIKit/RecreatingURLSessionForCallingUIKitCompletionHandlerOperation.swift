@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -88,7 +88,7 @@ final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Opera
 
             let attachmentSession: OutboxAttachmentSession
             do {
-                let _attachmentSession = try OutboxAttachmentSession.getWithSessionIdentifier(urlSessionIdentifier, within: obvContext)
+                let _attachmentSession = try OutboxAttachmentSession.getWithSessionIdentifier(urlSessionIdentifier, within: obvContext.context)
                 guard _attachmentSession != nil else { throw Self.makeError(message: "No attachment session") }
                 attachmentSession = _attachmentSession!
             } catch {

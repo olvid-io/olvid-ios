@@ -33,13 +33,12 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 public enum ObvIdentityNotificationNew {
-	case contactIdentityIsNowTrusted(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case newOwnedIdentityWithinIdentityManager(cryptoIdentity: ObvCryptoIdentity)
-	case ownedIdentityWasDeactivated(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case ownedIdentityWasReactivated(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case deletedContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, flowId: FlowIdentifier)
+	case ownedIdentityWasDeactivated(ownedCryptoIdentity: ObvCryptoIdentity)
+	case ownedIdentityWasReactivated(ownedCryptoIdentity: ObvCryptoIdentity)
+	case deletedContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID)
 	case newContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, createdDuringChannelCreation: Bool, flowId: FlowIdentifier)
-	case updatedContactDevice(deviceIdentifier: ObvContactDeviceIdentifier, flowId: FlowIdentifier)
+	case updatedContactDevice(deviceIdentifier: ObvContactDeviceIdentifier)
 	case serverLabelHasBeenDeleted(ownedIdentity: ObvCryptoIdentity, label: UID)
 	case contactWasDeleted(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity)
 	case latestPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: UID, ownedIdentity: ObvCryptoIdentity)
@@ -49,13 +48,11 @@ public enum ObvIdentityNotificationNew {
 	case publishedPhotoOfOwnedIdentityHasBeenUpdated(ownedIdentity: ObvCryptoIdentity)
 	case publishedPhotoOfContactIdentityHasBeenUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity)
 	case trustedPhotoOfContactIdentityHasBeenUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity)
-	case ownedIdentityKeycloakServerChanged(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case contactWasUpdatedWithinTheIdentityManager(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case contactIsActiveChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, isActive: Bool, flowId: FlowIdentifier)
-	case contactWasRevokedAsCompromised(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case contactObvCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case ownedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case contactIdentityOneToOneStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
+	case ownedIdentityKeycloakServerChanged(ownedCryptoIdentity: ObvCryptoIdentity)
+	case contactWasRevokedAsCompromised(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity)
+	case contactObvCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity)
+	case ownedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity)
+	case contactIdentityOneToOneStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity)
 	case groupV2WasCreated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
 	case groupV2WasUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
 	case groupV2WasDeleted(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data)
@@ -64,10 +61,9 @@ public enum ObvIdentityNotificationNew {
 	case newRemoteOwnedDevice(ownedCryptoId: ObvCryptoIdentity, remoteDeviceUid: UID, createdDuringChannelCreation: Bool)
 	case anOwnedDeviceWasUpdated(ownedCryptoId: ObvCryptoIdentity)
 	case anOwnedDeviceWasDeleted(ownedCryptoId: ObvCryptoIdentity)
-	case newActiveOwnedIdentity(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
+	case newActiveOwnedIdentity(ownedCryptoIdentity: ObvCryptoIdentity)
 
 	private enum Name {
-		case contactIdentityIsNowTrusted
 		case newOwnedIdentityWithinIdentityManager
 		case ownedIdentityWasDeactivated
 		case ownedIdentityWasReactivated
@@ -84,8 +80,6 @@ public enum ObvIdentityNotificationNew {
 		case publishedPhotoOfContactIdentityHasBeenUpdated
 		case trustedPhotoOfContactIdentityHasBeenUpdated
 		case ownedIdentityKeycloakServerChanged
-		case contactWasUpdatedWithinTheIdentityManager
-		case contactIsActiveChanged
 		case contactWasRevokedAsCompromised
 		case contactObvCapabilitiesWereUpdated
 		case ownedIdentityCapabilitiesWereUpdated
@@ -111,7 +105,6 @@ public enum ObvIdentityNotificationNew {
 
 		static func forInternalNotification(_ notification: ObvIdentityNotificationNew) -> NSNotification.Name {
 			switch notification {
-			case .contactIdentityIsNowTrusted: return Name.contactIdentityIsNowTrusted.name
 			case .newOwnedIdentityWithinIdentityManager: return Name.newOwnedIdentityWithinIdentityManager.name
 			case .ownedIdentityWasDeactivated: return Name.ownedIdentityWasDeactivated.name
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
@@ -128,8 +121,6 @@ public enum ObvIdentityNotificationNew {
 			case .publishedPhotoOfContactIdentityHasBeenUpdated: return Name.publishedPhotoOfContactIdentityHasBeenUpdated.name
 			case .trustedPhotoOfContactIdentityHasBeenUpdated: return Name.trustedPhotoOfContactIdentityHasBeenUpdated.name
 			case .ownedIdentityKeycloakServerChanged: return Name.ownedIdentityKeycloakServerChanged.name
-			case .contactWasUpdatedWithinTheIdentityManager: return Name.contactWasUpdatedWithinTheIdentityManager.name
-			case .contactIsActiveChanged: return Name.contactIsActiveChanged.name
 			case .contactWasRevokedAsCompromised: return Name.contactWasRevokedAsCompromised.name
 			case .contactObvCapabilitiesWereUpdated: return Name.contactObvCapabilitiesWereUpdated.name
 			case .ownedIdentityCapabilitiesWereUpdated: return Name.ownedIdentityCapabilitiesWereUpdated.name
@@ -149,32 +140,23 @@ public enum ObvIdentityNotificationNew {
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .contactIdentityIsNowTrusted(contactIdentity: let contactIdentity, ownedIdentity: let ownedIdentity, flowId: let flowId):
-			info = [
-				"contactIdentity": contactIdentity,
-				"ownedIdentity": ownedIdentity,
-				"flowId": flowId,
-			]
 		case .newOwnedIdentityWithinIdentityManager(cryptoIdentity: let cryptoIdentity):
 			info = [
 				"cryptoIdentity": cryptoIdentity,
 			]
-		case .ownedIdentityWasDeactivated(ownedCryptoIdentity: let ownedCryptoIdentity, flowId: let flowId):
+		case .ownedIdentityWasDeactivated(ownedCryptoIdentity: let ownedCryptoIdentity):
 			info = [
 				"ownedCryptoIdentity": ownedCryptoIdentity,
-				"flowId": flowId,
 			]
-		case .ownedIdentityWasReactivated(ownedCryptoIdentity: let ownedCryptoIdentity, flowId: let flowId):
+		case .ownedIdentityWasReactivated(ownedCryptoIdentity: let ownedCryptoIdentity):
 			info = [
 				"ownedCryptoIdentity": ownedCryptoIdentity,
-				"flowId": flowId,
 			]
-		case .deletedContactDevice(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, contactDeviceUid: let contactDeviceUid, flowId: let flowId):
+		case .deletedContactDevice(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, contactDeviceUid: let contactDeviceUid):
 			info = [
 				"ownedIdentity": ownedIdentity,
 				"contactIdentity": contactIdentity,
 				"contactDeviceUid": contactDeviceUid,
-				"flowId": flowId,
 			]
 		case .newContactDevice(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, contactDeviceUid: let contactDeviceUid, createdDuringChannelCreation: let createdDuringChannelCreation, flowId: let flowId):
 			info = [
@@ -184,10 +166,9 @@ public enum ObvIdentityNotificationNew {
 				"createdDuringChannelCreation": createdDuringChannelCreation,
 				"flowId": flowId,
 			]
-		case .updatedContactDevice(deviceIdentifier: let deviceIdentifier, flowId: let flowId):
+		case .updatedContactDevice(deviceIdentifier: let deviceIdentifier):
 			info = [
 				"deviceIdentifier": deviceIdentifier,
-				"flowId": flowId,
 			]
 		case .serverLabelHasBeenDeleted(ownedIdentity: let ownedIdentity, label: let label):
 			info = [
@@ -235,46 +216,28 @@ public enum ObvIdentityNotificationNew {
 				"ownedIdentity": ownedIdentity,
 				"contactIdentity": contactIdentity,
 			]
-		case .ownedIdentityKeycloakServerChanged(ownedCryptoIdentity: let ownedCryptoIdentity, flowId: let flowId):
+		case .ownedIdentityKeycloakServerChanged(ownedCryptoIdentity: let ownedCryptoIdentity):
 			info = [
 				"ownedCryptoIdentity": ownedCryptoIdentity,
-				"flowId": flowId,
 			]
-		case .contactWasUpdatedWithinTheIdentityManager(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, flowId: let flowId):
+		case .contactWasRevokedAsCompromised(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity):
 			info = [
 				"ownedIdentity": ownedIdentity,
 				"contactIdentity": contactIdentity,
-				"flowId": flowId,
 			]
-		case .contactIsActiveChanged(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, isActive: let isActive, flowId: let flowId):
+		case .contactObvCapabilitiesWereUpdated(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity):
 			info = [
 				"ownedIdentity": ownedIdentity,
 				"contactIdentity": contactIdentity,
-				"isActive": isActive,
-				"flowId": flowId,
 			]
-		case .contactWasRevokedAsCompromised(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, flowId: let flowId):
+		case .ownedIdentityCapabilitiesWereUpdated(ownedIdentity: let ownedIdentity):
+			info = [
+				"ownedIdentity": ownedIdentity,
+			]
+		case .contactIdentityOneToOneStatusChanged(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity):
 			info = [
 				"ownedIdentity": ownedIdentity,
 				"contactIdentity": contactIdentity,
-				"flowId": flowId,
-			]
-		case .contactObvCapabilitiesWereUpdated(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, flowId: let flowId):
-			info = [
-				"ownedIdentity": ownedIdentity,
-				"contactIdentity": contactIdentity,
-				"flowId": flowId,
-			]
-		case .ownedIdentityCapabilitiesWereUpdated(ownedIdentity: let ownedIdentity, flowId: let flowId):
-			info = [
-				"ownedIdentity": ownedIdentity,
-				"flowId": flowId,
-			]
-		case .contactIdentityOneToOneStatusChanged(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, flowId: let flowId):
-			info = [
-				"ownedIdentity": ownedIdentity,
-				"contactIdentity": contactIdentity,
-				"flowId": flowId,
 			]
 		case .groupV2WasCreated(obvGroupV2: let obvGroupV2, initiator: let initiator):
 			info = [
@@ -315,10 +278,9 @@ public enum ObvIdentityNotificationNew {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .newActiveOwnedIdentity(ownedCryptoIdentity: let ownedCryptoIdentity, flowId: let flowId):
+		case .newActiveOwnedIdentity(ownedCryptoIdentity: let ownedCryptoIdentity):
 			info = [
 				"ownedCryptoIdentity": ownedCryptoIdentity,
-				"flowId": flowId,
 			]
 		}
 		return info
@@ -333,16 +295,6 @@ public enum ObvIdentityNotificationNew {
 		}
 	}
 
-	public static func observeContactIdentityIsNowTrusted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.contactIdentityIsNowTrusted.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
-			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(contactIdentity, ownedIdentity, flowId)
-		}
-	}
-
 	public static func observeNewOwnedIdentityWithinIdentityManager(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.newOwnedIdentityWithinIdentityManager.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
@@ -351,32 +303,29 @@ public enum ObvIdentityNotificationNew {
 		}
 	}
 
-	public static func observeOwnedIdentityWasDeactivated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOwnedIdentityWasDeactivated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasDeactivated.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedCryptoIdentity, flowId)
+			block(ownedCryptoIdentity)
 		}
 	}
 
-	public static func observeOwnedIdentityWasReactivated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOwnedIdentityWasReactivated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasReactivated.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedCryptoIdentity, flowId)
+			block(ownedCryptoIdentity)
 		}
 	}
 
-	public static func observeDeletedContactDevice(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, UID, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeDeletedContactDevice(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, UID) -> Void) -> NSObjectProtocol {
 		let name = Name.deletedContactDevice.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
 			let contactDeviceUid = notification.userInfo!["contactDeviceUid"] as! UID
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedIdentity, contactIdentity, contactDeviceUid, flowId)
+			block(ownedIdentity, contactIdentity, contactDeviceUid)
 		}
 	}
 
@@ -392,12 +341,11 @@ public enum ObvIdentityNotificationNew {
 		}
 	}
 
-	public static func observeUpdatedContactDevice(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvContactDeviceIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeUpdatedContactDevice(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvContactDeviceIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.updatedContactDevice.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let deviceIdentifier = notification.userInfo!["deviceIdentifier"] as! ObvContactDeviceIdentifier
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(deviceIdentifier, flowId)
+			block(deviceIdentifier)
 		}
 	}
 
@@ -483,72 +431,46 @@ public enum ObvIdentityNotificationNew {
 		}
 	}
 
-	public static func observeOwnedIdentityKeycloakServerChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOwnedIdentityKeycloakServerChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityKeycloakServerChanged.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedCryptoIdentity, flowId)
+			block(ownedCryptoIdentity)
 		}
 	}
 
-	public static func observeContactWasUpdatedWithinTheIdentityManager(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.contactWasUpdatedWithinTheIdentityManager.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
-			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedIdentity, contactIdentity, flowId)
-		}
-	}
-
-	public static func observeContactIsActiveChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, Bool, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.contactIsActiveChanged.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
-			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
-			let isActive = notification.userInfo!["isActive"] as! Bool
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedIdentity, contactIdentity, isActive, flowId)
-		}
-	}
-
-	public static func observeContactWasRevokedAsCompromised(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeContactWasRevokedAsCompromised(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.contactWasRevokedAsCompromised.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedIdentity, contactIdentity, flowId)
+			block(ownedIdentity, contactIdentity)
 		}
 	}
 
-	public static func observeContactObvCapabilitiesWereUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeContactObvCapabilitiesWereUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.contactObvCapabilitiesWereUpdated.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedIdentity, contactIdentity, flowId)
+			block(ownedIdentity, contactIdentity)
 		}
 	}
 
-	public static func observeOwnedIdentityCapabilitiesWereUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOwnedIdentityCapabilitiesWereUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityCapabilitiesWereUpdated.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedIdentity, flowId)
+			block(ownedIdentity)
 		}
 	}
 
-	public static func observeContactIdentityOneToOneStatusChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeContactIdentityOneToOneStatusChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.contactIdentityOneToOneStatusChanged.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedIdentity, contactIdentity, flowId)
+			block(ownedIdentity, contactIdentity)
 		}
 	}
 
@@ -623,12 +545,11 @@ public enum ObvIdentityNotificationNew {
 		}
 	}
 
-	public static func observeNewActiveOwnedIdentity(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeNewActiveOwnedIdentity(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.newActiveOwnedIdentity.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedCryptoIdentity, flowId)
+			block(ownedCryptoIdentity)
 		}
 	}
 

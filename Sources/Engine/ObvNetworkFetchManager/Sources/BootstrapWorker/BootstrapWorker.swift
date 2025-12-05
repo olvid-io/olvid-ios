@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,12 +59,36 @@ final class BootstrapWorker {
     }
 
     
+    func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {
+
+        guard let delegateManager = delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The Context Creator is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        resumeAttachmentsDownloadNotAlreadyDownloading(delegateManager: delegateManager, flowId: flowId)
+        reNotifyAboutDecryptedApplicationMessage(flowId: flowId, contextCreator: contextCreator, notificationDelegate: notificationDelegate, delegateManager: delegateManager)
+    }
+
+    
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) {
         Task {
             await applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
         }
     }
-    
     
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
 
@@ -101,8 +125,6 @@ final class BootstrapWorker {
                 guard let self else { return }
                 await removeExpectedContactForReProcessingIfAppropriate(flowId: flowId, contextCreator: contextCreator, identityDelegate: identityDelegate, delegateManager: delegateManager)
                 await deleteOldInboxMessagesExpectingContactForReProcessing(delegateManager: delegateManager, flowId: flowId)
-                resumeAttachmentsDownloadNotAlreadyDownloading(delegateManager: delegateManager, flowId: flowId)
-                reNotifyAboutDecryptedApplicationMessage(flowId: flowId, contextCreator: contextCreator, notificationDelegate: notificationDelegate, delegateManager: delegateManager)
                 await deleteAllWebSocketServerQueries(delegateManager: delegateManager, flowId: flowId, logOnFailure: Self.log)
 
                 do { try await delegateManager.wellKnownCacheDelegate.downloadAndUpdateCache(flowId: flowId) } catch { assertionFailure(error.localizedDescription) }
@@ -234,11 +256,11 @@ extension BootstrapWorker {
     
     private func reNotifyAboutDecryptedApplicationMessage(flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, notificationDelegate: ObvNotificationDelegate, delegateManager: ObvNetworkFetchDelegateManager) {
         
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+        contextCreator.performBackgroundTaskAndWait { context in
             
             let messages: [InboxMessage]
             do {
-                messages = try InboxMessage.fetchApplicationMessagesToReNotify(within: obvContext)
+                messages = try InboxMessage.fetchApplicationMessagesToReNotify(within: context)
                 assert(messages.allSatisfy({ !$0.canBeDeletedFromServer }))
             } catch {
                 os_log("Could not get inbox messages", log: Self.log, type: .fault)
@@ -253,14 +275,10 @@ extension BootstrapWorker {
             for inboxMessage in messages {
                 
                 if !inboxMessage.markedForDeletion {
-                    
-                    guard let obvMessageOrObvOwnedMessage = inboxMessage.getObvMessageOrObvOwnedMessage(inbox: inbox) else {
-                        assertionFailure()
-                        continue
-                    }
-                    
-                    ObvNetworkFetchNotificationNew.applicationMessagesDecrypted(messages: [obvMessageOrObvOwnedMessage], flowId: flowId)
-                        .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
+                   
+                    // 2025-07-30: We used to notify that an ObvMessage or ObvOwnedMessage has been decrypted, allowing the app
+                    // to process the message. We don't do that anymore, as the app either has processed the message or
+                    // will request a stream of messages.
                     
                 } else {
                     
@@ -333,7 +351,7 @@ extension BootstrapWorker {
                     let expectedContactsForReProcessing = try InboxMessage.getExpectedContactsForReProcessing(within: obvContext.context)
                     os_log("Number of expected contacts for re-processing inbox messages during bootstrap: %d", log: Self.log, type: .info, expectedContactsForReProcessing.count)
                     for contact in expectedContactsForReProcessing {
-                        if try identityDelegate.isIdentity(contact.contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: contact.ownedCryptoId.cryptoIdentity, within: obvContext) {
+                        if try identityDelegate.isIdentity(contact.contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: contact.ownedCryptoId.cryptoIdentity, within: obvContext.context) {
                             expectedContactsThatAreNowContacts.insert(contact)
                         }
                     }
@@ -406,17 +424,17 @@ extension BootstrapWorker {
                
         var messageDirectoriesToDelete = Set<URL>()
         
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+        contextCreator.performBackgroundTaskAndWait { context in
             
             let existingMessages: [InboxMessage]
             do {
-                existingMessages = try InboxMessage.getAll(within: obvContext)
+                existingMessages = try InboxMessage.getAll(within: context)
             } catch {
                 os_log("Could not clean outbox: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 return
             }
 
-            let messageDirectoriesToKeep: Set<URL> = Set(existingMessages.compactMap({ $0.getAttachmentDirectory(withinInbox: inbox) }) )
+            let messageDirectoriesToKeep: Set<URL> = Set(existingMessages.compactMap({ $0.getAttachmentsDirectory(withinInbox: inbox) }) )
             
             messageDirectoriesToDelete = messageDirectories.subtracting(messageDirectoriesToKeep)
             
@@ -445,7 +463,7 @@ extension BootstrapWorker {
 
     
     private func postAllPendingServerQuery(delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) async throws {
-        try await delegateManager.serverQueryDelegate.processAllPendingServerQuery(flowId: flowId)
+        try await delegateManager.serverQueryDelegate.processAllPendingServerQueryOnBootstrap(flowId: flowId)
     }
     
     

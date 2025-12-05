@@ -149,7 +149,7 @@ extension ReceivedMessageCoordinator {
             return
         }
 
-        let op1 = DeleteObsoleteReceivedMessagesOperation(delegateManager: delegateManager)
+        let op1 = DeleteObsoleteReceivedMessagesOperation()
         let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
         queueForProtocolOperations.addOperation(composedOp)
 
@@ -171,7 +171,7 @@ extension ReceivedMessageCoordinator {
             var messageIds = [ObvMessageIdentifier]()
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
                 do {
-                    messageIds = try ReceivedMessage.getAllMessageIds(within: obvContext)
+                    messageIds = try ReceivedMessage.getAllMessageIds(within: obvContext.context)
                 } catch {
                     assertionFailure()
                     os_log("Could not fetch all ReceivedMessage Ids", log: log, type: .fault)
@@ -217,17 +217,13 @@ extension ReceivedMessageCoordinator {
         
         return { [weak self] in
             
-            obvContext.performAndWait {
+            obvContext.performAndWait { [weak self] in
                 
                 os_log("Starting a block for aborting the protocol with instance uid %{public}@", log: log, type: .debug, uid.debugDescription)
                 
-                guard let delegateManager = self?.delegateManager else { return }
-                
-                debugPrint("Call to ProtocolInstance.delete...")
-                
                 // Delete the protocol instance
                 do {
-                    try ProtocolInstance.delete(uid: uid, ownedCryptoIdentity: identity, within: obvContext)
+                    try ProtocolInstance.deleteProtocolInstance(uid: uid, ownedCryptoIdentity: identity, within: obvContext.context)
                 } catch {
                     os_log("Could not delete protocol instance", log: log, type: .error)
                     return
@@ -235,7 +231,7 @@ extension ReceivedMessageCoordinator {
                 
                 // Delete the received messages of this protocol instance
                 do {
-                    try ReceivedMessage.deleteAllAssociatedWithProtocolInstance(withUid: uid, ownedIdentity: identity, within: obvContext)
+                    try ReceivedMessage.deleteAllAssociatedWithProtocolInstance(withUid: uid, ownedIdentity: identity, within: obvContext.context)
                 } catch {
                     os_log("Could not delete all the received messages associated to the protocol instance to abort", log: log, type: .error)
                     return
@@ -245,12 +241,12 @@ extension ReceivedMessageCoordinator {
                 do {
                     let links: [LinkBetweenProtocolInstances]
                     do {
-                        links = try LinkBetweenProtocolInstances.getAllLinksForWhichTheParentProtocolHasUid(uid, andOwnedIdentity: identity, delegateManager: delegateManager, within: obvContext)
+                        links = try LinkBetweenProtocolInstances.getAllLinksForWhichTheParentProtocolHasUid(uid, andOwnedIdentity: identity, within: obvContext.context)
                     } catch {
                         os_log("Could not get LinkBetweenProtocolInstances", log: log, type: .error)
                         return
                     }
-                    let childProtocolInstanceUids = links.map { $0.childProtocolInstanceUid }
+                    let childProtocolInstanceUids = links.compactMap { try? $0.childProtocolInstanceUid }
                     childProtocolInstanceUids.forEach {
                         let subBlock = self?.createBlockForAbortingProtocol(withProtocolInstanceUid: $0, forOwnedIdentity: identity, within: obvContext)
                         subBlock?() // We execute the sub block operation right away
@@ -261,12 +257,12 @@ extension ReceivedMessageCoordinator {
                 do {
                     let links: [LinkBetweenProtocolInstances]
                     do {
-                        links = try LinkBetweenProtocolInstances.getAllLinksForWhichTheChildProtocolHasUid(uid, andOwnedIdentity: identity, delegateManager: delegateManager, within: obvContext)
+                        links = try LinkBetweenProtocolInstances.getAllLinksForWhichTheChildProtocolHasUid(uid, andOwnedIdentity: identity, within: obvContext.context)
                     } catch {
                         os_log("Could not get LinkBetweenProtocolInstances", log: log, type: .error)
                         return
                     }
-                    let parentProtocolInstanceUids = links.map { $0.parentProtocolInstance.uid }
+                    let parentProtocolInstanceUids = links.compactMap { try? $0.parentProtocolInstance?.uid }
                     parentProtocolInstanceUids.forEach {
                         let subBlock = self?.createBlockForAbortingProtocol(withProtocolInstanceUid: $0, forOwnedIdentity: identity, within: obvContext)
                         subBlock?() // We execute the sub block operation right away
@@ -319,25 +315,29 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
 
             let idsOfOtherReceivedMessages: [ObvMessageIdentifier]
 
-            guard let receivedMessages = ReceivedMessage.getAll(protocolInstanceUid: protocolInstanceUid,
-                                                                ownedCryptoIdentity: protocolInstanceOwnedIdentity,
-                                                                delegateManager: delegateManager,
-                                                                within: obvContext)
-                else {
-                    os_log("Could not retrieve remaining protocol messages", log: log, type: .error)
-                    return
+            guard let receivedMessages = try? ReceivedMessage.getAll(protocolInstanceUid: protocolInstanceUid,
+                                                                     ownedCryptoIdentity: protocolInstanceOwnedIdentity,
+                                                                     within: obvContext.context)
+            else {
+                os_log("Could not retrieve remaining protocol messages", log: log, type: .error)
+                return
             }
                         
-            idsOfOtherReceivedMessages = receivedMessages.map { $0.messageId }
+            idsOfOtherReceivedMessages = receivedMessages.compactMap { try? $0.messageId }
             
             
             // For each of these messages, we notify that we have a received message to process.
             
             receivedMessages.forEach { (receivedMessage) in
                 
-                os_log("We found an old received message with uid %{public}@ that we will re-process within flow %{public}@", log: log, type: .info, receivedMessage.messageId.debugDescription, operation.flowId.debugDescription)
+                guard let messageId = try? receivedMessage.messageId else {
+                    assertionFailure()
+                    return
+                }
                 
-                ObvProtocolNotification.protocolMessageToProcess(protocolMessageId: receivedMessage.messageId, flowId: operation.flowId)
+                os_log("We found an old received message with uid %{public}@ that we will re-process within flow %{public}@", log: log, type: .info, messageId.debugDescription, operation.flowId.debugDescription)
+                
+                ObvProtocolNotification.protocolMessageToProcess(protocolMessageId: messageId, flowId: operation.flowId)
                     .postOnBackgroundQueue(within: notificationDelegate)
                 
             }
@@ -419,15 +419,14 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
             
             contextCreator.performBackgroundTaskAndWait(flowId: operation.flowId) { (obvContext) in
                 do {
-                    if let message = ReceivedMessage.get(messageId: operation.receivedMessageId,
-                                                         delegateManager: delegateManager,
-                                                         within: obvContext) {
-                        let deleteDialog = ObvChannelDialogMessageToSend(uuid: dialogUuid,
-                                                                         ownedIdentity: message.messageId.ownedCryptoIdentity,
-                                                                         dialogType: ObvChannelDialogToSendType.delete,
-                                                                         encodedElements: 0.obvEncode())
+                    if let message = try ReceivedMessage.get(messageId: operation.receivedMessageId, within: obvContext.context), let messageId = try? message.messageId  {
+                        let deleteDialog = ObvChannelDialogMessageToSend(
+                            uuid: dialogUuid,
+                            ownedIdentity: messageId.ownedCryptoIdentity,
+                            dialogType: ObvChannelDialogToSendType.delete,
+                            encodedElements: 0.obvEncode())
                         _ = try? channelDelegate.postChannelMessage(deleteDialog, randomizedWith: operation.prng, within: obvContext)
-                        obvContext.delete(message)
+                        try message.deleteReceivedMessage()
                     }
                     try obvContext.save(logOnFailure: log)
                 } catch {
@@ -453,11 +452,10 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
              .couldNotDetermineTheAssociatedOwnedIdentity,
              .couldNotReconstructConcreteCryptoProtocol:
             // Delete the received protocol message
-            let randomFlowId = FlowIdentifier()
-            contextCreator.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
+            contextCreator.performBackgroundTaskAndWait { context in
                 do {
-                    try ReceivedMessage.delete(messageId: operation.receivedMessageId, within: obvContext)
-                    try obvContext.save(logOnFailure: log)
+                    try ReceivedMessage.deleteReceivedMessage(messageId: operation.receivedMessageId, within: context)
+                    try context.save(logOnFailure: log)
                 } catch {
                     os_log("Could not delete the received protocol message from database", log: log, type: .fault)
                     assertionFailure()

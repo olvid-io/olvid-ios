@@ -18,15 +18,18 @@
  */
 
 import SwiftUI
+import OSLog
 import StoreKit
 import ObvTypes
 import ObvCrypto
 import Contacts
 import ObvSubscription
 import ObvDesignSystem
+import ObvAppTypes
+import ObvAppCoreConstants
 
 
-protocol ChooseDeviceToKeepActiveViewActionsProtocol: AnyObject, SubscriptionPlansViewActionsProtocol {
+protocol ChooseDeviceToKeepActiveViewActionsProtocol: AnyObject {
     
     func userChoseDeviceToKeepActive(ownedCryptoId: ObvCryptoId, ownedDetails: CNContact, enteredSAS: ObvOwnedIdentityTransferSas, ownedDeviceDiscoveryResult: ObvOwnedDeviceDiscoveryResult, currentDeviceIdentifier: Data, targetDeviceName: String, deviceToKeepActive: ObvOwnedDeviceDiscoveryResult.Device?, protocolInstanceUID: UID) async
     func refreshDeviceDiscovery(for ownedCryptoId: ObvCryptoId) async throws -> ObvOwnedDeviceDiscoveryResult
@@ -78,14 +81,20 @@ protocol ChooseDeviceToKeepActiveViewModelProtocol: AnyObject, ObservableObject 
 }
 
 
-struct ChooseDeviceToKeepActiveView<Model: ChooseDeviceToKeepActiveViewModelProtocol>: View, SubscriptionPlansViewDismissActionsProtocol {
+struct ChooseDeviceToKeepActiveView<Model: ChooseDeviceToKeepActiveViewModelProtocol>: View {
     
     let actions: ChooseDeviceToKeepActiveViewActionsProtocol
     @ObservedObject var model: Model
+    let olvidShopViewActions: any OlvidShopViewActions
+    let olvidShopViewDataSources: OlvidShopView.DataSources
+    let uiKitDelegateForSwiftUISheet: any UIKitDelegateForSwiftUISheet
+    
     @State private var selectedDevice: ObvOwnedDeviceDiscoveryResult.Device?
     @State private var isInterfaceDisabled = false
     @State private var isSubscriptionPlansViewPresented = false
     @State private var userJustSubscribedToMultidevice = false
+    
+    private let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "ChooseDeviceToKeepActiveView")
     
     private var title: String {
         if model.ownedDeviceDiscoveryResult.isMultidevice {
@@ -176,7 +185,9 @@ struct ChooseDeviceToKeepActiveView<Model: ChooseDeviceToKeepActiveViewModelProt
     private func refreshDeviceDiscovery() async {
         isInterfaceDisabled = true
         do {
+            self.logger.info("💰 Refreshing the owned device discovery")
             let newObvOwnedDeviceDiscoveryResult = try await actions.refreshDeviceDiscovery(for: model.ownedCryptoId)
+            self.logger.info("💰 Owned device discovery returned isMultidevice: \(newObvOwnedDeviceDiscoveryResult.isMultidevice)")
             await model.resetOwnedDeviceDiscoveryResult(with: newObvOwnedDeviceDiscoveryResult)
             if newObvOwnedDeviceDiscoveryResult.isMultidevice {
                 userJustSubscribedToMultidevice = true
@@ -245,18 +256,28 @@ struct ChooseDeviceToKeepActiveView<Model: ChooseDeviceToKeepActiveViewModelProt
                         })
                     Spacer()
                 }
+                .padding()
             }
             
         }
         .disabled(isInterfaceDisabled)
-        .sheet(isPresented: $isSubscriptionPlansViewPresented, onDismiss: {
-            Task { await refreshDeviceDiscovery() }
-        }, content: {
-            let model = SubscriptionPlansViewModel(ownedCryptoId: model.ownedCryptoId, showFreePlanIfAvailable: false)
-            SubscriptionPlansView(model: model, actions: actions, dismissActions: self)
-        })
+        .sheetBackedByUIKitViewControllerOnCatalyst(isPresented: $isSubscriptionPlansViewPresented, onDismiss: { Task { await refreshDeviceDiscovery() } }, uiKitDelegateForSwiftUISheet: uiKitDelegateForSwiftUISheet) {
+            OlvidShopView(dataSources: self.olvidShopViewDataSources,
+                          navigation: self,
+                          actions: olvidShopViewActions)
+        }
     }
 }
+
+
+extension ChooseDeviceToKeepActiveView: OlvidShopViewNavigation {
+    
+    func userWantsToDismissPresentedOlvidShopView(_ view: ObvSubscription.OlvidShopView) {
+        isSubscriptionPlansViewPresented = false
+    }
+
+}
+
 
 
 // MARK: - DeviceView
@@ -366,7 +387,39 @@ private struct InternalButton: View {
 
 
 
+
+
+
+
+
+
+#if DEBUG
+
 // MARK: - Previews
+
+@MainActor
+private final class OtherActionsForPreviews {
+    
+    @Published var currentActiveSubscriptionsPublisher: Product?
+
+}
+
+extension OtherActionsForPreviews: OlvidShopViewActions {
+    
+    func userWantsToBuy(_ view: ObvSubscription.OlvidShopView, product: Product) async throws -> ObvAppTypes.StoreKitDelegatePurchaseResult {
+        try await Task.sleep(seconds: 2)
+        return .purchaseSucceeded(serverVerificationResult: .succeededAndSubscriptionIsValid)
+    }
+    
+    func getCurrentActiveSubscriptionPublisher(_ view: ObvSubscription.OlvidShopView) throws -> Published<Product?>.Publisher {
+        $currentActiveSubscriptionsPublisher
+    }
+    
+    func refreshSubscriptionStatus() async throws {
+        try await Task.sleep(seconds: 2)
+    }
+
+}
 
 struct ChooseDeviceToKeepActiveView_Previews: PreviewProvider {
     
@@ -392,8 +445,10 @@ struct ChooseDeviceToKeepActiveView_Previews: PreviewProvider {
     private static let ownedDeviceDiscoveryResultWithMultidevice: ObvOwnedDeviceDiscoveryResult = .init(
         devices: devices,
         isMultidevice: true)
+    
 
-    final class ActionsForPreviews: ChooseDeviceToKeepActiveViewActionsProtocol {
+    final class ActionsForPreviews: ChooseDeviceToKeepActiveViewActionsProtocol, OlvidShopViewDataSource, UIKitDelegateForSwiftUISheet  {
+                                
         func userChoseDeviceToKeepActive(ownedCryptoId: ObvCryptoId, ownedDetails: CNContact, enteredSAS: ObvOwnedIdentityTransferSas, ownedDeviceDiscoveryResult: ObvOwnedDeviceDiscoveryResult, currentDeviceIdentifier: Data, targetDeviceName: String, deviceToKeepActive: ObvOwnedDeviceDiscoveryResult.Device?, protocolInstanceUID: UID) async {}
         func userWantsToSeeMultideviceSubscriptionsOptions() async {}
         
@@ -402,9 +457,8 @@ struct ChooseDeviceToKeepActiveView_Previews: PreviewProvider {
             return (alsoFetchFreePlan, [])
         }
         
-        func userWantsToStartFreeTrialNow(ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> APIKeyElements {
+        func userWantsToStartFreeTrialNow(ownedCryptoId: ObvTypes.ObvCryptoId) async throws {
             try! await Task.sleep(seconds: 2)
-            return .init(status: .freeTrial, permissions: [.canCall], expirationDate: Date().addingTimeInterval(.init(days: 30)))
         }
         
         func userWantsToBuy(_: Product) async -> StoreKitDelegatePurchaseResult {
@@ -418,12 +472,27 @@ struct ChooseDeviceToKeepActiveView_Previews: PreviewProvider {
 
         func refreshDeviceDiscovery(for ownedCryptoId: ObvCryptoId) async throws -> ObvOwnedDeviceDiscoveryResult {
             try? await Task.sleep(seconds: 2)
-            return await ownedDeviceDiscoveryResultWithMultidevice
+            return ownedDeviceDiscoveryResultWithMultidevice
         }
-     
+        
+        // OlvidShopViewDataSource
+
+        func getAsyncSequenceOfOlvidShopViewModel(_ view: OlvidShopView) throws -> (streamUUID: UUID, stream: AsyncStream<OlvidShopView.Model>) {
+            let stream = AsyncStream<OlvidShopView.Model> { (continuation: AsyncStream<OlvidShopView.Model>.Continuation) in
+                // Not implemented in these previews
+            }
+            return (UUID(), stream)
+        }
+        
+        func finishAsyncSequenceOfOlvidShopViewModel(_ view: OlvidShopView, streamUUID: UUID) {}
+
+        func userWantsToPresentView<Content>(_ view: some View, content: @escaping () -> Content) async where Content : View {}
+        func userWantsToDismissPresentedView(_ view: some View) async {}
+
     }
-    
+        
     private static let actions = ActionsForPreviews()
+    private static let otherActions = OtherActionsForPreviews()
     
     private static let ownedDetails: CNContact = {
         let details = CNMutableContact()
@@ -472,7 +541,13 @@ struct ChooseDeviceToKeepActiveView_Previews: PreviewProvider {
     static var previews: some View {
         ChooseDeviceToKeepActiveView(
             actions: actions,
-            model: model)
+            model: model,
+            olvidShopViewActions: otherActions,
+            olvidShopViewDataSources: .init(dataSource: actions),
+            uiKitDelegateForSwiftUISheet: actions)
     }
     
 }
+
+
+#endif

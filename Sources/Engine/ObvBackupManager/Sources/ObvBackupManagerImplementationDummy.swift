@@ -36,6 +36,8 @@ final public class ObvBackupManagerImplementationDummy: ObvLegacyBackupDelegate 
         logSubsystem = "\(prefix).\(logSubsystem)"
         self.log = OSLog(subsystem: logSubsystem, category: "ObvBackupManagerImplementationDummy")
     }
+    
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
 
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 

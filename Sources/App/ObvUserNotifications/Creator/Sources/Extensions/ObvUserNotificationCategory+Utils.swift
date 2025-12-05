@@ -72,6 +72,11 @@ extension ObvUserNotificationCategoryIdentifier {
                                           actions: [.mute],
                                           intentIdentifiers: [],
                                           options: [.customDismissAction, .allowInCarPlay])
+        case .pollVote:
+            return UNNotificationCategory(identifier: categoryIdentifier,
+                                          actions: [.mute],
+                                          intentIdentifiers: [],
+                                          options: [.customDismissAction, .allowInCarPlay])
         case .invitationWithNoAction:
             let actions = [ObvUserNotificationAction]()
             return UNNotificationCategory(identifier: categoryIdentifier,

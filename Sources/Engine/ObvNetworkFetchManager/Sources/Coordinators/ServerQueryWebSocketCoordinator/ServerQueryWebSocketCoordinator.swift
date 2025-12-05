@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -89,7 +89,7 @@ actor ServerQueryWebSocketCoordinator: ServerQueryWebSocketDelegate {
         guard let delegateManager else { assertionFailure(); throw ObvError.theDelegateManagerIsNil }
         guard let channelDelegate = delegateManager.channelDelegate else { assertionFailure(); throw ObvError.channelDelegateIsNil}
         
-        guard let pendingServerQueryType = try await getWebSocketPendingServerQueryType(pendingServerQueryObjectId: pendingServerQueryObjectId, flowId: flowId) else {
+        guard let pendingServerQueryType = try await getWebSocketPendingServerQueryType(pendingServerQueryObjectId: pendingServerQueryObjectId) else {
             assertionFailure()
             return
         }
@@ -240,12 +240,10 @@ actor ServerQueryWebSocketCoordinator: ServerQueryWebSocketDelegate {
         if let serverResponseTypeToSet {
             let op1 = SetWebSocketPendingServerQueryResponseOperation(
                 pendingServerQueryObjectId: pendingServerQueryObjectId,
-                serverResponseType: serverResponseTypeToSet,
-                delegateManager: delegateManager)
+                serverResponseType: serverResponseTypeToSet)
             let op2 = RespondAndDeleteServerQueryOperation(
                 objectIdOfPendingServerQuery: pendingServerQueryObjectId,
                 prng: prng,
-                delegateManager: delegateManager,
                 channelDelegate: channelDelegate)
             do {
                 try await delegateManager.queueAndAwaitCompositionOfTwoContextualOperation(op1: op1, op2: op2, log: Self.log, flowId: flowId)
@@ -255,8 +253,7 @@ actor ServerQueryWebSocketCoordinator: ServerQueryWebSocketDelegate {
             }
         } else {
             let op1 = DeleteWebSocketPendingServerQueryOperation(
-                pendingServerQueryObjectId: pendingServerQueryObjectId,
-                delegateManager: delegateManager)
+                pendingServerQueryObjectId: pendingServerQueryObjectId)
             do {
                 try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
             } catch {
@@ -268,13 +265,13 @@ actor ServerQueryWebSocketCoordinator: ServerQueryWebSocketDelegate {
     }
     
     
-    private func getWebSocketPendingServerQueryType(pendingServerQueryObjectId: NSManagedObjectID, flowId: FlowIdentifier) async throws -> ServerQuery.QueryType? {
+    private func getWebSocketPendingServerQueryType(pendingServerQueryObjectId: NSManagedObjectID) async throws -> ServerQuery.QueryType? {
         guard let delegateManager else { assertionFailure(); throw ObvError.theDelegateManagerIsNil }
         guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); throw ObvError.theContextCreatorIsNil }
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ServerQuery.QueryType?, Error>) in
-            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+            contextCreator.performBackgroundTask { context in
                 do {
-                    guard let pendingServerQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectId, delegateManager: delegateManager, within: obvContext) else {
+                    guard let pendingServerQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectId, within: context) else {
                         assertionFailure()
                         return continuation.resume(returning: nil)
                     }

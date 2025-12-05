@@ -18,13 +18,10 @@
  */
 
 import UIKit
-import ObvEngine
-import ObvUICoreData
+import ObvTypes
 
+@MainActor
 protocol AllContactsViewControllerDelegate: AnyObject {
-    
-    func userDidSelect(_: PersistedObvContactIdentity, within: UINavigationController?)
-
-    func userDidDeselect(_: PersistedObvContactIdentity)
-
+    func userDidSelectContact(_ vc: AllContactsViewController, withContactIdentifier contactIdentifier: ObvContactIdentifier, within navigationController: UINavigationController?)
+    func userDidDeselectContact(_ vc: AllContactsViewController, withContactIdentifier contactIdentifier: ObvContactIdentifier)
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,13 +25,6 @@ import CoreData
 /// Operation executed during bootstrap. It deletes all received messages that are older than 15 days and that have no associated protocol instance.
 final class DeleteObsoleteReceivedMessagesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
     
-    let delegateManager: ObvProtocolDelegateManager
-    
-    init(delegateManager: ObvProtocolDelegateManager) {
-        self.delegateManager = delegateManager
-        super.init()
-    }
-    
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         do {
@@ -42,17 +35,18 @@ final class DeleteObsoleteReceivedMessagesOperation: ContextualOperationWithSpec
             let oldDate = Date(timeIntervalSinceNow: -fifteenDays)
             assert(oldDate < Date())
             
-            let oldMessages = try ReceivedMessage.getAllReceivedMessageOlderThan(timestamp: oldDate, delegateManager: delegateManager, within: obvContext)
+            let oldMessages = try ReceivedMessage.getAllReceivedMessageOlderThan(timestamp: oldDate, within: obvContext.context)
             
             guard !oldMessages.isEmpty else { return }
             
             // For each old message, delete the message if it has no associated protocol instance
             
             for oldMessage in oldMessages {
-                let protocolInstanceExistForMessage = try ProtocolInstance.exists(cryptoProtocolId: oldMessage.cryptoProtocolId,
-                                                                                  uid: oldMessage.protocolInstanceUid,
-                                                                                  ownedIdentity: oldMessage.messageId.ownedCryptoIdentity,
-                                                                                  within: obvContext)
+                let protocolInstanceExistForMessage = try ProtocolInstance.exists(
+                    cryptoProtocolId: oldMessage.cryptoProtocolId,
+                    uid: oldMessage.protocolInstanceUid,
+                    ownedIdentity: oldMessage.messageId.ownedCryptoIdentity,
+                    within: obvContext.context)
                 if !protocolInstanceExistForMessage {
                     try oldMessage.deleteReceivedMessage()
                 }

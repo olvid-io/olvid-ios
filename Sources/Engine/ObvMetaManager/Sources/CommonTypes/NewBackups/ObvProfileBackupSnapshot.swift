@@ -92,7 +92,7 @@ extension ObvProfileBackupSnapshot: ObvFailableCodable {
 
 // MARK: AdditionalInfosForProfileBackup implements ObvCodable
 
-extension AdditionalInfosForProfileBackup: ObvFailableCodable {
+extension AdditionalInfosForProfileBackup: @retroactive ObvFailableCodable {
     
     private enum ObvCodingKeys: String, CaseIterable, CodingKey {
         case nameOfDeviceWhichPerformedBackup = "device_name"
@@ -130,7 +130,7 @@ extension AdditionalInfosForProfileBackup: ObvFailableCodable {
 
 // MARK: OlvidPlatform implements ObvCodable
 
-extension OlvidPlatform: ObvFailableCodable {
+extension OlvidPlatform: @retroactive ObvFailableCodable {
     
     public func obvEncode() throws -> ObvEncoded {
         guard let data = self.rawValue.data(using: .utf8) else {

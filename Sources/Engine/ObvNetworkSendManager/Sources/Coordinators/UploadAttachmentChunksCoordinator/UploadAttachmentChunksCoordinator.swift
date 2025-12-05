@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvOperation
 import ObvServerInterface
@@ -181,9 +181,9 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
 
         var attachmentsRequiringSignedURLs = [ObvAttachmentIdentifier]()
         
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
 
-            guard let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else {
+            guard let message = try? OutboxMessage.get(messageId: messageId, within: obvContext.context) else {
                 os_log("Could not find message in DB", log: log, type: .fault)
                 return
             }
@@ -292,11 +292,11 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
                         
             var operationsToQueue = [Operation]()
             
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
                 
                 let attachmentsToResume: [OutboxAttachment]
                 do {
-                    attachmentsToResume = try OutboxAttachment.getAllUploadableWithoutSession(within: obvContext)
+                    attachmentsToResume = try OutboxAttachment.getAllUploadableWithoutSession(within: obvContext.context)
                 } catch {
                     os_log("Could not get attachments to upload", log: log, type: .fault)
                     return
@@ -419,7 +419,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
                 let outboxAttachmentSessions: [OutboxAttachmentSession]
                 do {
-                    outboxAttachmentSessions = try OutboxAttachmentSession.getAllCreatedByAppType(creatorAppType, within: obvContext)
+                    outboxAttachmentSessions = try OutboxAttachmentSession.getAllCreatedByAppType(creatorAppType, within: obvContext.context)
                 } catch {
                     os_log("Could not get attachments", log: log, type: .fault)
                     return
@@ -521,9 +521,9 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
 
         try localQueue.sync {
             
-            try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
+            try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
                 
-                guard let message = try OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else {
+                guard let message = try OutboxMessage.get(messageId: messageId, within: obvContext.context) else {
                     // No attachment upload to cancel
                     return
                 }
@@ -762,7 +762,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
         assert(currentAppType == .mainApp)
         var chunksProgressess: ([ChunkProgress], Date)?
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
+            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else { return }
             chunksProgressess = (attachment.currentChunkProgresses, Date())
         }
         return chunksProgressess
@@ -790,8 +790,8 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
         
         var attachmentIsAcknowledged = false
         var attachmentCancelExternallyRequested = false
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else {
                 os_log("Could not find attachment in database. We assume it was acknowledged (this sometimes happens when calling the completion handler received from UIKit)", log: log, type: .info)
                 attachmentIsAcknowledged = true
                 return

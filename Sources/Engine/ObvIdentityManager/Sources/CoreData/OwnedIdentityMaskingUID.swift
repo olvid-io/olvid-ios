@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,54 +19,59 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvTypes
 import ObvMetaManager
 import OlvidUtils
 
 @objc(OwnedIdentityMaskingUID)
-final class OwnedIdentityMaskingUID: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+final class OwnedIdentityMaskingUID: NSManagedObject, ObvErrorMaker {
     
     // MARK: Internal constants
     
     private static let entityName = "OwnedIdentityMaskingUID"
-    private static let ownedIdentityKey = "ownedIdentity"
-    private static let maskingUIDKey = "maskingUID"
+    
+    static weak var delegateManager: ObvIdentityDelegateManager?
     
     internal static let errorDomain = "OwnedIdentityMaskingUID"
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { NSError(domain: OwnedIdentityMaskingUID.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: OwnedIdentityMaskingUID.logSubsystem, category: "OwnedIdentityMaskingUID") }()
+
     // MARK: Attributes
     
-    @NSManaged private(set) var maskingUID: UID
+    @NSManaged private var rawMaskingUID: Data? // Non-optional in the model
     
     // MARK: Relationships
     
-    private(set) var ownedIdentity: OwnedIdentity {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: OwnedIdentityMaskingUID.ownedIdentityKey) as! OwnedIdentity
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentityMaskingUID.ownedIdentityKey)
-        }
-    }
+    @NSManaged private(set) var ownedIdentity: OwnedIdentity
     
     // MARK: Other variables
     
-    weak var obvContext: ObvContext?
-    
+    private var maskingUID: UID {
+        get throws(ObvError) {
+            guard let rawMaskingUID else { assertionFailure(); throw .unexpectedNilValue }
+            guard let maskingUID = UID(uid: rawMaskingUID) else { assertionFailure(); throw .couldNotParseValue }
+            return maskingUID
+        }
+    }
+        
     // MARK: - Initializer
     
     private convenience init(ownedIdentity: OwnedIdentity, pushToken: Data) throws {
-        guard let obvContext = ownedIdentity.obvContext else { throw OwnedIdentityMaskingUID.makeError(message: "Coud not find ObvContext within the owned identity instance (1)") }
-        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentityMaskingUID.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.maskingUID = try Self.generateDeterministricUID(ownedCryptoId: ownedIdentity.cryptoIdentity, pushToken: pushToken)
+        guard let context = ownedIdentity.managedObjectContext else { throw OwnedIdentityMaskingUID.makeError(message: "Coud not find context within the owned identity instance (1)") }
+        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentityMaskingUID.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        self.rawMaskingUID = try Self.generateDeterministricUID(ownedCryptoId: ownedIdentity.cryptoIdentity, pushToken: pushToken).raw
         self.ownedIdentity = ownedIdentity
+    }
+    
+    enum ObvError: Error {
+        case unexpectedNilValue
+        case couldNotParseValue
     }
     
 }
@@ -75,6 +80,21 @@ final class OwnedIdentityMaskingUID: NSManagedObject, ObvManagedObject, ObvError
 
 extension OwnedIdentityMaskingUID {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case rawMaskingUID = "rawMaskingUID"
+            // Relationships
+            case ownedIdentity = "ownedIdentity"
+        }
+        static func withOwnedIdentity(_ ownedIdentity: OwnedIdentity) -> NSPredicate {
+            NSPredicate(Key.ownedIdentity, equalTo: ownedIdentity)
+        }
+        static func withMaskingUID(_ maskingUID: UID) -> NSPredicate {
+            NSPredicate(Key.rawMaskingUID, EqualToData: maskingUID.raw)
+        }
+    }
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<OwnedIdentityMaskingUID> {
         return NSFetchRequest<OwnedIdentityMaskingUID>(entityName: entityName)
     }
@@ -82,30 +102,30 @@ extension OwnedIdentityMaskingUID {
 
     static func getOrCreate(for ownedIdentity: OwnedIdentity, pushToken: Data) throws -> UID {
         
-        guard let obvContext = ownedIdentity.obvContext else { throw makeError(message: "Could not find ObvContext within the owned identity instance") }
+        guard let context = ownedIdentity.managedObjectContext else { throw makeError(message: "Could not find context within the owned identity instance") }
         
         let request: NSFetchRequest<OwnedIdentityMaskingUID> = OwnedIdentityMaskingUID.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", ownedIdentityKey, ownedIdentity)
+        request.predicate = Predicate.withOwnedIdentity(ownedIdentity)
         request.fetchLimit = 1
         let item: OwnedIdentityMaskingUID
-        if let _item = try obvContext.fetch(request).first {
+        if let _item = try context.fetch(request).first {
             let newMaskingUID = try generateDeterministricUID(ownedCryptoId: ownedIdentity.cryptoIdentity, pushToken: pushToken)
-            if _item.maskingUID != newMaskingUID {
-                _item.maskingUID = newMaskingUID
+            if _item.rawMaskingUID != newMaskingUID.raw {
+                _item.rawMaskingUID = newMaskingUID.raw
             }
             item = _item
         } else {
             item = try .init(ownedIdentity: ownedIdentity, pushToken: pushToken)
         }
-        return item.maskingUID
+        return try item.maskingUID
     }
     
     
-    static func getOwnedIdentityAssociatedWithMaskingUID(_ maskingUID: UID, within obvContext: ObvContext) throws -> OwnedIdentity? {
+    static func getOwnedIdentityAssociatedWithMaskingUID(_ maskingUID: UID, within context: NSManagedObjectContext) throws -> OwnedIdentity? {
         let request: NSFetchRequest<OwnedIdentityMaskingUID> = OwnedIdentityMaskingUID.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", maskingUIDKey, maskingUID)
+        request.predicate = Predicate.withMaskingUID(maskingUID)
         request.fetchLimit = 1
-        let item = try obvContext.fetch(request).first
+        let item = try context.fetch(request).first
         return item?.ownedIdentity
     }
     
@@ -116,6 +136,5 @@ extension OwnedIdentityMaskingUID {
         let prng = ObvCryptoSuite.sharedInstance.concretePRNG().init(with: seed)
         return UID.gen(with: prng)
     }
-    
 
 }

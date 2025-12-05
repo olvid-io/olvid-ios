@@ -1,5 +1,71 @@
 # Changelog
 
+## [4.0.3 (944)] - 2025-12-01
+
+- Olvid+ propose désormais de nouveaux forfaits, vous permettant de partager votre abonnement avec votre famille et de rester connecté en toute sécurité.
+- Plusieurs aspects du design de l'application ont été rafraîchis.
+- Meilleure fluidité, notamment au lancement d'Olvid lorsqu'il y a un historique de messages important à synchroniser.
+- Les notifications push en arrière-plan ne sont plus nécessaires pour utiliser Olvid.
+- Problème de mémoire lié aux nouveaux messages audio résolu.
+- Correction d'un problème empêchant parfois la suppression, sur les appareils de vos contacts, de messages envoyés depuis votre appareil.
+- Correction d'un bug empêchant parfois la lecture des messages vocaux via le haut-parleur.
+- Correction d'un problème empêchant parfois l'envoi des messages vocaux.
+
+## [4.0.2 (930)] - 2025-10-22
+
+- Sondages dans les discussions : Créez désormais des sondages dans n'importe quelle conversation et laissez chacun donner son avis en un seul clic !
+- Expérience de contact entièrement repensée : appuyez sur le nouveau bouton "+" flottant (disponible dans chaque onglet) pour ajouter des contacts instantanément par scan de QR code, lien d'invitation ou depuis une liste de suggestions (incluant les utilisateurs Olvid de vos groupes communs).
+- Invitations en un clic : connectez-vous facilement avec les utilisateurs de vos groupes partagés.
+- Messages vocaux entièrement repensées avec des formes d'onde interactives et des commandes de vitesse de lecture (1x, 1,5x, 2x) pour une expérience audio au top.
+- Design d'onboarding amélioré.
+- Résolution d'un problème pouvant empêcher l'établissement correct des appels sécurisés, améliorant ainsi la fiabilité des appels.
+- Amélioration de la fiabilité des notifications utilisateur.
+- Optimisation des opérations au démarrage d'Olvid pour un lancement plus rapide et plus efficace.
+- Olvid est disponible en allemand.
+
+## [4.0.1 (916)] - 2025-09-29
+
+- Olvid est désormais disponible en espagnol et en italien.
+- Refonte complète de la liste des groupes.
+- Résolution d'un problème d'animation lors de l'entrée dans une discussion sur iOS 16.
+- Corrige un crash de l'app sur macOS 26 lorsque l'on masque un profil.
+- Correction d'un problème où les messages contenant uniquement des pièces jointes (sans texte) n'étaient pas toujours correctement synchronisés sur tous vos appareils.
+- Amélioration du design et de la lisibilité des titres de discussion dans Liquid Glass.
+- Dans les configurations multi-appareils, l'acceptation des nouvelles informations concernant un groupe sur un appareil ne se répercutait pas toujours sur les autres appareils connectés, nécessitant parfois une réacceptation manuelle. Ce problème est désormais résolu.
+- Autres améliorations d'utilisabilité et de design.
+
+## [4.0 (907)] - 2025-09-20
+
+- Nous sommes prêts pour iOS26, iPadOS26 et macOS26.
+- Nouvelle navigation sur iPad et Mac.
+- Nous avons optimisé le processus de réception des messages pour une expérience plus fluide et plus cohérente.
+- Vous pouvez désormais partager des dossiers entiers avec Olvid ! Il vous suffit de sélectionner un dossier, qui sera automatiquement compressé en ZIP et ajouté en pièce jointe.
+- Meilleure expérience de partage des résultats, notamment pour les articles.
+- Résolution d'un bug rare pouvant entraîner l'absence de certaines discussions dans la liste des conversations récentes.
+- Correction d'un problème empêchant parfois le téléchargement des pièces jointes envoyées depuis un autre de vos appareils.
+- Correction de l'ordre incohérent des profils entre la vue de sélection de profil et le geste de changement rapide.
+- Plusieurs optimisations et corrections pour garantir un fonctionnement optimal.
+- Nous travaillons sur la fonctionnalité la plus demandée par nos utilisateurs — c'est pour bientôt !
+
+## [3.9 (891)] - 2025-07-03
+
+- Découvrez le nouveau module de gestion de stockage ! Optimisez votre espace disque en un clin d'œil en passant en revue et en supprimant facilement les fichiers volumineux inutiles. Plus de place, plus de performance, plus de bonheur !
+- Fonctionnalité multi-appareils améliorée : les utilisateurs peuvent désormais vérifier le statut des messages envoyés depuis n'importe quel appareil sur tous leurs appareils.
+- Nous avons entièrement repensé l'onglet "discussions récentes" et introduit une nouvelle méthode pour archiver vos discussions.
+- Mise en œuvre de diverses améliorations pour le nouveau flux de groupe afin d'augmenter l'utilisabilité.
+- Amélioration de l'accessibilité des flux de groupe.
+- Mise à jour du panneau affichant les réactions aux messages.
+- La navigation dans l'application pendant un appel vidéo n'interrompra plus votre propre flux vidéo.
+- Garantie de la stabilité du système pendant les longues migrations pour prévenir les arrêts et maintenir la continuité.
+- Corrige un bug graphique impactant le tab "invitations".
+- Corrige un bug impactant le calcul du badge du tab "invitations".
+- Résolution d'un problème qui empêchait parfois les utilisateurs de cloner un groupe.
+- Corrige un bug empêchant parfois l'envoi de messages
+- Correction d'un bug où la copie d'un nouveau lien pouvait laisser le lien précédemment copié toujours présent dans le presse-papiers.
+- Correction d'un problème où le bouton d'enregistrement d'un message vocal pouvait disparaître dans certaines circonstances.
+- Résolution d'un problème où les paramètres pour masquer des messages de groupe spécifiques ne fonctionnaient pas correctement, garantissant que le filtrage des messages fonctionne maintenant comme prévu.
+- Mise en œuvre de petites améliorations graphiques.
+
 ## [3.8 (873)] - 2025-05-21
 
 - Nous avons entièrement repensé l'expérience de création et d'édition de groupes pour la rendre plus intuitive, efficace et conviviale.

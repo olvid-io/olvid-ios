@@ -40,9 +40,9 @@ final class DeleteObsoleteObliviousChannelsOperation: ContextualOperationWithSpe
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         // Get the remote device uids associated to all the oblivious channels we have
-        let remoteDeviceUidsAssociatedToAnObliviousChannel: Set<ObliviousChannelIdentifier>
+        let allObliviousChannelIdentifiers: Set<ObliviousChannelIdentifier>
         do {
-            remoteDeviceUidsAssociatedToAnObliviousChannel = try channelDelegate.getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within: obvContext)
+            allObliviousChannelIdentifiers = try channelDelegate.getAllObliviousChannelIdentifiers(within: obvContext)
         } catch let error {
             logger.fault("Could not get all remote device uids associated to an oblivious channel: \(error.localizedDescription)")
             assertionFailure()
@@ -62,7 +62,7 @@ final class DeleteObsoleteObliviousChannelsOperation: ContextualOperationWithSpe
         
         // Get a set of device corresponding to obsolete oblivious channels
         
-        let obsoleteObliviousChannels = remoteDeviceUidsAssociatedToAnObliviousChannel.subtracting(remoteDeviceUidsKnownToTheIdentityManager)
+        let obsoleteObliviousChannels = allObliviousChannelIdentifiers.subtracting(remoteDeviceUidsKnownToTheIdentityManager)
         
         // Delete all the obsolete oblivious channels
         

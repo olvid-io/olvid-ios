@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -76,7 +76,7 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             (contactIdentityA, contactIdentityB) = try message.encodedInputs.obvDecode()
         }
         
@@ -109,7 +109,7 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             let encodedContactIdentityCoreDetails: Data
             (contactIdentity, encodedContactIdentityCoreDetails) = try message.encodedInputs.obvDecode()
             self.contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
@@ -164,7 +164,7 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else {
                 throw ContactMutualIntroductionProtocol.makeError(message: "Could not get encodedUserDialogResponse in AcceptMediatorInviteDialogMessage")
             }
@@ -206,7 +206,7 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             let encodedContactIdentityCoreDetails: Data
             (invitationAccepted, contactIdentity, encodedContactIdentityCoreDetails, mediatorIdentity) = try message.encodedInputs.obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
@@ -242,8 +242,8 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 2 else {
                 throw ContactMutualIntroductionProtocol.makeError(message: "Unexpected number of encoded elements in NotifyContactOfAcceptedInvitationMessage")
             }
@@ -291,8 +291,8 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 1 else {
                 throw ContactMutualIntroductionProtocol.makeError(message: "Unexpected number of encoded elements in PropagateContactNotificationOfAcceptedInvitationMessage")
             }
@@ -329,7 +329,7 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
@@ -353,7 +353,7 @@ extension ContactMutualIntroductionProtocol {
         
         init(with message: ReceivedMessage) throws {
             // Never used
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
@@ -378,8 +378,8 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 1 else {
                 throw ContactMutualIntroductionProtocol.makeError(message: "Unexpected number of encoded elements in TrustLevelIncreasedMessage")
             }
@@ -414,7 +414,7 @@ extension ContactMutualIntroductionProtocol {
         // Initializers
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             (contactIdentityA, contactIdentityB) = try message.encodedInputs.obvDecode()
         }
         

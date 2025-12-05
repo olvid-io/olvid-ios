@@ -39,6 +39,11 @@ public struct TextView: View {
             self.badge = badge
         }
         
+        
+        var accessibilityLabel: String {
+            "\(badge ?? ""), \(titlePart1 ?? "") \(titlePart2 ?? ""), \(subtitle ?? ""), \(subsubtitle ?? "")"
+        }
+        
     }
     
     let model: Model
@@ -132,6 +137,8 @@ public struct TextView: View {
                     .animation(.spring(), value: animateSubsubtitleOnChange)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(model.accessibilityLabel)
     }
 }
 

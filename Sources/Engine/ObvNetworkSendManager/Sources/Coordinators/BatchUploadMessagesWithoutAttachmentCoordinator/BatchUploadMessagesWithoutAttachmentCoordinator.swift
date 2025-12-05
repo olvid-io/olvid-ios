@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvTypes
 import OlvidUtils
 import ObvServerInterface
@@ -36,6 +36,7 @@ actor BatchUploadMessagesWithoutAttachmentCoordinator {
     init(logPrefix: String) {
         let logSubsystem = "\(logPrefix).\(Self.defaultLogSubsystem)"
         Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
+        Self.logger = Logger(subsystem: logSubsystem, category: Self.logCategory)
     }
 
     func setDelegateManager(_ delegateManager: ObvNetworkSendDelegateManager) {
@@ -48,7 +49,8 @@ actor BatchUploadMessagesWithoutAttachmentCoordinator {
     private var failedAttemptsCounterManager = FailedFetchAttemptsCounterManager()
     private var retryManager = SendRetryManager()
     
-    private static let defaultFetchLimit = 50
+    private static let defaultFetchLimit = 50 // hard limit
+    private static let defaultMaxNumberOfHeaders = 1_000 // soft limit
 
     private static let urlSession: URLSession = {
         var configuration = URLSessionConfiguration.default
@@ -73,13 +75,14 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
     
     
     func batchUploadMessagesWithoutAttachment(serverURL: URL, flowId: FlowIdentifier) async throws {
-        try await batchUploadMessagesWithoutAttachment(serverURL: serverURL, fetchLimit: Self.defaultFetchLimit, flowId: flowId)
+        try await batchUploadMessagesWithoutAttachment(serverURL: serverURL, fetchLimit: Self.defaultFetchLimit, maxNumberOfHeaders: Self.defaultMaxNumberOfHeaders, flowId: flowId)
     }
     
     
-    private func batchUploadMessagesWithoutAttachment(serverURL: URL, fetchLimit: Int, flowId: FlowIdentifier) async throws {
+    private func batchUploadMessagesWithoutAttachment(serverURL: URL, fetchLimit: Int, maxNumberOfHeaders: Int, flowId: FlowIdentifier) async throws {
         
         Self.logger.debug("Call to batchUploadMessagesWithoutAttachment with fetchLimit=\(fetchLimit)")
+        ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator] Call to batchUploadMessagesWithoutAttachment with fetchLimit=\(fetchLimit)")
         
         guard let delegateManager else {
             assertionFailure()
@@ -87,23 +90,22 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
         }
         
         do {
-            try await internalBatchUploadMessagesWithoutAttachment(serverURL: serverURL, isFirstRequest: true, fetchLimit: fetchLimit, delegateManager: delegateManager, flowId: flowId)
-            os_log("The call to internalBatchUploadMessagesWithoutAttachment did succeed", log: Self.log, type: .debug)
+            try await internalBatchUploadMessagesWithoutAttachment(serverURL: serverURL, isFirstRequest: true, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
+            Self.logger.debug("The call to internalBatchUploadMessagesWithoutAttachment did succeed")
+            ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator] The call to internalBatchUploadMessagesWithoutAttachment did succeed")
             failedAttemptsCounterManager.reset(counter: .batchUploadMessages(serverURL: serverURL))
         } catch {
-            os_log("The call to internalBatchUploadMessagesWithoutAttachment failed: %{public}@", log: Self.log, type: .error, error.localizedDescription)
+            Self.logger.error("The call to internalBatchUploadMessagesWithoutAttachment failed: \(error.localizedDescription)")
+            ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator] The call to internalBatchUploadMessagesWithoutAttachment failed: \(error.localizedDescription)")
             if let obvError = error as? ObvError {
                 // Certain errors do not require us to wait before trying again
                 switch obvError {
                 case .serverQueryPayloadIsTooLargeForServer(let currentFetchLimit):
-                    if currentFetchLimit > 1 {
-                        try? await batchUploadMessagesWithoutAttachment(serverURL: serverURL, fetchLimit: currentFetchLimit / 2, flowId: flowId)
-                        return
-                    }
-                case .messageIsToolLargeForServer(messageToUpload: let messageToUpload):
+                    try await batchUploadMessagesWithoutAttachment(serverURL: serverURL, fetchLimit: max(1, currentFetchLimit / 2), maxNumberOfHeaders: max(1, maxNumberOfHeaders / 2), flowId: flowId)
+                case .messageIsTooLargeForServer(messageToUpload: let messageToUpload):
                     // Delete the message that is too large to be uploaded
                     do {
-                        let op1 = DeleteOutboxMessageTooLargeForServerOperation(messageId: messageToUpload.messageId, delegateManager: delegateManager)
+                        let op1 = DeleteOutboxMessageTooLargeForServerOperation(messageId: messageToUpload.messageId)
                         try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
                     } catch {
                         assertionFailure()
@@ -118,7 +120,8 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
             }
             // If we reach this point, the error requires to wait for a certain delay.
             let delay = failedAttemptsCounterManager.incrementAndGetDelay(.batchUploadMessages(serverURL: serverURL))
-            os_log("Will wait for %d milliseconds before calling batchUploadMessagesWithoutAttachment again", log: Self.log, type: .error, delay)
+            Self.logger.error("Will wait for \(delay) milliseconds before calling batchUploadMessagesWithoutAttachment again")
+            ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator] Will wait for \(delay) milliseconds before calling batchUploadMessagesWithoutAttachment again")
             await retryManager.waitForDelay(milliseconds: delay)
             try await batchUploadMessagesWithoutAttachment(serverURL: serverURL, flowId: flowId)
         }
@@ -126,7 +129,7 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
     }
     
     
-    private func internalBatchUploadMessagesWithoutAttachment(serverURL: URL, isFirstRequest: Bool, fetchLimit: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) async throws {
+    private func internalBatchUploadMessagesWithoutAttachment(serverURL: URL, isFirstRequest: Bool, fetchLimit: Int, maxNumberOfHeaders: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) async throws {
         
         if let currentUploadTask = currentUploadTaskForServerURL[serverURL] {
             
@@ -138,7 +141,7 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
                 
                 defer { if self.currentUploadTaskForServerURL[serverURL] == currentUploadTask { self.currentUploadTaskForServerURL.removeValue(forKey: serverURL) } }
                 try await currentUploadTask.value
-                try await internalBatchUploadMessagesWithoutAttachment(serverURL: serverURL, isFirstRequest: false, fetchLimit: fetchLimit, delegateManager: delegateManager, flowId: flowId)
+                try await internalBatchUploadMessagesWithoutAttachment(serverURL: serverURL, isFirstRequest: false, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
                 
             } else {
                 
@@ -151,7 +154,7 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
             
             // There is no current upload task. We create one and execute it now.
             
-            let localUploadTask = createTaskForUploadingBatchOfMessagesWithoutAttachment(serverURL: serverURL, fetchLimit: fetchLimit, delegateManager: delegateManager, flowId: flowId)
+            let localUploadTask = createTaskForUploadingBatchOfMessagesWithoutAttachment(serverURL: serverURL, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
             
             self.currentUploadTaskForServerURL[serverURL] = localUploadTask
             defer { if self.currentUploadTaskForServerURL[serverURL] == localUploadTask { self.currentUploadTaskForServerURL.removeValue(forKey: serverURL) } }
@@ -167,7 +170,7 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
 
 extension BatchUploadMessagesWithoutAttachmentCoordinator {
     
-    private func createTaskForUploadingBatchOfMessagesWithoutAttachment(serverURL: URL, fetchLimit: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) -> Task<Void, Error> {
+    private func createTaskForUploadingBatchOfMessagesWithoutAttachment(serverURL: URL, fetchLimit: Int, maxNumberOfHeaders: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) -> Task<Void, Error> {
         
         return Task { [weak self] in
             
@@ -175,13 +178,15 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator {
             
             let taskId = String(UUID().description.prefix(5))
 
-            let messagesToUpload = try await getAllMessagesToUploadWithoutAttachments(serverURL: serverURL, fetchLimit: fetchLimit, delegateManager: delegateManager, flowId: flowId)
+            let messagesToUpload = try await getAllMessagesToUploadWithoutAttachments(serverURL: serverURL, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
             
-            os_log("🎉 [%@] Starting the task for uploading %d messages without attachment", log: Self.log, type: .debug, taskId, messagesToUpload.count)
+            Self.logger.debug("🎉 [\(taskId)] Starting the task for uploading \(messagesToUpload.count) messages without attachment")
+            ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Starting the task for uploading \(messagesToUpload.count) messages without attachment")
 
             guard !messagesToUpload.isEmpty else {
                 // Nothing to upload
-                os_log("🎉 [%@] Nothing to upload, we are done with this task", log: Self.log, type: .debug, taskId)
+                Self.logger.debug("🎉 [\(taskId)] Nothing to upload, we are done with this task")
+                ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Nothing to upload, we are done with this task")
                 return
             }
             
@@ -193,63 +198,72 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator {
                 throw ObvError.invalidServerResponse
             }
 
-            os_log("🎉 [%@] HTTP response status code is %d", log: Self.log, type: .debug, taskId, httpResponse.statusCode)
+            Self.logger.debug("🎉 [\(taskId)] HTTP response status code is \(httpResponse.statusCode)")
+            ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] HTTP response status code is \(httpResponse.statusCode)")
 
             guard httpResponse.statusCode == 200 else {
                 switch httpResponse.statusCode {
                 case 413:
-                    os_log("🎉 [%@] Payload is too large (fetchLimit is %d)", log: Self.log, type: .error, taskId, fetchLimit)
+                    Self.logger.error("🎉 [\(taskId)] Payload is too large (fetchLimit is \(fetchLimit)")
+                    ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Payload is too large (fetchLimit is \(fetchLimit)")
                     if messagesToUpload.count == 1, let messageToUpload = messagesToUpload.first {
-                        throw ObvError.messageIsToolLargeForServer(messageToUpload: messageToUpload)
+                        throw ObvError.messageIsTooLargeForServer(messageToUpload: messageToUpload)
                     } else {
                         throw ObvError.serverQueryPayloadIsTooLargeForServer(currentFetchLimit: fetchLimit)
                     }
                 default:
-                    throw ObvError.serverReturnedBadStatusCode
+                    Self.logger.fault("🎉 [\(taskId)] Unexpected status code \(httpResponse.statusCode). We treat it as if the payload is too large")
+                    ObvDisplayableLogs.shared.log("⬆️🎉 [\(taskId)] Unexpected status code \(httpResponse.statusCode). Message is \(String(data: data, encoding: .utf8) ?? "-")")
+                    throw ObvError.serverReturnedBadStatusCode(statusCode: httpResponse.statusCode)
                 }
             }
 
-            guard let returnStatus = ObvServerBatchUploadMessages.parseObvServerResponse(responseData: data, using: Self.log) else {
+            guard let returnStatus = ObvServerBatchUploadMessages.parseObvServerResponse(responseData: data) else {
                 assertionFailure()
-                os_log("🎉 [%@] Could not parse the return status from server", log: Self.log, type: .error, taskId)
+                Self.logger.error("🎉 [\(taskId)] Could not parse the return status from server")
+                ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Could not parse the return status from server")
                 throw ObvError.couldNotParseReturnStatusFromServer
             }
             
             switch returnStatus {
                 
             case .generalError:
-                os_log("🎉 [%@] Server returned a general error", log: Self.log, type: .error, taskId)
+                Self.logger.error("🎉 [\(taskId)] Server returned a general error")
+                ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Server returned a general error")
                 throw ObvError.serverReturnedGeneralError
                 
             case .payloadTooLarge:
-                os_log("🎉 [%@] Server returned an error code indicating that at least one message has a too large payload", log: Self.log, type: .error, taskId)
+                Self.logger.error("🎉 [\(taskId)] Server returned an error code indicating that at least one message has a too large payload")
+                ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Server returned an error code indicating that at least one message has a too large payload")
                 // We adopt the exact same strategy as if the http code was 413
                 if messagesToUpload.count == 1, let messageToUpload = messagesToUpload.first {
-                    throw ObvError.messageIsToolLargeForServer(messageToUpload: messageToUpload)
+                    throw ObvError.messageIsTooLargeForServer(messageToUpload: messageToUpload)
                 } else {
                     throw ObvError.serverQueryPayloadIsTooLargeForServer(currentFetchLimit: fetchLimit)
                 }
 
             case .ok(let allValuesReturnedByServer):
                 
-                os_log("🎉 [%@] Will process the ok from server", log: Self.log, type: .debug, taskId)
+                Self.logger.debug("🎉 [\(taskId)] Will process the ok from server")
+                ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Will process the ok from server")
 
                 guard messagesToUpload.count == allValuesReturnedByServer.count else {
                     assertionFailure()
-                    os_log("🎉 [%@] Unexpected number of values returned by the server. Expecting %d, got %d", log: Self.log, type: .error, taskId, messagesToUpload.count, allValuesReturnedByServer.count)
+                    Self.logger.error("🎉 [\(taskId)] Unexpected number of values returned by the server. Expecting \(messagesToUpload.count), got \(allValuesReturnedByServer.count)")
+                    ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Unexpected number of values returned by the server. Expecting \(messagesToUpload.count), got \(allValuesReturnedByServer.count)")
                     throw ObvError.unexpectedNumberOfValuesReturnedByServer
                 }
                 
                 let op1 = SaveReturnedServerValuesForBatchUploadedMessagesOperation(
-                    valuesToSave: Array(zip(messagesToUpload, allValuesReturnedByServer)),
-                    delegateManager: delegateManager,
-                    log: Self.log)
+                    valuesToSave: Array(zip(messagesToUpload, allValuesReturnedByServer)))
                 
-                os_log("🎉 [%@] Will save the %d returned server values", log: Self.log, type: .debug, taskId, allValuesReturnedByServer.count)
+                Self.logger.debug("🎉 [\(taskId)] Will save the \(allValuesReturnedByServer.count) returned server values")
+                ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Will save the \(allValuesReturnedByServer.count) returned server values")
 
                 try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
                 
-                os_log("🎉 [%@] Did save the %d returned server values", log: Self.log, type: .debug, taskId, allValuesReturnedByServer.count)
+                Self.logger.debug("🎉 [\(taskId)] Did save the \(allValuesReturnedByServer.count) returned server values")
+                ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator]🎉 [\(taskId)] Did save the \(allValuesReturnedByServer.count) returned server values")
 
                 Task.detached { [weak self] in
                     // Notify about the successful upload of each message
@@ -269,7 +283,7 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator {
     }
     
     
-    private func getAllMessagesToUploadWithoutAttachments(serverURL: URL, fetchLimit: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) async throws -> [ObvServerBatchUploadMessages.MessageToUpload] {
+    private func getAllMessagesToUploadWithoutAttachments(serverURL: URL, fetchLimit: Int, maxNumberOfHeaders: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) async throws -> [ObvServerBatchUploadMessages.MessageToUpload] {
         
         guard let contextCreator = delegateManager.contextCreator else {
             assertionFailure()
@@ -279,11 +293,11 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvServerBatchUploadMessages.MessageToUpload], any Error>) in
             contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
                 do {
-                    let outboxMessages = try OutboxMessage.getAllMessagesToUploadWithoutAttachments(serverURL: serverURL, fetchLimit: fetchLimit, delegateManager: delegateManager, within: obvContext)
+                    let outboxMessages = try OutboxMessage.getAllMessagesToUploadWithoutAttachments(serverURL: serverURL, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, within: obvContext.context)
                     // 2025-05-07: We used to restrict to messages from active owned identities. We don't do that anymore as this prevents the sending of certain messages during a global deletion
                     // of a profile.
                     let messagesToUpload = outboxMessages
-                        .compactMap({ ObvServerBatchUploadMessages.MessageToUpload(outboxMessage: $0) })
+                        .compactMap({ try? ObvServerBatchUploadMessages.MessageToUpload(outboxMessage: $0) })
                     // Return the resulting MessageToUpload instances
                     return continuation.resume(returning: messagesToUpload)
                 } catch {
@@ -300,17 +314,17 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator {
 extension BatchUploadMessagesWithoutAttachmentCoordinator {
     
     enum ObvError: Error {
-        case theContextCreatorIsNotSet
-        case theIdentityDelegateIsNotSet
-        case invalidServerResponse
-        case couldNotParseReturnStatusFromServer
-        case serverReturnedGeneralError
-        case unexpectedNumberOfValuesReturnedByServer
-        case theDelegateManagerIsNil
-        case serverQueryPayloadIsTooLargeForServer(currentFetchLimit: Int)
-        case messageIsToolLargeForServer(messageToUpload: ObvServerBatchUploadMessages.MessageToUpload)
+        case theContextCreatorIsNotSet // 0
+        case theIdentityDelegateIsNotSet // 1
+        case invalidServerResponse // 2
+        case couldNotParseReturnStatusFromServer // 3
+        case serverReturnedGeneralError // 4
+        case unexpectedNumberOfValuesReturnedByServer // 5
+        case theDelegateManagerIsNil // 6
+        case serverQueryPayloadIsTooLargeForServer(currentFetchLimit: Int) // 7
+        case messageIsTooLargeForServer(messageToUpload: ObvServerBatchUploadMessages.MessageToUpload) // 8
 
-        case serverReturnedBadStatusCode
+        case serverReturnedBadStatusCode(statusCode: Int) // 9
     }
     
 }
@@ -321,12 +335,16 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator {
 fileprivate extension ObvServerBatchUploadMessages.MessageToUpload {
     
     /// Initialises a `MessageToUpload` instance, suitable for the `ObvServerBatchUploadMessages` server method, from a given `OutboxMessage` core data instance.
-    init?(outboxMessage: OutboxMessage) {
-        guard let messageId = outboxMessage.messageId else { return nil }
-        self.init(messageId: messageId, headers: outboxMessage.headers.map { .init(outboxMessageHeader: $0) },
+    init(outboxMessage: OutboxMessage) throws {
+        guard let messageId = outboxMessage.messageId else { throw ObvError.noMessageId }
+        try self.init(messageId: messageId, headers: outboxMessage.headers.map { try .init(outboxMessageHeader: $0) },
                   encryptedContent: outboxMessage.encryptedContent,
                   isAppMessageWithUserContent: outboxMessage.isAppMessageWithUserContent,
                   isVoipMessageForStartingCall: outboxMessage.isVoipMessage)
+    }
+    
+    enum ObvError: Error {
+        case noMessageId
     }
     
 }
@@ -334,10 +352,10 @@ fileprivate extension ObvServerBatchUploadMessages.MessageToUpload {
 
 fileprivate extension ObvServerBatchUploadMessages.MessageToUpload.Header {
     
-    init(outboxMessageHeader: MessageHeader) {
-        self.init(deviceUid: outboxMessageHeader.deviceUid,
-                  wrappedKey: outboxMessageHeader.wrappedKey,
-                  toIdentity: outboxMessageHeader.toCryptoIdentity)
+    init(outboxMessageHeader: MessageHeader) throws {
+        self.init(deviceUid: try outboxMessageHeader.deviceUid,
+                  wrappedKey: try outboxMessageHeader.wrappedKey,
+                  toIdentity: try outboxMessageHeader.toCryptoIdentity)
     }
 
 }

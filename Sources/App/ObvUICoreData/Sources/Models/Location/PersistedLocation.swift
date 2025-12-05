@@ -142,7 +142,7 @@ extension PersistedLocation {
                              sharingExpiration: ObvLocationSharingExpirationDate,
                              timestamp: Date,
                              forEntityName entityName: String,
-                             within context: NSManagedObjectContext) throws {
+                             within context: NSManagedObjectContext) {
 
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
@@ -173,21 +173,21 @@ extension PersistedLocation {
                                  count: Int?,
                                  sharingExpiration: ObvLocationSharingExpirationDate,
                                  forEntityName entityName: String,
-                                 within context: NSManagedObjectContext) throws {
+                                 within context: NSManagedObjectContext) {
         
-        try self.init(continuousOrOneShot: continuousOrOneShot,
-                      sentOrReceived: sentOrReceived,
-                      address: locationData.address,
-                      altitude: locationData.altitude,
-                      latitude: locationData.latitude,
-                      longitude: locationData.longitude,
-                      quality: 0,
-                      precision: locationData.precision,
-                      count: count,
-                      sharingExpiration: sharingExpiration,
-                      timestamp: locationData.timestamp ?? .now,
-                      forEntityName: entityName,
-                      within: context)
+        self.init(continuousOrOneShot: continuousOrOneShot,
+                  sentOrReceived: sentOrReceived,
+                  address: locationData.address,
+                  altitude: locationData.altitude,
+                  latitude: locationData.latitude,
+                  longitude: locationData.longitude,
+                  quality: 0,
+                  precision: locationData.precision,
+                  count: count,
+                  sharingExpiration: sharingExpiration,
+                  timestamp: locationData.timestamp ?? .now,
+                  forEntityName: entityName,
+                  within: context)
 
         
     }
@@ -224,19 +224,19 @@ extension PersistedLocation {
 
 extension PersistedLocation {
     
-    func updateContentForContinuousLocation(with locationData: ObvLocationData, count: Int) throws {
+    func updateContentForContinuousLocation(with locationData: ObvLocationData, count: Int) {
         guard self.count < count else {
             return
         }
-        try self.updateContent(locationData: locationData, count: count)
+        self.updateContent(locationData: locationData, count: count)
     }
     
-    func updateContentForOneShotLocation(with locationData: ObvLocationData) throws {
-        try self.updateContent(locationData: locationData, count: nil)
+    func updateContentForOneShotLocation(with locationData: ObvLocationData) {
+        self.updateContent(locationData: locationData, count: nil)
     }
     
     
-    private func updateContent(locationData: ObvLocationData, count: Int?) throws {
+    private func updateContent(locationData: ObvLocationData, count: Int?) {
         
         if self.address != locationData.address {
             self.address = locationData.address
@@ -341,15 +341,15 @@ public class PersistedLocationContinuous: PersistedLocation {
     
     private static let entityName = "PersistedLocationContinuous"
     
-    fileprivate convenience init(sentOrReceived: SentOrReceived, locationData: ObvLocationData, count: Int, sharingExpiration: ObvLocationSharingExpirationDate, forEntityName: String, within context: NSManagedObjectContext) throws {
+    fileprivate convenience init(sentOrReceived: SentOrReceived, locationData: ObvLocationData, count: Int, sharingExpiration: ObvLocationSharingExpirationDate, forEntityName: String, within context: NSManagedObjectContext) {
         
-        try self.init(continuousOrOneShot: .continuous,
-                      sentOrReceived: sentOrReceived,
-                      locationData: locationData,
-                      count: count,
-                      sharingExpiration: sharingExpiration,
-                      forEntityName: forEntityName,
-                      within: context)
+        self.init(continuousOrOneShot: .continuous,
+                  sentOrReceived: sentOrReceived,
+                  locationData: locationData,
+                  count: count,
+                  sharingExpiration: sharingExpiration,
+                  forEntityName: forEntityName,
+                  within: context)
         
     }
     
@@ -496,12 +496,12 @@ public final class PersistedLocationContinuousReceived: PersistedLocationContinu
         
         guard let context = contactDevice.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         
-        try self.init(sentOrReceived: .received,
-                      locationData: locationData,
-                      count: count,
-                      sharingExpiration: sharingExpiration,
-                      forEntityName: Self.entityName,
-                      within: context)
+        self.init(sentOrReceived: .received,
+                  locationData: locationData,
+                  count: count,
+                  sharingExpiration: sharingExpiration,
+                  forEntityName: Self.entityName,
+                  within: context)
         
         self.contactDevice = contactDevice
         self.receivedMessages = Set() // Set later
@@ -625,12 +625,12 @@ public final class PersistedLocationContinuousSent: PersistedLocationContinuous 
         
         guard let context = ownedDevice.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         
-        try self.init(sentOrReceived: .sent,
-                      locationData: locationData,
-                      count: 0,
-                      sharingExpiration: sharingExpiration,
-                      forEntityName: Self.entityName,
-                      within: context)
+        self.init(sentOrReceived: .sent,
+                  locationData: locationData,
+                  count: 0,
+                  sharingExpiration: sharingExpiration,
+                  forEntityName: Self.entityName,
+                  within: context)
         
         self.ownedDevice = ownedDevice
         self.sentMessages = Set() // Set later
@@ -780,7 +780,7 @@ public final class PersistedLocationContinuousSent: PersistedLocationContinuous 
     func updatePersistedLocationContinuousSent(with locationData: ObvLocationData, updatedExpirationDate: ObvLocationSharingExpirationDate?) throws -> (unprocessedMessagesToSend: [MessageSentPermanentID], updatedSentMessages: Set<PersistedMessageSent>) {
         
         let newCount = self.count + 1
-        try super.updateContentForContinuousLocation(with: locationData, count: newCount)
+        super.updateContentForContinuousLocation(with: locationData, count: newCount)
 
         // Update the expiration if required
         if let updatedExpirationDate {
@@ -857,15 +857,15 @@ public final class PersistedLocationContinuousSent: PersistedLocationContinuous 
 @objc(PersistedLocationOneShot)
 public class PersistedLocationOneShot: PersistedLocation {
     
-    fileprivate convenience init(sentOrReceived: SentOrReceived, locationData: ObvLocationData, forEntityName: String, within context: NSManagedObjectContext) throws {
+    fileprivate convenience init(sentOrReceived: SentOrReceived, locationData: ObvLocationData, forEntityName: String, within context: NSManagedObjectContext) {
         
-        try self.init(continuousOrOneShot: .oneShot,
-                      sentOrReceived: sentOrReceived,
-                      locationData: locationData,
-                      count: nil,
-                      sharingExpiration: .never,
-                      forEntityName: forEntityName,
-                      within: context)
+        self.init(continuousOrOneShot: .oneShot,
+                  sentOrReceived: sentOrReceived,
+                  locationData: locationData,
+                  count: nil,
+                  sharingExpiration: .never,
+                  forEntityName: forEntityName,
+                  within: context)
         
     }
 
@@ -885,12 +885,12 @@ public final class PersistedLocationOneShotReceived: PersistedLocationOneShot {
 
     // MARK: Initializer
     
-    convenience init(locationData: ObvLocationData, within context: NSManagedObjectContext) throws {
+    convenience init(locationData: ObvLocationData, within context: NSManagedObjectContext) {
         
-        try self.init(sentOrReceived: .received,
-                      locationData: locationData,
-                      forEntityName: Self.entityName,
-                      within: context)
+        self.init(sentOrReceived: .received,
+                  locationData: locationData,
+                  forEntityName: Self.entityName,
+                  within: context)
         
         self.receivedMessage = nil // Set later
         
@@ -919,12 +919,12 @@ public final class PersistedLocationOneShotSent: PersistedLocationOneShot {
     
     // MARK: Initializer
     
-    convenience init(locationData: ObvLocationData, within context: NSManagedObjectContext) throws {
+    convenience init(locationData: ObvLocationData, within context: NSManagedObjectContext) {
 
-        try self.init(sentOrReceived: .sent,
-                      locationData: locationData,
-                      forEntityName: Self.entityName,
-                      within: context)
+        self.init(sentOrReceived: .sent,
+                  locationData: locationData,
+                  forEntityName: Self.entityName,
+                  within: context)
         
         self.sentMessage = nil // Set later
         

@@ -85,7 +85,7 @@ public class PersistedInvitation: NSManagedObject {
     
     // MARK: - Observers
     
-    private static var observersHolder = PersistedInvitationObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = PersistedInvitationObserversHolder()
     
     public static func addObvObserver(_ newObserver: PersistedInvitationObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -360,7 +360,7 @@ extension PersistedInvitation {
         if isDeleted {
             
             if let inviationUUIDOnDeletion, let ownedCryptoIdOnDeletion {
-                Task { await Self.observersHolder.aPersistedInvitationWasDeleted(ownedCryptoId: ownedCryptoIdOnDeletion, invitationUUID: inviationUUIDOnDeletion) }
+                Task { await PersistedInvitation.observersHolder.aPersistedInvitationWasDeleted(ownedCryptoId: ownedCryptoIdOnDeletion, invitationUUID: inviationUUIDOnDeletion) }
             } else {
                 assertionFailure()
             }
@@ -371,7 +371,7 @@ extension PersistedInvitation {
             if !(changedKeys.contains(Predicate.Key.rawStatus.rawValue) && status == .old) {
                 do {
                     let invitation = try self.toStructure()
-                    Task { await Self.observersHolder.aPersistedInvitationWasInsertedOrUpdated(invitation: invitation) }
+                    Task { await PersistedInvitation.observersHolder.aPersistedInvitationWasInsertedOrUpdated(invitation: invitation) }
                 } catch {
                     Self.logger.fault("Could not notify: \(error.localizedDescription)")
                     assertionFailure()
@@ -386,7 +386,7 @@ extension PersistedInvitation {
 
 // MARK: - PersistedInvitation observers
 
-public protocol PersistedInvitationObserver {
+public protocol PersistedInvitationObserver: AnyObject, Sendable {
     func aPersistedInvitationWasInsertedOrUpdated(invitation: PersistedInvitationStructure) async
     func aPersistedInvitationWasDeleted(ownedCryptoId: ObvCryptoId, invitationUUID: UUID) async
 }
@@ -394,23 +394,34 @@ public protocol PersistedInvitationObserver {
 
 private actor PersistedInvitationObserversHolder: PersistedInvitationObserver {
     
-    private var observers = [PersistedInvitationObserver]()
+    private var observers = [WeakObserver]()
     
+    private final class WeakObserver {
+        private(set) weak var value: PersistedInvitationObserver?
+        init(value: PersistedInvitationObserver?) {
+            self.value = value
+        }
+    }
+
     func addObserver(_ newObserver: PersistedInvitationObserver) {
-        self.observers.append(newObserver)
+        self.observers.append(.init(value: newObserver))
     }
     
     // Implementing PersistedInvitationObserver
     
     func aPersistedInvitationWasInsertedOrUpdated(invitation: PersistedInvitationStructure) async {
-        for observer in observers {
-            await observer.aPersistedInvitationWasInsertedOrUpdated(invitation: invitation)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedInvitationWasInsertedOrUpdated(invitation: invitation) }
+            }
         }
     }
     
     func aPersistedInvitationWasDeleted(ownedCryptoId: ObvCryptoId, invitationUUID: UUID) async {
-        for observer in observers {
-            await observer.aPersistedInvitationWasDeleted(ownedCryptoId: ownedCryptoId, invitationUUID: invitationUUID)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedInvitationWasDeleted(ownedCryptoId: ownedCryptoId, invitationUUID: invitationUUID) }
+            }
         }
     }
     

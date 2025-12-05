@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,13 +23,25 @@ import CoreData
 import ObvTypes
 import ObvUICoreData
 import ObvSystemIcon
+import ObvAppTypes
 
+
+protocol SentMessageInfosHostingViewControllerDelegate: AnyObject {
+    func userWantsToProcessReceiptsStoredForLater(_ vc: SentMessageInfosHostingViewController, ownedCryptoId: ObvCryptoId, returnReceiptElements: Set<ObvReturnReceiptElements>) async
+}
+
+
+/// This view controller displays detailed information about a **sent** message.
 final class SentMessageInfosHostingViewController: UIHostingController<SentMessageInfosView<PersistedMessageSent>> {
 
     private var store: SentMessageInfosViewStore!
+    private weak var internalDelegate: SentMessageInfosHostingViewControllerDelegate?
+    private let messageSent: PersistedMessageSent
     
-    init?(messageSent: PersistedMessageSent) {
+    init?(messageSent: PersistedMessageSent, delegate: SentMessageInfosHostingViewControllerDelegate?) {
+        self.messageSent = messageSent
         assert(messageSent.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
+        self.internalDelegate = delegate
         guard let store = SentMessageInfosViewStore(messageSent: messageSent) else { return nil }
         self.store = store
         let view = SentMessageInfosView(model: messageSent, store: store)
@@ -41,11 +53,28 @@ final class SentMessageInfosHostingViewController: UIHostingController<SentMessa
     }
     
     override func viewDidLoad() {
+        
         super.viewDidLoad()
         self.title = Strings.title
         let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(dismissPresentedViewController))
         self.navigationItem.setRightBarButton(doneButton, animated: false)
+        
+        // Try to process return receipts saved for later
+        userWantsToProcessReceiptsStoredForLater()
+        
     }
+    
+    
+    private func userWantsToProcessReceiptsStoredForLater() {
+        guard let internalDelegate else { assertionFailure(); return }
+        guard let ownedCryptoId = messageSent.discussion?.ownedIdentity?.cryptoId else { assertionFailure(); return }
+        let returnReceiptElements: Set<ObvReturnReceiptElements> = Set(messageSent.unsortedRecipientsInfos.compactMap(\.elements))
+        guard !returnReceiptElements.isEmpty else { return }
+        Task {
+            await internalDelegate.userWantsToProcessReceiptsStoredForLater(self, ownedCryptoId: ownedCryptoId, returnReceiptElements: returnReceiptElements)
+        }
+    }
+    
 
     @objc private func dismissPresentedViewController() {
         if let presentationController = self.navigationController?.presentationController,
@@ -326,7 +355,7 @@ private struct SentMessageInfosInnerView<Model: SentMessageInfosViewModelProtoco
                                                 numberOfNewMessagesBeforeSuppression: numberOfNewMessagesBeforeSuppression)
             }
             
-            Section(content: {}, footer: { SeparatorView() })
+            Section(content: {}, footer: { Divider() })
 
             Legend(messageHasMoreThanOneRecipient: sortedInfos.count > 1)
             

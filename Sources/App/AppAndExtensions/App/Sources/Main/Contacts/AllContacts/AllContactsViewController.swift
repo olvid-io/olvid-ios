@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,38 +18,48 @@
  */
 
 import CoreData
-import os.log
+import OSLog
 import ObvUI
 import ObvTypes
 import UIKit
 import ObvUICoreData
 import ObvSettings
 import ObvDesignSystem
+import ObvSystemIcon
+import ObvSharedDataSources
+import ObvOwnedIdentityChooser
+import ObvAppTypes
 
 
-final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, OlvidMenuProvider, ViewControllerWithEllipsisCircleRightBarButtonItem {
+final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem {
 
     // Variables
     
     private var notificationTokens = [NSObjectProtocol]()
-    private var sortButtonItem: UIBarButtonItem?
-    private var sortButtonItemTimer: Timer?
     private let oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus
     private let showExplanation: Bool
     private let textAboveContactList: String?
     private var viewDidLoadWasCalled = false
-
+    private let avatarViewDataSource: ObvAvatarViewDataSource
+    private let ownedIdentityChooserViewDataSource: OwnedIdentityChooserViewDataSource
+    
     // Delegates
     
     weak var delegate: AllContactsViewControllerDelegate?
     
     // MARK: - Initializer
     
-    init(ownedCryptoId: ObvCryptoId, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, title: String = CommonString.Word.Contacts, showExplanation: Bool, textAboveContactList: String?, barButtonItemToShowInsteadOfProfilePicture: UIBarButtonItem? = nil) {
+    init(ownedCryptoId: ObvCryptoId, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, title: String = CommonString.Word.Contacts, showExplanation: Bool, textAboveContactList: String?, barButtonItemToShowInsteadOfProfilePicture: UIBarButtonItem? = nil, avatarViewDataSource: ObvAvatarViewDataSource, ownedIdentityChooserViewDataSource: OwnedIdentityChooserViewDataSource) {
+        self.avatarViewDataSource = avatarViewDataSource
+        self.ownedIdentityChooserViewDataSource = ownedIdentityChooserViewDataSource
         self.oneToOneStatus = oneToOneStatus
         self.showExplanation = showExplanation
         self.textAboveContactList = textAboveContactList
-        super.init(ownedCryptoId: ownedCryptoId, logCategory: "AllContactsViewController", barButtonItemToShowInsteadOfProfilePicture: barButtonItemToShowInsteadOfProfilePicture)
+        super.init(ownedCryptoId: ownedCryptoId,
+                   logCategory: "AllContactsViewController",
+                   barButtonItemToShowInsteadOfProfilePicture: barButtonItemToShowInsteadOfProfilePicture,
+                   avatarViewDataSource: avatarViewDataSource,
+                   ownedIdentityChooserViewDataSource: ownedIdentityChooserViewDataSource)
         self.title = title
         observeContactsSortOrderDidChangeNotifications()
     }
@@ -64,9 +74,8 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
     
     // MARK: - Switching current owned identity
 
-    @MainActor
-    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
-        await super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) {
+        super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
         guard viewDidLoadWasCalled else { return }
         for multipleContactsHostingViewController in children.compactMap({ $0 as? MultipleUsersHostingViewController }) {
             multipleContactsHostingViewController.view.removeFromSuperview()
@@ -90,45 +99,35 @@ extension AllContactsViewController {
         self.view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
         addAndConfigureContactsTableViewController()
         definesPresentationContext = true
-
-        navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem()
+        
+        navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem(menu: provideMenu())
 
     }
 
     
     func provideMenu() -> UIMenu {
-        
+
+        let parentMenu = self.defaultMenu()
+
         // Update the parents menu
         var menuElements = [UIMenuElement]()
-        if let parentMenu = parent?.getFirstMenuAvailable() {
-            menuElements.append(contentsOf: parentMenu.children)
-        }
+        menuElements.append(contentsOf: parentMenu.children)
         
         let ownedCryptoId = self.currentOwnedCryptoId
         func buildAction(sortOrder: ContactsSortOrder) -> UIAction {
-            .init(title: sortOrder.description,
+            return .init(title: sortOrder.description,
                   image: nil,
                   identifier: nil,
                   discoverabilityTitle: nil,
                   attributes: .init(),
-                  state: ObvMessengerSettings.Interface.contactsSortOrder == sortOrder ? .on : .off) { [weak self ] (action) in
-                guard let _self = self else { return }
-                _self.sortButtonItemTimer?.invalidate()
-                DispatchQueue.main.async {
-                    _self.sortButtonItem?.isEnabled = false
-                }
+                  state: ObvMessengerSettings.Interface.contactsSortOrder == sortOrder ? .on : .off) { _ in
                 ObvMessengerInternalNotification.userWantsToChangeContactsSortOrder(ownedCryptoId: ownedCryptoId, sortOrder: sortOrder).postOnDispatchQueue()
-                _self.sortButtonItemTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
-                    DispatchQueue.main.async {
-                        _self.sortButtonItem?.isEnabled = true
-                    }
-                }
             }
         }
 
         let sortActions = ContactsSortOrder.allCases.map({ buildAction(sortOrder: $0) })
         let sortMenu = UIMenu(
-            title: NSLocalizedString("CONTACT_SORT_ORDER", comment: ""),
+            title: String(localized: "CONTACT_SORT_ORDER"),
             image: UIImage(systemIcon: .arrowUpArrowDownCircle),
             children: sortActions)
         
@@ -153,18 +152,24 @@ extension AllContactsViewController {
     private func presentViewControllerOfAllNonOneToOneContacts() {
         assert(Thread.isMainThread)
         
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-        let image = UIImage(systemIcon: .xmarkCircleFill, withConfiguration: symbolConfiguration)
-        let barButtonItem = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(dismissViewControllerOfAllNonOneToOneContacts))
-        barButtonItem.tintColor = AppTheme.shared.colorScheme.olvidLight
+        let barButtonItem: UIBarButtonItem
+        if #available(iOS 26, *) {
+            barButtonItem = UIBarButtonItem(image: UIImage(systemIcon: .xmark), style: .plain, target: self, action: #selector(dismissViewControllerOfAllNonOneToOneContacts))
+        } else {
+            barButtonItem = UIBarButtonItem(image: UIImage(systemIcon: .xmarkCircleFill), style: .plain, target: self, action: #selector(dismissViewControllerOfAllNonOneToOneContacts))
+            barButtonItem.tintColor = AppTheme.shared.colorScheme.olvidLight
+        }
 
         let vc = AllContactsViewController(ownedCryptoId: currentOwnedCryptoId,
                                            oneToOneStatus: .nonOneToOne,
                                            title: NSLocalizedString("OTHER_KNOWN_USERS", comment: ""),
                                            showExplanation: false,
                                            textAboveContactList: CommonString.explanationNonOneToOneContact,
-                                           barButtonItemToShowInsteadOfProfilePicture: barButtonItem)
+                                           barButtonItemToShowInsteadOfProfilePicture: barButtonItem,
+                                           avatarViewDataSource: self.avatarViewDataSource,
+                                           ownedIdentityChooserViewDataSource: self.ownedIdentityChooserViewDataSource)
         vc.delegate = self.delegate
+        vc.unlockingHiddenProfileDelegate = self.unlockingHiddenProfileDelegate
                 
         let nav = UINavigationController(rootViewController: vc)
         self.present(nav, animated: true)
@@ -177,11 +182,11 @@ extension AllContactsViewController {
     
     
     private func observeContactsSortOrderDidChangeNotifications() {
-        let token = ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange(queue: OperationQueue.main) { [weak self] in
-            guard let _self = self else { return }
-            _self.sortButtonItemTimer?.invalidate()
-            _self.sortButtonItem?.menu = _self.provideMenu()
-            _self.sortButtonItem?.isEnabled = true
+        let token = ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem(menu: provideMenu())
+            }
         }
         notificationTokens.append(token)
     }
@@ -233,39 +238,21 @@ extension AllContactsViewController {
 extension AllContactsViewController: MultipleContactsHostingViewControllerDelegate {
 
     func userWantsToSeeContactDetails(of contact: PersistedObvContactIdentity) {
-        delegate?.userDidSelect(contact, within: self.navigationController)
+        guard let contactIdentifier = try? contact.obvContactIdentifier else {
+            assertionFailure()
+            return
+        }
+        delegate?.userDidSelectContact(self, withContactIdentifier: contactIdentifier, within: self.navigationController)
     }
     
 }
-
-// MARK: - ContactsTableViewControllerDelegate
-
-extension AllContactsViewController: ContactsTableViewControllerDelegate {
-    
-    func userWantsToDeleteContact(with: ObvCryptoId, forOwnedCryptoId: ObvCryptoId, completionHandler: @escaping (Bool) -> Void) {
-        assert(false, "Not implemented")
-    }
-
-    func userDidSelect(_ contact: PersistedObvContactIdentity) {
-        delegate?.userDidSelect(contact, within: self.navigationController)
-    }
-    
-    func userDidDeselect(_ contact: PersistedObvContactIdentity) {
-        delegate?.userDidDeselect(contact)
-    }
-    
-}
-
 
 // MARK: - CanScrollToTop
 
 extension AllContactsViewController: CanScrollToTop {
     
     func scrollToTop() {
-        if let vc = children.first as? ContactsTableViewController {
-            guard vc.tableView.numberOfSections > 0 && vc.tableView.numberOfRows(inSection: 0) > 0 else { return }
-            vc.tableView.scrollToRow(at: IndexPath(row: 0, section: 0), at: .top, animated: true)
-        } else if let vc = children.first as? MultipleUsersHostingViewController {
+        if let vc = children.first as? MultipleUsersHostingViewController {
             vc.scrollToTop()
         }
     }

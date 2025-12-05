@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 
 
-public struct APIKeyElements {
+public struct APIKeyElements: Sendable, Equatable {
     
     public let status: APIKeyStatus
     public let permissions: APIPermissions
@@ -40,7 +40,7 @@ public struct APIKeyElements {
 /// `expired`: the key is valid, known in DB, unipersonnelle, mais expirée
 /// `free`: (nombre de licence à -1 sur serveur),  quand c'est free et encore actif. C'est une cle pour beta.
 /// `freeTrial`: quand c'est freeTrial et encore actif. Technique clé de MAC.
-public enum APIKeyStatus: Int, CustomStringConvertible {
+public enum APIKeyStatus: Int, CustomStringConvertible, Sendable {
     
     case valid = 0
     case unknown = 1

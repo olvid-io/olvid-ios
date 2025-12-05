@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,7 @@ import ObvMetaManager
 import OlvidUtils
 
 
-public struct ObvContactDevice: Hashable {
+public struct ObvContactDevice: Hashable, Sendable {
     
     public let deviceUID: UID
     public let contactIdentifier: ObvContactIdentifier
@@ -39,7 +39,7 @@ public struct ObvContactDevice: Hashable {
         .init(contactIdentifier: contactIdentifier, deviceUID: deviceUID)
     }
     
-    public enum SecureChannelStatus: Equatable, Hashable {
+    public enum SecureChannelStatus: Equatable, Hashable, Sendable {
         case creationInProgress(preKeyAvailable: Bool)
         case created(preKeyAvailable: Bool)
     }

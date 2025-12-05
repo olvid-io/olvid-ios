@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvMetaManager
 import ObvTypes
@@ -27,89 +27,87 @@ import OlvidUtils
 
 
 @objc(PendingGroupMember)
-final class PendingGroupMember: NSManagedObject, ObvManagedObject {
-    
-    // MARK: Internal constants
-    
+final class PendingGroupMember: NSManagedObject {
+        
     private static let entityName = "PendingGroupMember"
     private static let errorDomain = String(describing: PendingGroupMember.self)
-    private static let cryptoIdentityKey = "cryptoIdentity"
-    private static let serializedIdentityCoreDetails = "serializedIdentityCoreDetails"
-    private static let contactGroupKey = "contactGroup"
-    private static let declinedKey = "declined"
     
     private static func makeError(message: String) -> Error {
         let userInfo = [NSLocalizedFailureReasonErrorKey: message]
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
+    static weak var delegateManager: ObvIdentityDelegateManager?
+    
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: PendingGroupMember.logSubsystem, category: "PendingGroupMember") }()
+
     // MARK: Attributes
     
-    @NSManaged private(set) var cryptoIdentity: ObvCryptoIdentity
     @NSManaged private(set) var declined: Bool
+    @NSManaged private var rawCryptoIdentity: Data? // Non-optional in the model
     @NSManaged private var serializedIdentityCoreDetails: Data
     
     // MARK: Relationships
     
-    private(set) var contactGroup: ContactGroup {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: PendingGroupMember.contactGroupKey) as! ContactGroup
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: PendingGroupMember.contactGroupKey)
-        }
-    }
+    @NSManaged private(set) var contactGroup: ContactGroup
     
     // MARK: Other variables
     
-    private var changedKeys = Set<String>()
-    
-    weak var delegateManager: ObvIdentityDelegateManager?
-    
-    var identityCoreDetails: ObvIdentityCoreDetails {
-        let data = kvoSafePrimitiveValue(forKey: PendingGroupMember.serializedIdentityCoreDetails) as! Data
-        return try! ObvIdentityCoreDetails(data)
+    var cryptoIdentity: ObvCryptoIdentity {
+        get throws(ObvError) {
+            guard let rawCryptoIdentity else { assertionFailure(); throw .unexpectedNilValue }
+            guard let cryptoIdentity = ObvCryptoIdentity(from: rawCryptoIdentity) else { assertionFailure(); throw .couldNotParseValue }
+            return cryptoIdentity
+        }
     }
     
-    weak var obvContext: ObvContext?
+    private var changedKeys = Set<String>()
     
+    var identityCoreDetails: ObvIdentityCoreDetails {
+        let data = kvoSafePrimitiveValue(forKey: Predicate.Key.serializedIdentityCoreDetails.rawValue) as! Data
+        return try! ObvIdentityCoreDetails(data)
+    }
+        
     // MARK: - Initializer
     
-    convenience init(contactGroup: ContactGroup, cryptoIdentityWithCoreDetails: CryptoIdentityWithCoreDetails, delegateManager: ObvIdentityDelegateManager) throws {
-        guard let obvContext = contactGroup.obvContext else {
+    convenience init(contactGroup: ContactGroup, cryptoIdentityWithCoreDetails: CryptoIdentityWithCoreDetails) throws {
+        guard let context = contactGroup.managedObjectContext else {
             throw ObvIdentityManagerError.contextIsNil
         }
-        let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.cryptoIdentity = cryptoIdentityWithCoreDetails.cryptoIdentity
+        let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        self.rawCryptoIdentity = cryptoIdentityWithCoreDetails.cryptoIdentity.getIdentity()
         self.declined = false
         self.serializedIdentityCoreDetails = try cryptoIdentityWithCoreDetails.coreDetails.jsonEncode()
         self.contactGroup = contactGroup
-        self.delegateManager = delegateManager
     }
 
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(backupItem: PendingGroupMemberBackupItem, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.cryptoIdentity = backupItem.cryptoIdentity
+    fileprivate convenience init(backupItem: PendingGroupMemberBackupItem, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        self.rawCryptoIdentity = backupItem.cryptoIdentity.getIdentity()
         self.declined = backupItem.declined
         self.serializedIdentityCoreDetails = backupItem.serializedIdentityCoreDetails
     }
 
     
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(cryptoIdentity: ObvCryptoIdentity, snapshotItem: PendingGroupMemberSyncSnapshotItem, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.cryptoIdentity = cryptoIdentity
+    fileprivate convenience init(cryptoIdentity: ObvCryptoIdentity, snapshotItem: PendingGroupMemberSyncSnapshotItem, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        self.rawCryptoIdentity = cryptoIdentity.getIdentity()
         self.declined = snapshotItem.declined
         self.serializedIdentityCoreDetails = snapshotItem.serializedIdentityCoreDetails
     }
 
+    enum ObvError: Error {
+        case unexpectedNilValue
+        case couldNotParseValue
+    }
+    
 }
 
 
@@ -117,15 +115,13 @@ final class PendingGroupMember: NSManagedObject, ObvManagedObject {
 
 extension PendingGroupMember {
     
-    func markAsDeclined(delegateManager: ObvIdentityDelegateManager?) {
-        self.delegateManager = delegateManager
+    func markAsDeclined() {
         if !self.declined {
             self.declined = true
         }
     }
     
-    func unmarkAsDeclined(delegateManager: ObvIdentityDelegateManager?) {
-        self.delegateManager = delegateManager
+    func unmarkAsDeclined() {
         if self.declined {
             self.declined = false
         }
@@ -138,32 +134,49 @@ extension PendingGroupMember {
 
 extension PendingGroupMember {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case declined = "declined"
+            case rawCryptoIdentity = "rawCryptoIdentity"
+            case serializedIdentityCoreDetails = "serializedIdentityCoreDetails"
+            // Relationships
+            case contactGroup = "contactGroup"
+        }
+        static func withObvCryptoIdentity(_ cryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(Key.rawCryptoIdentity, EqualToData: cryptoIdentity.getIdentity())
+        }
+        static func withContactGroup(_ contactGroup: ContactGroup) -> NSPredicate {
+            NSPredicate(Key.contactGroup, equalTo: contactGroup)
+        }
+    }
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<PendingGroupMember> {
         return NSFetchRequest<PendingGroupMember>(entityName: entityName)
     }
 
     
-    static func get(cryptoIdentity: ObvCryptoIdentity, contactGroup: ContactGroup, delegateManager: ObvIdentityDelegateManager) throws -> PendingGroupMember? {
-        guard let obvContext = contactGroup.obvContext else {
-            throw Self.makeError(message: "No obvContext")
+    static func get(cryptoIdentity: ObvCryptoIdentity, contactGroup: ContactGroup) throws -> PendingGroupMember? {
+        guard let context = contactGroup.managedObjectContext else {
+            throw Self.makeError(message: "No context")
         }
         let request: NSFetchRequest<PendingGroupMember> = PendingGroupMember.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        cryptoIdentityKey, cryptoIdentity,
-                                        contactGroupKey, contactGroup)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withObvCryptoIdentity(cryptoIdentity),
+            Predicate.withContactGroup(contactGroup),
+        ])
         request.fetchLimit = 1
-        let obj = try obvContext.fetch(request).first
-        obj?.delegateManager = delegateManager
+        let obj = try context.fetch(request).first
         return obj
     }
     
     
-    static func delete(cryptoIdentity: ObvCryptoIdentity, contactGroup: ContactGroup, delegateManager: ObvIdentityDelegateManager) throws {
-        guard let obvContext = contactGroup.obvContext else {
-            throw Self.makeError(message: "No obvContext")
+    static func delete(cryptoIdentity: ObvCryptoIdentity, contactGroup: ContactGroup) throws {
+        guard let context = contactGroup.managedObjectContext else {
+            throw Self.makeError(message: "No context")
         }
-        guard let obj = try get(cryptoIdentity: cryptoIdentity, contactGroup: contactGroup, delegateManager: delegateManager) else { return }
-        obvContext.delete(obj)
+        guard let obj = try get(cryptoIdentity: cryptoIdentity, contactGroup: contactGroup) else { return }
+        context.delete(obj)
     }
     
 }
@@ -190,38 +203,44 @@ extension PendingGroupMember {
         
         guard !isDeleted else { return }
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: PendingGroupMember.entityName)
-            os_log("The delegate manager is not set (7)", log: log, type: .fault)
+        guard let delegateManager = Self.delegateManager else {
+            Self.logger.fault("The delegate manager is not set (7)")
             return
         }
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: PendingGroupMember.entityName)
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            Self.logger.fault("The notification delegate is not set")
             return
         }
         
         
-        if changedKeys.contains(PendingGroupMember.declinedKey) {
+        if changedKeys.contains(Predicate.Key.declined.rawValue) {
             if let ownedGroup = self.contactGroup as? ContactGroupOwned {
                 
                 if self.declined {
                     
-                    let NotificationType = ObvIdentityNotification.PendingGroupMemberDeclinedInvitationToOwnedGroup.self
-                    let userInfo = [NotificationType.Key.groupUid: contactGroup.groupUid,
-                                    NotificationType.Key.ownedIdentity: ownedGroup.ownedIdentity.cryptoIdentity,
-                                    NotificationType.Key.contactIdentity: self.cryptoIdentity] as [String: Any]
-                    notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    do {
+                        let NotificationType = ObvIdentityNotification.PendingGroupMemberDeclinedInvitationToOwnedGroup.self
+                        let userInfo = [NotificationType.Key.groupUid: try contactGroup.groupUid,
+                                        NotificationType.Key.ownedIdentity: try ownedGroup.ownedIdentity.cryptoIdentity,
+                                        NotificationType.Key.contactIdentity: try self.cryptoIdentity] as [String: Any]
+                        notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    } catch {
+                        assertionFailure()
+                    }
                     
                 } else {
                     
-                    let NotificationType = ObvIdentityNotification.DeclinedPendingGroupMemberWasUndeclinedForOwnedGroup.self
-                    let userInfo = [NotificationType.Key.groupUid: contactGroup.groupUid,
-                                    NotificationType.Key.ownedIdentity: ownedGroup.ownedIdentity.cryptoIdentity,
-                                    NotificationType.Key.contactIdentity: self.cryptoIdentity] as [String: Any]
-                    notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                    
+                    do {
+                        let NotificationType = ObvIdentityNotification.DeclinedPendingGroupMemberWasUndeclinedForOwnedGroup.self
+                        let userInfo = [NotificationType.Key.groupUid: try contactGroup.groupUid,
+                                        NotificationType.Key.ownedIdentity: try ownedGroup.ownedIdentity.cryptoIdentity,
+                                        NotificationType.Key.contactIdentity: try self.cryptoIdentity] as [String: Any]
+                        notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    } catch {
+                        assertionFailure()
+                    }
+
                 }
                 
             }
@@ -237,9 +256,11 @@ extension PendingGroupMember {
 extension PendingGroupMember {
     
     var backupItem: PendingGroupMemberBackupItem {
-        return PendingGroupMemberBackupItem(cryptoIdentity: cryptoIdentity,
-                                            declined: declined,
-                                            serializedIdentityCoreDetails: serializedIdentityCoreDetails)
+        get throws {
+            return PendingGroupMemberBackupItem(cryptoIdentity: try cryptoIdentity,
+                                                declined: declined,
+                                                serializedIdentityCoreDetails: serializedIdentityCoreDetails)
+        }
     }
 
 }
@@ -298,12 +319,12 @@ struct PendingGroupMemberBackupItem: Codable, Hashable {
         self.serializedIdentityCoreDetails = serializedIdentityCoreDetailsAsData
     }
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-        let pendingGroupMember = PendingGroupMember(backupItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout BackupItemObjectAssociations) throws {
+        let pendingGroupMember = PendingGroupMember(backupItem: self, within: context)
         try associations.associate(pendingGroupMember, to: self)
     }
     
-    func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing to do here
     }
 
@@ -362,13 +383,13 @@ struct PendingGroupMemberSyncSnapshotItem: Codable, Hashable, Identifiable {
     }
 
     
-    func restoreInstance(within obvContext: ObvContext, cryptoIdentity: ObvCryptoIdentity, associations: inout SnapshotNodeManagedObjectAssociations) throws {
-        let pendingGroupMember = PendingGroupMember(cryptoIdentity: cryptoIdentity, snapshotItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, cryptoIdentity: ObvCryptoIdentity, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let pendingGroupMember = PendingGroupMember(cryptoIdentity: cryptoIdentity, snapshotItem: self, within: context)
         try associations.associate(pendingGroupMember, to: self)
     }
     
     
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing to do here
     }
 

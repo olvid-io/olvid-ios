@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvCrypto
 import ObvEncoder
@@ -28,7 +28,7 @@ import OlvidUtils
 
 final class ContactTrustLevelWatcher {
     
-    weak var delegateManager: ObvProtocolDelegateManager! 
+    weak var delegateManager: ObvProtocolDelegateManager?
 
     private let prng: PRNGService
     private let internalQueue = OperationQueue.createSerialQueue(name: "ContactTrustLevelWatcherQueue", qualityOfService: .background)
@@ -40,12 +40,12 @@ final class ContactTrustLevelWatcher {
     }
     
     deinit {
-        notificationTokens.forEach { delegateManager.notificationDelegate?.removeObserver($0) }
+        notificationTokens.forEach { delegateManager?.notificationDelegate?.removeObserver($0) }
     }
     
     func finalizeInitialization() {
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
+        guard let notificationDelegate = delegateManager?.notificationDelegate else {
             let log = OSLog(subsystem: ObvProtocolDelegateManager.defaultLogSubsystem, category: "ContactTrustLevelWatcher")
             os_log("The notification delegate is not set", log: log, type: .fault)
             assertionFailure()
@@ -53,14 +53,15 @@ final class ContactTrustLevelWatcher {
         }
 
         notificationTokens.append(contentsOf: [
-            ObvIdentityNotificationNew.observeContactIdentityOneToOneStatusChanged(within: notificationDelegate, queue: internalQueue) { [weak self] (ownedIdentity, contactIdentity, flowId) in
-                self?.processContactIdentityOneToOneStatusChanged(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
+            ObvIdentityNotificationNew.observeContactIdentityOneToOneStatusChanged(within: notificationDelegate, queue: internalQueue) { [weak self] (ownedIdentity, contactIdentity) in
+                self?.processContactIdentityOneToOneStatusChanged(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity)
             },
         ])
         
     }
     
-    
+    func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
+        
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
         if forTheFirstTime {
             self.reEvaluateAllProtocolInstanceWaitingForContactUpgradeToOneToOne()
@@ -71,19 +72,21 @@ final class ContactTrustLevelWatcher {
     /// This code is only meaningfull in the rare cases where a notification of Trust Level increase has been "missed".
     private func reEvaluateAllProtocolInstanceWaitingForContactUpgradeToOneToOne() {
         
+        guard let delegateManager else { assertionFailure(); return }
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
 
-        guard let contextCreator = self.delegateManager.contextCreator else {
+        guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator is not set", log: log, type: .fault)
             return
         }
         
-        guard let identityDelegate = self.delegateManager.identityDelegate else {
+        guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
             return
         }
 
-        guard let channelDelegate = self.delegateManager.channelDelegate else {
+        guard let channelDelegate = delegateManager.channelDelegate else {
             os_log("The channel delegate is not set", log: log, type: .fault)
             return
         }
@@ -98,7 +101,7 @@ final class ContactTrustLevelWatcher {
                 
                 let protocolInstances: Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne>
                 do {
-                    protocolInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(delegateManager: _self.delegateManager, within: obvContext)
+                    protocolInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(within: obvContext.context)
                 } catch {
                     os_log("Could not query the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
                     return
@@ -111,7 +114,7 @@ final class ContactTrustLevelWatcher {
                 for protocolInstance in protocolInstances {
                     
                     do {
-                        guard try identityDelegate.isIdentity(protocolInstance.contactCryptoIdentity, aContactIdentityOfTheOwnedIdentity: protocolInstance.ownedCryptoIdentity, within: obvContext) else {
+                        guard try identityDelegate.isIdentity(protocolInstance.contactCryptoIdentity, aContactIdentityOfTheOwnedIdentity: protocolInstance.ownedCryptoIdentity, within: obvContext.context) else {
                             continue
                         }
                         
@@ -135,7 +138,11 @@ final class ContactTrustLevelWatcher {
                                         
                     // If we reach this point, there exists a contact that reached a high enough trust level in order to re-launch a protocol instance.
                     
-                    let message = protocolInstance.getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel()
+                    guard let message = try? protocolInstance.getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel() else {
+                        os_log("Could not generate protocol message to send", log: log, type: .fault)
+                        assertionFailure()
+                        return
+                    }
                     guard let protocolMessageToSend = message.generateObvChannelProtocolMessageToSend(with: _self.prng) else {
                         os_log("Could not generate protocol message to send", log: log, type: .fault)
                         return
@@ -167,7 +174,9 @@ final class ContactTrustLevelWatcher {
     }
     
     
-    private func processContactIdentityOneToOneStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
+    private func processContactIdentityOneToOneStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) {
+        
+        guard let delegateManager else { assertionFailure(); return }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         
@@ -177,7 +186,7 @@ final class ContactTrustLevelWatcher {
             return
         }
         
-        guard let identityDelegate = self.delegateManager.identityDelegate else {
+        guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
             return
         }
@@ -188,7 +197,8 @@ final class ContactTrustLevelWatcher {
             return
         }
         
-
+        let flowId = FlowIdentifier()
+        
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
 
             do {
@@ -205,7 +215,7 @@ final class ContactTrustLevelWatcher {
             // Query the ProtocolInstanceWaitingForContactUpgradeToOneToOne to see if there is a protocol instance to "wake up"
             let protocolInstances: Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne>
             do {
-                protocolInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, delegateManager: delegateManager, within: obvContext)
+                protocolInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, within: obvContext.context)
             } catch {
                 os_log("Could not query the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
                 return
@@ -219,7 +229,11 @@ final class ContactTrustLevelWatcher {
             
             for waitingProtocolInstance in protocolInstances {
                 
-                let message = waitingProtocolInstance.getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel()
+                guard let message = try? waitingProtocolInstance.getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel() else {
+                    os_log("Could not generate protocol message to send", log: log, type: .fault)
+                    assertionFailure()
+                    return
+                }
                 guard let protocolMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
                     os_log("Could not generate protocol message to send", log: log, type: .fault)
                     return

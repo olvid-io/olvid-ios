@@ -201,6 +201,12 @@ extension PersistedGroupDiscussion {
                 withGroupOwnerCryptoId(groupV1Identifier.groupOwner),
             ])
         }
+        static func withGroupId(_ groupId: ObvGroupV1Identifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withOwnedCryptoId(groupId.ownedCryptoId),
+                withGroupV1Identifier(groupId.groupV1Identifier),
+            ])
+        }
     }
 
     
@@ -253,11 +259,25 @@ extension PersistedGroupDiscussion {
         case .preDiscussion, .active:
             throw ObvUICoreDataError.discussionIsNotLocked
         case .locked:
-            try discussion.deletePersistedDiscussion()
+            try discussion.deletePersistedDiscussionFromDatabase()
         }
     }
 
 
+    static func isPersistedGroupDiscussionExisting(groupId: ObvGroupV1Identifier, within context: NSManagedObjectContext) throws -> Bool {
+        return try getPersistedDiscussionGroupV1ObjectID(groupId: groupId, within: context) != nil
+    }
+
+    
+    static func getPersistedDiscussionGroupV1ObjectID(groupId: ObvGroupV1Identifier, within context: NSManagedObjectContext) throws -> TypeSafeManagedObjectID<PersistedGroupDiscussion>? {
+        let batchFetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        batchFetchRequest.resultType = .managedObjectIDResultType
+        batchFetchRequest.predicate = Predicate.withGroupId(groupId)
+        batchFetchRequest.fetchLimit = 1
+        let result = try context.fetch(batchFetchRequest) as? [NSManagedObjectID] ?? []
+        return result.map({ TypeSafeManagedObjectID<PersistedGroupDiscussion>(objectID: $0) }).first
+    }
+    
 }
 
 public extension TypeSafeManagedObjectID where T == PersistedGroupDiscussion {

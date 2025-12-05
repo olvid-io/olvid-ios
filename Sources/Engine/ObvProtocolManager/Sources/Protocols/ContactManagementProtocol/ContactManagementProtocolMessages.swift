@@ -64,7 +64,7 @@ extension ContactManagementProtocol {
         var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             contactIdentity = try message.encodedInputs.obvDecode()
         }
         
@@ -86,7 +86,7 @@ extension ContactManagementProtocol {
         var encodedInputs: [ObvEncoded] { return [] }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
@@ -108,7 +108,7 @@ extension ContactManagementProtocol {
         var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             contactIdentity = try message.encodedInputs.obvDecode()
         }
         
@@ -132,7 +132,7 @@ extension ContactManagementProtocol {
         var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             contactIdentity = try message.encodedInputs.obvDecode()
         }
         
@@ -154,7 +154,7 @@ extension ContactManagementProtocol {
         var encodedInputs: [ObvEncoded] { return [] }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
@@ -176,7 +176,7 @@ extension ContactManagementProtocol {
         var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             contactIdentity = try message.encodedInputs.obvDecode()
         }
         
@@ -198,7 +198,7 @@ extension ContactManagementProtocol {
         var encodedInputs: [ObvEncoded] { return [] }
 
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {

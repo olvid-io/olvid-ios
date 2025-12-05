@@ -60,6 +60,7 @@ let obvCircleAndTitlesView = Target.makeFrameworkTarget(
         .Olvid.App.obvDesignSystem,
         .Olvid.App.obvSystemIcon,
         .Olvid.App.obvAppCoreConstants,
+        .Olvid.Shared.obvAccessibility,
     ],
     enableSwift6: true)
 

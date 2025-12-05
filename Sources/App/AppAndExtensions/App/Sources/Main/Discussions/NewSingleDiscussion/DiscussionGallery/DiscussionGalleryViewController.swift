@@ -32,7 +32,7 @@ import ObvSystemIcon
 import ObvDesignSystem
 import ObvEncoder
 import ObvAppCoreConstants
-
+import ObvAppTypes
 
 fileprivate enum JoinKind: Int, CaseIterable {
     case medias = 0
@@ -58,7 +58,7 @@ protocol DiscussionGalleryViewControllerDelegate: AnyObject {
 
 /// This view controller is a container view controller. It displays a `UISegmentedControl` allowing to switch between two galleries: one for the medias (images, movies,...) , one for the links and one for the other types of files.
 /// The three children view controllers are instances of the `JoinGalleryViewController` defined bellow.
-final class DiscussionGalleryViewController: UIViewController, DiscussionGalleryViewControllerDelegate {
+final class DiscussionGalleryViewController: KeyboardViewController, DiscussionGalleryViewControllerDelegate {
 
     private let segmentedControl = UISegmentedControl(items: JoinKind.allCases.map({ $0.title }))
     private let toolbarLabel = UILabel()

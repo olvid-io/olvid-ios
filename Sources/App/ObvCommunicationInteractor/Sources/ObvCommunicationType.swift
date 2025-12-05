@@ -25,6 +25,7 @@ import ObvUICoreDataStructs
 public enum ObvCommunicationType {
     
     case incomingReaction(reactor: PersistedObvContactIdentityStructure, sentMessageReactedTo: PersistedMessageSentStructure)
+    case incomingPollVote(reactor: PersistedObvContactIdentityStructure, sentMessageVotedTo: PersistedMessageSentStructure)
 
     case incomingMessage(contact: PersistedObvContactIdentityStructure, discussionKind: PersistedDiscussionAbstractStructure.StructureKind, messageRepliedTo: RepliedToMessageStructure?, mentions: [ObvCryptoId])
     case outgoingMessage(sentMessage: PersistedMessageSentStructure)

@@ -141,7 +141,7 @@ extension URL {
                                                                scale: scale,
                                                                representationTypes: .thumbnail)
                     let secondRepresentation = try await generator.generateBestRepresentation(for: request)
-                    assert(abs(secondRepresentation.uiImage.size.width - mandatoryWidth) < 1.0, "Distance: \(abs(secondRepresentation.uiImage.size.width - mandatoryWidth))")
+                    assert(abs(secondRepresentation.uiImage.size.width - mandatoryWidth) <= 1.0, "Distance: \(abs(secondRepresentation.uiImage.size.width - mandatoryWidth))")
                     representation = secondRepresentation
                 }
 
@@ -164,7 +164,7 @@ extension URL {
                 returnedThumbnail = UIImage(cgImage: cutImageRef, scale: scale, orientation: .up)
             }
 
-            assert(abs(returnedThumbnail.size.width - mandatoryWidth) < 1.0)
+            assert(abs(returnedThumbnail.size.width - mandatoryWidth) <= 1.0)
             assert(returnedThumbnail.size.height <= maxHeight)
             
             return returnedThumbnail

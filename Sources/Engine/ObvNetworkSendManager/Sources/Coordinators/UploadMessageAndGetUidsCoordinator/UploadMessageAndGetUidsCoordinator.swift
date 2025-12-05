@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,13 +18,14 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvOperation
 import ObvServerInterface
 import ObvTypes
 import ObvMetaManager
 import OlvidUtils
+import ObvCrypto
 
 
 final class UploadMessageAndGetUidsCoordinator: NSObject {
@@ -105,6 +106,7 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
         case cannotFindMessageInDatabase
         case messageWasAlreadyUploaded
         case cancelExternallyRequested
+        case couldNotParseValues
         case newRunningTask(task: URLSessionTask)
         case failedToCreateTask(error: Error)
     }
@@ -118,6 +120,7 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: logCategory)
         
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator manager is not set", log: log, type: .fault)
@@ -137,7 +140,7 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
             
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
                 
-                guard let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else {
+                guard let message = try? OutboxMessage.get(messageId: messageId, within: obvContext.context) else {
                     syncQueueOutput = .cannotFindMessageInDatabase
                     return
                 }
@@ -154,13 +157,22 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
                 
                 // If we reach this point, we do need to ask the server for and "uid from server"
                 
-                let headers = message.headers.map() { ($0.deviceUid, $0.wrappedKey, $0.toCryptoIdentity) }
+                let headers: [(UID, EncryptedData, ObvCryptoIdentity)]
+                let encryptedContent: EncryptedData
+                do {
+                    headers = try message.headers.map { try ($0.deviceUid, $0.wrappedKey, $0.toCryptoIdentity) }
+                    encryptedContent = try message.encryptedContent
+                } catch {
+                    assertionFailure()
+                    syncQueueOutput = .couldNotParseValues
+                    return
+                }
                 let encryptedAttachments = message.attachments.map() { (length: $0.ciphertextLength, chunkLength: $0.chunks.first!.ciphertextChunkLength) }
                 
                 let method = ObvServerUploadMessageAndGetUidsMethod(
                     ownedIdentity: messageId.ownedCryptoIdentity,
                     headers: headers,
-                    encryptedContent: message.encryptedContent,
+                    encryptedContent: encryptedContent,
                     encryptedExtendedMessagePayload: message.encryptedExtendedMessagePayload,
                     encryptedAttachments: encryptedAttachments,
                     serverURL: message.serverURL,
@@ -214,6 +226,10 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
         case .newRunningTask(task: let task):
             os_log("New running task to get uid from server for message %{public}@", log: log, type: .debug, messageId.debugDescription)
             task.resume()
+            
+        case .couldNotParseValues:
+            logger.fault("Could not parse values")
+            return
 
         }
     }
@@ -237,7 +253,7 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
         try localQueue.sync {
             try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
                 obvContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
-                guard let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else { return }
+                guard let message = try? OutboxMessage.get(messageId: messageId, within: obvContext.context) else { return }
                 message.cancelUpload()
                 try obvContext.save(logOnFailure: log)
             }
@@ -266,6 +282,7 @@ extension UploadMessageAndGetUidsCoordinator: URLSessionDataDelegate {
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: logCategory)
         
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator manager is not set", log: log, type: .fault)
@@ -283,7 +300,7 @@ extension UploadMessageAndGetUidsCoordinator: URLSessionDataDelegate {
         
         // If we reach this point, the data task did complete without error
         
-        guard let (status, infosFromServer) = ObvServerUploadMessageAndGetUidsMethod.parseObvServerResponse(responseData: responseData, using: log) else {
+        guard let status = ObvServerUploadMessageAndGetUidsMethod.parseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .fault)
             _ = removeInfoFor(task)
             delegateManager.networkSendFlowDelegate.failedUploadAndGetUidOfMessage(messageId: messageId, flowId: flowId)
@@ -292,20 +309,15 @@ extension UploadMessageAndGetUidsCoordinator: URLSessionDataDelegate {
         
         switch status {
             
-        case .ok:
+        case .ok(idFromServer: let idFromServer, nonce: let nonce, timestampFromServer: let timestampFromServer, signedURLs: let signedURLs):
             
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                guard let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else {
+                guard let message = try? OutboxMessage.get(messageId: messageId, within: obvContext.context) else {
                     os_log("Could not retrieve the message", log: log, type: .error)
                     _ = removeInfoFor(task)
                     delegateManager.networkSendFlowDelegate.failedUploadAndGetUidOfMessage(messageId: messageId, flowId: flowId)
                     return
                 }
-                
-                let idFromServer = infosFromServer!.idFromServer
-                let nonce = infosFromServer!.nonce
-                let timestampFromServer = infosFromServer!.timestampFromServer
-                let signedURLs = infosFromServer!.signedURLs
                 
                 do {
                     try message.setAttachmentUploadPrivateUrls(signedURLs)
@@ -316,7 +328,7 @@ extension UploadMessageAndGetUidsCoordinator: URLSessionDataDelegate {
                     return
                 }
                                 
-                message.setAcknowledged(withMessageUidFromServer: idFromServer, nonceFromServer: nonce, andTimeStampFromServer: timestampFromServer, log: log)
+                message.setAcknowledged(withMessageUidFromServer: idFromServer, nonceFromServer: nonce, andTimeStampFromServer: timestampFromServer)
                 
                 do {
                     try obvContext.save(logOnFailure: log)
@@ -333,13 +345,27 @@ extension UploadMessageAndGetUidsCoordinator: URLSessionDataDelegate {
                 return
             }
             
+        case .payloadTooLarge:
             
+            logger.error("The server reported that the message's payload is too large. We delete it and notify the app.")
+
+            Task {
+                // Delete the message that is too large to be uploaded
+                do {
+                    let op1 = DeleteOutboxMessageTooLargeForServerOperation(messageId: messageId)
+                    try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: log, flowId: flowId)
+                } catch {
+                    assertionFailure()
+                    // In production, continue anyway
+                }
+            }
+
         case .generalError:
             
             os_log("Server reported general error", log: log, type: .fault)
             
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext)
+                let message = try? OutboxMessage.get(messageId: messageId, within: obvContext.context)
                 try? message?.resetForResend()
                 try? obvContext.save(logOnFailure: log)
             }

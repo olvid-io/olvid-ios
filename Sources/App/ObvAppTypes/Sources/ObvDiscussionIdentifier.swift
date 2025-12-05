@@ -152,6 +152,24 @@ extension ObvDiscussionIdentifier: CustomDebugStringConvertible {
 }
 
 
+// MARK: - Utils
+
+extension ObvDiscussionIdentifier {
+    
+    public var obvGroupIdentifier: ObvGroupIdentifier? {
+        switch self {
+        case .oneToOne:
+            return nil
+        case .groupV1(id: let groupV1Identifier):
+            return .groupV1(groupV1Identifier)
+        case .groupV2(let groupV2Identifier):
+            return .groupV2(groupV2Identifier)
+        }
+    }
+    
+}
+
+
 // MARK: - Codable
 
 //extension ObvDiscussionIdentifier: Codable {

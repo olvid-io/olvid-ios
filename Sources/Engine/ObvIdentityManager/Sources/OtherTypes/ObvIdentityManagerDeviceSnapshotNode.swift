@@ -38,14 +38,14 @@ struct ObvIdentityManagerDeviceSnapshotNode: ObvSyncSnapshotNode, Codable {
     private static let defaultDomain: Set<CodingKeys> = Set(CodingKeys.allCases.filter({ $0 != .domain }))
     
     
-    init(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
-        let ownedIdentitiesObjects = try OwnedIdentity.getAll(restrictToActive: true, delegateManager: delegateManager, within: obvContext)
+    init(within obvContext: ObvContext) throws {
+        let ownedIdentitiesObjects = try OwnedIdentity.getAll(restrictToActive: true, within: obvContext.context)
         guard !ownedIdentitiesObjects.isEmpty else {
             throw ObvError.noActiveIdentity
         }
         var ownedIdentities = [ObvCryptoId: OwnedIdentityDeviceSnapshotNode]()
         for ownedIdentity in ownedIdentitiesObjects {
-            let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity.cryptoIdentity)
+            let ownedCryptoId = ObvCryptoId(cryptoIdentity: try ownedIdentity.cryptoIdentity)
             let deviceSnapshotNode = try ownedIdentity.deviceSnapshotNode
             ownedIdentities[ownedCryptoId] = deviceSnapshotNode
         }

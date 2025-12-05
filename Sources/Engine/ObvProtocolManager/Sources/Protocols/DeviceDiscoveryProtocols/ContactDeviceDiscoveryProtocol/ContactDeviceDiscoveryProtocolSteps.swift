@@ -70,7 +70,7 @@ extension ContactDeviceDiscoveryProtocol {
             
             // We check that the identity is indeed a contact identity
             
-            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true else {
                 os_log("The identity %@ is not a contact identity of the owned identity %@", log: log, type: .fault, contactIdentity.debugDescription, ownedIdentity.debugDescription)
                 return CancelledState()
             }
@@ -85,7 +85,7 @@ extension ContactDeviceDiscoveryProtocol {
             let childProtocolInstanceUid = UID.gen(with: prng)
             os_log("Creating a link between the parent with uid %@ and the child protocol with uid %@, with owned identity %@", log: log, type: .debug, protocolInstanceUid.debugDescription, childProtocolInstanceUid.debugDescription, ownedIdentity.debugDescription)
             
-            guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            guard let thisProtocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, within: obvContext.context) else {
                 os_log("Could not retrive this protocol instance", log: log, type: .fault)
                 return CancelledState()
             }

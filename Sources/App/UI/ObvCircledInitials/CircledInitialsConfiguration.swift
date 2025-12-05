@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,7 +48,7 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
 
     
     case contact(initial: String, photo: Photo?, showGreenShield: Bool, showRedShield: Bool, cryptoId: ObvCryptoId, tintAdjustementMode: TintAdjustementMode)
-    case group(photo: Photo?, groupUid: UID)
+    case groupV1(photo: Photo?, groupUid: UID)
     case groupV2(photo: Photo?, groupIdentifier: Data, showGreenShield: Bool)
     case icon(_ icon: CircledInitialsIcon)
     case photo(photo: Photo)
@@ -59,7 +59,7 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
         switch self {
         case .contact(initial: _, photo: let _photo, showGreenShield: _, showRedShield: _, cryptoId: _, tintAdjustementMode: _):
             photo = _photo
-        case .group(photo: let _photo, groupUid: _):
+        case .groupV1(photo: let _photo, groupUid: _):
             photo = _photo
         case .groupV2(photo: let _photo, groupIdentifier: _, showGreenShield: _):
             photo = _photo
@@ -83,7 +83,7 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
         switch self {
         case .contact:
             return .person
-        case .group, .groupV2:
+        case .groupV1, .groupV2:
             return .person3Fill
         case .icon(let icon):
             return icon
@@ -99,7 +99,7 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
             return showGreenShield
         case .groupV2(photo: _, groupIdentifier: _, showGreenShield: let showGreenShield):
             return showGreenShield
-        case .group, .icon:
+        case .groupV1, .icon:
             return false
         case .photo:
             return false
@@ -129,8 +129,8 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
         switch self {
         case .contact(let initial, _, let showGreenShield, let showRedShield, let cryptoId, let tintAdjustementMode):
             return .contact(initial: initial, photo: newPhoto, showGreenShield: showGreenShield, showRedShield: showRedShield, cryptoId: cryptoId, tintAdjustementMode: tintAdjustementMode)
-        case .group(_, let groupUid):
-            return .group(photo: newPhoto, groupUid: groupUid)
+        case .groupV1(_, let groupUid):
+            return .groupV1(photo: newPhoto, groupUid: groupUid)
         case .groupV2(_, let groupIdentifier, let showGreenShield):
             return .groupV2(photo: newPhoto, groupIdentifier: groupIdentifier, showGreenShield: showGreenShield)
         case .icon(let icon):
@@ -146,7 +146,7 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
         switch self {
         case .contact(_, let photo, let showGreenShield, let showRedShield, let cryptoId, let tintAdjustementMode):
             return .contact(initial: newInitials, photo: photo, showGreenShield: showGreenShield, showRedShield: showRedShield, cryptoId: cryptoId, tintAdjustementMode: tintAdjustementMode)
-        case .group:
+        case .groupV1:
             return self
         case .groupV2:
             return self
@@ -161,7 +161,7 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
     public var icon: SystemIcon {
         switch self {
         case .contact: return .person
-        case .group, .groupV2: return .person3Fill
+        case .groupV1, .groupV2: return .person3Fill
         case .icon(let icon): return icon.icon
         case .photo: return .person
         }
@@ -172,7 +172,7 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
         switch self {
         case .contact(initial: _, photo: _, showGreenShield: _, showRedShield: _, cryptoId: let cryptoId, tintAdjustementMode: _):
             return appTheme.identityColors(for: cryptoId, using: style).background
-        case .group(photo: _, groupUid: let groupUid):
+        case .groupV1(photo: _, groupUid: let groupUid):
             return appTheme.groupColors(forGroupUid: groupUid, using: style).background
         case .groupV2(photo: _, groupIdentifier: let groupIdentifier, showGreenShield: _):
             return appTheme.groupV2Colors(forGroupIdentifier: groupIdentifier).background
@@ -188,7 +188,7 @@ public enum CircledInitialsConfiguration: Hashable, Sendable {
         switch self {
         case .contact(initial: _, photo: _, showGreenShield: _, showRedShield: _, cryptoId: let cryptoId, tintAdjustementMode: _):
             return appTheme.identityColors(for: cryptoId, using: style).text
-        case .group(photo: _, groupUid: let groupUid):
+        case .groupV1(photo: _, groupUid: let groupUid):
             return appTheme.groupColors(forGroupUid: groupUid, using: style).text
         case .groupV2(photo: _, groupIdentifier: let groupIdentifier, showGreenShield: _):
             return appTheme.groupV2Colors(forGroupIdentifier: groupIdentifier).text

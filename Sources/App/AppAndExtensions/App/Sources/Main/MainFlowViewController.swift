@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,9 +18,10 @@
  */
 
 import UIKit
-import os.log
+import OSLog
 import StoreKit
 import CoreData
+import Combine
 import Intents
 import ObvEngine
 import ObvTypes
@@ -39,67 +40,31 @@ import ObvOnboarding
 import ObvSubscription
 import ObvAppBackup
 import ObvDesignSystem
+import ObvSidebar
+import ObvSystemIcon
+import ObvProfilePictureBarButtonItem
+import ObvGroupsList
+import ObvSharedDataSources
+import ObvOwnedIdentityChooser
+import ObvInvitationFlow
+import ObvUIGroupV1
+import ObvUIGroupV2
+import ObvCells
+import ObvUIGroupSharedBetweenV1AndV2
+import ObvSingleOwnedIdentity
 
 
-protocol MainFlowViewControllerDelegate: AnyObject {
-    func userWantsToAddNewDevice(_ viewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async
-    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws
-    func userWantsToPublishGroupV2Modification(_ mainFlowViewController: MainFlowViewController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws
-    func userRequestedAppDatabaseSyncWithEngine(mainFlowViewController: MainFlowViewController) async throws
-    func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToAddAttachmentsToDraft(_ mainFlowViewController: MainFlowViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws
-    func userWantsToAddAttachmentsToDraftFromURLs(_ mainFlowViewController: MainFlowViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws
-    func userWantsToUpdateDraftBodyAndMentions(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToDeleteAttachmentsFromDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
-    func userWantsToReplyToMessage(_ mainFlowViewController: MainFlowViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
-    func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ mainFlowViewController: MainFlowViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
-    func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ mainFlowViewController: MainFlowViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
-    func userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ mainFlowViewController: MainFlowViewController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
-    func userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ mainFlowViewController: MainFlowViewController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
-    func userWantsToRemoveReplyToMessage(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
-    func insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(_ mainFlowViewController: MainFlowViewController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool) async throws
-    func userWantsToUpdateDraftExpiration(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?) async throws
-    func userWantsToReadReceivedMessageThatRequiresUserAction(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier) async throws
-    func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ mainFlowViewController: MainFlowViewController, discussionPermanentID: ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedDiscussion>, messagePermanentIDs: Set<ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedMessage>>) async throws
-    func messagesAreNotNewAnymore(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
-    func userWantsToUpdateReaction(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
-    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ mainFlowViewController: MainFlowViewController) async throws
-    func userWantsToStopSharingLocationInDiscussion(_ mainFlowViewController: MainFlowViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
-    func userWantsToFetchDeviceBakupFromServer(_ mainFlowViewController: MainFlowViewController, currentOwnedCryptoId: ObvCryptoId) async throws -> AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind>
-    func userWantsToUseDeviceBackupSeed(_ mainFlowViewController: MainFlowViewController, deviceBackupSeed: ObvCrypto.BackupSeed) async throws -> ObvAppBackup.ObvListOfDeviceBackupProfiles
-    func userWantsToFetchAllProfileBackupsFromServer(_ mainFlowViewController: MainFlowViewController, profileCryptoId: ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvProfileBackupFromServer]
-    func restoreProfileBackupFromServerNow(_ mainFlowViewController: MainFlowViewController, profileBackupFromServerToRestore: ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos
-    func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(_ mainFlowViewController: MainFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data
-    @MainActor func userWantsToSubscribeOlvidPlus(_ mainFlowViewController: MainFlowViewController)
-    @MainActor func userWantsToAddDevice(_ mainFlowViewController: MainFlowViewController)
-    func userWantsToResetThisDeviceSeedAndBackups(_ mainFlowViewController: MainFlowViewController) async throws
-    func userWantsToDeleteProfileBackupFromSettings(_ mainFlowViewController: MainFlowViewController, infoForDeletion: ObvProfileBackupFromServer.InfoForDeletion) async throws
-    func fetchAvatarImage(_ mainFlowViewController: MainFlowViewController, profileCryptoId: ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage?
-    func getDeviceDeactivationConsequencesOfRestoringBackup(_ mainFlowViewController: MainFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
-    func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ mainFlowViewController: MainFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
-    @MainActor func userWantsToConfigureNewBackups(_ mainFlowViewController: MainFlowViewController, context: ObvAppBackupSetupContext)
-    @MainActor func userWantsToBeRemindedToWriteDownBackupKey(_ mainFlowViewController: MainFlowViewController) async
-    @MainActor func userWantsToDisplayBackupKey(_ mainFlowViewController: MainFlowViewController)
-    @MainActor func userWantsToRefreshSubscriptionStatus(_ mainFlowViewController: MainFlowViewController) async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult]
-    func fetchAvatarImage(_ mainFlowViewController: MainFlowViewController, localPhotoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
-    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws
-    func userWantsToLeaveGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws
-    func userWantsToDisbandGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws
-    func userWantsObtainAvatar(_ mainFlowViewController: MainFlowViewController, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
-    @MainActor func userWantsToDeleteOwnedIdentityAndHasConfirmed(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws
-    
-    func userWantsToShowMapToSendOrShareLocationContinuously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
-    func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws
-    func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws
-
+@MainActor
+protocol MainFlowViewControllerActions: OlvidShopViewActions, UserTriesToAccessPaidFeatureViewActions {
+    // Nothing to add for now
 }
 
-
-final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
+final class MainFlowViewController: UISplitViewController {
     
     private(set) var currentOwnedCryptoId: ObvCryptoId
     private let obvEngine: ObvEngine
     var anOwnedIdentityWasJustCreatedOrRestored = false
+    private let actions: any MainFlowViewControllerActions
 
     private let splitDelegate: MainFlowViewControllerSplitDelegate // Strong reference to the delegate
     private weak var createPasscodeDelegate: CreatePasscodeDelegate?
@@ -108,24 +73,23 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     private weak var mainFlowViewControllerDelegate: MainFlowViewControllerDelegate?
     private weak var storeKitDelegate: StoreKitDelegate?
 
-    fileprivate let mainTabBarController: AnyObvUITabBarController
+    fileprivate let mainTabBarController: ObvSubTabBarController
+    fileprivate let mainTabBarControllerDelegate: UITabBarControllerDelegateWithinMainFlowViewController
     fileprivate let navForDetailsView = UINavigationController(rootViewController: OlvidPlaceholderViewController())
 
-    fileprivate let discussionsFlowViewController: DiscussionsFlowViewController
-    private let contactsFlowViewController: ContactsFlowViewController
-    private let groupsFlowViewController: GroupsFlowViewController
-    private let invitationsFlowViewController: NewInvitationsFlowViewController
+    fileprivate let allFlowControllersForUITabBarController: AllObvFlowViewControllers
+    fileprivate let allFlowControllersForUISplitViewController: AllObvFlowViewControllers
 
-    private var shouldPopViewController = false
-    private var shouldScrollToTop = false
-    
+    private lazy var allFlowControllers: [ObvFlowController] = {
+        allFlowControllersForUITabBarController.allFlowControllers + allFlowControllersForUISplitViewController.allFlowControllers
+    }()
+        
     private var observationTokens = [NSObjectProtocol]()
     
     private var secureCallsInBetaModalWasShown = false
-        
-    /// This variable is set when Olvid is started because an invite or configuration link was opened.
-    /// When this happens, this link is processed as soon as this view controller's view appears.
-    private var externallyScannedOrTappedOlvidURL: OlvidURL?
+
+    private let dataSources: ObvDataSources
+
     private var viewDidAppearWasCalled = false
     
     /// Allows to track if the scene corresponding to the view controller is active.
@@ -134,21 +98,36 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     /// when the user puts the app in the background.
     fileprivate var sceneIsActive = false
     
-    private var externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen: OlvidURL?
-    
     private var savedViewControllersForNavForDetailsView = [ObvCryptoId: [UIViewController]]()
         
     // When an AirDrop deeplink is performed at a time no discussion is presented, we keep the file URL here so as to insert the file in the chosen discussion.
     private var airDroppedFileURLs = [URL]()
     
-    private let appDataSourceForObvUIGroupV2Router = AppDataSourceForObvUIGroupV2Router()
+    /// This router allows to present the flow allowing to create a new group v2.
+    /// It is expected to be set only once.
+    /// The delegate methods are implemented in an extension of `ObvFlowController`.
+    private(set) lazy var routerForGroupV2Creation: ObvGroupV2CreationRouter = {
+        .init(dataSources: dataSources.groupV2RouterDataSources, actions: self)
+    }()
     
+    private(set) lazy var routerForGroupV1Creation: ObvGroupV1CreationRouter = {
+        .init(dataSources: dataSources.groupV1RouterDataSources, actions: self)
+    }()
+
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MainFlowViewController.self))
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MainFlowViewController.self))
     
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate, appBackupDelegate: AppBackupDelegate, mainFlowViewControllerDelegate: MainFlowViewControllerDelegate, storeKitDelegate: StoreKitDelegate) {
+    init(ownedCryptoId: ObvCryptoId,
+         obvEngine: ObvEngine,
+         createPasscodeDelegate: CreatePasscodeDelegate,
+         localAuthenticationDelegate: LocalAuthenticationDelegate,
+         appBackupDelegate: AppBackupDelegate,
+         mainFlowViewControllerDelegate: MainFlowViewControllerDelegate,
+         storeKitDelegate: StoreKitDelegate, dataSources: ObvDataSources,
+         actions: any MainFlowViewControllerActions) {
                 
-        os_log("🥏🏁 Call to the initializer of MainFlowViewController", log: log, type: .info)
-        
+        Self.logger.info("🥏🏁 Call to the initializer of MainFlowViewController")
+                
         self.obvEngine = obvEngine
         self.currentOwnedCryptoId = ownedCryptoId
         self.createPasscodeDelegate = createPasscodeDelegate
@@ -157,101 +136,51 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         self.storeKitDelegate = storeKitDelegate
         self.mainFlowViewControllerDelegate = mainFlowViewControllerDelegate
         self.splitDelegate = MainFlowViewControllerSplitDelegate()
-        
-        let discussionsFlowViewController = DiscussionsFlowViewController(
+        self.dataSources = dataSources
+        self.actions = actions
+        self.allFlowControllersForUITabBarController = Self.createAllObvFlowControllers(
             ownedCryptoId: ownedCryptoId,
-            appListOfGroupMembersViewDataSource: appDataSourceForObvUIGroupV2Router,
-            obvEngine: obvEngine)
-        let contactsFlowViewController = ContactsFlowViewController(
+            obvEngine: obvEngine,
+            dataSources: dataSources)
+        self.allFlowControllersForUISplitViewController = Self.createAllObvFlowControllers(
             ownedCryptoId: ownedCryptoId,
-            appListOfGroupMembersViewDataSource: appDataSourceForObvUIGroupV2Router,
-            obvEngine: obvEngine)
-        let groupsFlowViewController = GroupsFlowViewController(
-            ownedCryptoId: ownedCryptoId,
-            appListOfGroupMembersViewDataSource: appDataSourceForObvUIGroupV2Router,
-            obvEngine: obvEngine)
-        let invitationsFlowViewController = NewInvitationsFlowViewController(
-            ownedCryptoId: ownedCryptoId,
-            appListOfGroupMembersViewDataSource: appDataSourceForObvUIGroupV2Router,
-            obvEngine: obvEngine)
+            obvEngine: obvEngine,
+            dataSources: dataSources)
 
-        self.discussionsFlowViewController = discussionsFlowViewController
-        self.contactsFlowViewController = contactsFlowViewController
-        self.groupsFlowViewController = groupsFlowViewController
-        self.invitationsFlowViewController = invitationsFlowViewController
-
+        let mainTabBarController = ObvSubTabBarController()
+        self.mainTabBarController = mainTabBarController
         if #available(iOS 18, *) {
-            
-            mainTabBarController = ObvSubTabBarControllerNew()
-            mainTabBarController.tabs = [
-                UITab(title: NSLocalizedString("UI_TAB_TITLE_DISCUSSIONS", comment: "UITab tab title"),
-                      image: UIImage(systemIcon: .bubbleLeftAndBubbleRight),
-                      identifier: "discussions",
-                      viewControllerProvider: { _ in
-                          discussionsFlowViewController
-                      }),
-                UITab(title: NSLocalizedString("UI_TAB_TITLE_CONTACTS", comment: "UITab tab title"),
-                      image: UIImage(systemIcon: .person),
-                      identifier: "contacts",
-                      viewControllerProvider: { _ in
-                          contactsFlowViewController
-                      }),
-                UITab(title: NSLocalizedString("UI_TAB_TITLE_GROUPS", comment: "UITab tab title"),
-                      image: UIImage(systemIcon: .person3),
-                      identifier: "groups",
-                      viewControllerProvider: { _ in
-                          groupsFlowViewController
-                      }),
-                UITab(title: NSLocalizedString("UI_TAB_TITLE_INVITATIONS", comment: "UITab tab title"),
-                      image: UIImage(systemIcon: .trayAndArrowDown),
-                      identifier: "invitations",
-                      viewControllerProvider: { _ in
-                          invitationsFlowViewController
-                      }),
-            ]
-            mainTabBarController.tabBar.tintColor = UIColor(named: "Blue01")
-            
-            // This seems to always display a tabBar
-            mainTabBarController.mode = .tabSidebar
-            
+            self.mainTabBarControllerDelegate = UITabBarControllerDelegateNew()
         } else {
-            
-            mainTabBarController = ObvSubTabBarController()
-        
-            mainTabBarController.addChild(discussionsFlowViewController)
-            mainTabBarController.addChild(contactsFlowViewController)
-            mainTabBarController.addChild(groupsFlowViewController)
-            mainTabBarController.addChild(invitationsFlowViewController)
-
+            self.mainTabBarControllerDelegate = UITabBarControllerDelegateOld()
         }
         
-        super.init(nibName: nil, bundle: nil)
-
-        self.appDataSourceForObvUIGroupV2Router.setDelegate(to: self)
+        super.init(style: .tripleColumn)
         
         self.delegate = splitDelegate
-        // This single discussion view controller looks bad in split view under iPad. It looked ok when using .allVisible
-        self.preferredDisplayMode = .oneBesideSecondary // .allVisible
+                
+        addObvFlowControllersToUITabBarController()
+        addObvFlowControllersToUISplitViewController()
         
-        navForDetailsView.delegate = OlvidUserActivitySingleton.shared
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        navForDetailsView.navigationBar.standardAppearance = appearance
-        self.viewControllers = [mainTabBarController, navForDetailsView]
-        
-        mainTabBarController.delegate = self
-        (mainTabBarController as? ObvSubTabBarController)?.obvDelegate = self // For iOS 17 and less
-        discussionsFlowViewController.flowDelegate = self
-        contactsFlowViewController.flowDelegate = self
-        groupsFlowViewController.flowDelegate = self
-        invitationsFlowViewController.flowDelegate = self
-        
-        // If the user has no contact, go to the contact tab
-        
+        self.mainTabBarControllerDelegate.mfvc = self
+        mainTabBarController.delegate = self.mainTabBarControllerDelegate
+        allFlowControllers.forEach { $0.flowDelegate = self }
+
+        //self.appDataSourceForObvUIGroupV2Router.setDelegate(to: self)
+        self.dataSources.sideBarViewAppDataSource.delegate = self
+                
+        if #available(iOS 26, *) {
+            // We don't change the appearance under iOS 26
+        } else {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            navForDetailsView.navigationBar.standardAppearance = appearance
+        }
+
         // If the user has no discussion to show in the latestDiscussions tab, show the contacts tab
         
         if let countOfUnarchivedDiscussions = try? PersistedDiscussion.countUnarchivedDiscussionsOfOwnedIdentity(ownedCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext), countOfUnarchivedDiscussions == 0 {
-            mainTabBarController.selectedObvTab = .contacts
+            switchToFlow(.contacts)
         }
                 
         // Listen to notifications
@@ -264,29 +193,20 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         observationTokens.append(contentsOf: [
 
             // ObvMessengerInternalNotification
-            ObvMessengerInternalNotification.observeUserWantsToDisplayContactIntroductionScreen(queue: .main) { [weak self] contactObjectID, viewController in
-                self?.processUserWantsToDisplayContactIntroductionScreen(contactObjectID: contactObjectID, viewController: viewController)
+            ObvMessengerInternalNotification.observeOlvidSnackBarShouldBeShown { [weak self] ownedCryptoId, category in
+                Task { await self?.showSnackBarOnAllTabBarChildren(with: category, forOwnedIdentity: ownedCryptoId) }
             },
-            ObvMessengerInternalNotification.observeOlvidSnackBarShouldBeShown(queue: .main) { [weak self] ownedCryptoId, category in
-                self?.showSnackBarOnAllTabBarChildren(with: category, forOwnedIdentity: ownedCryptoId)
+            ObvMessengerInternalNotification.observeOlvidSnackBarShouldBeHidden { [weak self] ownedCryptoId in
+                Task { await self?.hideSnackBarOnAllTabBarChildren(forOwnedIdentity: ownedCryptoId) }
             },
-            ObvMessengerInternalNotification.observeOlvidSnackBarShouldBeHidden(queue: .main) { [weak self] ownedCryptoId in
-                self?.hideSnackBarOnAllTabBarChildren(forOwnedIdentity: ownedCryptoId)
+            ObvMessengerInternalNotification.observeUserWantsToSeeDetailedExplanationsOfSnackBar { [weak self] ownedCryptoId, snackBarCategory in
+                Task { await self?.processUserWantsToSeeDetailedExplanationsOfSnackBar(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory) }
             },
-            ObvMessengerInternalNotification.observeUserWantsToSeeDetailedExplanationsOfSnackBar(queue: .main) { [weak self] ownedCryptoId, snackBarCategory in
-                self?.processUserWantsToSeeDetailedExplanationsOfSnackBar(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
+            ObvMessengerInternalNotification.observeBadgeForNewMessagesHasBeenUpdated { [weak self] ownedCryptoId, newCount in
+                Task { await self?.processBadgeForNewMessagesHasBeenUpdated(ownCryptoId: ownedCryptoId, newCount: newCount) }
             },
-            ObvMessengerInternalNotification.observeUserWantsToSendInvite { [weak self] (ownedIdentity, urlIdentity) in
-                self?.sendInvite(to: urlIdentity.cryptoId, withFullDisplayName: urlIdentity.fullDisplayName, for: ownedIdentity.cryptoId)
-            },
-            ObvMessengerInternalNotification.observeBadgeForNewMessagesHasBeenUpdated(queue: OperationQueue.main) { [weak self] ownedCryptoId, newCount in
-                self?.processBadgeForNewMessagesHasBeenUpdated(ownCryptoId: ownedCryptoId, newCount: newCount)
-            },
-            ObvMessengerInternalNotification.observeBadgeForInvitationsHasBeenUpdated(queue: OperationQueue.main) { [weak self] ownedCryptoId, newCount in
-                self?.processBadgeForInvitationsHasBeenUpdated(ownCryptoId: ownedCryptoId, newCount: newCount)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToDeleteOwnedIdentityButHasNotConfirmedYet { [weak self] ownedCryptoId in
-                Task { await self?.processUserWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: ownedCryptoId) }
+            ObvMessengerInternalNotification.observeBadgeForInvitationsHasBeenUpdated { [weak self] ownedCryptoId, newCount in
+                Task { await self?.processBadgeForInvitationsHasBeenUpdated(ownCryptoId: ownedCryptoId, newCount: newCount) }
             },
             ObvMessengerInternalNotification.observeBetaUserWantsToSeeLogString { [weak self] logString in
                 Task { await self?.processBetaUserWantsToSeeLogString(logString: logString) }
@@ -298,6 +218,127 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
                 Task { await self?.processPersistedDiscussionWasDeletedOrArchived(discussionPermanentID: discussionPermanentID) }
             },
         ])
+        
+    }
+    
+
+    private static func createAllObvFlowControllers(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, dataSources: ObvDataSources) -> AllObvFlowViewControllers {
+        let discussionsFlowViewController = DiscussionsFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            obvEngine: obvEngine,
+            dataSources: dataSources)
+        let contactsFlowViewController = ContactsFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            obvEngine: obvEngine,
+            dataSources: dataSources)
+        let groupsFlowViewController = GroupsFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            obvEngine: obvEngine,
+            dataSources: dataSources)
+        let invitationsFlowViewController = NewInvitationsFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            obvEngine: obvEngine,
+            dataSources: dataSources)
+        return AllObvFlowViewControllers(
+            discussionsFlowViewController: discussionsFlowViewController,
+            contactsFlowViewController: contactsFlowViewController,
+            groupsFlowViewController: groupsFlowViewController,
+            invitationsFlowViewController: invitationsFlowViewController)
+    }
+    
+  
+    fileprivate func addObvFlowControllersToUITabBarController() {
+        
+        if #available(iOS 18, *) {
+            
+            mainTabBarController.tabs = ObvFlow.allCases.map { flow in
+                UITab(title: Self.tabTitleForFlow(flow),
+                      image: UIImage(systemIcon: Self.tabSystemIcon(flow)),
+                      identifier: flow.rawValue,
+                      viewControllerProvider: { _ in
+                          self.allFlowControllersForUITabBarController.flowControllerForFlow(flow)
+                      })
+            }
+            
+        } else {
+
+            for flow in ObvFlow.allCases {
+                mainTabBarController.addChild(self.allFlowControllersForUITabBarController.flowControllerForFlow(flow))
+            }
+            
+        }
+
+    }
+    
+
+    /// Helper method for `addObvFlowControllersToUITabBarController()`.
+    private static func tabTitleForFlow(_ flow: ObvFlow) -> String {
+        switch flow {
+        case .latestDiscussions: return String(localized: "UI_TAB_TITLE_DISCUSSIONS", comment: "UITab tab title")
+        case .contacts: return String(localized: "UI_TAB_TITLE_CONTACTS", comment: "UITab tab title")
+        case .groups: return String(localized: "UI_TAB_TITLE_GROUPS", comment: "UITab tab title")
+        case .invitations: return String(localized: "UI_TAB_TITLE_INVITATIONS", comment: "UITab tab title")
+        }
+    }
+    
+
+    /// Helper method for `addObvFlowControllersToUITabBarController()`.
+    private static func tabSystemIcon(_ flow: ObvFlow) -> SystemIcon {
+        switch flow {
+        case .latestDiscussions: return .bubbleLeftAndBubbleRight
+        case .contacts: return .person
+        case .groups: return .person3
+        case .invitations: return .trayAndArrowDown
+        }
+    }
+    
+    
+    fileprivate func addObvFlowControllersToUISplitViewController() {
+        
+        let initialFlow: ObvFlow = .latestDiscussions
+
+        // Specify the view controllers to show when the UISplitViewController is expanded
+        self.setViewController(ObvSideBarViewController(actions: self, dataSource: self.dataSources.sideBarViewAppDataSource), for: .primary)
+        self.setViewController(self.allFlowControllersForUISplitViewController.flowControllerForFlow(initialFlow), for: .supplementary)
+        self.setViewController(self.navForDetailsView, for: .secondary)
+
+        // Specify the view controllers to show when the UISplitViewController is compact
+        self.setViewController(self.mainTabBarController, for: .compact)
+        
+        configureColumnsGeometry()
+        
+        OlvidUserActivitySingleton.shared.switchCurrentFlow(to: initialFlow, currentOwnedCryptoId: self.currentOwnedCryptoId, viewController: self)
+        
+    }
+    
+    
+    
+    /// Configure the geometry of the primary, supplementary, and secondary columns of this UISplitViewController.
+    private func configureColumnsGeometry() {
+        
+        // Fix the size of the .primary column
+        self.preferredPrimaryColumnWidth = ObvSideBarView.Constants.idealColumnWidth
+        
+        // Under certain versions of iOS, we must tweak the display mode to achieve an acceptable result
+        if #available(iOS 26, *) {
+            #if targetEnvironment(macCatalyst)
+            self.preferredSupplementaryColumnWidthFraction = 0.25
+            // Ensures the "Add group" nav button is never clipped
+            self.minimumSupplementaryColumnWidth = 375
+            #else
+            self.preferredSupplementaryColumnWidthFraction = 0.37
+            self.minimumSupplementaryColumnWidth = 320
+            #endif
+        } else {
+            self.preferredSplitBehavior = .tile
+            self.preferredDisplayMode = .twoBesideSecondary
+            #if targetEnvironment(macCatalyst)
+            self.preferredSupplementaryColumnWidthFraction = 0.40
+            #else
+            self.preferredSupplementaryColumnWidthFraction = 0.37
+            #endif
+        }
+
     }
     
     
@@ -334,7 +375,8 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     
     /// Called when the user tap the button shown on the snackbar view.
     @MainActor
-    private func processUserWantsToSeeDetailedExplanationsOfSnackBar(ownedCryptoId: ObvCryptoId, snackBarCategory: OlvidSnackBarCategory) {
+    private func processUserWantsToSeeDetailedExplanationsOfSnackBar(ownedCryptoId: ObvCryptoId, snackBarCategory: OlvidSnackBarCategory) async {
+        assert(Thread.isMainThread)
         guard self.currentOwnedCryptoId == ownedCryptoId else { return }
         
         let vc = OlvidAlertViewController()
@@ -394,21 +436,16 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         
     }
     
-    
+
     /// The current `ObvFlowController` currently on screen, if there is one.
-    fileprivate var currentFlow: ObvFlowController? {
-        switch mainTabBarController.selectedObvTab {
-        case .latestDiscussions:
-            return discussionsFlowViewController
-        case .contacts:
-            return contactsFlowViewController
-        case .groups:
-            return groupsFlowViewController
-        case .invitations:
-            return invitationsFlowViewController
-        default:
-            assertionFailure()
-            return nil
+    fileprivate var currentFlowController: ObvFlowController? {
+        if self.isCollapsed {
+            assert(mainTabBarController.selectedObvTab == OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow)
+            guard let currentFlow = mainTabBarController.selectedObvTab ?? OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow else { assertionFailure(); return nil }
+            return self.allFlowControllersForUITabBarController.flowControllerForFlow(currentFlow)
+        } else {
+            guard let supplementaryViewController = self.viewController(for: .supplementary) as? ObvFlowController else { assertionFailure(); return nil }
+            return supplementaryViewController
         }
     }
     
@@ -416,17 +453,21 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     private var alreadyPushingDiscussionViewController = false
     
 
-    private func showSnackBarOnAllTabBarChildren(with category: OlvidSnackBarCategory, forOwnedIdentity ownedCryptoId: ObvCryptoId) {
+    @MainActor
+    private func showSnackBarOnAllTabBarChildren(with category: OlvidSnackBarCategory, forOwnedIdentity ownedCryptoId: ObvCryptoId) async {
+        assert(Thread.isMainThread)
         guard self.currentOwnedCryptoId == ownedCryptoId else { return }
-        mainTabBarController.obvFlowControllers.forEach { flowViewController in
+        allFlowControllers.forEach { flowViewController in
             flowViewController.showSnackBar(with: category, currentOwnedCryptoId: ownedCryptoId, completion: {})
         }
     }
     
     
-    private func hideSnackBarOnAllTabBarChildren(forOwnedIdentity ownedCryptoId: ObvCryptoId) {
+    @MainActor
+    private func hideSnackBarOnAllTabBarChildren(forOwnedIdentity ownedCryptoId: ObvCryptoId) async {
+        assert(Thread.isMainThread)
         guard self.currentOwnedCryptoId == ownedCryptoId else { return }
-        mainTabBarController.obvFlowControllers.forEach { flowViewController in
+        allFlowControllers.forEach { flowViewController in
             flowViewController.removeSnackBar(completion: {})
         }
     }
@@ -439,16 +480,20 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     }
 
     
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        /// At launch, always display the primary column
+        self.show(.primary)
+
+    }
+    
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         viewDidAppearWasCalled = true
         Task {
             await OlvidUserActivitySingleton.shared.switchCurrentOwnedCryptoId(to: currentOwnedCryptoId, viewController: self)
-        }
-        if let olvidURL = externallyScannedOrTappedOlvidURL {
-            os_log("Processing the URL of an external invitation or configuration link...", log: log, type: .info)
-            externallyScannedOrTappedOlvidURL = nil
-            Task { await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL) }
         }
         guard let obvOwnedIdentity = try? obvEngine.getOwnedIdentity(with: currentOwnedCryptoId) else {
             assertionFailure()
@@ -456,7 +501,15 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         }
         if obvOwnedIdentity.isKeycloakManaged {
             Task {
-                await KeycloakManagerSingleton.shared.synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: currentOwnedCryptoId)
+                do {
+                    try await KeycloakManagerSingleton.shared.synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: currentOwnedCryptoId, ignoreSynchronizationInterval: false)
+                } catch let error as KeycloakManager.ObvSynchronizeError {
+                    switch error {
+                    case .userHasCancelled:
+                        Self.logger.error("🧥 User cancelled")
+                        return
+                    }
+                }
             }
         }
         
@@ -465,28 +518,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         
     }
     
-    
-    @MainActor
-    private func processUserWantsToDisplayContactIntroductionScreen(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, viewController: UIViewController) {
-        assert(Thread.isMainThread)
-        
-        guard let persistedContact = try? PersistedObvContactIdentity.get(objectID: contactObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-        guard let ownedIdentity = persistedContact.ownedIdentity else {
-            os_log("Could not find owned identity. This is ok if it was just deleted.", log: log, type: .error)
-            return
-        }
-        let contactsPresentationVC = ContactsPresentationViewController(ownedCryptoId: ownedIdentity.cryptoId, presentedContactCryptoId: persistedContact.cryptoId) {
-            viewController.presentedViewController?.dismiss(animated: true)
-        }
-        guard let contactFromEngine = try? obvEngine.getContactIdentity(with: persistedContact.cryptoId, ofOwnedIdentityWith: ownedIdentity.cryptoId) else {
-            assertionFailure()
-            return
-        }
-        contactsPresentationVC.title = CommonString.Title.introduceTo(contactFromEngine.publishedIdentityDetails?.coreDetails.getDisplayNameWithStyle(.short) ?? persistedContact.shortOriginalName)
-        viewController.present(contactsPresentationVC, animated: true)
-
-    }
-
     
     private func presentOneOfTheModalViewControllersIfRequired() {
         // This shall be the last possible alert we check, since we can only do this asynchronously
@@ -522,14 +553,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     @MainActor
     private func presentOneOfTheOtherModalViewControllersIfRequired() {
         assert(Thread.isMainThread)
-        // Once the appropriate view controller has been displayed, check the user's device configuration. If something bad happens, present a view controller asking the user to update her configuration.
-        let configChecker = DeviceConfigurationChecker()
-        guard configChecker.currentConfigurationIsValid(application: UIApplication.shared) else {
-            let badConfigurationViewController = BadConfigurationViewController()
-            let nav = ObvNavigationController(rootViewController: badConfigurationViewController)
-            present(nav, animated: true)
-            return
-        }
         guard (ObvMessengerSettings.AppVersionAvailable.minimum ?? 0) <= ObvAppCoreConstants.bundleVersionAsInt else {
             let vc = OlvidAlertViewController()
             vc.configure(
@@ -558,6 +581,28 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
 }
 
 
+// MARK: - Implementing ObvSideBarViewAppDataSourceDelegate
+
+extension MainFlowViewController: ObvSideBarViewAppDataSourceDelegate {
+    
+    func getCurrentOwnedCryptoId(_ dataSource: ObvSideBarViewAppDataSource) -> ObvTypes.ObvCryptoId? {
+        self.currentOwnedCryptoId
+    }
+    
+}
+
+
+// MARK: - Implementing ObvSideBarViewActions
+
+extension MainFlowViewController: ObvSideBarViewActions {
+    
+    func userDidTapOnSidebarItem(_ view: ObvSidebar.ObvSideBarView, _ flow: ObvAppTypes.ObvFlow) async throws {
+        switchToFlow(flow)
+    }
+    
+}
+
+
 // MARK: - Keyboard shortcuts
 
 extension MainFlowViewController {
@@ -568,18 +613,59 @@ extension MainFlowViewController {
     }
     
     
-    override var keyCommands: [UIKeyCommand]? {
-        return [
-            UIKeyCommand(title: String(localized: "Home"), action: #selector(processUIKeyCommandForHome), input: UIKeyCommand.inputHome, modifierFlags: .command),
-        ]
-    }
-    
-
-    /// When the user types Cmd+Home, we want to pop all the discussions shown on the navigation of the details view controller, back to the first view controller (that shows the Olvid logo).
-    @objc private func processUIKeyCommandForHome() {
+    /// Resets the navigation stack to the root view controller (showing the Olvid logo) in response to a keyboard shortcut.
+    ///
+    /// This method is automatically called when the user presses **Cmd+0**, as defined by the `UIKeyCommand`
+    /// in `ObvMenuController`. It pops all discussions from the navigation stack, returning the app to its initial state.
+    @objc func processUIKeyCommandForHome() {
         navForDetailsView.popToRootViewController(animated: true)
     }
     
+    
+    /// Navigates to the list of recent discussions in response to a keyboard shortcut.
+    ///
+    /// This method is automatically called when the user presses **Cmd+1**, as defined by the `UIKeyCommand`
+    /// in `ObvMenuController`. It updates the navigation stack to display the recents discussions list.
+    @objc func processUIKeyCommandForSwitchingToFlowLatestDiscussions() {
+        self.switchToFlow(.latestDiscussions)
+    }
+
+    
+    /// Navigates to the list of contacts in response to a keyboard shortcut.
+    ///
+    /// This method is automatically called when the user presses **Cmd+2**, as defined by the `UIKeyCommand`
+    /// in `ObvMenuController`. It updates the navigation stack to display the contacts list.
+    @objc func processUIKeyCommandForSwitchingToFlowContacts() {
+        self.switchToFlow(.contacts)
+    }
+
+    
+    /// Navigates to the list of groups in response to a keyboard shortcut.
+    ///
+    /// This method is automatically called when the user presses **Cmd+3**, as defined by the `UIKeyCommand`
+    /// in `ObvMenuController`. It updates the navigation stack to display the groups list.
+    @objc func processUIKeyCommandForSwitchingToFlowGroups() {
+        self.switchToFlow(.groups)
+    }
+
+    
+    /// Navigates to the list of invitations in response to a keyboard shortcut.
+    ///
+    /// This method is automatically called when the user presses **Cmd+4**, as defined by the `UIKeyCommand`
+    /// in `ObvMenuController`. It updates the navigation stack to display the invitations list.
+    @objc func processUIKeyCommandForSwitchingToFlowInvitations() {
+        self.switchToFlow(.invitations)
+    }
+    
+    
+    /// Opens the invitation flow.
+    ///
+    /// This method is automatically called when the user presses **Cmd+N**, as defined by the `UIKeyCommand`
+    /// in `ObvMenuController`.
+    @objc func processUIKeyCommandForNewMessage() {
+        self.userWantsPresentInvitationFlow()
+    }
+
     
     /// Overriding this method allows to be called when the user types the standard keyboard shortcut (Cmd+F) for search.
     ///
@@ -587,7 +673,7 @@ extension MainFlowViewController {
     override func find(_ sender: Any?) {
         if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
             return discussionVC.find(sender)
-        } else if let discussionVC = currentFlow?.topViewController as? NewSingleDiscussionViewController {
+        } else if let discussionVC = currentFlowController?.topViewController as? NewSingleDiscussionViewController {
             return discussionVC.find(sender)
         }
     }
@@ -599,7 +685,7 @@ extension MainFlowViewController {
     override func findNext(_ sender: Any?) {
         if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
             return discussionVC.findNext(sender)
-        } else if let discussionVC = currentFlow?.topViewController as? NewSingleDiscussionViewController {
+        } else if let discussionVC = currentFlowController?.topViewController as? NewSingleDiscussionViewController {
             return discussionVC.findNext(sender)
         }
     }
@@ -611,7 +697,7 @@ extension MainFlowViewController {
     override func findPrevious(_ sender: Any?) {
         if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
             return discussionVC.findPrevious(sender)
-        } else if let discussionVC = currentFlow?.topViewController as? NewSingleDiscussionViewController {
+        } else if let discussionVC = currentFlowController?.topViewController as? NewSingleDiscussionViewController {
             return discussionVC.findPrevious(sender)
         }
     }
@@ -663,7 +749,7 @@ extension MainFlowViewController {
     /// Helper method
     @MainActor
     private func removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(_ discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
-        for obvFlowController in self.mainTabBarController.obvFlowControllers {
+        for obvFlowController in allFlowControllers {
             await obvFlowController.removeAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
         }
     }
@@ -678,7 +764,7 @@ extension MainFlowViewController {
                 return someSingleDiscussionVC
             } else {
                 do {
-                    return try currentFlow?.getNewSingleDiscussionViewController(for: discussion, initialScroll: .newMessageSystemOrLastMessage)
+                    return try currentFlowController?.getNewSingleDiscussionViewController(discussionObjectID: discussion.typedObjectID, initialScroll: .newMessageSystemOrLastMessage)
                 } catch {
                     assertionFailure(error.localizedDescription) // In production, continue anyway
                     return nil
@@ -694,7 +780,7 @@ extension MainFlowViewController {
     
     @MainActor
     private func refreshFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussion(_ discussion: PersistedDiscussion) async {
-        for obvFlowController in self.mainTabBarController.obvFlowControllers {
+        for obvFlowController in self.allFlowControllers {
             do {
                 try await obvFlowController.refreshAllSingleDiscussionViewControllerForDiscussion(discussion)
             } catch {
@@ -720,10 +806,10 @@ extension MainFlowViewController {
         let oldOwnedCryptoId = self.currentOwnedCryptoId
         self.currentOwnedCryptoId = newOwnedCryptoId
         
-        for flow in self.mainTabBarController.obvFlowControllers {
-            await flow.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+        for flow in self.allFlowControllers {
+            flow.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
         }
-        
+                        
         if !isCollapsed {
             // The split view controller shows a "details" view. We save its view controller's stack in order to restore it when the user switches back to that profile
             savedViewControllersForNavForDetailsView[oldOwnedCryptoId] = navForDetailsView.viewControllers
@@ -785,20 +871,20 @@ extension MainFlowViewController: NewAutorisationRequesterViewControllerDelegate
 extension MainFlowViewController {
     
     @MainActor
-    private func processBadgeForNewMessagesHasBeenUpdated(ownCryptoId: ObvCryptoId, newCount: Int) {
+    private func processBadgeForNewMessagesHasBeenUpdated(ownCryptoId: ObvCryptoId, newCount: Int) async {
         assert(Thread.isMainThread)
         guard ownCryptoId == self.currentOwnedCryptoId else { return }
-        if let tabbarItem = discussionsFlowViewController.tabBarItem {
+        if let tabbarItem = allFlowControllersForUITabBarController.flowControllerForFlow(.latestDiscussions).tabBarItem {
             tabbarItem.badgeValue = newCount > 0 ? "\(newCount)" : nil
         }
     }
     
     
     @MainActor
-    private func processBadgeForInvitationsHasBeenUpdated(ownCryptoId: ObvCryptoId, newCount: Int) {
+    private func processBadgeForInvitationsHasBeenUpdated(ownCryptoId: ObvCryptoId, newCount: Int) async {
         assert(Thread.isMainThread)
         guard ownCryptoId == self.currentOwnedCryptoId else { return }
-        if let tabbarItem = invitationsFlowViewController.tabBarItem {
+        if let tabbarItem = allFlowControllersForUITabBarController.flowControllerForFlow(.invitations).tabBarItem {
             tabbarItem.badgeValue = newCount > 0 ? "\(newCount)" : nil
         }
     }
@@ -934,227 +1020,394 @@ extension MainFlowViewController {
 
 // MARK: - Implementing AppListOfGroupMembersViewDataSourceDelegate
 
-extension MainFlowViewController: AppListOfGroupMembersViewDataSourceDelegate {
-    
-    func fetchAvatarImage(_ dataSource: AppDataSourceForObvUIGroupV2Router, localPhotoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
-        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        return try await mainFlowViewControllerDelegate.fetchAvatarImage(self, localPhotoURL: localPhotoURL, avatarSize: avatarSize)
-    }
-    
-}
+//extension MainFlowViewController: AppListOfGroupMembersViewDataSourceDelegate {
+//    
+//    func fetchAvatarImage(_ dataSource: AppDataSourceForObvUIGroupV2Router, localPhotoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+//        return try await self.dataSources.fetchAvatarImage(localPhotoURL: localPhotoURL, avatarSize: avatarSize)
+//    }
+//    
+//}
 
 
 // MARK: - Implementing ObvFlowControllerDelegate
 
 extension MainFlowViewController: ObvFlowControllerDelegate {
     
+    func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ flowController: ObvFlowController) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.userWantsToDismissOlvidPlusSuccessfulSubscriptionView(self)
+    }
     
-    func userWantsToDisplayBackupKey(_ flowController: any ObvFlowController) {
+    func userWantsToDiscoverOlvidPlus(_ flowController: ObvFlowController) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.userWantsToDiscoverOlvidPlus(self)
+    }
+    
+    func userWantsToUpdateGroupNameAndPicture(_ flowController: ObvFlowController, groupV1Identifier: ObvGroupV1Identifier, changes: Set<EditGroupNameAndPictureView.Change>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        try await mainFlowViewControllerDelegate.userWantsToUpdateGroupNameAndPicture(self, groupV1Identifier: groupV1Identifier, changes: changes)
+    }
+    
+    func userWantsToAddSelectedUsersToExistingGroup(_ flowController: ObvFlowController, groupV1Identifier: ObvGroupV1Identifier, newGroupMembers: Set<ObvCryptoId>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        try await mainFlowViewControllerDelegate.userWantsToAddSelectedUsersToExistingGroup(self, groupV1Identifier: groupV1Identifier, newGroupMembers: newGroupMembers)
+    }
+    
+    func userWantsToRemoveMembersFromGroupV1(_ flowController: ObvFlowController, groupV1Identifier: ObvGroupV1Identifier, removedGroupMembers: Set<ObvCryptoId>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        try await mainFlowViewControllerDelegate.userWantsToRemoveMembersFromGroupV1(self, groupV1Identifier: groupV1Identifier, removedGroupMembers: removedGroupMembers)
+    }
+    
+    
+    func userDidSeeNewDetailsOfContact(_ flowController: ObvFlowController, contactIdentifier: ObvContactIdentifier) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.userDidSeeNewDetailsOfContact(self, contactIdentifier: contactIdentifier)
+    }
+    
+    
+    func userWantsToUpdatePersonalNote(_ flowController: ObvFlowController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToUpdatePersonalNote(self, with: newText, about: about)
+    }
+    
+    
+    func userWantsToRemoveOneToOneInvitationSent(_ flowController: ObvFlowController, contactIdentifier: ObvContactIdentifier) async throws {
+        try await self.userWantsToRemoveOneToOneInvitationSent(ownedCryptoId: contactIdentifier.ownedCryptoId, contactCryptoId: contactIdentifier.contactCryptoId)
+    }
+    
+    func userWantsToReblockContact(_ flowController: ObvFlowController, contactIdentifier: ObvContactIdentifier) async throws {
+        try await obvEngine.reblockContactIdentity(contactIdentifier: contactIdentifier)
+    }
+    
+
+    func userWantsToCreateNewGroup(_ flowController: ObvFlowController, ownedCryptoId: ObvTypes.ObvCryptoId) {
+        userWantsToAddContactGroup(ownedCryptoId: ownedCryptoId)
+    }
+
+    
+    /// Returns the most appropriate `UINavigationController` for displaying a discussion.
+    ///
+    /// - Returns: The `UINavigationController` where the discussion should be presented.
+    ///
+    /// This method is called by `ObvFlowController` when it needs to show a discussion.
+    ///
+    /// - Note:
+    ///   - In a **compact environment**, the current flow (corresponding to the selected tab in the `UITabBarController`) is returned.
+    ///   - In an **expanded environment**, the navigation stack of the **secondary column** of this `UISplitViewController` is returned.
+    func appropriateUINavigationControllerToPushOrPopDiscussion(_ flowController: ObvFlowController) throws -> UINavigationController {
+
+        if self.isCollapsed {
+
+            assert(OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow == mainTabBarController.selectedObvTab)
+            guard let currentFlow = mainTabBarController.selectedObvTab ?? OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow else { assertionFailure(); throw ObvError.couldNotDetermineCurrentFlow }
+            return self.allFlowControllersForUITabBarController.flowControllerForFlow(currentFlow)
+
+        } else {
+
+            return navForDetailsView
+
+        }
+
+    }
+    
+    
+    func appropriateViewControllerToPresentViewController(_ flowController: ObvFlowController) throws -> UIViewController {
+        return self
+    }
+
+    /// Called when the user taps the "plus" button implemented in SwiftUI
+    func userTappedObvPlusButton(_ flowController: ObvFlowController) {
+        userWantsPresentInvitationFlow()
+    }
+    
+    func userWantsToProcessReceiptsStoredForLater(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, returnReceiptElements: Set<ObvReturnReceiptElements>) async {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        await mainFlowViewControllerDelegate.userWantsToProcessReceiptsStoredForLater(self, ownedCryptoId: ownedCryptoId, returnReceiptElements: returnReceiptElements)
+    }
+    
+    func showAlertForUnlockingHiddenOwnedIdentity(_ flowController: ObvFlowController) {
+        showAlertForUnlockingHiddenOwnedIdentity()
+    }
+    
+    func userWantsToDeleteDiscussionsAndHasConfirmed(_ flowController: ObvFlowController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>], deletionType: DeletionType) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToDeleteDiscussionsAndHasConfirmed(self, discussionObjectIDs: discussionObjectIDs, deletionType: deletionType)
+    }
+    
+    func userWantsToArchiveDiscussions(_ flowController: ObvFlowController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToArchiveDiscussions(self, discussionObjectIDs: discussionObjectIDs)
+    }
+    
+    
+    func userWantsToUnarchiveDiscussions(_ flowController: ObvFlowController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToUnarchiveDiscussions(self, discussionObjectIDs: discussionObjectIDs)
+    }
+    
+    
+    func userWantsToReorderPinnedDiscussions(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, objectIDOfPinnedDiscussions: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToReorderPinnedDiscussions(self, ownedCryptoId: ownedCryptoId, objectIDOfPinnedDiscussions: objectIDOfPinnedDiscussions)
+    }
+    
+    
+    func userWantsToMarkAllMessagesAsReadInDiscussion(_ flowController: ObvFlowController, discussionObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussion>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToMarkAllMessagesAsReadInDiscussion(self, discussionObjectID: discussionObjectID)
+    }
+    
+    
+    func userWantsToDisplayBackupKey(_ flowController: ObvFlowController) {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
         mainFlowViewControllerDelegate.userWantsToDisplayBackupKey(self)
     }
     
     
-    func userWantsToSetupNewBackups(_ flowController: any ObvFlowController) {
+    func userWantsToSetupNewBackups(_ flowController: ObvFlowController) {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
         mainFlowViewControllerDelegate.userWantsToConfigureNewBackups(self, context: .afterOnboardingWithoutMigratingFromLegacyBackups)
     }
     
-    func userWantsToShowMapToConsultLocationSharedContinously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws {
+    func userWantsToShowMapToConsultLocationSharedContinously(_ flowController: ObvFlowController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToShowMapToConsultLocationSharedContinously(self, presentingViewController: presentingViewController, ownedCryptoId: ownedCryptoId)
     }
     
-    func userWantsToShowMapToConsultLocationSharedContinously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws {
+    func userWantsToShowMapToConsultLocationSharedContinously(_ flowController: ObvFlowController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToShowMapToConsultLocationSharedContinously(self, presentingViewController: presentingViewController, messageObjectID: messageObjectID)
     }
 
     
-    func userWantsToShowMapToSendOrShareLocationContinuously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
+    func userWantsToShowMapToSendOrShareLocationContinuously(_ flowController: ObvFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToShowMapToSendOrShareLocationContinuously(self, presentingViewController: presentingViewController, discussionIdentifier: discussionIdentifier)
     }
     
     
-    func userWantsToStopSharingLocationInDiscussion(_ flowController: any ObvFlowController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
+    func userWantsToStopSharingLocationInDiscussion(_ flowController: ObvFlowController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToStopSharingLocationInDiscussion(self, discussionIdentifier: discussionIdentifier)
     }
     
+    func userWantsToCreatePoll(_ flowController: ObvFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToCreatePoll(self, presentingViewController: presentingViewController, discussionIdentifier: discussionIdentifier)
+    }
     
-    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ flowController: any ObvFlowController) async throws {
+    func userWantsToDisplayPollView(_ flowController: ObvFlowController, presentingViewController: UIViewController, pollObjectID: TypeSafeManagedObjectID<PersistedPoll>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToDisplayPollView(self, presentingViewController: presentingViewController, pollObjectID: pollObjectID)
+    }
+    
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ flowController: ObvFlowController) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(self)
     }
     
-    
-    func userWantsToUpdateReaction(_ flowController: any ObvFlowController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws {
+    func userWantsToUpdateReaction(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToUpdateReaction(self, ownedCryptoId: ownedCryptoId, messageObjectID: messageObjectID, newEmoji: newEmoji)
     }
     
+    func userWantsToUpdatePollVote(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, voted: Bool, version: Int) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToUpdatePollVote(self, ownedCryptoId: ownedCryptoId, messageObjectID: messageObjectID, pollVoteCandidateUuid: pollVoteCandidateUuid, voted: voted, version: version)
+    }
+
     
-    func messagesAreNotNewAnymore(_ flowController: any ObvFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws {
+    func messagesAreNotNewAnymore(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.messagesAreNotNewAnymore(self, ownedCryptoId: ownedCryptoId, discussionId: discussionId, messageIds: messageIds)
     }
     
     
-    func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ flowController: any ObvFlowController, discussionPermanentID: ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedDiscussion>, messagePermanentIDs: Set<ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedMessage>>) async throws {
+    func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ flowController: ObvFlowController, discussionPermanentID: ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedDiscussion>, messagePermanentIDs: Set<ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedMessage>>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(self, discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
     }
     
     
-    func userWantsToReadReceivedMessageThatRequiresUserAction(_ flowController: any ObvFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier) async throws {
+    func userWantsToReadReceivedMessageThatRequiresUserAction(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToReadReceivedMessageThatRequiresUserAction(self, ownedCryptoId: ownedCryptoId, discussionId: discussionId, messageId: messageId)
     }
     
     
-    func userWantsToUpdateDraftExpiration(_ flowController: any ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?) async throws {
+    func userWantsToUpdateDraftExpiration(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToUpdateDraftExpiration(self, draftObjectID: draftObjectID, value: value)
     }
     
     
-    func insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(_ flowController: any ObvFlowController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool) async throws {
+    func insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(_ flowController: ObvFlowController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(self, discussionObjectID: discussionObjectID, markAsRead: markAsRead)
     }
     
     
-    func userWantsToRemoveReplyToMessage(_ flowController: any ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws {
+    func userWantsToRemoveReplyToMessage(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToRemoveReplyToMessage(self, draftObjectID: draftObjectID)
     }
     
     
-    func userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ flowController: any ObvFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws {
+    func userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ flowController: ObvFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(self, sentJoinObjectID: sentJoinObjectID)
     }
     
     
-    func userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ flowController: any ObvFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws {
+    func userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ flowController: ObvFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(self, sentJoinObjectID: sentJoinObjectID)
     }
     
     
-    func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ flowController: any ObvFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws {
+    func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ flowController: ObvFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(self, receivedJoinObjectID: receivedJoinObjectID)
     }
     
     
-    func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ flowController: any ObvFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws {
+    func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ flowController: ObvFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToDownloadReceivedFyleMessageJoinWithStatus(self, receivedJoinObjectID: receivedJoinObjectID)
     }
     
     
-    func userWantsToReplyToMessage(_ flowController: any ObvFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws {
+    func userWantsToReplyToMessage(_ flowController: ObvFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToReplyToMessage(self, messageObjectID: messageObjectID, draftObjectID: draftObjectID)
     }
     
     
-    func userWantsToDeleteAttachmentsFromDraft(_ flowController: any ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async {
+    func userWantsToDeleteAttachmentsFromDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
         await mainFlowViewControllerDelegate.userWantsToDeleteAttachmentsFromDraft(self, draftObjectID: draftObjectID, draftTypeToDelete: draftTypeToDelete)
     }
     
     
-    func userWantsToUpdateDraftBodyAndMentions(_ flowController: any ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToUpdateDraftBodyAndMentions(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body, mentions: mentions)
     }
     
     
-    func userWantsToAddAttachmentsToDraftFromURLs(_ flowController: any ObvFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws {
+    func userWantsToAddAttachmentsToDraftFromURLs(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        try await mainFlowViewControllerDelegate.userWantsToAddAttachmentsToDraftFromURLs(self, draftPermanentID: draftPermanentID, urls: urls)
+        try await mainFlowViewControllerDelegate.userWantsToAddAttachmentsToDraftFromURLs(self, draftObjectID: draftObjectID, urls: urls)
     }
     
     
-    func userWantsToAddAttachmentsToDraft(_ flowController: any ObvFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws {
+    func userWantsToAddAttachmentsToDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste] {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        try await mainFlowViewControllerDelegate.userWantsToAddAttachmentsToDraft(self, draftPermanentID: draftPermanentID, itemProviders: itemProviders)
+        return try await mainFlowViewControllerDelegate.userWantsToAddAttachmentsToDraft(self, draftObjectID: draftObjectID, itemProviders: itemProviders, source: source)
     }
     
-    func userWantsToSendDraft(_ flowController: any ObvFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToSendDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        try await mainFlowViewControllerDelegate.userWantsToSendDraft(mainFlowViewController: self, draftPermanentID: draftPermanentID, textBody: textBody, mentions: mentions)
+        try await mainFlowViewControllerDelegate.userWantsToSendDraft(mainFlowViewController: self, draftObjectID: draftObjectID, textBody: textBody, mentions: mentions)
+    }
+    
+    /// Called when the user taps the "plus" button implemented in UIKit
+    func floatingButtonTapped(flow: ObvFlowController) {
+        userWantsPresentInvitationFlow()
     }
     
     
-    @available(iOS 18, *)
-    func floatingButtonTapped(flow: any ObvFlowController) {
-        userWantsToAddContact(alreadyScannedOrTappedURL: nil)
-    }
-    
-    
-    func userWantsToPublishGroupV2Modification(_ flowController: any ObvFlowController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws {
+    func userWantsToPublishGroupV2Modification(_ flowController: ObvFlowController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToPublishGroupV2Modification(self, groupObjectID: groupObjectID, changeset: changeset)
     }
     
     
-    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws {
-        try await mainFlowViewControllerDelegate?.userWantsToPublishGroupV2Creation(groupCoreDetails: groupCoreDetails,
-                                                                                    ownPermissions: ownPermissions,
-                                                                                    otherGroupMembers: otherGroupMembers,
-                                                                                    ownedCryptoId: ownedCryptoId,
-                                                                                    photoURL: photoURL,
-                                                                                    groupType: groupType)
-    }
-
-    
-    func performTrustEstablishmentProtocolOfRemoteIdentity(remoteCryptoId: ObvCryptoId, remoteFullDisplayName: String) {
-         self.performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: remoteCryptoId, contactFullDisplayName: remoteFullDisplayName, ownedCryptoId: currentOwnedCryptoId, confirmed: false)
-    }
-    
-    
-    func rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String) {
-        self.rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: contactCryptoId, contactFullDisplayName: contactFullDisplayName, ownedCryptoId: currentOwnedCryptoId, confirmed: false)
-    }
-    
     @MainActor
-    private func userWantsToAddContact(alreadyScannedOrTappedURL: OlvidURL?) {
-        
+    private func userWantsPresentInvitationFlow() {
         assert(Thread.isMainThread)
         
-        let obvOwnedIdentity: ObvOwnedIdentity
+        let fullDisplayName: String
+        let ownedIdentityIsManagedByKeycloak: Bool
         do {
-            obvOwnedIdentity = try obvEngine.getOwnedIdentity(with: currentOwnedCryptoId)
+            (fullDisplayName, ownedIdentityIsManagedByKeycloak) = try PersistedObvOwnedIdentity.getFullDisplayNameAndIsKeycloakManaged(ownedCryptoId: self.currentOwnedCryptoId, within: ObvStack.shared.viewContext)
         } catch {
-            os_log("Could not get Owned Identity from Engine", log: log, type: .fault)
-            assertionFailure()
             return
         }
-        guard let vc = AddContactHostingViewController(
-            obvOwnedIdentity: obvOwnedIdentity,
-            alreadyScannedOrTappedURL: alreadyScannedOrTappedURL,
-            dismissAction: { [weak self] in self?.dismissPresentedViewController() },
-            checkSignatureMutualScanUrl: { [weak self] mutualScanUrl in
-                guard let _self = self else { return false }
-                return _self.checkSignatureMutualScanUrl(mutualScanUrl)
-            },
-            obvEngine: obvEngine,
-            delegate: self)
-        else {
-            assertionFailure()
-            return
-        }
+        let ownedURLIdentity = ObvURLIdentity(cryptoId: currentOwnedCryptoId, fullDisplayName: fullDisplayName)
+        let vc = InvitationFlowHostingController(
+            ownedURLIdentity: ownedURLIdentity,
+            ownedIdentityIsManagedByKeycloak: ownedIdentityIsManagedByKeycloak,
+            routerMode: .listOfContactsAndGroups,
+            invitationFlowHostingControllerDataSources: dataSources.invitationFlowHostingControllerDataSources,
+            actions: self,
+            navigation: self)
         dismiss(animated: true) {
             self.present(vc, animated: true)
         }
-        
+
     }
     
+    
+    private func userWantsToAddContactGroup(ownedCryptoId: ObvTypes.ObvCryptoId) {
+        assert(Thread.isMainThread)
+        
+        if ObvMessengerConstants.developmentMode {
+            
+            let alert = UIAlertController(title: NSLocalizedString("CHOOSE_GROUP_TYPE_TITLE", comment: ""),
+                                          message: NSLocalizedString("CHOOSE_GROUP_TYPE_MESSAGE", comment: ""),
+                                          preferredStyleForTraitCollection: self.traitCollection)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V1", comment: ""), style: .default, handler: { [weak self] (action) in
+                guard let self else { return }
+                routerForGroupV1Creation.presentInitialViewControllerForGroupV1Creation(
+                    ownedCryptoId: currentOwnedCryptoId,
+                    presentingViewController: self,
+                    navigation: self)                
+            }))
+            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V2", comment: ""), style: .default, handler: { [weak self] (action) in
+                guard let self else { return }
+                routerForGroupV2Creation.presentInitialViewControllerForGroupV2Creation(
+                    ownedCryptoId: currentOwnedCryptoId,
+                    creationMode: .fromScratch,
+                    presentingViewController: self,
+                    navigation: self,
+                    uiKitDelegateForSwiftUISheet: self)
+            }))
+            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
+            
+            if let presentedViewController = self.presentedViewController {
+                presentedViewController.present(alert, animated: true)
+            } else {
+                self.present(alert, animated: true)
+            }
 
+        } else {
+            
+            // Starting with version 0.12.0, we only allow the creation of groups v2.
+            // The group creation flow was completely refactored in version 2.4
+            // 2025-04-21: the group creation flow was re-coded from scratch.
+            routerForGroupV2Creation.presentInitialViewControllerForGroupV2Creation(
+                ownedCryptoId: currentOwnedCryptoId,
+                creationMode: .fromScratch,
+                presentingViewController: self,
+                navigation: self,
+                uiKitDelegateForSwiftUISheet: self)
+
+        }
+    }
+    
+    
+    func userWantsToCloneGroup(_ flowController: ObvFlowController, valuesOfGroupToClone: ObvGroupV2CreationRouter.ValuesOfClonedGroup) async throws {
+        assert(Thread.isMainThread)
+        routerForGroupV2Creation.presentInitialViewControllerForGroupV2Creation(
+            ownedCryptoId: currentOwnedCryptoId,
+            creationMode: .cloneExistingGroup(valuesOfGroupToClone: valuesOfGroupToClone),
+            presentingViewController: self,
+            navigation: self,
+            uiKitDelegateForSwiftUISheet: self)
+    }
+
+    
     private func checkAuthorizationStatusThenSetupAndPresentQRCodeScanner() {
         assert(Thread.isMainThread)
         switch AVCaptureDevice.authorizationStatus(for: AVMediaType.video) {
@@ -1183,26 +1436,33 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
     @MainActor
     private func setupAndPresentQRCodeScanner() {
         assert(Thread.isMainThread)
-        let vc = ObvScannerHostingView(buttonType: .back, delegate: self)
-        let nav = UINavigationController(rootViewController: vc)
-        // Configure the ObvScannerHostingView properly for the navigation controller
-        vc.title = NSLocalizedString("SCAN_QR_CODE", comment: "")
-        dismiss(animated: false) { [weak self] in
-            self?.present(nav, animated: true)
+        let fullDisplayName: String
+        let ownedIdentityIsManagedByKeycloak: Bool
+        do {
+            (fullDisplayName, ownedIdentityIsManagedByKeycloak) = try PersistedObvOwnedIdentity.getFullDisplayNameAndIsKeycloakManaged(ownedCryptoId: self.currentOwnedCryptoId, within: ObvStack.shared.viewContext)
+        } catch {
+            return
+        }
+        let ownedURLIdentity = ObvURLIdentity(cryptoId: currentOwnedCryptoId, fullDisplayName: fullDisplayName)
+        let vc = InvitationFlowHostingController(
+            ownedURLIdentity: ownedURLIdentity,
+            ownedIdentityIsManagedByKeycloak: ownedIdentityIsManagedByKeycloak,
+            routerMode: .scanner,
+            invitationFlowHostingControllerDataSources: dataSources.invitationFlowHostingControllerDataSources,
+            actions: self,
+            navigation: self)
+        dismiss(animated: true) {
+            self.present(vc, animated: true)
         }
     }
     
     
-    func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with contactCryptoId: ObvCryptoId, using newContactIdentityDetails: ObvIdentityDetails) {
+    func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(_ flowController: ObvFlowController, contactIdentifier: ObvContactIdentifier, using newContactIdentityDetails: ObvIdentityDetails) async throws {
         let obvEngine = self.obvEngine
-        let log = self.log
-        let currentOwnedCryptoId = self.currentOwnedCryptoId
-        Task.detached {
-            do {
-                try await obvEngine.updateTrustedIdentityDetailsOfContactIdentity(with: contactCryptoId, ofOwnedIdentityWithCryptoId: currentOwnedCryptoId, with: newContactIdentityDetails)
-            } catch {
-                os_log("Could not update trusted identity details of a contact", log: log, type: .error)
-            }
+        do {
+            try await obvEngine.updateTrustedIdentityDetailsOfContactIdentity(contactIdentifier: contactIdentifier, with: newContactIdentityDetails)
+        } catch {
+            os_log("Could not update trusted identity details of a contact", log: log, type: .error)
         }
     }
     
@@ -1218,11 +1478,7 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         presentedViewController?.dismiss(animated: true)
     }
 
-    private func checkSignatureMutualScanUrl(_ mutualScanUrl: ObvMutualScanUrl) -> Bool {
-        return obvEngine.verifyMutualScanUrl(ownedCryptoId: currentOwnedCryptoId, mutualScanUrl: mutualScanUrl)
-    }
-    
-    
+
     func userAskedToRefreshDiscussions() async throws {
         // Request the download of all messages to the engine
         try await obvEngine.downloadAllMessagesForOwnedIdentities()
@@ -1260,8 +1516,13 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
     }
 
     
+    func userWantsToInviteContactsToOneToOne(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws {
+        try await self.userWantsToInviteContactsToOneToOne(ownedCryptoId: ownedCryptoId, users: users)
+    }
+    
+    
     /// Central method to call to invite a contact to be one2one. In most cases, this only triggers a `OneToOneContactInvitationProtocol`. In the case the owned identity is keycloak managed by the same server as the contact, this *also* triggers a Keycloak invitation.
-    func userWantsToInviteContactsToOneToOne(ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws {
+    private func userWantsToInviteContactsToOneToOne(ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws {
 
         guard !users.isEmpty else { assertionFailure(); return }
         
@@ -1398,7 +1659,33 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         
     }
     
+    private func userWantsToRemoveOneToOneInvitationSent(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) async throws {
+        let log = self.log
+        let obvEngine = self.obvEngine
+        let dialog = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvDialog?, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    guard let oneToOneInvitationSent = try PersistedInvitationOneToOneInvitationSent.get(fromOwnedIdentity: ownedCryptoId,
+                                                                                                         toContact: contactCryptoId,
+                                                                                                         within: context) else {
+                        assertionFailure()
+                        return continuation.resume(returning: nil)
+                    }
+                    let dialog = oneToOneInvitationSent.obvDialog
+                    return continuation.resume(returning: dialog)
+                } catch {
+                    os_log("Could not cancel OneToOne invitation: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+        guard var dialog else { return }
+        try dialog.cancelOneToOneInvitationSent()
+        let dialogForEngine = dialog
+        try await obvEngine.respondTo(dialogForEngine)
+    }
     
+
     /// Helper method for ``computeListOfOneToOneInvitationsToSend(ownedCryptoId:users:)``
     private func ownedIdentityIsKeycloakManaged(ownedCryptoId: ObvCryptoId) async throws -> Bool {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
@@ -1415,30 +1702,40 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         }
     }
 
+    func userHasSeenPublishedDetails(_ flowController: ObvFlowController, publishedDetails: PublishedDetailsValidationViewModel) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userHasSeenPublishedDetails(self, publishedDetails: publishedDetails)
+    }
     
-    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws {
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ flowController: ObvFlowController, groupIdentifier: ObvGroupV1Identifier) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToReplaceTrustedDetailsByPublishedDetails(self, groupIdentifier: groupIdentifier)
+    }
+    
+    
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ flowController: ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         return try await mainFlowViewControllerDelegate.userWantsToReplaceTrustedDetailsByPublishedDetails(self, groupIdentifier: groupIdentifier)
     }
  
     
-    func userWantsToLeaveGroup(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws {
+    func userWantsToLeaveGroup(_ flowController: ObvFlowController, groupIdentifier: ObvGroupIdentifier) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         return try await mainFlowViewControllerDelegate.userWantsToLeaveGroup(self, groupIdentifier: groupIdentifier)
     }
     
     
-    func userWantsToDisbandGroup(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws {
+    func userWantsToDisbandGroup(_ flowController: ObvFlowController, groupIdentifier: ObvGroupIdentifier) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         return try await mainFlowViewControllerDelegate.userWantsToDisbandGroup(self, groupIdentifier: groupIdentifier)
     }
     
     
-    func userWantsToSelectAndCallContacts(flowController: any ObvFlowController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?) async {
-        await self.processUserWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId)
+    func userWantsToSelectAndCallContacts(flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?) {
+        self.processUserWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId)
     }
     
-    func userWantsObtainAvatar(_ flowController: any ObvFlowController, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+    func userWantsObtainAvatar(_ flowController: ObvFlowController, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         return try await mainFlowViewControllerDelegate.userWantsObtainAvatar(self, avatarSource: avatarSource, avatarSize: avatarSize)
     }
@@ -1446,74 +1743,337 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
 }
 
 
-// MARK: - ObvSubTabBarControllerDelegate
+// MARK: - Implementing InvitationFlowRouterNavigation
 
-@available(iOS, deprecated: 18.0)
-extension MainFlowViewController: ObvSubTabBarControllerDelegate {
+extension MainFlowViewController: InvitationFlowRouterNavigation {
     
-    @available(iOS, deprecated: 18.0, message: "Under iOS 18, we use a floating button instead of a middle button incorporated in the tabbar.")
-    func middleButtonTapped(sourceView: UIView) {
-        userWantsToAddContact(alreadyScannedOrTappedURL: nil)
+    func userDidPressOnObvGroupCellView(_ view: ObvCells.ObvGroupCellView, groupIdentifier: ObvAppTypes.ObvGroupIdentifier, expectedNavigation: ObvCells.ObvGroupCellView.ExpectedNavigation) throws {
+        
+        assert(Thread.isMainThread)
+        
+        guard let displayedContactGroup = try DisplayedContactGroup.getDisplayedContactGroup(groupIdentifier: groupIdentifier, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            throw ObvError.couldNotFindDisplayedContactGroup
+        }
+
+        switch expectedNavigation {
+            
+        case .groupDiscussion:
+            
+            guard let discussionIdentifier = displayedContactGroup.discussionIdentifier else { assertionFailure(); return }
+            let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
+            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                .postOnDispatchQueue()
+            
+        case .groupDetails:
+            
+            // For now, this case cannot occur in practice
+            assertionFailure()
+
+        }
+    }
+    
+}
+
+// MARK: - Implementing GroupV1CreationNavigationStackNavigation
+
+extension MainFlowViewController: GroupV1CreationNavigationStackNavigation {
+    
+    func presentedGroupCreationFlowShouldBeDismissed(_ view: ObvUIGroupV1.GroupV1CreationNavigationStack) {
+        self.presentedViewController?.dismiss(animated: true)
+    }
+    
+}
+
+// MARK: - Implementing GroupCreationNavigationStackNavigation
+
+extension MainFlowViewController: GroupCreationNavigationStackNavigation {
+    
+    func presentedGroupCreationFlowShouldBeDismissed(_ view: ObvUIGroupV2.GroupV2CreationNavigationStack) {
+        self.presentedViewController?.dismiss(animated: true)
+    }
+    
+}
+
+// MARK: - Implementing GroupV1CreationNavigationStackActions
+
+extension MainFlowViewController: GroupV1CreationNavigationStackActions {
+    
+    func userWantsObtainAvatarDuringGroupV1Creation(_ view: ObvUIGroupV1.GroupV1CreationNavigationStack, avatarSource: ObvAppTypes.ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsObtainAvatar(self, avatarSource: avatarSource, avatarSize: avatarSize)
+    }
+    
+    func userWantsToSaveImageToTempFileDuringGroupV1Creation(_ view: ObvUIGroupV1.GroupV1CreationNavigationStack, image: UIImage) async throws -> URL {
+        try await self.userWantsToSaveImageToTempFile(image: image)
+    }
+    
+    func userWantsToPublishCreatedGroupV1(_ view: ObvUIGroupV1.GroupV1CreationNavigationStack, ownedCryptoId: ObvTypes.ObvCryptoId, groupDetails: ObvTypes.ObvGroupDetails, otherGroupMembers: Set<ObvTypes.ObvCryptoId>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToPublishGroupV1Creation(self, ownedCryptoId: ownedCryptoId, groupDetails: groupDetails, otherGroupMembers: otherGroupMembers)
     }
     
 }
 
 
-// MARK: - UITabBarControllerDelegate
+// MARK: - Implementing GroupCreationNavigationStackActions
 
-extension MainFlowViewController: UITabBarControllerDelegate {
-
-    func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
-        
-        // If the user taps on the tab of the currently selected view controller, we unwind the controllers of the current navigation controller
-        
-        guard let selectedViewController = tabBarController.selectedViewController as? ObvFlowController else { assertionFailure(); return true }
-
-        if viewController == selectedViewController {
-            if selectedViewController.viewControllers.count > 1 {
-                shouldPopViewController = true
-            } else {
-                shouldScrollToTop = true
-            }
-        }
-        
-        return true
-        
+extension MainFlowViewController: GroupV2CreationNavigationStackActions {
+    
+    func userWantsObtainAvatarDuringGroupCreation(_ view: ObvUIGroupV2.GroupV2CreationNavigationStack, avatarSource: ObvAppTypes.ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsObtainAvatar(self, avatarSource: avatarSource, avatarSize: avatarSize)
     }
     
+    func userWantsToSaveImageToTempFileDuringGroupCreation(_ view: ObvUIGroupV2.GroupV2CreationNavigationStack, image: UIImage) async throws -> URL {
+        try await self.userWantsToSaveImageToTempFile(image: image)
+    }
     
-    func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+    func userWantsToPublishCreatedGroupV2(_ view: ObvUIGroupV2.GroupV2CreationNavigationStack, ownedCryptoId: ObvTypes.ObvCryptoId, groupDetails: ObvTypes.ObvGroupDetails, groupType: ObvAppTypes.ObvGroupType, otherGroupMembers: Set<ObvTypes.ObvGroupV2.IdentityAndPermissions>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
         
-        guard shouldPopViewController || shouldScrollToTop else { return }
-        defer {
-            shouldPopViewController = false
-            shouldScrollToTop = false
-        }
+        let groupCoreDetails = GroupV2CoreDetails(groupName: groupDetails.coreDetails.name,
+                                                  groupDescription: groupDetails.coreDetails.description)
         
-        guard let selectedFlowController = tabBarController.selectedViewController as? ObvFlowController else { return }
-
-        if shouldPopViewController {
-            selectedFlowController.popToRootViewController(animated: true)
-        }
+        let ownPermissions: Set<ObvGroupV2.Permission> = ObvGroupType.exactPermissions(of: .admin, forGroupType: groupType)
         
-        if shouldScrollToTop {
-            // Scroll to the top of the table view (if there is one) displayed by root view controller
-            if let currentViewController = selectedFlowController.viewControllers.first, let vc = currentViewController as? CanScrollToTop {
-                vc.scrollToTop()
-            }
-        }
-        
+        try await mainFlowViewControllerDelegate.userWantsToPublishGroupV2Creation(
+            self,
+            groupCoreDetails: groupCoreDetails,
+            ownPermissions: ownPermissions,
+            otherGroupMembers: otherGroupMembers,
+            ownedCryptoId: ownedCryptoId,
+            photoURL: groupDetails.photoURL,
+            groupType: groupType)
     }
     
 }
 
 
-// MARK: - AddContactHostingViewControllerDelegate
+// MARK: - Implementing ObvExternalInvitationHandlerViewActions
 
-extension MainFlowViewController: AddContactHostingViewControllerDelegate {
+extension MainFlowViewController: ObvExternalInvitationHandlerViewActions {
     
-    func userWantsToAddNewContactViaKeycloak(ownedCryptoId: ObvCryptoId, keycloakUserDetails: ObvKeycloakUserDetails, userCryptoId: ObvCryptoId) async throws {
-        try await userWantsToInviteContactsToOneToOne(ownedCryptoId: ownedCryptoId, users: [(userCryptoId, keycloakUserDetails)])
+    func userWantsToStartTrustEstablishmentProtocolOfRemoteIdentity(_ view: ObvInvitationFlow.ExternalInvitationHandlerView, ownedCryptoId: ObvTypes.ObvCryptoId, remoteURLIdentity: ObvTypes.ObvURLIdentity) {
+        Task {
+            await sendInvite(to: remoteURLIdentity.cryptoId, withFullDisplayName: remoteURLIdentity.fullDisplayName, for: ownedCryptoId)
+        }
+    }
+    
+}
+
+
+// MARK: - Implementing ObvScannerViewActions
+
+extension MainFlowViewController: ObvInvitationFlow.ObvScannerViewActions {
+    
+    func userScannedOrPastedAnOlvidURL(_ view: NewScannerView, scannedOlvidURL: OlvidURL) -> (remoteURLIdentity: ObvURLIdentity, mutualScanURLToShow: ObvMutualScanUrl)? {
+        return userScannedOrPastedAnOlvidURL(olvidURL: scannedOlvidURL)
+    }
+    
+    func userWantsToStartTrustEstablishmentProtocolOfRemoteIdentity(_ view: ObvInvitationFlow.NewScannerView, ownedCryptoId: ObvTypes.ObvCryptoId, remoteURLIdentity: ObvTypes.ObvURLIdentity) {
+        Task {
+            await sendInvite(to: remoteURLIdentity.cryptoId, withFullDisplayName: remoteURLIdentity.fullDisplayName, for: ownedCryptoId)
+        }
+    }
+    
+}
+
+
+// MARK: - Implementing ObvCopyPasteMenuActions
+
+extension MainFlowViewController: ObvInvitationFlow.ObvCopyPasteMenuActions {
+    
+    func userWantsToPasteOlvidURLFromClipboard(_ view: CopyPasteMenu, ownedCryptoId: ObvCryptoId) throws -> OlvidURL {
+        guard let pastedText = UIPasteboard.general.string else {
+            throw ObvError.couldNotPasteStringFromPasteboard
+        }
+        // Find all the URLs within the pasted text. The first one "wins".
+        let urls = pastedText.extractURLs()
+        guard let olvidURL = urls.compactMap({ OlvidURL(urlRepresentation: $0) }).first else {
+            throw ObvError.couldNotFindAnyOlvidURLInPastedText
+        }
+        return olvidURL
+    }
+    
+
+    func userWantsToCopyOwnedIdentityToClipboard(_ view: CopyPasteMenu, ownedCryptoId: ObvCryptoId) throws {
+        let obvOwnedIdentity = try obvEngine.getOwnedIdentity(with: ownedCryptoId)
+        let genericIdentity = obvOwnedIdentity.getGenericIdentity()
+        let urlIdentityRepresentation = genericIdentity.getObvURLIdentity().urlRepresentation(for: .sharing)
+        UIPasteboard.general.string = urlIdentityRepresentation.absoluteString
+    }
+    
+}
+
+
+// MARK: - Implementing ObvScanValidationViewActions
+
+extension MainFlowViewController: ObvInvitationFlow.ObvScanValidationViewActions {
+    
+    func userWantsToNavigateToOneToOneDiscussion(_ view: ScanValidationView, obvContactIdentifier: ObvContactIdentifier) {
+        userWantsToDiscussWith(contactIdentifier: obvContactIdentifier)
+    }
+    
+}
+
+// MARK: - Implementing ObvContactInvitationViewAction
+
+extension MainFlowViewController: ObvInvitationFlow.ObvContactInvitationViewAction {
+        
+    func userWantsToInviteContactsToOneToOne(_ view: ObvInvitationFlow.ContactInvitationView, ownedCryptoId: ObvTypes.ObvCryptoId, users: [(cryptoId: ObvTypes.ObvCryptoId, keycloakDetails: ObvTypes.ObvKeycloakUserDetails?)]) async throws {
+        try await self.userWantsToInviteContactsToOneToOne(ownedCryptoId: ownedCryptoId, users: users)
+    }
+    
+    func userWantsToDiscussWith(_ view: ObvInvitationFlow.ContactInvitationView, obvContactIdentifier: ObvTypes.ObvContactIdentifier) {
+        userWantsToDiscussWith(contactIdentifier: obvContactIdentifier)
+    }
+    
+    func userWantsToRemoveOneToOneInvitationSent(_ view: ObvInvitationFlow.ContactInvitationView, contactIdentifier: ObvTypes.ObvContactIdentifier) async throws {
+        try await userWantsToRemoveOneToOneInvitationSent(ownedCryptoId: contactIdentifier.ownedCryptoId, contactCryptoId: contactIdentifier.contactCryptoId)
+    }
+
+    private func userWantsToDiscussWith(contactIdentifier: ObvTypes.ObvContactIdentifier) {
+        guard let oneToOneDiscussion = try? PersistedOneToOneDiscussion.getPersistedDiscussionOneToOne(contactId: contactIdentifier, within: ObvStack.shared.viewContext) else { return }
+        guard oneToOneDiscussion.contactIdentity?.cryptoId == contactIdentifier.contactCryptoId else { return }
+        guard let discussionIdentifier = oneToOneDiscussion.discussionIdentifier else { assertionFailure(); return }
+        let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink).postOnDispatchQueue()
+    }
+    
+}
+
+
+// MARK: - Implementing
+
+extension MainFlowViewController: ObvInvitationFlow.ListOfContactsAndGroupsViewActions {
+    
+    func userWantsToDismissInvitationFlow(_ view: ObvInvitationFlow.ListOfContactsAndGroupsView) {
+        self.presentedViewController?.dismiss(animated: true)
+    }
+    
+    
+    func userWantsToPerformKeycloakAuthentication(_ view: ObvInvitationFlow.ListOfContactsAndGroupsView.ListOfDirectoryContactsView, ownedCryptoId: ObvTypes.ObvCryptoId) async throws(ListOfContactsAndGroupsView.ListOfDirectoryContactsView.KeycloakError) {
+        do {
+            try await KeycloakManagerSingleton.shared.synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: true)
+        } catch {
+            switch error {
+            case .userHasCancelled:
+                throw .userHasCancelled
+            }
+        }
+    }
+    
+    
+    func userPastedAnOlvidURL(_ view: ListOfContactsAndGroupsView, scannedOlvidURL: OlvidURL) -> (remoteURLIdentity: ObvURLIdentity, mutualScanURLToShow: ObvMutualScanUrl)? {
+        return userScannedOrPastedAnOlvidURL(olvidURL: scannedOlvidURL)
+    }
+    
+    /// Handles a scanned or pasted `OlvidURL` in the `ObvInvitationFlow`.
+    ///
+    /// This method processes the URL based on its category:
+    /// - For `.invitation` URLs, computes and returns an `ObvMutualScanUrl` to enable the second scan in a double-scan invitation flow.
+    /// - For all other categories (e.g., Keycloak configuration), returns `nil` and delegates routing to the `NewAppStateManager`.
+    ///
+    /// - Note:
+    ///   The URL can be scanned or pasted via the QR scanner or pasted from the contacts list.
+    ///
+    /// - Returns:
+    ///   An `ObvMutualScanUrl` if the URL is an invitation, otherwise `nil`.
+    private func userScannedOrPastedAnOlvidURL(olvidURL: OlvidURL) -> (remoteURLIdentity: ObvURLIdentity, mutualScanURLToShow: ObvMutualScanUrl)? {
+        switch olvidURL.category {
+        case .invitation(urlIdentity: let remoteURLIdentity):
+            guard let mutualScanUrl = try? obvEngine.computeMutualScanUrl(remoteIdentity: remoteURLIdentity.cryptoId.getIdentity(), ownedCryptoId: self.currentOwnedCryptoId) else { assertionFailure(); return nil }
+            return (remoteURLIdentity, mutualScanUrl)
+        default:
+            Task {
+                await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+                await NewAppStateManager.shared.routeOlvidURL(olvidURL)
+            }
+            return nil
+        }
+    }
+    
+    func userWantsToCreateGroup(_ view: ListOfContactsAndGroupsView.InvitationsContactsListContentView, ownedCryptoId: ObvCryptoId) {
+        let deepLink = ObvDeepLink.groupCreation
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink).postOnDispatchQueue()
+    }
+    
+    
+    func persistedObvContactIdentityTapped(_ view: ListOfContactsAndGroupsView.ListOfContactsCellForKeyView, currentCryptoId: ObvCryptoId, with objectID: NSManagedObjectID) async -> InvitationContactsListNavigationType {
+        return await persistedObvContactIdentityTapped(currentCryptoId: currentCryptoId, with: objectID)
+    }
+    
+    
+    private func persistedObvContactIdentityTapped(currentCryptoId: ObvCryptoId, with objectID: NSManagedObjectID) async -> InvitationContactsListNavigationType {
+        guard let persistedContactIdentity = try? PersistedObvContactIdentity.get(objectID: objectID, within: ObvStack.shared.viewContext) else { return .none }
+        let obvContactIdentifier = ObvContactIdentifier(contactCryptoId: persistedContactIdentity.cryptoId, ownedCryptoId: currentCryptoId)
+        if persistedContactIdentity.isOneToOne {
+            let deeplink = ObvDeepLink.singleDiscussion(discussionIdentifier: .oneToOne(id: obvContactIdentifier))
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deeplink).postOnDispatchQueue()
+        } else {
+            return .showInvitation(obvContactIdentifier: obvContactIdentifier, keycloakUserDetails: nil)
+        }
+        return .none
+    }
+    
+    
+    func keycloakContactIdentifierTapped(_ view: ListOfContactsAndGroupsView.ListOfContactsCellForKeyView, currentCryptoId: ObvCryptoId, with keycloakUserDetails: ObvKeycloakUserDetails) async -> InvitationContactsListNavigationType {
+        guard let identity = keycloakUserDetails.identity, let contactCryptoId = try? ObvCryptoId(identity: identity) else { return .none }
+        let obvContactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: currentCryptoId)
+        if let persistedContactIdentity = try? PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: currentCryptoId, whereOneToOneStatusIs: .oneToOne, within: ObvStack.shared.viewContext) {
+            return await persistedObvContactIdentityTapped(currentCryptoId: currentCryptoId, with: persistedContactIdentity.objectID)
+        } else {
+            return .showInvitation(obvContactIdentifier: obvContactIdentifier,
+                                   keycloakUserDetails: keycloakUserDetails)
+        }
+    }
+    
+    
+}
+
+
+// MARK: - Unlocking hidden profile
+
+extension MainFlowViewController {
+    
+    private func showAlertForUnlockingHiddenOwnedIdentity() {
+        let alert = UIAlertController(title: String(localized: "OPEN_HIDDEN_PROFILE_ALERT_TITLE"),
+                                      message: String(localized: "OPEN_HIDDEN_PROFILE_ALERT_MESSAGE"),
+                                      preferredStyle: .alert)
+        alert.addTextField { textField in
+            textField.passwordRules = UITextInputPasswordRules(descriptor: "minlength: \(ObvAppCoreConstants.minimumLengthOfPasswordForHiddenProfiles);")
+            textField.text = ""
+            textField.isSecureTextEntry = true
+            textField.addTarget(self, action: #selector(self.textFieldForUnlockingHiddenProfileDidChange(textField:)), for: .editingChanged)
+        }
+        alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    
+    @objc final private func textFieldForUnlockingHiddenProfileDidChange(textField: UITextField) {
+        guard let presentedAlert = presentedViewController as? UIAlertController else { return }
+        guard let presentedTextField = presentedAlert.textFields?.first else { return }
+        guard textField == presentedTextField else { return }
+        guard let currentText = textField.text, currentText.count >= ObvAppCoreConstants.minimumLengthOfPasswordForHiddenProfiles else { return }
+        ObvStack.shared.performBackgroundTask { context in
+            do {
+                guard try PersistedObvOwnedIdentity.passwordCanUnlockSomeHiddenOwnedIdentity(password: currentText, within: context) else { return }
+            } catch {
+                assertionFailure(error.localizedDescription)
+                return
+            }
+            // If we reach this point, the current text is a proper password for unlocking a hidden owned identity
+            DispatchQueue.main.async {
+                presentedAlert.dismiss(animated: true)
+                ObvMessengerInternalNotification.userWantsToSwitchToOtherHiddenOwnedIdentity(password: currentText)
+                    .postOnDispatchQueue()
+            }
+        }
     }
     
 }
@@ -1609,23 +2169,26 @@ extension MainFlowViewController {
                 .postOnDispatchQueue()
             }
         } else {
-            let vc = UserTriesToAccessPaidFeatureHostingController(requestedPermission: .canCall, ownedCryptoId: ownedIdentity.cryptoId)
-            dismiss(animated: true) { [weak self] in
-                self?.present(vc, animated: true)
-            }
+            let vc = UserTriesToAccessPaidFeatureHostingController(
+                requestedPermission: .canCall,
+                ownedCryptoId: ownedIdentity.cryptoId,
+                actions: actions,
+                navigation: self)
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            self.present(vc, animated: true)
         }
     }
     
     
     private func observeUserWantsToSelectAndCallContactsNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToSelectAndCallContacts { ownedCryptoId, contactCryptoIds, groupId in
-            Task { [weak self] in await self?.processUserWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId) }
+            Task { [weak self] in self?.processUserWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId) }
         })
     }
     
 
     @MainActor
-    private func processUserWantsToSelectAndCallContacts(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?) async {
+    private func processUserWantsToSelectAndCallContacts(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?) {
         guard !contactCryptoIds.isEmpty else { return }
         
         let persistedContacts = contactCryptoIds
@@ -1674,7 +2237,7 @@ extension MainFlowViewController {
             guard let self else { return }
             presentedViewController?.dismiss(animated: true)
         }))
-
+        
         if let presentedViewController {
             presentedViewController.present(nav, animated: true)
         } else {
@@ -1714,12 +2277,23 @@ extension MainFlowViewController {
     }
     
     
+    /// Returns the `ObvFlowController` corresponding to the requested `flow`, depending on whether
+    /// this `UISplitViewController` is currently collapsed or expanded.
+    private func flowControllerForFlow(_ flow: ObvFlow) -> ObvFlowController {
+        if self.isCollapsed {
+            return self.allFlowControllersForUITabBarController.flowControllerForFlow(flow)
+        } else {
+            return self.allFlowControllersForUISplitViewController.flowControllerForFlow(flow)
+        }
+    }
+    
+
     /// This method shall only be called from the MetaFlowController. The reason we do not listen to notifications in this class is that it is
     /// initialized late in the app initialization process and thus, we could miss deep link navigation notifications sent earlier.
     @MainActor
     func performCurrentDeepLinkInitialNavigation(deepLink: ObvDeepLink) async {
-        assert(Thread.isMainThread)
-        os_log("🥏 Performing deep link initial navigation to %{public}@", log: log, type: .info, deepLink.description)
+
+        Self.logger.info("🥏 Performing deep link initial navigation to \(deepLink.description, privacy: .public)")
         
         /* Before performing the navigation, we switch to the appropriate owned cryptoId if appropriate. If the ownedCryptoId concerns a hidden profile,
          * we do *not* switch to it and only continue the navigation if the current owned identity corresponds to this hiddent profile.
@@ -1738,80 +2312,91 @@ extension MainFlowViewController {
         }
         
         switch deepLink {
-            
+
         case .myId(ownedCryptoId: let ownedCryptoId):
-            os_log("🥏 The current deep link is a myId", log: log, type: .info)
-            guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-            presentedViewController?.dismiss(animated: true)
-            let vc = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity, obvEngine: obvEngine, delegate: self)
-            let nav = UINavigationController(rootViewController: vc)
-            vc.delegate = self
-            present(nav, animated: true)
+            Self.logger.info("🥏 The current deep link is a myId")
+            await presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            let vc = ObvSingleOwnedIdentityViewStackViewController(
+                ownedCryptoId: ownedCryptoId,
+                dataSources: self.dataSources.singleOwnedIdentityViewStackDataSources,
+                actions: self,
+                navigation: self,
+                uiKitDelegateForSwiftUISheet: self)
             
-        case .latestDiscussions:
-            mainTabBarController.selectedObvTab = .latestDiscussions
+            present(vc, animated: true)
+            
+        case .latestDiscussions(ownedCryptoId: let ownedCryptoId):
+            if let ownedCryptoId {
+                await switchCurrentOwnedCryptoId(to: ownedCryptoId)
+            }
+            switchToFlow(.latestDiscussions)
             presentedViewController?.dismiss(animated: true)
             
-        case .allGroups:
-            mainTabBarController.selectedObvTab = .groups
+        case .allGroups(ownedCryptoId: let ownedCryptoId):
+            await switchCurrentOwnedCryptoId(to: ownedCryptoId)
+            switchToFlow(.groups)
             presentedViewController?.dismiss(animated: true)
 
         case .qrCodeScan:
-            os_log("🥏 The current deep link is a qrCodeScan", log: log, type: .info)
+            Self.logger.info("🥏 The current deep link is a qrCodeScan")
             // We do not need to navigate anywhere. We just show the QR code scanner.
             presentedViewController?.dismiss(animated: true)
             checkAuthorizationStatusThenSetupAndPresentQRCodeScanner()
 
-        case .singleDiscussion(ownedCryptoId: _, objectPermanentID: let discussionPermanentID):
-            mainTabBarController.selectedObvTab = .latestDiscussions
+        case .singleDiscussion(discussionIdentifier: let discussionIdentifier):
+            await switchCurrentOwnedCryptoId(to: discussionIdentifier.ownedCryptoId)
+            switchToFlow(.latestDiscussions)
             presentedViewController?.dismiss(animated: true)
-            guard let discussion = try? PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: ObvStack.shared.viewContext) else { return }
-            discussionsFlowViewController.userWantsToDisplay(persistedDiscussion: discussion)
+            guard let discussion = try? PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: discussionIdentifier, within: ObvStack.shared.viewContext) else { return }
+            let discussionFlow = flowControllerForFlow(.latestDiscussions)
+            discussionFlow.userWantsToDisplay(persistedDiscussion: discussion)
 
-        case .invitations:
-            mainTabBarController.selectedObvTab = .invitations
+        case .invitations(ownedCryptoId: let ownedCryptoId):
+            await presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            await switchCurrentOwnedCryptoId(to: ownedCryptoId)
+            switchToFlow(.invitations)
             presentedViewController?.dismiss(animated: true)
             
-        case .groupV1Details(ownedCryptoId: _, objectPermanentID: let displayedContactGroupPermanentID):
-            _ = groupsFlowViewController.popToRootViewController(animated: false)
-            mainTabBarController.selectedObvTab = .groups
-            presentedViewController?.dismiss(animated: true)
+        case .groupV1Details(ownedCryptoId: let ownedCryptoId, objectPermanentID: let displayedContactGroupPermanentID):
+            await switchCurrentOwnedCryptoId(to: ownedCryptoId)
+            let groupsFlow: ObvFlowController = self.flowControllerForFlow(.groups)
+            groupsFlow.popToRootViewController(animated: false)
+            switchToFlow(.groups)
+            await presentedViewController?.dismissAndAwaitCompletion(animated: true)
             guard let displayedContactGroup = try? DisplayedContactGroup.getManagedObject(withPermanentID: displayedContactGroupPermanentID, within: ObvStack.shared.viewContext) else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                guard let _self = self else { return }
-                if let allGroupsViewController = _self.groupsFlowViewController.topViewController as? NewAllGroupsViewController {
-                    allGroupsViewController.selectRowOfDisplayedContactGroup(displayedContactGroup)
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                    guard let _self = self else { return }
-                    _self.groupsFlowViewController.userWantsToNavigateToSingleGroupView(displayedContactGroup, within: _self.groupsFlowViewController)
-                }
+            if let groupsListVC = groupsFlow.topViewController as? ObvGroupsListViewController {
+                groupsListVC.scrollToItem(.objectIDOfDisplayedContactGroup(displayedContactGroup.objectID))
             }
+            try? await Task.sleep(seconds: 1.3) // Time required for the scroll + chevron animation
+            groupsFlow.userWantsToNavigateToSingleGroupView(displayedContactGroup, within: groupsFlow)
             
         case .groupV2Details(groupIdentifier: let groupIdentifier):
-            _ = groupsFlowViewController.popToRootViewController(animated: false)
-            mainTabBarController.selectedObvTab = .groups
-            presentedViewController?.dismiss(animated: true)
+            await switchCurrentOwnedCryptoId(to: groupIdentifier.ownedCryptoId)
+            let groupsFlow: ObvFlowController = self.flowControllerForFlow(.groups)
+            _ = groupsFlow.popToRootViewController(animated: false)
+            switchToFlow(.groups)
+            await presentedViewController?.dismissAndAwaitCompletion(animated: true)
             guard let persistedGroupV2 = try? PersistedGroupV2.get(ownIdentity: groupIdentifier.ownedCryptoId, appGroupIdentifier: groupIdentifier.identifier.appGroupIdentifier, within: ObvStack.shared.viewContext) else { return }
             guard let displayedContactGroup = persistedGroupV2.displayedContactGroup else { return }
-            try? await Task.sleep(milliseconds: 300)
-            if let allGroupsViewController = groupsFlowViewController.topViewController as? NewAllGroupsViewController {
-                allGroupsViewController.selectRowOfDisplayedContactGroup(displayedContactGroup)
+            if let groupsListVC = groupsFlow.topViewController as? ObvGroupsListViewController {
+                groupsListVC.scrollToItem(.objectIDOfDisplayedContactGroup(displayedContactGroup.objectID))
             }
-            try? await Task.sleep(milliseconds: 300)
-            groupsFlowViewController.userWantsToNavigateToSingleGroupView(displayedContactGroup, within: groupsFlowViewController)
+            try? await Task.sleep(seconds: 1.3) // Time required for the scroll + chevron animation
+            groupsFlow.userWantsToNavigateToSingleGroupView(displayedContactGroup, within: groupsFlow)
             
         case .contactIdentityDetails(contactIdentifier: let contactIdentifier):
-            _ = contactsFlowViewController.popToRootViewController(animated: false)
-            mainTabBarController.selectedObvTab = .contacts
-            presentedViewController?.dismiss(animated: true)
+            await switchCurrentOwnedCryptoId(to: contactIdentifier.ownedCryptoId)
+            let contactFlow = self.flowControllerForFlow(.contacts)
+            _ = contactFlow.popToRootViewController(animated: false)
+            switchToFlow(.contacts)
+            await presentedViewController?.dismissAndAwaitCompletion(animated: true)
             guard let contactIdentity = try? PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) else { return }
             try? await Task.sleep(milliseconds: 300)
-            if let allContactsViewController = contactsFlowViewController.topViewController as? AllContactsViewController {
+            if let allContactsViewController = contactFlow.topViewController as? AllContactsViewController {
                 allContactsViewController.selectRowOfContactIdentity(contactIdentity)
             }
             try? await Task.sleep(milliseconds: 300)
-            contactsFlowViewController.userWantsToDisplay(persistedContact: contactIdentity, within: contactsFlowViewController)
+            contactFlow.userWantsToNavigateToSingleContactView(contactIdentifier: contactIdentifier)
             
         case .airDrop(fileURL: let fileURL):
             
@@ -1858,79 +2443,77 @@ extension MainFlowViewController {
             }
 
         case .settings:
-            assert(Thread.isMainThread)
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.dismiss(animated: true) { [weak self] in
-                    self?.presentSettingsFlowViewController()
-                }
-            } else {
-                presentSettingsFlowViewController()
-            }
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            presentSettingsFlowViewController()
             
         case .backupSettings:
-            assert(Thread.isMainThread)
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.dismiss(animated: true) { [weak self] in
-                    self?.presentSettingsFlowViewController(specificSetting: .backup)
-                }
-            } else {
-                presentSettingsFlowViewController(specificSetting: .backup)
-            }
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            presentSettingsFlowViewController(specificSetting: .backup)
             
         case .voipSettings:
-            assert(Thread.isMainThread)
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.dismiss(animated: true) { [weak self] in
-                    self?.presentSettingsFlowViewController(specificSetting: .voip)
-                }
-            } else {
-                presentSettingsFlowViewController(specificSetting: .voip)
-            }
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            presentSettingsFlowViewController(specificSetting: .voip)
 
         case .privacySettings:
-            assert(Thread.isMainThread)
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.dismiss(animated: true) { [weak self] in
-                    self?.presentSettingsFlowViewController(specificSetting: .privacy)
-                }
-            } else {
-                presentSettingsFlowViewController(specificSetting: .privacy)
-            }
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            presentSettingsFlowViewController(specificSetting: .privacy)
             
+        case .discussionsSettings:
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            presentSettingsFlowViewController(specificSetting: .discussions)
+
         case .interfaceSettings:
-            assert(Thread.isMainThread)
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.dismiss(animated: true) { [weak self] in
-                    self?.presentSettingsFlowViewController(specificSetting: .interface)
-                }
-            } else {
-                presentSettingsFlowViewController(specificSetting: .interface)
-            }
+            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+            presentSettingsFlowViewController(specificSetting: .interface)
 
         case .storageManagementSettings:
             assert(Thread.isMainThread)
             if #available(iOS 17.0, *) {
-                if let presentedViewController = self.presentedViewController {
-                    presentedViewController.dismiss(animated: true) { [weak self] in
-                        self?.presentStorageManagementViewController()
-                    }
-                } else {
-                    presentStorageManagementViewController()
-                }
+                await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+                presentStorageManagementViewController()
             }
+            
         case .message(let messsageAppIdentifier):
-            mainTabBarController.selectedObvTab = .latestDiscussions
-            presentedViewController?.dismiss(animated: true)
+            switchToFlow(.latestDiscussions)
+            await presentedViewController?.dismissAndAwaitCompletion(animated: true)
             guard let message = try? PersistedMessage.getMessage(messageAppIdentifier: messsageAppIdentifier, within: ObvStack.shared.viewContext) else { return }
-            discussionsFlowViewController.userWantsToDisplay(persistedMessage: message)
+            let discussionFlow = self.flowControllerForFlow(.latestDiscussions)
+            discussionFlow.userWantsToDisplay(persistedMessage: message)
             
         case .olvidCallView:
             VoIPNotification.showCallView
                 .postOnDispatchQueue()
+            
+        case .groupCreation:
+            userWantsToAddContactGroup(ownedCryptoId: currentOwnedCryptoId)
         }
         
     }
+    
+    
+    /// The designated method for updating the `.supplementary` column content of this `UISplitViewController`
+    /// and changing the selected tab of the `UITabBarController`.
+    ///
+    /// This method ensures proper tracking of the current user activity within the app, which is critical for:
+    /// - Highlighting the correct sidebar item in expanded environments (e.g., on Mac).
+    /// - Maintaining a consistent user experience across different platforms and states.
+    ///
+    /// **Important:** Directly modifying the `.supplementary` column or `UITabBarController` outside of this method
+    /// may result in incorrect user activity tracking and UI inconsistencies.
+    fileprivate func switchToFlow(_ flow: ObvAppTypes.ObvFlow) {
+        if self.isCollapsed {
+            mainTabBarController.selectedObvTab = flow
+        } else {
+            self.setViewController(self.allFlowControllersForUISplitViewController.flowControllerForFlow(flow), for: .supplementary)
+        }
+        self.updateOlvidUserActivityFlow(to: flow)
+    }
 
+    
+    fileprivate func updateOlvidUserActivityFlow(to newFlow: ObvAppTypes.ObvFlow) {
+        OlvidUserActivitySingleton.shared.switchCurrentFlow(to: newFlow, currentOwnedCryptoId: self.currentOwnedCryptoId, viewController: self)
+    }
+    
 
     @MainActor
     private func addAttachmentFromFile(at fileURL: URL) {
@@ -1940,8 +2523,9 @@ extension MainFlowViewController {
         } else {
             // The user is not within a discussion. Go to the list of latest discussions and wait until a discussion is chosen
             // We save the file URL
-            mainTabBarController.selectedObvTab = .latestDiscussions
-            _ = discussionsFlowViewController.children.first?.navigationController?.popViewController(animated: true)
+            switchToFlow(.latestDiscussions)
+            let discussionFlow = flowControllerForFlow(.latestDiscussions)
+            _ = discussionFlow.children.first?.navigationController?.popViewController(animated: true)
             DispatchQueue.main.async { [weak self] in
                 guard let _self = self else { return }
                 _self.airDroppedFileURLs.append(fileURL)
@@ -2010,205 +2594,142 @@ extension MainFlowViewController {
     
     
     private func currentDiscussionViewControllerShownToUser() -> SomeSingleDiscussionViewController? {
-        let currentNavigation: UINavigationController?
-        if self.isCollapsed {
-            // Typical on iPhone
-            switch mainTabBarController.selectedObvTab {
-            case .latestDiscussions:
-                currentNavigation = discussionsFlowViewController
-            case .contacts:
-                currentNavigation = contactsFlowViewController
-            case .groups:
-                currentNavigation = groupsFlowViewController
-            default:
-                currentNavigation = nil
-            }
-        } else {
-            // Typical on iPad
-            guard self.viewControllers.count > 1 else { assertionFailure(); return nil }
-            currentNavigation = self.viewControllers[1] as? UINavigationController
-        }
-        guard let discussionVC = currentNavigation?.viewControllers.last as? SomeSingleDiscussionViewController else { return nil }
+        guard let discussionVC = currentFlowController?.viewControllers.last as? SomeSingleDiscussionViewController else { return nil }
         guard discussionVC.viewIfLoaded?.window != nil else { assertionFailure(); return nil }
         return discussionVC
     }
     
 }
 
+
+// MARK: - Implementing UserTriesToAccessPaidFeatureViewNavigation
+
+extension MainFlowViewController: UserTriesToAccessPaidFeatureViewNavigation {
+    
+    func userWantsToNavigateToTheMyProfilePage(_ view: ObvSubscription.UserTriesToAccessPaidFeatureView, ownedCryptoId: ObvCryptoId) {
+        let deepLink = ObvDeepLink.myId(ownedCryptoId: ownedCryptoId)
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+            .postOnDispatchQueue()
+    }
+    
+    func userTriesToAccessPaidFeatureViewShouldBeDismissed(_ view: ObvSubscription.UserTriesToAccessPaidFeatureView) {
+        self.presentedViewController?.dismiss(animated: true)
+    }
+    
+}
+
+
+// MARK: - Implementing UIKitDelegateForSwiftUISheet
+
+extension MainFlowViewController: UIKitDelegateForSwiftUISheet {
+    
+    func userWantsToPresentView<Content>(_ view: some View, content: @escaping () -> Content) async where Content : View {
+        let hostingController = UIHostingController(rootView: content())
+        await self.presentOnTopAndAwaitCompletion(hostingController, animated: true)
+    }
+    
+    func userWantsToDismissPresentedView(_ view: some View) async {
+        await self.dismissTopPresentedViewControllerAndAwaitCompletion(animated: true)
+    }
+    
+}
+
+
 // MARK: - OlvidURLHandler
 
 extension MainFlowViewController {
     
-    @MainActor
-    func handleOlvidURL(_ olvidURL: OlvidURL) async {
-        // When receiving an OlvidURL, we store it in the externallyScannedOrTappedOlvidURL variable. This URL will be processed when the viewDidAppear lifecycle method is called.
-        // We do not process the URL here to prevent a race condition between the alert presented to process the link, and the alert presented when authenticating (when the user decided to activate this option).
-        // This only exception to the above is when viewDidAppear was already called, in which case we process the link immediately.
-        assert(externallyScannedOrTappedOlvidURL == nil)
-        if viewDidAppearWasCalled {
-            await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL)
+    func handleOlvidURLOfTypeMutualScan(mutualScanURL: ObvMutualScanUrl) async throws {
+
+        // The following call also check the signature of the `ObvMutualScanUrl`. This fails if the `currentOwnedCryptoId` is not
+        // the appropriate one.
+        try await obvEngine.startTrustEstablishmentWithMutualScanProtocol(ownedIdentity: self.currentOwnedCryptoId, mutualScanUrl: mutualScanURL)
+        
+        let contactIdentifier = ObvContactIdentifier(contactCryptoId: mutualScanURL.cryptoId, ownedCryptoId: self.currentOwnedCryptoId)
+        let initalScanViewModel: ScanValidationViewModel
+        if let existingContact = try PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
+            initalScanViewModel = try .init(persistedContactIdentity: existingContact)
         } else {
-            externallyScannedOrTappedOlvidURL = olvidURL
+            initalScanViewModel = .init(contactStatus: .contactNotAddedYet,
+                                        contactAvatarModel: .init(contactCryptoId: mutualScanURL.cryptoId, contactFullDisplayName: mutualScanURL.fullDisplayName),
+                                        contactFullDisplayName: mutualScanURL.fullDisplayName,
+                                        contactIdentifier: contactIdentifier)
         }
-    }
-    
-    
-    /// Lets the user choose which of her identities she wants to use before proceeding with the processing of an an external OlvidURL.
-    @MainActor 
-    private func processExternallyScannedOrTappedOlvidURL(olvidURL: OlvidURL) async {
-        os_log("Processing an externally scanned or tapped Olvid URL", log: log, type: .info)
-        do {
-            let ownedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext)
-            switch ownedIdentities.count {
-            case 0:
-                assertionFailure()
+        
+        let invitationFlowHostingController: InvitationFlowHostingController
+        if let vc = self.presentedViewController as? InvitationFlowHostingController {
+            // Typical case, the is already presented
+            invitationFlowHostingController = vc
+        } else {
+            // This happens if the `mutualScanURL` is scanned from outside of the app (not frequent)
+            let fullDisplayName: String
+            let ownedIdentityIsManagedByKeycloak: Bool
+            do {
+                (fullDisplayName, ownedIdentityIsManagedByKeycloak) = try PersistedObvOwnedIdentity.getFullDisplayNameAndIsKeycloakManaged(ownedCryptoId: self.currentOwnedCryptoId, within: ObvStack.shared.viewContext)
+            } catch {
                 return
-            case 1:
-                guard let ownedIdentity = ownedIdentities.first else { assertionFailure(); return }
-                await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL, for: ownedIdentity.cryptoId)
-            default:
-                switch olvidURL.category {
-                case .invitation, .mutualScan, .configuration:
-                    // We cannot process the OlvidURL until the user chooses the most appropriate owned identity
-                    await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL)
-                case .openIdRedirect:
-                    // Special case: the user previously chose the appropriate owned identity, and thus the "current" one is the one to use
-                    await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL, for: currentOwnedCryptoId)
-                }
             }
-        } catch {
-            os_log("Could not process externally scanned or tapped OlvidURL: %{public}@", log: log, type: .fault, error.localizedDescription)
-            assertionFailure()
+            let ownedURLIdentity = ObvURLIdentity(cryptoId: currentOwnedCryptoId, fullDisplayName: fullDisplayName)
+            let vc = InvitationFlowHostingController(
+                ownedURLIdentity: ownedURLIdentity,
+                ownedIdentityIsManagedByKeycloak: ownedIdentityIsManagedByKeycloak,
+                routerMode: .listOfContactsAndGroups,
+                invitationFlowHostingControllerDataSources: dataSources.invitationFlowHostingControllerDataSources,
+                actions: self,
+                navigation: self)
+            await self.dismissAndAwaitCompletion(animated: true)
+            self.present(vc, animated: true)
+            invitationFlowHostingController = vc
+            
         }
+        
+        invitationFlowHostingController.mutualScanURLWasHandled(initalScanViewModel: initalScanViewModel)
+        
     }
     
     
-    /// Shows the owned identity switcher sheet, allowing the user to choose the most appropriate profile to use in order to process the external `OlvidURL`.
-    @MainActor private func requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL(olvidURL: OlvidURL) async {
-
-        let ownedIdentities: [PersistedObvOwnedIdentity]
-        do {
-            let notHiddenOwnedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext)
-            if let currentOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: currentOwnedCryptoId, within: ObvStack.shared.viewContext), currentOwnedIdentity.isHidden {
-                ownedIdentities = [currentOwnedIdentity] + notHiddenOwnedIdentities
-            } else {
-                ownedIdentities = notHiddenOwnedIdentities
-            }
-        } catch {
-            os_log("Could not get all owned identities: %{public}@", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
+    func handleExternalInvitation(remoteURLIdentity: ObvURLIdentity) async {
         
-        let cancelBarButtonAction: (() -> Void)?
-        if traitCollection.userInterfaceIdiom == .phone {
-            cancelBarButtonAction = nil
+        guard let mutualScanUrl = try? obvEngine.computeMutualScanUrl(remoteIdentity: remoteURLIdentity.cryptoId.getIdentity(), ownedCryptoId: self.currentOwnedCryptoId) else { assertionFailure(); return }
+
+        let invitationFlowHostingController: InvitationFlowHostingController
+        
+        if let _invitationFlowHostingController = self.presentedViewController as? InvitationFlowHostingController {
+            invitationFlowHostingController = _invitationFlowHostingController
         } else {
-            cancelBarButtonAction = { [weak self] in
-                if let ownedIdentityChooserVC = self?.presentedViewController as? OwnedIdentityChooserViewController {
-                    self?.externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen = nil
-                    ownedIdentityChooserVC.dismiss(animated: true)
-                }
+            let fullDisplayName: String
+            let ownedIdentityIsManagedByKeycloak: Bool
+            do {
+                (fullDisplayName, ownedIdentityIsManagedByKeycloak) = try PersistedObvOwnedIdentity.getFullDisplayNameAndIsKeycloakManaged(ownedCryptoId: self.currentOwnedCryptoId, within: ObvStack.shared.viewContext)
+            } catch {
+                return
             }
+            let ownedURLIdentity = ObvURLIdentity(cryptoId: currentOwnedCryptoId, fullDisplayName: fullDisplayName)
+            let vc = InvitationFlowHostingController(
+                ownedURLIdentity: ownedURLIdentity,
+                ownedIdentityIsManagedByKeycloak: ownedIdentityIsManagedByKeycloak,
+                routerMode: .listOfContactsAndGroups,
+                invitationFlowHostingControllerDataSources: dataSources.invitationFlowHostingControllerDataSources,
+                actions: self,
+                navigation: self)
+            await self.dismissAndAwaitCompletion(animated: true)
+            self.present(vc, animated: true)
+            invitationFlowHostingController = vc
         }
-
-        let ownedIdentityChooserVC = OwnedIdentityChooserViewController(currentOwnedCryptoId: currentOwnedCryptoId,
-                                                                        ownedIdentities: ownedIdentities,
-                                                                        delegate: self,
-                                                                        cancelBarButtonAction: cancelBarButtonAction)
         
-        // Under iPhone, we use a popover presentation style. Since we have no source view, we cannot do the same under iPad or mac.
-        // Note that this method gets also called when the user taps an invitation link in a Safari window. In that case, we cannot have a source view anyway.
-        if traitCollection.userInterfaceIdiom == .phone {
-            ownedIdentityChooserVC.modalPresentationStyle = .popover
-            if let popover = ownedIdentityChooserVC.popoverPresentationController {
-                let sheet = popover.adaptiveSheetPresentationController
-                sheet.detents = [.medium(), .large()]
-                sheet.prefersGrabberVisible = true
-                sheet.preferredCornerRadius = 16.0
-            }
-        } else {
-            ownedIdentityChooserVC.modalPresentationStyle = .formSheet
-        }
-        // In case the OwnedIdentityChooserViewController gets dismissed without choosing a profile, we simply want to discard the externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen
-        ownedIdentityChooserVC.callbackOnViewDidDisappear = { [weak self] in
-            self?.externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen = nil
-        }
-        assert(externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen == nil)
-        externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen = olvidURL
-        present(ownedIdentityChooserVC, animated: true)
-
-    }
-    
-    
-    /// When receiving an externally scanned or tapped OlvidURL, we let the user choose her profile before processing the URL. Once the profile is chosen, this method is called.
-    @MainActor private func processExternallyScannedOrTappedOlvidURL(olvidURL: OlvidURL, for ownedIdentity: ObvCryptoId) async {
-        
-        switch olvidURL.category {
-        case .openIdRedirect:
-            Task {
-                do {
-                    _ = try await KeycloakManagerSingleton.shared.resumeExternalUserAgentFlow(with: olvidURL.url)
-                    os_log("Successfully resumed the external user agent flow", log: log, type: .info)
-                } catch {
-                    os_log("Failed to resume external user agent flow: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    return
-                }
-            }
-        case .configuration, .invitation, .mutualScan:
-            userWantsToAddContact(alreadyScannedOrTappedURL: olvidURL)
-        }
+        invitationFlowHostingController.handleExternalInvitation(mutualScanURLToShow: mutualScanUrl, remoteURLIdentity: remoteURLIdentity)
 
     }
 
 }
 
-
-// MARK: - OwnedIdentityChooserViewControllerDelegate
-
-extension MainFlowViewController: OwnedIdentityChooserViewControllerDelegate {
-    
-    func userUsedTheOwnedIdentityChooserViewControllerToChoose(ownedCryptoId: ObvTypes.ObvCryptoId) async {
-        
-        // Start by switching to the chosen ownedCryptoId
-        assert(parent is MetaFlowController)
-        await (parent as? MetaFlowController)?.processUserWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ownedCryptoId)
-        
-        // Process the externally scanned or tapped OlvidURL found in `externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen`
-        guard let olvidURL = externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen else { assertionFailure(); return }
-        externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen = nil
-        await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL, for: ownedCryptoId)
-        
-    }
-    
-    
-    func userWantsToEditCurrentOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId) async {
-        // Since the OwnedIdentityChooserViewController was shown because we had an OlvidURL to process, we do not expect it to show any edit button.
-        assertionFailure()
-    }
-    
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityEdition: Bool {
-        false
-    }
-    
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityCreation: Bool {
-        false
-    }
-    
-    var ownedIdentityChooserViewControllerExplanationString: String? {
-        return NSLocalizedString("PLEASE_CHOOSE_PROFILE_TO_PROCESS_OLVID_URL", comment: "")
-    }
-    
-}
 
 // MARK: - QRCodeScannerViewControllerDelegate
 
 extension MainFlowViewController: ObvScannerHostingViewDelegate {
 
     func qrCodeWasScanned(olvidURL: OlvidURL) {
-        // Since we are scanning an OlvidURL from within Olvid, we consider that the user wants to process this URL with her current identity.
-        Task { await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL, for: currentOwnedCryptoId) }
+        Task { await NewAppStateManager.shared.routeOlvidURL(olvidURL) }
     }
     
     
@@ -2216,18 +2737,23 @@ extension MainFlowViewController: ObvScannerHostingViewDelegate {
         presentedViewController?.dismiss(animated: true)
     }
     
-    private func sendInvite(to remoteCryptoId: ObvCryptoId, withFullDisplayName fullDisplayName: String, for ownedCryptoId: ObvCryptoId) {
+    /// This method is typically called when an owned identity want to remotely invite a contact after scanning their "invitation" QR code.
+    private func sendInvite(to remoteCryptoId: ObvCryptoId, withFullDisplayName fullDisplayName: String, for ownedCryptoId: ObvCryptoId) async {
         do {
             // Launch a trust establishment protocol with the contact
-            try obvEngine.startTrustEstablishmentProtocolOfRemoteIdentity(with: remoteCryptoId,
-                                                                          withFullDisplayName: fullDisplayName,
-                                                                          forOwnedIdentyWith: ownedCryptoId)
+            try await obvEngine.startTrustEstablishmentProtocolOfRemoteIdentity(with: remoteCryptoId,
+                                                                                withFullDisplayName: fullDisplayName,
+                                                                                forOwnedIdentyWith: ownedCryptoId)
             // Switch to the Invitations tab
             DispatchQueue.main.async { [weak self] in
-                self?.mainTabBarController.selectedObvTab = .invitations
+                self?.switchToFlow(.invitations)
                 self?.dismiss(animated: true)
             }
 
+            // Switch to the Invitations tab
+            mainTabBarController.selectedObvTab = .invitations
+            dismiss(animated: true)
+            
         } catch {
             os_log("Could not start trust establishment protocol with %@", log: log, type: .error, fullDisplayName)
         }
@@ -2240,112 +2766,7 @@ extension MainFlowViewController: ObvScannerHostingViewDelegate {
         alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
         self.present(alert, animated: true)
     }
-    
-    
-    @MainActor
-    private func rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String, ownedCryptoId: ObvCryptoId, confirmed: Bool) {
         
-        guard confirmed else {
-            let invitationAlert = UIAlertController(title: Strings.alertInvitationTitle, message: Strings.alertInvitationScanedIsAlreadtPart, preferredStyle: .alert)
-            invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Proceed, style: .default) { [weak self] _ in
-                self?.rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: contactCryptoId,
-                                                                           contactFullDisplayName: contactFullDisplayName,
-                                                                           ownedCryptoId: ownedCryptoId,
-                                                                           confirmed: true)
-            })
-            invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-            present(invitationAlert, animated: true)
-            return
-        }
-        
-        sendInvite(to: contactCryptoId, withFullDisplayName: contactFullDisplayName, for: ownedCryptoId)
-
-    }
-    
-    
-    @MainActor
-    private func performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String, ownedCryptoId: ObvCryptoId, confirmed: Bool) {
-        
-        guard confirmed else {
-            let invitationAlert = UIAlertController(title: Strings.alertInvitationTitle, message: Strings.alertInvitationWantToSend(contactFullDisplayName), preferredStyle: .alert)
-            invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Proceed, style: .default) { [weak self] _ in
-                    self?.performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: contactCryptoId,
-                                                                                  contactFullDisplayName: contactFullDisplayName,
-                                                                                  ownedCryptoId: ownedCryptoId,
-                                                                                  confirmed: true)
-            })
-            invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-            present(invitationAlert, animated: true)
-            return
-        }
-        
-        sendInvite(to: contactCryptoId, withFullDisplayName: contactFullDisplayName, for: ownedCryptoId)
-
-    }
-
-    
-}
-
-
-// MARK: - SingleOwnedIdentityFlowViewControllerDelegate
-
-extension MainFlowViewController: SingleOwnedIdentityFlowViewControllerDelegate {
-        
-    func userWantsToUnbindOwnedIdentityFromKeycloak(_ viewController: SingleOwnedIdentityFlowViewController, ownedCryptoId: ObvTypes.ObvCryptoId) async throws(ObvUnbindOwnedIdentityFromKeycloakError) {
-        try await KeycloakManagerSingleton.shared.unregisterKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId)
-    }
-    
-        
-    func userWantsToDismissSingleOwnedIdentityFlowViewController(_ viewController: SingleOwnedIdentityFlowViewController) {
-        assert(Thread.isMainThread)
-        viewController.dismiss(animated: true)
-    }
-    
-    
-    @MainActor
-    func userWantsToAddNewDevice(_ viewController: SingleOwnedIdentityFlowViewController, ownedCryptoId: ObvCryptoId) async {
-        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
-        viewController.dismiss(animated: true) {
-            Task { await mainFlowViewControllerDelegate.userWantsToAddNewDevice(self, ownedCryptoId: ownedCryptoId) }
-        }
-    }
-    
-    
-    func userRequestedListOfSKProducts() async throws -> [Product] {
-        assert(storeKitDelegate != nil)
-        return try await storeKitDelegate?.userRequestedListOfSKProducts() ?? []
-    }
-    
-    
-    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
-        guard let storeKitDelegate else {
-            throw ObvError.storeKitDelegateIsNil
-        }
-        return try await storeKitDelegate.userWantsToBuy(product)
-    }
-    
-    
-    func userWantsToRefreshSubscriptionStatus() async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult] {
-        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        return try await mainFlowViewControllerDelegate.userWantsToRefreshSubscriptionStatus(self)
-    }
-    
-    
-    func userWantsToRestorePurchases() async throws {
-        guard let storeKitDelegate else {
-            throw ObvError.storeKitDelegateIsNil
-        }
-        return try await storeKitDelegate.userWantsToRestorePurchases()
-    }
-    
-    
-    func userWantsToKnowIfMultideviceSubscriptionIsActive() async throws -> Bool {
-        guard let storeKitDelegate else {
-            throw ObvError.storeKitDelegateIsNil
-        }
-        return try await storeKitDelegate.userWantsToKnowIfMultideviceSubscriptionIsActive()
-    }
-
 }
 
 
@@ -2362,12 +2783,12 @@ final class ObvGenericIdentityForSharing: NSObject, UIActivityItemSource {
     
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
         let displayName = genericIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-        let url = genericIdentity.getObvURLIdentity().urlRepresentation
+        let url = genericIdentity.getObvURLIdentity().urlRepresentation(for: .sharing)
         return MainFlowViewController.Strings.ShareOwnedIdentity.body(displayName, url)
     }
     
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        let url = genericIdentity.getObvURLIdentity().urlRepresentation
+        let url = genericIdentity.getObvURLIdentity().urlRepresentation(for: .sharing)
         if activityType == .airDrop {
             // This allows you to share the invitation URL via AirDrop or use Apple's nearby sharing feature to achieve the same result.
             // Once the link is received, the other phone will respond as if it had scanned the initial QR code: it will automatically navigate to
@@ -2397,157 +2818,111 @@ final class ObvGenericIdentityForSharing: NSObject, UIActivityItemSource {
 
 private final class MainFlowViewControllerSplitDelegate: UISplitViewControllerDelegate {
     
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "MainFlowViewControllerSplitDelegate")
     
-    func splitViewController(_ splitViewController: UISplitViewController, showDetail vc: UIViewController, sender: Any?) -> Bool {
-        /* When its showDetailViewController(_:sender:) method is called, the split view controller calls this method to see if your delegate will handle the presentation of the specified view controller.
-         * If you implement this method and ultimately return true, your implementation is responsible for presenting the specified view controller in the secondary position of the split view interface.
-         */
-        assert(Thread.isMainThread)
-        guard let mainFlow = splitViewController as? MainFlowViewController else {
-            assertionFailure("We expect to be the delegate of MainFlowViewController")
-            return false
-        }
-        guard let singleDiscussionVC = vc as? SomeSingleDiscussionViewController else {
-            assertionFailure("The only VC that we may push on the detail view are expected to be instances of SomeSingleDiscussionViewController")
-            return false
-        }
-        guard let flow = sender as? ObvFlowController else {
-            assertionFailure()
-            return false
-        }
+    /// Manages consistency between highlighted tabs, sidebar items, the discussion stack, and the current user activity
+    /// during transitions between `compact` and `expanded` modes of the `UISplitViewController`.
+    ///
+    /// - In `expanded` mode, the split view controller displays three columns (`.primary`, `.supplementary`, and `.secondary`).
+    /// - In `compact` mode, it presents a `UITabBarController` (either `ObvSubTabBarControllerNew` or `ObvSubTabBarController`,
+    ///   depending on the OS version).
+    func splitViewController(
+        _ svc: UISplitViewController,
+        willHide column: UISplitViewController.Column
+    ) {
         
-        let animated = ObvMessengerConstants.targetEnvironmentIsMacCatalyst ? false : true
+        guard let svc = svc as? MainFlowViewController else { assertionFailure(); return }
+       
+        Self.logger.debug("Calling splitViewController(_:willHide:). Will hide column \(column.rawValue)")
         
-        if splitViewController.isCollapsed {
-            // iPhone case
-            if let singleDiscussionVCToShow = flow.viewControllers.compactMap({ $0 as? SomeSingleDiscussionViewController }).first(where: { $0.discussionPermanentID == singleDiscussionVC.discussionPermanentID }) {
-                flow.popToViewController(singleDiscussionVCToShow, animated: animated)
-            } else {
-                flow.pushViewController(singleDiscussionVC, animated: animated)
+        switch column {
+
+        case .compact:
+
+            // The compact column will hide, meaning the UISplitViewController will expand.
+            
+            assert(OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow != nil)
+            
+            // Determine the current flow of the user
+            
+            let currentFlow = OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow ?? .latestDiscussions
+            
+            // The `ObvSideBarView` has not yet appeared, so setting its highlighted item here would have no effect
+            // (SwiftUI would not persist the change). The sidebar will request the current highlight state when it appears.
+
+            // Migrate all the discussions found in the current flow of the UITabBarController to the navForDetailsView (which is the secondary
+            // column of the UISplitViewController)
+            
+            let discussionVCsToMigrate: [SomeSingleDiscussionViewController] = svc.allFlowControllersForUITabBarController.getAllDiscussionsInFlow(currentFlow)
+            svc.allFlowControllersForUITabBarController.flowControllerForFlow(currentFlow).popToRootViewController(animated: false)
+            svc.navForDetailsView.setViewControllers([OlvidPlaceholderViewController()] + discussionVCsToMigrate, animated: false)
+            
+            // Make sure the supplementary (middle) column of the UISplitViewController displayes the correct (current) flow
+            // This is do asynchronously to prevent a crash on certain devices (e.g., iPhone 14 Pro Max).
+            // Calling `switchToFlow` ensure the current OlvidUserActivity is properly updated.
+
+            DispatchQueue.main.async {
+                svc.switchToFlow(currentFlow)
             }
-        } else {
-            // iPad case
-            if let singleDiscussionVCToShow = mainFlow.navForDetailsView.viewControllers.compactMap({ $0 as? SomeSingleDiscussionViewController }).first(where: { $0.discussionPermanentID == singleDiscussionVC.discussionPermanentID }) {
-                mainFlow.navForDetailsView.popToViewController(singleDiscussionVCToShow, animated: animated)
-            } else {
-                mainFlow.navForDetailsView.pushViewController(singleDiscussionVC, animated: animated)
+            
+        case .secondary:
+
+            // The secondary column will hide, meaning the UISplitViewController will collapse to compact mode.
+
+            assert(OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow != nil)
+
+            // Determine the current flow of the user
+            
+            let currentFlow = OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow ?? .latestDiscussions
+                        
+            // Migrate all the discussions found in the navForDetailsView to the appropriate flow of the UITabBarController
+                        
+            let discussionVCsToMigrate: [SomeSingleDiscussionViewController] = svc.navForDetailsView.viewControllers.compactMap { $0 as? SomeSingleDiscussionViewController }
+            svc.navForDetailsView.popToRootViewController(animated: false)
+            svc.allFlowControllersForUITabBarController.flowControllerForFlow(currentFlow).popToRootViewController(animated: false)
+            let firstViewController = svc.allFlowControllersForUITabBarController.flowControllerForFlow(currentFlow).viewControllers
+            svc.allFlowControllersForUITabBarController.flowControllerForFlow(currentFlow).setViewControllers(firstViewController + discussionVCsToMigrate, animated: false)
+
+            // Ensure the currently selected tab of the UITabBarController matches the current flow
+            // Calling `switchToFlow` ensure the current OlvidUserActivity is properly updated.
+
+            DispatchQueue.main.async {
+                svc.switchToFlow(currentFlow)
             }
+
+        case .primary:
+            return
+        case .supplementary:
+            return
+        case .inspector:
+            return
+        @unknown default:
+            return
         }
-        return true
+        
+
     }
     
     
-    func splitViewController(_ splitViewController: UISplitViewController, separateSecondaryFrom primaryViewController: UIViewController) -> UIViewController? {
-        /* This happens when transioning from compact to regular width.
-         * In case a SingleDiscussionViewController is on screen, we want this vc to show on screen after the transition.
-         * In practice, we do two things:
-         * - We take all the SingleDiscussionViewController instances, embed them in the navigation controller of the secondary view controller
-         * - We remove all the SingleDiscussionViewController instances from the flows
-         * We then return the navigation controller of the secondary view controller.
-         */
+    /// Implementing this method to ensure the tabbar is shown when appropriate.
+    ///
+    /// - Note: This is required because of what appears to be a bug in iOS 26.0.
+    func splitViewControllerDidCollapse(_ svc: UISplitViewController) {
         
-        // We expect to be the delegate of the MainFlowViewController (which is a UISplitViewController)
-        guard let mainFlowViewController = splitViewController as? MainFlowViewController else {
-            assertionFailure()
-            return nil
-        }
-                
-        // Find the current flow controller
-        guard let currentFlow = mainFlowViewController.currentFlow else {
-            assertionFailure()
-            mainFlowViewController.navForDetailsView.setViewControllers([OlvidPlaceholderViewController()], animated: false)
-            return mainFlowViewController.navForDetailsView
-        }
-
-        // Get all the SomeSingleDiscussionViewController instances of the current flow and use them to set the stack of the navigation of the secondary view
-        let singleDiscussionViewControllers = currentFlow.viewControllers.compactMap({ $0 as? SomeSingleDiscussionViewController })
-        mainFlowViewController.navForDetailsView.setViewControllers([OlvidPlaceholderViewController()] + singleDiscussionViewControllers, animated: false)
+        Self.logger.debug("Calling splitViewControllerDidCollapse(_:)")
         
-        // Remove all SomeSingleDiscussionViewController instances from all flows
-        mainFlowViewController.mainTabBarController.obvFlowControllers.forEach { obvFlowController in
-            let allVCsButDiscussionViewControllers = obvFlowController.viewControllers.filter({ !($0 is SomeSingleDiscussionViewController) })
-            obvFlowController.setViewControllers(allVCsButDiscussionViewControllers, animated: false)
-        }
+        guard let svc = svc as? MainFlowViewController else { assertionFailure(); return }
         
-        // We are done, we can return the navigation controller of the secondary view controller
-        return mainFlowViewController.navForDetailsView
-        
-    }
-        
-    
-    func splitViewController(_ splitViewController: UISplitViewController, collapseSecondary secondaryViewController: UIViewController, onto primaryViewController: UIViewController) -> Bool {
-        /* This happens when transioning from regular to compact width.
-         * In case a SomeSingleDiscussionViewController is on screen (or a stack of SomeSingleDiscussionViewController),
-         * we want to transfer this (or these) view controller(s) from the detail view controller
-         * of the split view controller to the main view controller. To do so, we push this SingleDiscussionViewController onto the appropriate
-         * flow, i.e., the flow corresponding to the select tab of the tab bar controller. In case the selected tab has no associated flow (e.g., for the
-         * invitation or settings tab), we programmatically select the discussion tab before pushing the SingleDiscussionViewController.
-         */
-
-        // We expect to be the delegate of the MainFlowViewController (which is a UISplitViewController)
-        guard let mainFlowViewController = splitViewController as? MainFlowViewController else {
-            assertionFailure()
-            return false // Let the split view controller try to incorporate the secondary view controller’s content into the collapsed interface
-        }
-
-        // This delegate method is also called when the app is put in the background by the user.
-        // In that case, we do not want to collapse the secondary view controller.
-        guard mainFlowViewController.sceneIsActive else { return false }
-
-        // Perform a few sanity checks
-        
-        guard primaryViewController == mainFlowViewController.mainTabBarController else {
-            assertionFailure()
-            return false // Let the split view controller try to incorporate the secondary view controller’s content into the collapsed interface
-        }
-        
-        // Look for SomeSingleDiscussionViewController to keep
-        
-        let discussionsVCs = mainFlowViewController.navForDetailsView.viewControllers.compactMap({ $0 as? SomeSingleDiscussionViewController })
-        
-        // Remove all SomeSingleDiscussionViewController instances from all flows
-        mainFlowViewController.mainTabBarController.obvFlowControllers.forEach { obvFlowController in
-            let allVCsButDiscussionViewControllers = obvFlowController.viewControllers.filter({ !($0 is SomeSingleDiscussionViewController) })
-            obvFlowController.setViewControllers(allVCsButDiscussionViewControllers, animated: false)
-        }
-
-        // If we have no SomeSingleDiscussionViewController to keep, we are done
-        
-        guard !discussionsVCs.isEmpty else {
-            return false // Let the split view controller try to incorporate the secondary view controller’s content into the collapsed interface
-        }
-        
-        // If the selected tab corresponds to a flow, use this flow to preserve discussionsVCs. Otherwise, use the discussion flow
-        
-        let obvFlowViewController: ObvFlowController
-        if let obvFlow = mainFlowViewController.currentFlow {
-            obvFlowViewController = obvFlow
+        // For some reason, this is required, otherwise the tabbar stays hidden forever.
+        if #available(iOS 18, *) {
+            svc.mainTabBarController.isTabBarHidden = false
         } else {
-            obvFlowViewController = mainFlowViewController.discussionsFlowViewController
-            mainFlowViewController.mainTabBarController.selectedObvTab = .latestDiscussions
+            svc.mainTabBarController.tabBar.isHidden = false
         }
         
-        // Push the discussionsVCs onto the stack of the flow:
-        // Remove the discussionsVCs from their parent, then add them to the flow.
-        // We perform this last step asynchronously as failing to do so leads to a crash under certain iPhones (e.g., iPhone XR).
-        
-        for vc in discussionsVCs {
-            vc.view.removeFromSuperview()
-            vc.willMove(toParent: nil)
-            vc.removeFromParent()
-            vc.didMove(toParent: nil)
-        }
-
-        DispatchQueue.main.async {
-            obvFlowViewController.setViewControllers(obvFlowViewController.viewControllers + discussionsVCs, animated: false)
-        }
-
-        // We dealt with the discussionsVCs, we do not want the split view controller to do anything with the secondary view controller so we return true
-        
-        return true
         
     }
-    
+        
 }
 
 
@@ -2682,8 +3057,7 @@ extension MainFlowViewController: SettingsFlowViewControllerDelegate {
     
     
     func fetchAvatarImage(_ settingsFlowViewController: SettingsFlowViewController, profileCryptoId: ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage? {
-        guard let mainFlowViewControllerDelegate else { assertionFailure(); return nil }
-        return await mainFlowViewControllerDelegate.fetchAvatarImage(self, profileCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, frameSize: frameSize)
+        return await self.dataSources.fetchAvatarImage(profileCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, frameSize: frameSize)
     }
     
     
@@ -2779,6 +3153,350 @@ extension MainFlowViewController: SettingsFlowViewControllerDelegate {
 }
 
 
+// MARK: - UITabBarControllerDelegateWithinMainFlowViewController
+
+protocol UITabBarControllerDelegateWithinMainFlowViewController: UITabBarControllerDelegate {
+    var mfvc: MainFlowViewController? { get set }
+}
+
+/// A protocol defining the behavior for handling `UITabBarController` delegate events.
+///
+/// Two separate classes conform to this protocol:
+/// - One for **iOS 18+**, implementing delegate methods available in newer versions.
+/// - One for **pre-iOS 18**, implementing delegate methods for backward compatibility.
+///
+/// Both implementations share the same core responsibilities:
+/// - Tracking the user's current activity within the app.
+/// - Handling double-taps on the same tab by either popping to the root view controller or scrolling to the top of the current list.
+extension UITabBarControllerDelegateWithinMainFlowViewController {
+    
+    func updateOlvidUserActivityFlow(to newFlow: ObvAppTypes.ObvFlow) {
+        
+        guard let mfvc else {
+            assertionFailure("The mfvc should be set during the initialisation of the MainFlowViewController")
+            return
+        }
+
+        mfvc.updateOlvidUserActivityFlow(to: newFlow)
+        
+    }
+    
+    func scrollToTop(flow: ObvAppTypes.ObvFlow) {
+        
+        guard let mfvc else {
+            assertionFailure("The mfvc should be set during the initialisation of the MainFlowViewController")
+            return
+        }
+
+        let flowController = mfvc.allFlowControllersForUITabBarController.flowControllerForFlow(flow)
+
+        if flowController.viewControllers.count == 1 {
+            (flowController.viewControllers.first as? CanScrollToTop)?.scrollToTop()
+        }
+        
+    }
+    
+    
+    func shouldScrollToTop(flow: ObvAppTypes.ObvFlow) -> Bool {
+        
+        guard let mfvc else {
+            assertionFailure("The mfvc should be set during the initialisation of the MainFlowViewController")
+            return false
+        }
+
+        let flowController = mfvc.allFlowControllersForUITabBarController.flowControllerForFlow(flow)
+
+        let shouldScrollToTop = flowController.children.count == 1
+        
+        return shouldScrollToTop
+        
+    }
+        
+}
+
+@available(iOS 18.0, *)
+private final class UITabBarControllerDelegateNew: NSObject, UITabBarControllerDelegateWithinMainFlowViewController {
+    
+    weak var mfvc: MainFlowViewController?
+    
+    private var shouldScrollToTop: Bool = false
+    
+    func tabBarController(_ tabBarController: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
+                
+        guard let flow = ObvFlow(rawValue: tab.identifier) else {
+            assertionFailure("The identifier of a tab must be an ObvFlow raw value")
+            self.shouldScrollToTop = false
+            return true
+        }
+
+        self.shouldScrollToTop = self.shouldScrollToTop(flow: flow)
+
+        return true
+        
+    }
+    
+        
+    func tabBarController(_ tabBarController: UITabBarController, didSelectTab selectedTab: UITab, previousTab: UITab?) {
+                
+        // Ensure the user activity within the app is properly updated
+        
+        guard let newFlow = ObvFlow(rawValue: selectedTab.identifier) else {
+            assertionFailure("The identifier of a tab must be an ObvFlow raw value")
+            return
+        }
+        
+        self.updateOlvidUserActivityFlow(to: newFlow)
+
+        // If the selected tab is the same as the previously selected tab:
+        // - Pop to the root view controller, or
+        // - If the root view controller is already visible, request it to scroll to the top of its list.
+
+        if selectedTab == previousTab && shouldScrollToTop {
+            self.scrollToTop(flow: newFlow)
+        }
+        
+    }
+    
+}
+
+
+@available(iOS, deprecated: 18.0, message: "This class is deprecated. Use UITabBarControllerDelegateNew instead.")
+private final class UITabBarControllerDelegateOld: NSObject, UITabBarControllerDelegateWithinMainFlowViewController {
+    
+    weak var mfvc: MainFlowViewController?
+    
+    private var previousFlow: ObvFlow?
+    private var newFlow: ObvFlow?
+    
+    private var shouldScrollToTop: Bool = false
+
+    @available(iOS, deprecated: 18.0, message: "This class is deprecated. Use UITabBarControllerDelegateNew instead.")
+    override init() {
+        super.init()
+    }
+
+    func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
+        
+        self.previousFlow = nil
+        self.newFlow = nil
+        self.shouldScrollToTop = false
+
+        guard let mfvc else {
+            assertionFailure("The identifier of a tab must be an ObvFlow raw value")
+            return false
+        }
+        
+        if let previousFlowController = tabBarController.selectedViewController as? ObvFlowController,
+           let previousFlow = mfvc.allFlowControllersForUITabBarController.flowForFlowController(previousFlowController) {
+            self.previousFlow = previousFlow
+        }
+        
+        if let newFlowController = viewController as? ObvFlowController,
+           let newFlow = mfvc.allFlowControllersForUITabBarController.flowForFlowController(newFlowController) {
+            self.newFlow = newFlow
+            self.shouldScrollToTop = self.shouldScrollToTop(flow: newFlow)
+        } else {
+            assertionFailure()
+        }
+
+        return true
+        
+    }
+    
+    func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+        
+        defer {
+            self.previousFlow = nil
+            self.newFlow = nil
+        }
+        
+        // Ensure the user activity within the app is properly updated
+        
+        guard let newFlow = self.newFlow else {
+            assertionFailure("The new flow should have been set in tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController)")
+            return
+        }
+
+        self.updateOlvidUserActivityFlow(to: newFlow)
+
+        // If the selected tab is the same as the previously selected tab:
+        // - Pop to the root view controller, or
+        // - If the root view controller is already visible, request it to scroll to the top of its list.
+
+        if newFlow == previousFlow && shouldScrollToTop {
+            self.scrollToTop(flow: newFlow)
+        }
+
+    }
+    
+}
+
+
+// MARK: - Implementing OlvidShopViewActions (simple forward to the MetaFlowController)
+
+extension MainFlowViewController: OlvidShopViewActions {
+    
+    func refreshSubscriptionStatus() async throws {
+        try await actions.refreshSubscriptionStatus()
+    }
+    
+    
+    func userWantsToBuy(_ view: ObvSubscription.OlvidShopView, product: Product) async throws -> ObvAppTypes.StoreKitDelegatePurchaseResult {
+        return try await actions.userWantsToBuy(view, product: product)
+    }
+
+    func getCurrentActiveSubscriptionPublisher(_ view: ObvSubscription.OlvidShopView) throws -> Published<Product?>.Publisher {
+        try actions.getCurrentActiveSubscriptionPublisher(view)
+    }
+    
+}
+
+
+// MARK: - Implementing ObvChooseDeviceToReactivateViewActions
+
+extension MainFlowViewController: ObvChooseDeviceToReactivateViewActions {
+    
+    func userWantsToActivateCurrentDevice(_ view: ObvSingleOwnedIdentity.ObvChooseDeviceToReactivateView, ownedCryptoId: ObvTypes.ObvCryptoId, currentDeviceIdentifier: Data, deviceIdentifierOfOtherDeviceToDeactivate: Data?) async throws {
+        try await ObvPushNotificationManager.shared.userRequestedReactivationOf(ownedCryptoId: ownedCryptoId, replacedDeviceIdentifier: deviceIdentifierOfOtherDeviceToDeactivate)
+    }
+
+}
+
+
+// MARK: - Implementing OwnedDeviceViewActions
+
+extension MainFlowViewController: ObvSingleOwnedIdentity.OwnedDeviceViewActions {
+    
+    func userWantsToUpdateOwnedDeviceName(_ view: ObvSingleOwnedIdentity.OwnedDeviceView, ownedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier, newName: String) async throws {
+        try await obvEngine.requestChangeOfOwnedDeviceName(ownedCryptoId: ownedDeviceIdentifier.ownedCryptoId, deviceIdentifier: ownedDeviceIdentifier.deviceUID.raw, ownedDeviceName: newName)
+    }
+    
+    func userWantsToDeactivateOtherOwnedDevice(_ view: ObvSingleOwnedIdentity.OwnedDeviceView, otherOwnedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier) async throws {
+        try await obvEngine.requestDeactivationOfOtherOwnedDevice(ownedCryptoId: otherOwnedDeviceIdentifier.ownedCryptoId, deviceIdentifier: otherOwnedDeviceIdentifier.deviceUID.raw)
+    }
+    
+    func userRequestedSettingUnexpiringDevice(_ view: ObvSingleOwnedIdentity.OwnedDeviceView, identifierOfOwnedDeviceToKeepActive: ObvOwnedDeviceIdentifier) async throws {
+        try await obvEngine.requestSettingUnexpiringDevice(
+            ownedCryptoId: identifierOfOwnedDeviceToKeepActive.ownedCryptoId,
+            deviceIdentifier: identifierOfOwnedDeviceToKeepActive.deviceUID.raw)
+    }
+    
+    func userWantsToRestartChannelCreationWithOtherOwnedDevice(_ view: ObvSingleOwnedIdentity.OwnedDeviceView, otherOwnedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier) async throws {
+        try await obvEngine.restartChannelEstablishmentProtocolsWithOwnedDevice(ownedCryptoId: otherOwnedDeviceIdentifier.ownedCryptoId, deviceIdentifier: otherOwnedDeviceIdentifier.deviceUID.raw)
+    }
+    
+}
+
+
+// MARK: - Implementing OwnedDevicesListViewActions
+
+extension MainFlowViewController: ObvSingleOwnedIdentity.OwnedDevicesListViewActions {
+    
+    func userWantsToSearchForNewOwnedDevices(_ view: ObvSingleOwnedIdentity.OwnedDevicesListView, ownedCryptoId: ObvTypes.ObvCryptoId) async throws {
+        try await obvEngine.performOwnedDeviceDiscovery(ownedCryptoId: ownedCryptoId)
+    }
+    
+    func userWantsToClearAllOtherOwnedDevicesAndHasConfirmed(_ view: ObvSingleOwnedIdentity.OwnedDevicesListView, ownedCryptoId: ObvTypes.ObvCryptoId) async throws {
+        try await obvEngine.deleteAllOtherOwnedDevicesAndChannelsThenPerformOwnedDeviceDiscovery(ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+// MARK: - Implementing EditOwnedDetailsViewActions
+
+extension MainFlowViewController: ObvSingleOwnedIdentity.EditOwnedDetailsViewActions {
+    
+    func userWantsObtainAvatar(_ view: ObvSingleOwnedIdentity.EditOwnedDetailsView, avatarSource: ObvAppTypes.ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsObtainAvatar(self, avatarSource: avatarSource, avatarSize: avatarSize)
+    }
+
+    func userWantsToSaveImageToTempFile(_ view: ObvSingleOwnedIdentity.EditOwnedDetailsView, image: UIImage) async throws -> URL {
+        try await self.userWantsToSaveImageToTempFile(image: image)
+    }
+
+    func userWantsToPublishNewOwnedDetails(_ view: ObvSingleOwnedIdentity.EditOwnedDetailsView, ownedCryptoId: ObvTypes.ObvCryptoId, newIdentityDetails: ObvTypes.ObvIdentityDetails) async throws {
+        try await obvEngine.updatePublishedIdentityDetailsOfOwnedIdentity(with: ownedCryptoId, with: newIdentityDetails)
+    }
+    
+    func userWantsToUnbindOwnedIdentityFromKeycloak(_ view: EditOwnedDetailsView, ownedCryptoId: ObvCryptoId) async throws {
+        try await KeycloakManagerSingleton.shared.unregisterKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+// MARK: - Implementing ObvSingleOwnedIdentityViewStackActions
+
+extension MainFlowViewController: ObvSingleOwnedIdentityViewStackActions {
+        
+    func userWantsToUpdateOwnedCustomDisplayName(_ view: ObvSingleOwnedIdentityView, ownedCryptoId: ObvCryptoId, newCustomDisplayName: String?) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToUpdateOwnedCustomDisplayName(self, ownedCryptoId: ownedCryptoId, newCustomDisplayName: newCustomDisplayName)
+    }
+    
+    func userWantsToRefreshSubscriptionStatus(_ view: ObvSingleOwnedIdentity.ObvSingleOwnedIdentityView, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> [ObvAppTypes.StoreKitDelegatePurchaseResult] {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToRefreshSubscriptionStatus(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+    func userWantsToDeleteOwnedIdentityButHasNotConfirmedYet(_ view: ObvSingleOwnedIdentityView, ownedCryptoId: ObvCryptoId) {
+        Task {
+            await self.processUserWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: ownedCryptoId)
+        }
+    }
+    
+    func userWantsToAddOwnedProfile(_ view: ObvSingleOwnedIdentityView) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.userWantsToAddOwnedProfile(self)
+    }
+    
+    func userWantsToHideOwnedIdentity(_ view: ObvSingleOwnedIdentity.HiddenProfilePasswordChooserView, ownedCryptoId: ObvCryptoId, password: String) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToHideOwnedIdentity(self, ownedCryptoId: ownedCryptoId, password: password)
+    }
+    
+    func userWantsToUnhideOwnedIdentity(_ view: ObvSingleOwnedIdentityView, ownedCryptoId: ObvCryptoId) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToUnhideOwnedIdentity(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+// MARK: - Implementing ObvSingleOwnedIdentityViewStackNavigation
+
+extension MainFlowViewController: ObvSingleOwnedIdentityViewStackNavigation {
+    
+    func userWantsToDismissPresentedNavigationStack(_ view: ObvSingleOwnedIdentity.ObvSingleOwnedIdentityViewStack) {
+        self.presentedViewController?.dismiss(animated: true)
+    }
+
+    func userWantsToNavigateToViewAllowingToAddNewDevice(_ view: ObvSingleOwnedIdentityViewStack, ownedCryptoId: ObvCryptoId) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        Task { await mainFlowViewControllerDelegate.userWantsToAddNewDevice(self, ownedCryptoId: ownedCryptoId) }
+    }
+    
+}
+
+
+// MARK: - Private helper methods
+
+extension MainFlowViewController {
+    
+    private func userWantsToSaveImageToTempFile(image: UIImage) async throws -> URL {
+        guard let jpegData = image.jpegData(compressionQuality: 1.0) else { assertionFailure(); throw ObvFlowControllerError.couldNotGenerateJPEGData }
+        let filename = [UUID().uuidString, UTType.jpeg.preferredFilenameExtension ?? "jpeg"].joined(separator: ".")
+        let directoryForTempFiles = ObvUICoreDataConstants.ContainerURL.forTempFiles.url
+        let filepath = directoryForTempFiles.appendingPathComponent(filename)
+        try jpegData.write(to: filepath)
+        return filepath
+    }
+
+}
+
+
 // MARK: - Errors
 
 extension MainFlowViewController {
@@ -2786,6 +3504,160 @@ extension MainFlowViewController {
     enum ObvError: Error {
         case storeKitDelegateIsNil
         case mainFlowViewControllerDelegateIsNil
+        case couldNotDetermineCurrentFlow
+        case couldNotPasteStringFromPasteboard
+        case couldNotFindAnyOlvidURLInPastedText
+        case unexpectedGroupIdentifier
+        case couldNotFindDisplayedContactGroup
     }
     
+}
+
+
+// MARK: Helper struct: AllObvFlowViewControllers
+
+fileprivate struct AllObvFlowViewControllers {
+    
+    private let discussionsFlowViewController: DiscussionsFlowViewController
+    private let contactsFlowViewController: ContactsFlowViewController
+    private let groupsFlowViewController: GroupsFlowViewController
+    private let invitationsFlowViewController: NewInvitationsFlowViewController
+    
+    init(discussionsFlowViewController: DiscussionsFlowViewController, contactsFlowViewController: ContactsFlowViewController, groupsFlowViewController: GroupsFlowViewController, invitationsFlowViewController: NewInvitationsFlowViewController) {
+        self.discussionsFlowViewController = discussionsFlowViewController
+        self.contactsFlowViewController = contactsFlowViewController
+        self.groupsFlowViewController = groupsFlowViewController
+        self.invitationsFlowViewController = invitationsFlowViewController
+    }
+    
+    func flowControllerForFlow(_ flow: ObvAppTypes.ObvFlow) -> ObvFlowController {
+        switch flow {
+        case .latestDiscussions: return discussionsFlowViewController
+        case .contacts: return contactsFlowViewController
+        case .groups: return groupsFlowViewController
+        case .invitations: return invitationsFlowViewController
+        }
+    }
+    
+    func getAllDiscussionsInFlow(_ flow: ObvAppTypes.ObvFlow) -> [SomeSingleDiscussionViewController] {
+        flowControllerForFlow(flow).viewControllers.compactMap { $0 as? SomeSingleDiscussionViewController }
+    }
+    
+    func flowForFlowController(_ flowController: ObvFlowController) -> ObvFlow? {
+        switch flowController {
+        case discussionsFlowViewController: return .latestDiscussions
+        case contactsFlowViewController: return .contacts
+        case groupsFlowViewController: return .groups
+        case invitationsFlowViewController: return .invitations
+        default: assertionFailure(); return nil
+        }
+    }
+    
+    var allFlowControllers: [ObvFlowController] {
+        ObvFlow.allCases.map { flowControllerForFlow($0) }
+    }
+}
+
+
+
+
+// MARK: - MainFlowViewControllerDelegate
+
+
+protocol MainFlowViewControllerDelegate: AnyObject {
+    func userWantsToAddNewDevice(_ viewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async
+    func userWantsToPublishGroupV2Creation(_ mainFlowViewController: MainFlowViewController, groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws
+    func userWantsToPublishGroupV2Modification(_ mainFlowViewController: MainFlowViewController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws
+    func userRequestedAppDatabaseSyncWithEngine(mainFlowViewController: MainFlowViewController) async throws
+    func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToAddAttachmentsToDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
+    func userWantsToAddAttachmentsToDraftFromURLs(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
+    func userWantsToUpdateDraftBodyAndMentions(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToDeleteAttachmentsFromDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
+    func userWantsToReplyToMessage(_ mainFlowViewController: MainFlowViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
+    func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ mainFlowViewController: MainFlowViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
+    func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ mainFlowViewController: MainFlowViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
+    func userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ mainFlowViewController: MainFlowViewController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
+    func userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ mainFlowViewController: MainFlowViewController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
+    func userWantsToRemoveReplyToMessage(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
+    func insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(_ mainFlowViewController: MainFlowViewController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool) async throws
+    func userWantsToUpdateDraftExpiration(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?) async throws
+    func userWantsToReadReceivedMessageThatRequiresUserAction(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier) async throws
+    func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ mainFlowViewController: MainFlowViewController, discussionPermanentID: ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedDiscussion>, messagePermanentIDs: Set<ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedMessage>>) async throws
+    func messagesAreNotNewAnymore(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
+    func userWantsToUpdateReaction(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
+    func userWantsToUpdatePollVote(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, voted: Bool, version: Int) async throws
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ mainFlowViewController: MainFlowViewController) async throws
+    func userWantsToStopSharingLocationInDiscussion(_ mainFlowViewController: MainFlowViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToFetchDeviceBakupFromServer(_ mainFlowViewController: MainFlowViewController, currentOwnedCryptoId: ObvCryptoId) async throws -> AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind>
+    func userWantsToUseDeviceBackupSeed(_ mainFlowViewController: MainFlowViewController, deviceBackupSeed: ObvCrypto.BackupSeed) async throws -> ObvAppBackup.ObvListOfDeviceBackupProfiles
+    func userWantsToFetchAllProfileBackupsFromServer(_ mainFlowViewController: MainFlowViewController, profileCryptoId: ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvProfileBackupFromServer]
+    func restoreProfileBackupFromServerNow(_ mainFlowViewController: MainFlowViewController, profileBackupFromServerToRestore: ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos
+    func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(_ mainFlowViewController: MainFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data
+    @MainActor func userWantsToSubscribeOlvidPlus(_ mainFlowViewController: MainFlowViewController)
+    @MainActor func userWantsToAddDevice(_ mainFlowViewController: MainFlowViewController)
+    func userWantsToResetThisDeviceSeedAndBackups(_ mainFlowViewController: MainFlowViewController) async throws
+    func userWantsToDeleteProfileBackupFromSettings(_ mainFlowViewController: MainFlowViewController, infoForDeletion: ObvProfileBackupFromServer.InfoForDeletion) async throws
+    func getDeviceDeactivationConsequencesOfRestoringBackup(_ mainFlowViewController: MainFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
+    func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ mainFlowViewController: MainFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
+    @MainActor func userWantsToConfigureNewBackups(_ mainFlowViewController: MainFlowViewController, context: ObvAppBackupSetupContext)
+    @MainActor func userWantsToBeRemindedToWriteDownBackupKey(_ mainFlowViewController: MainFlowViewController) async
+    @MainActor func userWantsToDisplayBackupKey(_ mainFlowViewController: MainFlowViewController)
+    @MainActor func userWantsToRefreshSubscriptionStatus(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvTypes.ObvCryptoId?) async throws -> [ObvAppTypes.StoreKitDelegatePurchaseResult]
+    
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws
+    func userWantsToLeaveGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupIdentifier) async throws
+    func userWantsToDisbandGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupIdentifier) async throws
+    func userWantsObtainAvatar(_ mainFlowViewController: MainFlowViewController, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
+    @MainActor func userWantsToDeleteOwnedIdentityAndHasConfirmed(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws
+    
+    func userWantsToShowMapToSendOrShareLocationContinuously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws
+    func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws
+
+    func userWantsToCreatePoll(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToDisplayPollView(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, pollObjectID: TypeSafeManagedObjectID<PersistedPoll>) async throws
+    func userWantsToMarkAllMessagesAsReadInDiscussion(_ mainFlowViewController: MainFlowViewController, discussionObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussion>) async throws
+    func userWantsToReorderPinnedDiscussions(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, objectIDOfPinnedDiscussions: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws
+
+    func userWantsToArchiveDiscussions(_ mainFlowViewController: MainFlowViewController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws
+    func userWantsToUnarchiveDiscussions(_ mainFlowViewController: MainFlowViewController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) async throws
+
+    func userWantsToDeleteDiscussionsAndHasConfirmed(_ mainFlowViewController: MainFlowViewController, discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>], deletionType: DeletionType) async throws
+
+    func userWantsToProcessReceiptsStoredForLater(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, returnReceiptElements: Set<ObvReturnReceiptElements>) async
+
+    func userWantsToUpdatePersonalNote(_ mainFlowViewController: MainFlowViewController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws
+    func userDidSeeNewDetailsOfContact(_ mainFlowViewController: MainFlowViewController, contactIdentifier: ObvContactIdentifier)
+
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV1Identifier) async throws
+    func userHasSeenPublishedDetails(_ mainFlowViewController: MainFlowViewController, publishedDetails: PublishedDetailsValidationViewModel) async throws
+    func userWantsToPublishGroupV1Creation(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvTypes.ObvCryptoId, groupDetails: ObvTypes.ObvGroupDetails, otherGroupMembers: Set<ObvTypes.ObvCryptoId>) async throws
+
+    func userWantsToRemoveMembersFromGroupV1(_ mainFlowViewController: MainFlowViewController, groupV1Identifier: ObvGroupV1Identifier, removedGroupMembers: Set<ObvCryptoId>) async throws
+    func userWantsToAddSelectedUsersToExistingGroup(_ mainFlowViewController: MainFlowViewController, groupV1Identifier: ObvGroupV1Identifier, newGroupMembers: Set<ObvCryptoId>) async throws
+    func userWantsToUpdateGroupNameAndPicture(_ mainFlowViewController: MainFlowViewController, groupV1Identifier: ObvGroupV1Identifier, changes: Set<EditGroupNameAndPictureView.Change>) async throws
+
+    func userWantsToAddOwnedProfile(_ mainFlowViewController: MainFlowViewController)
+
+    func userWantsToHideOwnedIdentity(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, password: String) async throws
+    func userWantsToUnhideOwnedIdentity(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async throws
+
+    func userWantsToUpdateOwnedCustomDisplayName(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, newCustomDisplayName: String?) async throws
+
+    func userWantsToDiscoverOlvidPlus(_ mainFlowViewController: MainFlowViewController)
+    func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ mainFlowViewController: MainFlowViewController)
+
+}
+
+
+protocol StoreKitDelegate: AnyObject {
+    func userRequestedListOfSKProducts() async throws -> [Product]
+    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult
+    func userWantsToRestorePurchases() async throws
+    func userWantsToKnowIfMultideviceSubscriptionIsActive() async throws -> Bool
+    func refreshSubscriptionStatus() async throws -> [ObvAppTypes.StoreKitDelegatePurchaseResult]
+    func getCurrentActiveSubscriptionPublisher() throws -> Published<Product?>.Publisher
+    func getCurrentActiveSubscription() throws -> Product?
+    func getOwnershipTypeForTipNotificationOfJustMadeSubscription() async throws -> ObvOwnershipType?
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 import ObvCrypto
 import ObvMetaManager
@@ -28,98 +28,158 @@ import OlvidUtils
 
 /// This database is only used within the channel creation protocol (with a contact identity) between the current device of the owned identity and the contact device
 @objc(ChannelCreationWithContactDeviceProtocolInstance)
-final class ChannelCreationWithContactDeviceProtocolInstance: NSManagedObject, ObvManagedObject {
+final class ChannelCreationWithContactDeviceProtocolInstance: NSManagedObject {
 
     // MARK: Internal constants
     
     private static let entityName = "ChannelCreationWithContactDeviceProtocolInstance"
-    private static let contactIdentityKey = "contactIdentity"
-    private static let contactDeviceUidKey = "contactDeviceUid"
-    private static let protocolInstanceKey = "protocolInstance"
-    private static let protocolInstanceOwnedCryptoIdentityKey = [protocolInstanceKey, ProtocolInstance.Predicate.Key.ownedCryptoIdentity.rawValue].joined(separator: ".")
-    private static let protocolInstanceUidKey = [protocolInstanceKey, ProtocolInstance.Predicate.Key.uid.rawValue].joined(separator: ".")
+    private static let logger = Logger(subsystem: ObvProtocolDelegateManager.defaultLogSubsystem, category: ChannelCreationWithContactDeviceProtocolInstance.entityName)
     
     // MARK: Attributes
     
-    @NSManaged private(set) var contactIdentity: ObvCryptoIdentity
-    @NSManaged private(set) var contactDeviceUid: UID
+    @NSManaged private var rawContactDeviceUid: Data? // Non-optional in the model
+    @NSManaged private var rawContactIdentity: Data? // Non-optional in the model
     
     // MARK: Relationships
     
     // Primary key (enforced by a one-to-one relationship). This is necessarily a ChannelCreationWithContactDevice protocol instance.
-    private(set) var protocolInstance: ProtocolInstance {
-        get {
-            let item = kvoSafePrimitiveValue(forKey: ChannelCreationWithContactDeviceProtocolInstance.protocolInstanceKey) as! ProtocolInstance
-            item.obvContext = self.obvContext
-            return item
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: ChannelCreationWithContactDeviceProtocolInstance.protocolInstanceKey)
-        }
-    }
+    @NSManaged private(set) var protocolInstance: ProtocolInstance
 
     // MARK: Other variables
     
     var ownedCryptoIdentity: ObvCryptoIdentity {
-        return protocolInstance.ownedCryptoIdentity
+        get throws {
+            return try protocolInstance.ownedCryptoIdentity
+        }
     }
     
-    weak var obvContext: ObvContext?
+    var contactIdentity: ObvCryptoIdentity {
+        get throws {
+            guard let rawContactIdentity else { assertionFailure(); throw ObvError.unexpectedNilValue }
+            guard let contactIdentity = ObvCryptoIdentity(from: rawContactIdentity) else { assertionFailure(); throw ObvError.couldNotParseValue }
+            return contactIdentity
+        }
+    }
+    
+    var contactDeviceUid: UID {
+        get throws {
+            guard let rawContactDeviceUid else { assertionFailure(); throw ObvError.unexpectedNilValue }
+            guard let contactDeviceUid = UID(uid: rawContactDeviceUid) else { assertionFailure(); throw ObvError.couldNotParseValue }
+            return contactDeviceUid
+        }
+    }
     
     // MARK: - Initializer
     
-    convenience init?(protocolInstanceUid: UID, ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ChannelCreationWithContactDeviceProtocolInstance.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        guard let protocolInstance = ProtocolInstance.get(cryptoProtocolId: CryptoProtocolId.channelCreationWithContactDevice,
-                                                          uid: protocolInstanceUid,
-                                                          ownedIdentity: ownedIdentity,
-                                                          delegateManager: delegateManager,
-                                                          within: obvContext) else { return nil }
+    /// 2025-08-27: ok
+    convenience init?(protocolInstanceUid: UID, ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ChannelCreationWithContactDeviceProtocolInstance.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        guard let protocolInstance = try? ProtocolInstance.get(
+            cryptoProtocolId: CryptoProtocolId.channelCreationWithContactDevice,
+            uid: protocolInstanceUid,
+            ownedIdentity: ownedIdentity,
+            within: context) else { return nil }
         self.protocolInstance = protocolInstance
-        self.contactIdentity = contactIdentity
-        self.contactDeviceUid = contactDeviceUid
+        self.rawContactIdentity = contactIdentity.getIdentity()
+        self.rawContactDeviceUid = contactDeviceUid.raw
     }
 
+    
+    private func deleteChannelCreationWithContactDeviceProtocolInstance() throws {
+        guard let managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        managedObjectContext.delete(self)
+    }
+    
+    
+    enum ObvError: Error {
+        case noContext
+        case unexpectedNilValue
+        case couldNotParseValue
+    }
+    
 }
 
 
 // MARK: - Convenience DB getters
 extension ChannelCreationWithContactDeviceProtocolInstance {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case rawContactDeviceUid = "rawContactDeviceUid"
+            case rawContactIdentity = "rawContactIdentity"
+            // Relationships
+            case protocolInstance = "protocolInstance"
+        }
+        static func withContactIdentity(_ contactIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(Key.rawContactIdentity, EqualToData: contactIdentity.getIdentity())
+        }
+        static func withContactDeviceUid(_ contactDeviceUid: UID) -> NSPredicate {
+            NSPredicate(Key.rawContactDeviceUid, EqualToData: contactDeviceUid.raw)
+        }
+        static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            let rawKey: String = [
+                Key.protocolInstance.rawValue,
+                ProtocolInstance.Predicate.Key.rawOwnedCryptoIdentity.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(rawKey, EqualToData: ownedCryptoIdentity.getIdentity())
+        }
+    }
+
     @nonobjc class func fetchRequest() -> NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance> {
         return NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance>(entityName: ChannelCreationWithContactDeviceProtocolInstance.entityName)
     }
     
-    static func delete(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, andOwnedIdentity ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UID? {
+    
+    static func delete(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, andOwnedIdentity ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> UID? {
         let request: NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance> = ChannelCreationWithContactDeviceProtocolInstance.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                        contactIdentityKey, contactIdentity,
-                                        contactDeviceUidKey, contactDeviceUid,
-                                        protocolInstanceOwnedCryptoIdentityKey, ownedCryptoIdentity)
-        guard let item = (try obvContext.fetch(request)).first else {
-            let log = OSLog(subsystem: ObvProtocolDelegateManager.defaultLogSubsystem, category: ChannelCreationWithContactDeviceProtocolInstance.entityName)
-            os_log("Did not find a ChannelCreationProtocolInstanceInWaitingState to delete", log: log, type: .error)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withContactIdentity(contactIdentity),
+            Predicate.withContactDeviceUid(contactDeviceUid),
+            Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
+        ])
+        guard let item = try context.fetch(request).first else {
+            logger.error("Did not find a ChannelCreationProtocolInstanceInWaitingState to delete")
             return nil
         }
-        let protocolInstanceUid = item.protocolInstance.uid
-        obvContext.delete(item)
+        let protocolInstanceUid = try item.protocolInstance.uid
+        try item.deleteChannelCreationWithContactDeviceProtocolInstance()
         return protocolInstanceUid
     }
     
-    static func exists(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, andOwnedIdentity ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+    
+    static func exists(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, andOwnedIdentity ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance> = ChannelCreationWithContactDeviceProtocolInstance.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                        contactDeviceUidKey, contactDeviceUid,
-                                        contactIdentityKey, contactIdentity,
-                                        protocolInstanceOwnedCryptoIdentityKey, ownedCryptoIdentity)
-        return try obvContext.count(for: request) != 0
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withContactIdentity(contactIdentity),
+            Predicate.withContactDeviceUid(contactDeviceUid),
+            Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
+        ])
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item != nil
     }
     
-    static func getAll(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt> {
+    
+    static func getAll(within context: NSManagedObjectContext) throws -> Set<ObliviousChannelIdentifierAlt> {
         let request: NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance> = ChannelCreationWithContactDeviceProtocolInstance.fetchRequest()
         request.fetchBatchSize = 1_000
-        let items = try obvContext.fetch(request)
-        return Set(items.map({ ObliviousChannelIdentifierAlt(ownedCryptoIdentity: $0.ownedCryptoIdentity, remoteCryptoIdentity: $0.contactIdentity, remoteDeviceUid: $0.contactDeviceUid) }))
+        let items = try context.fetch(request)
+        let identifiers = items.compactMap {
+            do {
+                return try ObliviousChannelIdentifierAlt(
+                    ownedCryptoIdentity: $0.ownedCryptoIdentity,
+                    remoteCryptoIdentity: try $0.contactIdentity,
+                    remoteDeviceUid: try $0.contactDeviceUid)
+            } catch {
+                logger.fault("Parsing failed: \(error, privacy: .public)")
+                assertionFailure()
+                return nil
+            }
+        }
+        return Set(identifiers)
     }
+    
 }

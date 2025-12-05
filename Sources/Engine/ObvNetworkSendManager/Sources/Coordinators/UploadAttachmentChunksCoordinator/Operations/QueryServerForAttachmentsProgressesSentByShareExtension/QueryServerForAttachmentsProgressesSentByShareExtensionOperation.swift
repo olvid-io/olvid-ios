@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import CoreData
 import ObvTypes
@@ -89,13 +89,13 @@ final class QueryServerForAttachmentsProgressesSentByShareExtensionOperation: Op
 
         var attachmentsSentByShareExtension = Set<AttachmentIdAndServerURL>()
 
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { [weak self] (obvContext) in
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { [weak self] obvContext in
             
             guard let _self = self else { return }
             
             // We look for messages having attachments sent by the share extension
             do {
-                let sessions = try OutboxAttachmentSession.getAllCreatedByAppType(.shareExtension, within: obvContext)
+                let sessions = try OutboxAttachmentSession.getAllCreatedByAppType(.shareExtension, within: obvContext.context)
                 attachmentsSentByShareExtension = Set(sessions.compactMap({
                     guard let attachmentId = $0.attachment?.attachmentId else { return nil }
                     guard let serverURL = $0.attachment?.message?.serverURL else { return nil }

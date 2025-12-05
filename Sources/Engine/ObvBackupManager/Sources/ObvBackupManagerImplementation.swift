@@ -626,13 +626,14 @@ extension ObvBackupManagerImplementation {
 
         // Observe `observeBackupableManagerDatabaseContentChanged` notifications for automatic backups
         notificationTokens.append(contentsOf: [
-            ObvBackupNotification.observeBackupableManagerDatabaseContentChanged(within: delegateManager.notificationDelegate, queue: internalNotificationQueue) { [weak self] (flowId) in
+            ObvBackupNotification.observeBackupableManagerDatabaseContentChanged(within: delegateManager.notificationDelegate, queue: internalNotificationQueue) { [weak self] in
                 self?.isBackupRequired = true
             }
         ])
         
     }
-    
+        
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
     
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
         if forTheFirstTime {

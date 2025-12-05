@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import CoreData
 import ObvCrypto
 import OlvidUtils
 import ObvTypes
@@ -25,7 +26,7 @@ import ObvEncoder
 
 public protocol ObvSolveChallengeDelegate: ObvManager {
     
-    func solveChallenge(_ challengeType: ChallengeType, for: ObvCryptoIdentity, using: PRNGService, within obvContext: ObvContext) throws -> Data
+    func solveChallenge(_ challengeType: ChallengeType, for: ObvCryptoIdentity, using: PRNGService, within context: NSManagedObjectContext) throws -> Data
     func solveChallenge(_ challengeType: ChallengeType, with authenticationKeyPair: (publicKey: any PublicKeyForAuthentication, privateKey: any PrivateKeyForAuthentication), using: PRNGService) throws -> Data
     
 }

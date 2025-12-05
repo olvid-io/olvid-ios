@@ -69,6 +69,22 @@ public struct ObvIdentityCoreDetails: Equatable, Sendable {
         self.signedUserDetails = signedUserDetails
     }
     
+    private init(uncheckedFirstName: String?, uncheckedLastName: String?, company: String?, position: String?, signedUserDetails: String?) {
+        self.firstName = uncheckedFirstName?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength() ?? "-"
+        self.lastName = uncheckedLastName?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength() ?? "-"
+        self.company = company?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()
+        self.position = position?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()
+        self.signedUserDetails = signedUserDetails
+    }
+    
+    public static func withAcceptableDefaults(firstName: String?, lastName: String?, company: String?, position: String?, signedUserDetails: String?) -> Self {
+        do {
+            return try Self.init(firstName: firstName, lastName: lastName, company: company, position: position, signedUserDetails: signedUserDetails)
+        } catch {
+            return Self.init(uncheckedFirstName: firstName, uncheckedLastName: lastName, company: company, position: position, signedUserDetails: signedUserDetails)
+        }
+    }
+    
     private static func areAcceptable(firstName: String?, lastName: String?) -> Bool {
         let _firstName = firstName?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()
         let _lastName = lastName?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()

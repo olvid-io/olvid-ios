@@ -222,13 +222,13 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDownloadDelegate {
             decryptionKey: decryptionKey)
         queueForDecryptingChunks.addOperations([decryptAndWriteOp], waitUntilFinished: true)
 
+        guard decryptAndWriteOp.isFinished && !decryptAndWriteOp.isCancelled else {
+            assertionFailure()
+            self.errorForTracker = .failedToDecryptChunkOrWriteToFile
+            return
+        }
+
         Task {
-                        
-            guard decryptAndWriteOp.isFinished && !decryptAndWriteOp.isCancelled else {
-                assertionFailure()
-                self.errorForTracker = .failedToDecryptChunkOrWriteToFile
-                return
-            }
             
             let op1 = MarkChunkAsWrittenToAttachmentFileOperation(attachmentId: attachmentId, chunkNumber: chunkNumber)
             let composedOp = try createCompositionOfOneContextualOperation(op1: op1, flowId: flowId)

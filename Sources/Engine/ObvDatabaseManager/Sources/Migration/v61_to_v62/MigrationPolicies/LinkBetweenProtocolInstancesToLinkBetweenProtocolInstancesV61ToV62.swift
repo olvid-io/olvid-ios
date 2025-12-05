@@ -1,0 +1,130 @@
+/*
+ *  Olvid for iOS
+ *  Copyright © 2019-2025 Olvid SAS
+ *
+ *  This file is part of Olvid for iOS.
+ *
+ *  Olvid is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Affero General Public License, version 3,
+ *  as published by the Free Software Foundation.
+ *
+ *  Olvid is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Affero General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Affero General Public License
+ *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import Foundation
+import CoreData
+import OlvidUtils
+import ObvCrypto
+
+// ok
+final class LinkBetweenProtocolInstancesToLinkBetweenProtocolInstancesV61ToV62: NSEntityMigrationPolicy {
+    
+    static let entityName: String = "LinkBetweenProtocolInstances"
+    static let errorDomain: String = entityName
+    static let debugPrintPrefix: String = "[\(errorDomain)][LinkBetweenProtocolInstancesToLinkBetweenProtocolInstancesV61ToV62]"
+
+    override func begin(_ mapping: NSEntityMapping, with manager: NSMigrationManager) throws {
+        ValueTransformer.setValueTransformer(UIDTransformerForMigration(), forName: .uidTransformerName)
+    }
+
+    override func createDestinationInstances(forSource sInstance: NSManagedObject, in mapping: NSEntityMapping, manager: NSMigrationManager) throws {
+        
+        do {
+            
+            debugPrint("\(Self.debugPrintPrefix) createDestinationInstances starts")
+            defer {
+                debugPrint("\(Self.debugPrintPrefix) createDestinationInstances ends")
+            }
+            
+            let dInstance = try initializeDestinationInstance(forEntityName: Self.entityName,
+                                                              forSource: sInstance,
+                                                              in: mapping,
+                                                              manager: manager,
+                                                              errorDomain: Self.errorDomain)
+            defer {
+                manager.associate(sourceInstance: sInstance, withDestinationInstance: dInstance, for: mapping)
+            }
+
+            // childProtocolInstanceUid (UID) --> rawChildProtocolInstanceUid (Binary)
+            
+            do {
+                                
+                guard let childProtocolInstanceUid = sInstance.value(forKey: "childProtocolInstanceUid") as? UID else {
+                    assertionFailure()
+                    throw ObvError.couldNotGetChildProtocolInstanceUid
+                }
+                
+                dInstance.setValue(childProtocolInstanceUid.raw, forKey: "rawChildProtocolInstanceUid")
+                
+            }
+
+            // Checks
+            
+            do {
+                _ = try getChildProtocolInstanceUid(dInstance: dInstance)
+            }
+
+        } catch {
+            assertionFailure()
+            throw error
+        }
+        
+    }
+    
+    enum ObvError: Error {
+        case couldNotGetChildProtocolInstanceUid
+    }
+
+    // For checks
+    
+    enum ObvErrorForChecks: Error {
+        case unexpectedNilValue
+        case couldNotParseValue
+    }
+
+    private func getChildProtocolInstanceUid(dInstance: NSManagedObject) throws(ObvErrorForChecks) -> UID {
+        guard let rawChildProtocolInstanceUid = dInstance.value(forKey: "rawChildProtocolInstanceUid") as? Data else { assertionFailure(); throw .unexpectedNilValue }
+        guard let uid = UID(uid: rawChildProtocolInstanceUid) else { assertionFailure(); throw .couldNotParseValue }
+        return uid
+    }
+
+}
+
+
+// MARK: - Private helpers
+
+private class UIDTransformerForMigration: ValueTransformer {
+
+    override public class func transformedValueClass() -> AnyClass {
+        return UID.self
+    }
+
+    override public class func allowsReverseTransformation() -> Bool {
+        return true
+    }
+
+
+    /// Turn an UID into a Data object. This method never fails.
+    override public func transformedValue(_ value: Any?) -> Any? {
+        let uid = value as! UID
+        return uid.raw
+    }
+
+    /// Try to turn a Data object back into a UID. This method can return nil.
+    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+        guard let data = value as? Data else { return nil }
+        return UID(uid: data)
+    }
+
+}
+
+
+private extension NSValueTransformerName {
+    static let uidTransformerName = NSValueTransformerName(rawValue: "UIDTransformer")
+}

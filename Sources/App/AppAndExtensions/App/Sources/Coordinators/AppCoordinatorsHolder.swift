@@ -27,14 +27,16 @@ import Combine
 import ObvSettings
 import OlvidUtils
 import ObvAppCoreConstants
+import ObvAppInboxService
 
 final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
     
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "AppCoordinatorsHolder")
     private let obvEngine: ObvEngine
     let persistedDiscussionsUpdatesCoordinator: PersistedDiscussionsUpdatesCoordinator
     let bootstrapCoordinator: BootstrapCoordinator
     let obvOwnedIdentityCoordinator: ObvOwnedIdentityCoordinator
-    private let contactIdentityCoordinator: ContactIdentityCoordinator
+    let contactIdentityCoordinator: ContactIdentityCoordinator
     let contactGroupCoordinator: ContactGroupCoordinator
     private let appSyncSnapshotableCoordinator: AppSyncSnapshotableCoordinator
     let userNotificationsCoordinator: UserNotificationsCoordinator
@@ -71,17 +73,18 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
 
         self.obvEngine = obvEngine
         
-        let messagesKeptForLaterManager = MessagesKeptForLaterManager()
+        let appInboxService = ObvAppInboxService()
         
         self.persistedDiscussionsUpdatesCoordinator = PersistedDiscussionsUpdatesCoordinator(
             obvEngine: obvEngine,
+            appInboxService: appInboxService,
             coordinatorsQueue: queueSharedAmongCoordinators,
             queueForComposedOperations: queueForComposedOperations,
             queueForOperationsMakingEngineCalls: queueForOperationsMakingEngineCalls,
-            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation,
-            messagesKeptForLaterManager: messagesKeptForLaterManager)
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
         self.bootstrapCoordinator = BootstrapCoordinator(
             obvEngine: obvEngine,
+            appInboxService: appInboxService,
             coordinatorsQueue: queueSharedAmongCoordinators,
             queueForComposedOperations: queueForComposedOperations, 
             queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
@@ -116,12 +119,19 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
         // No syncAtomRequestDelegate for the AppSyncSnapshotableCoordinator
         // No syncAtomRequestDelegate for the UserNotificationsCoordinator
         
+        self.bootstrapCoordinator.delegate = self
+        
     }
     
     
     deinit {
         cancellables.forEach { $0.cancel() }
         cancellables.removeAll()
+    }
+    
+    
+    func applicationWasInitializedButWasNeverOnScreen() async {
+        startReceivingObvMessageOrObvOwnedMessageFromEngine()
     }
     
 
@@ -133,11 +143,39 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
         await self.bootstrapCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.obvOwnedIdentityCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.contactIdentityCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        await self.contactGroupCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        await self.appSyncSnapshotableCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.userNotificationsCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
     }
 
+}
+
+// MARK: - Implementing BootstrapCoordinatorDelegate
+
+extension AppCoordinatorsHolder: BootstrapCoordinatorDelegate {
+    
+    func reprocessEngineMessagesForLater(_ bootstrapCoordinator: BootstrapCoordinator, messageIdentifiersForLater: [ObvTypes.ObvMessageIdentifier]) async {
+        await self.persistedDiscussionsUpdatesCoordinator.reprocessEngineMessagesForLater(messageIdentifiersForLater: messageIdentifiersForLater)
+    }
+    
+}
+
+// MARK: - Receiving a stream of `ObvMessage` and `ObvOwnedMessage` from the engine
+
+extension AppCoordinatorsHolder {
+    
+    func startReceivingObvMessageOrObvOwnedMessageFromEngine() {
+        Task {
+            do {
+                let stream = try await obvEngine.getAsyncStreamOfObvMessageOrObvOwnedMessages()
+                for await messages in stream {
+                    await persistedDiscussionsUpdatesCoordinator.processNewMessagesReceivedNotification(messages: messages)
+                    Task { await userNotificationsCoordinator.processNewMessagesReceivedNotification(messages: messages) }
+                }
+            } catch {
+                Self.logger.fault("Failed to obtain a stream of `ObvMessage` or `ObvOwnedMessage` from the engine: \(error)")
+            }
+        }
+    }
+    
 }
 
 
@@ -218,6 +256,25 @@ extension AppCoordinatorsHolder {
             }
             .store(in: &cancellables)
 
+        ObvMessengerSettingsObservableObject.shared.$unarchiveDiscussions
+            .dropFirst() // Don't consider the initial value set on unarchiveDiscussions
+            .compactMap { (unarchiveDiscussions: Bool, changeMadeFromAnotherOwnedDevice: Bool) in
+                // Filter out changes made from another device since we don't need to sync with them
+                guard !changeMadeFromAnotherOwnedDevice else { return nil }
+                return unarchiveDiscussions
+            }
+            .compactMap { (unarchiveDiscussions: Bool) in
+                // Create the ObvSyncAtom
+                let syncAtom = ObvSyncAtom.settingUnarchiveOnNotification(unarchiveOnNotification: unarchiveDiscussions)
+                return syncAtom
+            }
+            .sink { [weak self] (syncAtom: ObvSyncAtom) in
+                // Request the sync of the ObvSyncAtom to the engine
+                Task { [weak self] in
+                    await self?.requestPropagationToOtherOwnedDevicesOfAllOwnedIdentities(of: syncAtom)
+                }
+            }
+            .store(in: &cancellables)
     }
 
     
@@ -344,6 +401,7 @@ final class AppCoordinatorsQueueMonitor {
     private static let preventProgressFromGoingBackwards = false
     
     @Published var coordinatorsOperationsProgress: CoordinatorsOperationsProgress?
+    private var continuationForStreamUUID = [UUID: AsyncStream<Double>.Continuation]()
     private var lastProgressUpdate = Date.distantPast
     private static let timeIntervalThresholdForProgressFractionCompletedUpdate: TimeInterval = 0.3
 
@@ -362,6 +420,24 @@ final class AppCoordinatorsQueueMonitor {
             updateUnitCountForProgress(operationCount: operationCount)
         }
     }
+    
+    
+    func getAsyncStreamOfFractionCompleted() -> (streamUUID: UUID, stream: AsyncStream<Double>) {
+        let streamUUID = UUID()
+        let stream = AsyncStream(Double.self) { [weak self] (continuation: AsyncStream<Double>.Continuation) in
+            guard let self else { continuation.finish(); return }
+            continuationForStreamUUID[streamUUID] = continuation
+        }
+        return (streamUUID, stream)
+    }
+    
+    
+    func finishAsyncStreamOfFractionCompleted(streamUUID: UUID) {
+        if let continuation = continuationForStreamUUID.removeValue(forKey: streamUUID) {
+            continuation.finish()
+        }
+    }
+    
 
     private func updateUnitCountForProgress(operationCount: Int) {
         queue.async { [weak self] in
@@ -461,6 +537,7 @@ final class AppCoordinatorsQueueMonitor {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     coordinatorsOperationsProgress?.setFractionCompleted(to: 1.0)
+                    continuationForStreamUUID.values.forEach({ $0.yield(1.0) })
                 }
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
@@ -479,6 +556,7 @@ final class AppCoordinatorsQueueMonitor {
                         coordinatorsOperationsProgress = CoordinatorsOperationsProgress()
                     }
                     coordinatorsOperationsProgress?.setFractionCompleted(to: newFractionCompleted)
+                    continuationForStreamUUID.values.forEach({ $0.yield(newFractionCompleted) })
                 }
                 
             }

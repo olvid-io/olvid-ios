@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvCrypto
 @preconcurrency import ObvMetaManager
@@ -334,7 +334,7 @@ public final class ObvEngine: ObvManager {
         }
         self.returnReceiptSender.prependLogSubsystem(with: logPrefix)
         self.returnReceiptSender.identityDelegate = self.identityDelegate
-        setValueTransformers()
+        //setValueTransformers()
         let flowId = FlowIdentifier()
         os_log("Flow for finalizing the engine initialization: %{public}@", log: log, type: .debug, flowId.debugDescription)
         try delegateManager.initializationFinalized(flowId: flowId, runningLog: runningLog)
@@ -347,14 +347,14 @@ public final class ObvEngine: ObvManager {
     
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {}
     
-    private func setValueTransformers() {
-        ValueTransformer.setValueTransformer(EncryptedDataTransformer(), forName: .encryptedDataTransformerName)
-        ValueTransformer.setValueTransformer(UIDTransformer(), forName: .uidTransformerName)
-        ValueTransformer.setValueTransformer(ObvEncodedTransformer(), forName: .obvEncodedTransformerName)
-        ValueTransformer.setValueTransformer(ObvCryptoIdentityTransformer(), forName: .obvCryptoIdentityTransformerName)
-        ValueTransformer.setValueTransformer(ObvOwnedCryptoIdentityTransformer(), forName: .obvOwnedCryptoIdentityTransformerName)
-        ValueTransformer.setValueTransformer(SeedTransformer(), forName: .seedTransformerName)
-    }
+//    private func setValueTransformers() {
+//        ValueTransformer.setValueTransformer(EncryptedDataTransformer(), forName: .encryptedDataTransformerName)
+//        ValueTransformer.setValueTransformer(UIDTransformer(), forName: .uidTransformerName)
+//        ValueTransformer.setValueTransformer(ObvEncodedTransformer(), forName: .obvEncodedTransformerName)
+//        ValueTransformer.setValueTransformer(ObvCryptoIdentityTransformer(), forName: .obvCryptoIdentityTransformerName)
+//        ValueTransformer.setValueTransformer(ObvOwnedCryptoIdentityTransformer(), forName: .obvOwnedCryptoIdentityTransformerName)
+//        ValueTransformer.setValueTransformer(SeedTransformer(), forName: .seedTransformerName)
+//    }
     
     deinit {
         if let notificationDelegate = delegateManager.notificationDelegate {
@@ -716,7 +716,7 @@ extension ObvEngine {
     }
     
     
-    public func registerOwnedAPIKeyOnServerNow(ownedCryptoId: ObvCryptoId, apiKey: UUID) async throws -> ObvRegisterApiKeyResult {
+    public func registerOwnedAPIKeyOnServerNow(ownedCryptoId: ObvCryptoId, apiKey: UUID) async throws {
         
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
@@ -734,10 +734,8 @@ extension ObvEngine {
             throw ObvError.ownedIdentityIsKeycloakManaged
         }
         
-        let result = try await networkFetchDelegate.registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
-        
-        return result
-        
+        try await networkFetchDelegate.registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
+
     }
     
     
@@ -781,17 +779,8 @@ extension ObvEngine {
             throw ObvError.ownedIdentityIsNotKeycloakManaged
         }
         
-        let result = try await networkFetchDelegate.registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
+        try await networkFetchDelegate.registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
 
-        switch result {
-        case .failed:
-            throw ObvError.couldNotRegisterAPIKey
-        case .invalidAPIKey:
-            throw ObvError.couldNotRegisterAPIKeyAsItIsInvalid
-        case .success:
-            break
-        }
-        
         // If we reach this point, the api key registration was a success. We save it within the identity manager
         
         try await saveRegisteredKeycloakAPIKey(ownedCryptoIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
@@ -858,15 +847,14 @@ extension ObvEngine {
     }
     
     
-    public func startFreeTrial(for identity: ObvCryptoId) async throws -> APIKeyElements {
+    public func startFreeTrial(for identity: ObvCryptoId) async throws {
         guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
         let flowId = FlowIdentifier()
-        let newAPIKeyElements = try await networkFetchDelegate.startFreeTrial(for: identity.cryptoIdentity, flowId: flowId)
-        return newAPIKeyElements
+        try await networkFetchDelegate.startFreeTrial(for: identity.cryptoIdentity, flowId: flowId)
     }
 
     
-    public func processAppStorePurchase(signedAppStoreTransactionAsJWS: String, transactionIdentifier: UInt64) async throws -> [ObvCryptoId: ObvAppStoreReceipt.VerificationStatus] {
+    public func processAppStorePurchase(signedAppStoreTransactionAsJWS: String, transactionIdentifier: UInt64, environment: ObvAppStoreEnvironment) async throws -> [ObvCryptoId: ObvAppStoreReceipt.VerificationStatus] {
 
         guard let networkFetchDelegate else { assertionFailure(); throw ObvError.networkFetchDelegateIsNil }
         
@@ -885,7 +873,7 @@ extension ObvEngine {
             signedAppStoreTransactionAsJWS: signedAppStoreTransactionAsJWS,
             transactionIdentifier: transactionIdentifier)
         
-        let results = try await networkFetchDelegate.verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: appStoreReceiptElements, flowId: flowId)
+        let results = try await networkFetchDelegate.verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: appStoreReceiptElements, environment: environment, flowId: flowId)
         return results.map({ ($0.key, $0.value) }).reduce(into: [:]) { dictToReturn, values in
             dictToReturn[ObvCryptoId(cryptoIdentity: values.0)] = values.1
         }
@@ -893,16 +881,16 @@ extension ObvEngine {
     }
     
     
-    public func refreshAPIPermissions(of ownedCryptoId: ObvCryptoId) async throws -> APIKeyElements {
-        
+    /// Requests a refresh of the API permissions for the specified owned identity.
+    ///
+    /// This method asynchronously asks the network fetch manager to update the API permissions.
+    /// Upon completion, the network fetch manager posts a
+    /// `ObvNetworkFetchNotificationNew.newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity` notification.
+    /// The app should observe this notification to persist the latest API key status, permissions, and expiration date.
+    public func refreshAPIPermissions(of ownedCryptoId: ObvCryptoId) async throws {
         guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
-
         let flowId = FlowIdentifier()
-
-        let apiKeyElements = try await networkFetchDelegate.refreshAPIPermissions(of: ownedCryptoId.cryptoIdentity, flowId: flowId)
-        
-        return apiKeyElements
-        
+        try await networkFetchDelegate.refreshAPIPermissions(of: ownedCryptoId.cryptoIdentity, flowId: flowId)
     }
     
 
@@ -1171,20 +1159,24 @@ extension ObvEngine {
         try await networkFetchDelegate.queryServerWellKnown(serverURL: serverURL, flowId: flowId)
     }
 
-    public func getOwnedIdentityKeycloakState(with ownedCryptoId: ObvCryptoId) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedObvKeycloakUserDetails?) {
+    public func getOwnedIdentityKeycloakState(with ownedCryptoId: ObvCryptoId) async throws -> ObvKeycloakStateAndUserDetails? {
 
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
 
-        var keyCloakState: ObvKeycloakState?
-        var signedOwnedDetails: SignedObvKeycloakUserDetails?
         let flowId = FlowIdentifier()
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-            (keyCloakState, signedOwnedDetails) = try identityDelegate.getOwnedIdentityKeycloakState(
-                ownedIdentity: ownedCryptoId.cryptoIdentity,
-                within: obvContext)
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvKeycloakStateAndUserDetails?, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let value = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedCryptoId.cryptoIdentity, within: obvContext)
+                    return continuation.resume(returning: value)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
         }
-        return (keyCloakState, signedOwnedDetails)
+
     }
     
     
@@ -1277,11 +1269,9 @@ extension ObvEngine {
         }
     }
 
-    public func addKeycloakContact(with ownedCryptoId: ObvCryptoId, signedContactDetails: SignedObvKeycloakUserDetails) throws {
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+    public func addKeycloakContact(with ownedCryptoId: ObvCryptoId, signedContactDetails: SignedObvKeycloakUserDetails) async throws {
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
 
         guard let contactIdentity = signedContactDetails.identity else { throw makeError(message: "Could not determine contact identity") }
         guard let contactIdentityToAdd = ObvCryptoIdentity(from: contactIdentity) else { throw makeError(message: "Could not parse contact identity") }
@@ -1292,18 +1282,9 @@ extension ObvEngine {
             signedContactDetails: signedContactDetails.signedUserDetails)
 
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
-
-        do {
-            try queueForSynchronizingCallsToManagers.sync {
-                try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-                    _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                    try obvContext.save(logOnFailure: log)
-                }
-            }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
-        }
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        try await self.postChannelMessage(message, flowId: flowId)
     }
 
     
@@ -1351,7 +1332,7 @@ extension ObvEngine {
             // allows to make it easier to show a proper failure alert to the user.
             
             if isUnbindRequestByUser {
-                if let obvKeycloakState = try? getOwnedIdentityKeycloakState(with: ownedCryptoId).obvKeycloakState {
+                if let obvKeycloakState = try? await getOwnedIdentityKeycloakState(with: ownedCryptoId)?.keycloakState {
                     guard !obvKeycloakState.isTransferRestricted else {
                         throw ObvUnbindOwnedIdentityFromKeycloakError.userCannotUnbindAsTransferIsRestricted
                     }
@@ -1593,13 +1574,30 @@ extension ObvEngine {
         let flowId = FlowIdentifier()
         createContextDelegate.performBackgroundTask(flowId: flowId) { (obvContext) in
             do {
-                guard let signedOwnedDetails = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity.cryptoIdentity, within: obvContext).signedOwnedDetails else {
+                guard let signedOwnedDetails = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity.cryptoIdentity, within: obvContext)?.signedUserDetails else {
                     completion(.failure(Self.makeError(message: "Could not find signed owned details")))
                     return
                 }
                 completion(.success(signedOwnedDetails))
             } catch {
                 completion(.failure(error))
+            }
+        }
+    }
+    
+    
+    public func guessDateOfCreationOfFirstProfile() async throws -> Date? {
+        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
+        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Date?, any Error>) in
+            createContextDelegate.performBackgroundTask { context in
+                do {
+                    let date = try identityDelegate.guessDateOfCreationOfFirstProfile(within: context)
+                    return continuation.resume(returning: date)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
             }
         }
     }
@@ -1849,7 +1847,7 @@ extension ObvEngine {
         
         let randomFlowId = FlowIdentifier()
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { (obvContext) in
-            guard try identityDelegate.isIdentity(contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoId.cryptoIdentity, within: obvContext) else {
+            guard try identityDelegate.isIdentity(contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoId.cryptoIdentity, within: obvContext.context) else {
                 // Return nil in this case
                 return
             }
@@ -1905,40 +1903,56 @@ extension ObvEngine {
     }
 
     
-    public func deleteContactIdentity(with contactCryptoId: ObvCryptoId, ofOwnedIdentyWith ownedCryptoId: ObvCryptoId) throws {
+    public func deleteContactIdentity(contactIdentifier: ObvTypes.ObvContactIdentifier) async throws {
         
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
+        
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        // The ObliviousChannelManagementProtocol fails to delete a contact if this contact is part of a group. We check this here and throw if this is the case.
+
+        if try await contactIsPartOrPendingInCommonGroup(contactIdentifier: contactIdentifier, flowId: flowId) {
+            assertionFailure()
+            throw Self.makeError(message: "The contact identity does belong to a contact group and thus cannot be deleted")
+        }
         
         // We prepare the appropriate message for starting the ObliviousChannelManagementProtocol step allowing to delete the contact
         
-        let message = try protocolDelegate.getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
-                                                                                                         contactIdentityToDelete: contactCryptoId.cryptoIdentity)
+        let message = try protocolDelegate.getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity,
+                                                                                                         contactIdentityToDelete: contactIdentifier.contactCryptoId.cryptoIdentity)
         
-        // The ObliviousChannelManagementProtocol fails to delete a contact if this contact is part of a group. We check this here and throw if this is the case.
+        try await postChannelMessage(message, flowId: flowId)
         
-        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+    }
+    
+    
+    /// Determines whether a contact can be safely deleted.
+    ///
+    /// This method is used before processing a contact deletion request, to validate the operation.
+    ///
+    /// - Returns: `false` if the contact can be deleted; otherwise, `true`.
+    ///
+    /// - Important: A contact cannot be deleted if any of the following conditions are met:
+    ///   - The contact is a member of a common group (v1).
+    ///   - The contact is a member of a common group (v2).
+    ///   - The contact has a pending invitation in a common group (v2).
+    private func contactIsPartOrPendingInCommonGroup(contactIdentifier: ObvTypes.ObvContactIdentifier, flowId: FlowIdentifier) async throws -> Bool {
+        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
 
-                guard try !identityDelegate.contactIdentityBelongsToSomeContactGroup(contactCryptoId.cryptoIdentity, forOwnedIdentity: ownedCryptoId.cryptoIdentity, within: obvContext) else {
-                    throw Self.makeError(message: "The contact identity does belong to a contact group and thus cannot be deleted")
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let value = try identityDelegate.contactIsPartOrPendingInCommonGroup(contactIdentifier: contactIdentifier, within: obvContext)
+                    return continuation.resume(returning: value)
+                } catch {
+                    return continuation.resume(throwing: error)
                 }
-                
-                // If we reach this point, we know that the contact does not belong the a joined group. We can start the protocol allowing to delete this contact.
-                
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-
-                try obvContext.save(logOnFailure: log)
-
             }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
         }
+        
         
     }
     
@@ -1974,7 +1988,7 @@ extension ObvEngine {
         var contactDevices = Set<ObvContactDevice>()
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: FlowIdentifier()) { obvContext in
             
-            guard try identityDelegate.isIdentity(contactIdentifier.contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, within: obvContext) else {
+            guard try identityDelegate.isIdentity(contactIdentifier.contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, within: obvContext.context) else {
                 // The contact does not exist, return an empty set of devices
                 return
             }
@@ -2090,7 +2104,7 @@ extension ObvEngine {
     }
     
 
-    public func updateTrustedIdentityDetailsOfContactIdentity(with contactCryptoId: ObvCryptoId, ofOwnedIdentityWithCryptoId ownedCryptoId: ObvCryptoId, with newTrustedIdentityDetails: ObvIdentityDetails) async throws {
+    public func updateTrustedIdentityDetailsOfContactIdentity(contactIdentifier: ObvContactIdentifier, with newTrustedIdentityDetails: ObvIdentityDetails) async throws {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
@@ -2101,6 +2115,9 @@ extension ObvEngine {
         let prng = self.prng
         let log = self.log
 
+        let contactCryptoId = contactIdentifier.contactCryptoId
+        let ownedCryptoId = contactIdentifier.ownedCryptoId
+        
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
                 do {
@@ -2138,56 +2155,68 @@ extension ObvEngine {
     }
     
     
-    public func unblockContactIdentity(with contactCryptoId: ObvCryptoId, ofOwnedIdentityWithCryptoId ownedCryptoId: ObvCryptoId) throws {
+    public func unblockContactIdentity(contactIdentifier: ObvContactIdentifier) async throws {
 
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         
-        let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-        
         let randomFlowId = FlowIdentifier()
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { obvContext in
-            do {
-                try identityDelegate.setContactForcefullyTrustedByUser(
-                    ownedIdentity: ownedCryptoId.cryptoIdentity,
-                    contactIdentity: contactCryptoId.cryptoIdentity,
-                    forcefullyTrustedByUser: true,
-                    within: obvContext)
-                try deleteAllContactDevicesAndChannelsThenPerformContactDeviceDiscovery(
-                    contactIdentifier: contactIdentifier,
-                    within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            } catch {
-                os_log("Could not unblock contact: %{public}@", log: log, type: .fault, error.localizedDescription)
-                throw error
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] obvContext in
+                guard let self else { return }
+                do {
+                    try identityDelegate.setContactForcefullyTrustedByUser(
+                        ownedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity,
+                        contactIdentity: contactIdentifier.contactCryptoId.cryptoIdentity,
+                        forcefullyTrustedByUser: true,
+                        within: obvContext)
+                    try deleteAllContactDevicesAndChannelsThenPerformContactDeviceDiscovery(
+                        contactIdentifier: contactIdentifier,
+                        within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    return continuation.resume()
+                } catch {
+                    logger.fault("Could not unblock contact: \(error.localizedDescription, privacy: .public)")
+                    return continuation.resume(throwing: error)
+                }
             }
         }
+        
     }
 
     
-    public func reblockContactIdentity(with contactCryptoId: ObvCryptoId, ofOwnedIdentityWithCryptoId ownedCryptoId: ObvCryptoId) throws {
+    public func reblockContactIdentity(contactIdentifier: ObvContactIdentifier) async throws {
 
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
 
-        let randomFlowId = FlowIdentifier()
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { obvContext in
-            do {
-                // We set forcefullyTrustedByUser to false (this deletes all the devices of the contact within the identity manager)
-                try identityDelegate.setContactForcefullyTrustedByUser(
-                    ownedIdentity: ownedCryptoId.cryptoIdentity,
-                    contactIdentity: contactCryptoId.cryptoIdentity,
-                    forcefullyTrustedByUser: false,
-                    within: obvContext)
-                // We delete all oblivious channels with this contact
-                try channelDelegate.deleteAllObliviousChannelsBetweenTheCurrentDeviceOf(ownedIdentity: ownedCryptoId.cryptoIdentity, andTheDevicesOfContactIdentity: contactCryptoId.cryptoIdentity, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            } catch {
-                os_log("Could not unblock contact: %{public}@", log: log, type: .fault, error.localizedDescription)
-                throw error
+        let logger = self.logger
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: FlowIdentifier()) { [weak self] obvContext in
+                guard let self else { return }
+                do {
+                    // We set forcefullyTrustedByUser to false (this deletes all the devices of the contact within the identity manager)
+                    try identityDelegate.setContactForcefullyTrustedByUser(
+                        ownedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity,
+                        contactIdentity: contactIdentifier.contactCryptoId.cryptoIdentity,
+                        forcefullyTrustedByUser: false,
+                        within: obvContext)
+                    // We delete all oblivious channels with this contact
+                    try channelDelegate.deleteAllObliviousChannelsBetweenTheCurrentDeviceOf(ownedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity,
+                                                                                            andTheDevicesOfContactIdentity: contactIdentifier.contactCryptoId.cryptoIdentity,
+                                                                                            within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    return continuation.resume()
+                } catch {
+                    logger.fault("Could not unblock contact: \(error.localizedDescription, privacy: .public)")
+                    return continuation.resume(throwing: error)
+                }
             }
         }
+
     }
 
     
@@ -2200,24 +2229,12 @@ extension ObvEngine {
     }
 
     
-    public func downgradeOneToOneContact(ownedIdentity: ObvCryptoId, contactIdentity: ObvCryptoId) throws {
+    public func downgradeOneToOneContact(contactIdentifier: ObvTypes.ObvContactIdentifier) async throws {
         
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
 
-        let message = try protocolDelegate.getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: contactIdentity.cryptoIdentity)
-        let flowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
-            guard let _self = self else { return }
-            do {
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: _self.prng, within: obvContext)
-                try obvContext.save(logOnFailure: _self.log)
-            } catch {
-                os_log("Could not post initial message for starting OneToOne contact invitation protocol: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
-                assertionFailure()
-            }
-        }
+        let message = try protocolDelegate.getInitialMessageForDowngradingOneToOneContact(ownedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, contactIdentity: contactIdentifier.contactCryptoId.cryptoIdentity)
+        try await postChannelMessage(message, flowId: FlowIdentifier())
 
     }
     
@@ -2246,6 +2263,44 @@ extension ObvEngine {
             }
         }
         
+    }
+    
+    
+    /// Fetches a stream of `ObvContactIdentity` instances for a specific contact.
+    ///
+    /// This method is used when displaying the details of a particular contact in the UI.
+    /// Since the app's local database does not contain the published information about the contact,
+    /// this method queries the engine's database to retrieve up-to-date `ObvContactIdentity` instances.
+    ///
+    /// - Note:
+    ///   This is particularly useful for displaying a contact's **published details** (if they exist).
+    ///   Published details allow the user to review and accept updates, replacing the currently trusted details
+    ///   with the newly published ones.
+    public func getAsyncStreamOfObvContactIdentity(for contactIdentifier: ObvContactIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvContactIdentity>) {
+        guard let identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
+        return try await identityDelegate.getAsyncStreamOfObvContactIdentity(for: contactIdentifier)
+    }
+    
+    
+    public func finishAsyncSequenceOfObvContactIdentity(streamUUID: UUID) {
+        guard let identityDelegate else { assertionFailure(); return }
+        identityDelegate.finishAsyncSequenceOfObvContactIdentity(streamUUID: streamUUID)
+    }
+    
+    
+    /// Fetches a stream of `[ObvTrustOrigin]` instances for a specified contact.
+    ///
+    /// This method retrieves the trust origins associated with a contact, which are not stored in the app's local database.
+    /// Instead, it queries the engine's database to provide the UI with the most accurate and up-to-date list of trust origins.
+    public func getAsyncStreamOfObvTrustOrigin(contactIdentifier: ObvTypes.ObvContactIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<[ObvTrustOrigin]>) {
+        guard let identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
+        return try await identityDelegate.getAsyncStreamOfObvTrustOrigin(contactIdentifier: contactIdentifier)
+    }
+ 
+    
+    public func finishAsyncStreamOfObvTrustOrigin(streamUUID: UUID) {
+        guard let identityDelegate else { assertionFailure(); return }
+        identityDelegate.finishAsyncStreamOfObvTrustOrigin(streamUUID: streamUUID)
     }
     
 }
@@ -2377,7 +2432,7 @@ extension ObvEngine {
     
     
     private func deleteDialog(with uid: UUID, within obvContext: ObvContext) throws {
-        guard let persistedDialog = try PersistedEngineDialog.get(uid: uid, appNotificationCenter: appNotificationCenter, within: obvContext) else { return }
+        guard let persistedDialog = try PersistedEngineDialog.get(uid: uid, appNotificationCenter: appNotificationCenter, within: obvContext.context) else { return }
         try persistedDialog.delete()
     }
     
@@ -2390,8 +2445,8 @@ extension ObvEngine {
             createContextDelegate.performBackgroundTask (flowId: randomFlowId) { [weak self] (obvContext) in
                 guard let self else { return }
                 do {
-                    let persistedDialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext)
-                    let obvDialogs = persistedDialogs.compactMap({ $0.obvDialog })
+                    let persistedDialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext.context)
+                    let obvDialogs = persistedDialogs.compactMap({ try? $0.obvDialog })
                     return continuation.resume(returning: obvDialogs)
                 } catch {
                     return continuation.resume(throwing: error)
@@ -2454,14 +2509,10 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func startTrustEstablishmentProtocolOfRemoteIdentity(with remoteCryptoId: ObvCryptoId, withFullDisplayName remoteFullDisplayName: String, forOwnedIdentyWith ownedCryptoId: ObvCryptoId) throws {
+    public func startTrustEstablishmentProtocolOfRemoteIdentity(with remoteCryptoId: ObvCryptoId, withFullDisplayName remoteFullDisplayName: String, forOwnedIdentyWith ownedCryptoId: ObvCryptoId) async throws {
         
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
-        
-        let log = self.log
         
         // Recover the published owned identity details
         
@@ -2477,10 +2528,8 @@ extension ObvEngine {
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
 
         do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            }
+            try await postChannelMessage(message, flowId: flowId)
+            flowDelegate.endFlow(flowId: flowId)
         } catch {
             flowDelegate.endFlow(flowId: flowId)
             throw error
@@ -2673,7 +2722,7 @@ extension ObvEngine {
     
     
     /// This is similar to ``ObvEngine.deleteAllContactDevicesAndChannelsThenPerformContactDeviceDiscovery(with:ofOwnedIdentyWith:)``, except that we only delete the devices for which no channel is established yet. No chanel gets deleted here.
-    public func restartAllOngoingChannelEstablishmentProtocolsWithContactIdentity(with contactCryptoId: ObvCryptoId, ofOwnedIdentyWith ownedCryptoId: ObvCryptoId) throws {
+    public func restartAllOngoingChannelEstablishmentProtocolsWithContactIdentity(contactIdentifier: ObvTypes.ObvContactIdentifier) async throws {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
@@ -2681,61 +2730,64 @@ extension ObvEngine {
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] obvContext in
+                guard let self else { return }
+                do {
+                    // Find all contact devices for which we have no channel
+                    let contactDeviceUidsWithoutChannel: Set<UID>
+                    do {
+                        let contactDeviceUidsWithChannel = Set<UID>(try channelDelegate.getRemoteDeviceUidsOfRemoteIdentity(contactIdentifier.contactCryptoId.cryptoIdentity,
+                                                                                                                            forWhichAConfirmedObliviousChannelExistsWithTheCurrentDeviceOfOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity,
+                                                                                                                            within: obvContext))
+                        let allContactDeviceUids = try identityDelegate.getDeviceUidsOfContactIdentity(contactIdentifier.contactCryptoId.cryptoIdentity, ofOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, within: obvContext)
+                        contactDeviceUidsWithoutChannel = allContactDeviceUids.subtracting(contactDeviceUidsWithChannel)
+                    } catch {
+                        logger.fault("Could not get contact devices of remote identity")
+                        assertionFailure()
+                        throw error
+                    }
+                    
+                    // Delete these devices
+                    do {
+                        try identityDelegate.deleteDevicesOfContactIdentity(contactIdentity: contactIdentifier.contactCryptoId.cryptoIdentity,
+                                                                            contactDeviceUids: contactDeviceUidsWithoutChannel,
+                                                                            ownedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity,
+                                                                            within: obvContext)
+                    } catch {
+                        logger.fault("Could not delete contact devices")
+                        assertionFailure()
+                        throw error
+                    }
+                    
+                    // We then launch a device discovery
+                    
+                    try performContactDeviceDiscoveryProtocol(ownedCryptoIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, contactCryptoIdentity: contactIdentifier.contactCryptoId.cryptoIdentity, within: obvContext)
+                    
+                    do {
+                        try obvContext.save(logOnFailure: log)
+                    } catch let error {
+                        os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        assertionFailure()
+                        throw error
+                    }
 
-        do {
-            
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-                
-                // Find all contact devices for which we have no channel
-                let contactDeviceUidsWithoutChannel: Set<UID>
-                do {
-                    let contactDeviceUidsWithChannel = Set<UID>(try channelDelegate.getRemoteDeviceUidsOfRemoteIdentity(contactCryptoId.cryptoIdentity,
-                                                                                                                        forWhichAConfirmedObliviousChannelExistsWithTheCurrentDeviceOfOwnedIdentity: ownedCryptoId.cryptoIdentity,
-                                                                                                                        within: obvContext))
-                    let allContactDeviceUids = try identityDelegate.getDeviceUidsOfContactIdentity(contactCryptoId.cryptoIdentity, ofOwnedIdentity: ownedCryptoId.cryptoIdentity, within: obvContext)
-                    contactDeviceUidsWithoutChannel = allContactDeviceUids.subtracting(contactDeviceUidsWithChannel)
+                    return continuation.resume()
+                    
                 } catch {
-                    os_log("Could not get contact devices of remote identity", log: log, type: .fault)
-                    assertionFailure()
-                    throw error
+                    logger.fault("Failed to restart all ongoing channel establishment protocols with contact identity")
+                    return continuation.resume(throwing: error)
                 }
-                
-                // Delete these devices
-                do {
-                    try identityDelegate.deleteDevicesOfContactIdentity(contactIdentity: contactCryptoId.cryptoIdentity,
-                                                                        contactDeviceUids: contactDeviceUidsWithoutChannel,
-                                                                        ownedIdentity: ownedCryptoId.cryptoIdentity,
-                                                                        within: obvContext)
-                } catch {
-                    os_log("Could not delete contact devices", log: log, type: .fault)
-                    assertionFailure()
-                    throw error
-                }
-                
-                // We then launch a device discovery
-                
-                try performContactDeviceDiscoveryProtocol(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, contactCryptoIdentity: contactCryptoId.cryptoIdentity, within: obvContext)
-                
-                do {
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    throw error
-                }
-                
             }
-            
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
         }
-
+        
     }
     
 
-    /// This method first delete all channels and device uids with the contact identity. It then performs a device discovery. This is enough, since the device discovery will eventually add devices and thus, new channels will be created.
-    public func deleteAllContactDevicesAndChannelsThenPerformContactDeviceDiscovery(contactIdentifier: ObvContactIdentifier) throws {
+    /// This method first deletes all channels and device uids with the contact identity. It then performs a device discovery. This is enough, since the device discovery will eventually add devices and thus, new channels will be created.
+    public func deleteAllContactDevicesAndChannelsThenPerformContactDeviceDiscovery(contactIdentifier: ObvContactIdentifier) async throws {
         
         assert(!Thread.isMainThread)
         
@@ -2743,17 +2795,25 @@ extension ObvEngine {
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
+        defer { flowDelegate.endFlow(flowId: flowId) }
 
         do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                try deleteAllContactDevicesAndChannelsThenPerformContactDeviceDiscovery(
-                    contactIdentifier: contactIdentifier,
-                    within: obvContext)
-                try obvContext.save(logOnFailure: log)
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] obvContext in
+                    guard let self else { return }
+                    do {
+                        try deleteAllContactDevicesAndChannelsThenPerformContactDeviceDiscovery(
+                            contactIdentifier: contactIdentifier,
+                            within: obvContext)
+                        try obvContext.save(logOnFailure: log)
+                        return continuation.resume()
+                    } catch {
+                        return continuation.resume(throwing: error)
+                    }
+                }
             }
         } catch {
             logger.fault("Could not perform deleteAllContactDevicesAndChannelsThenPerformContactDeviceDiscovery: \(error.localizedDescription)")
-            flowDelegate.endFlow(flowId: flowId)
             assertionFailure()
             throw error
         }
@@ -2800,66 +2860,33 @@ extension ObvEngine {
     }
     
     
-    public func recreateChannelWithContactDevice(contactIdentifier: ObvContactIdentifier, contactDeviceIdentifier: Data) throws {
+    public func recreateChannelWithContactDevice(contactIdentifier: ObvContactIdentifier, contactDeviceIdentifier: Data) async throws {
         
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         
         let ownedCryptoIdentity = contactIdentifier.ownedCryptoId.cryptoIdentity
         let contactCryptoIdentity = contactIdentifier.contactCryptoId.cryptoIdentity
         guard let contactDeviceUid = UID(uid: contactDeviceIdentifier) else { throw Self.makeError(message: "Could not decode device identifier") }
 
-        os_log("🛟 [%{public}@] Since the app requested the re-creation of the channel with a device of the contact, we start a channel creation now", log: log, type: .info, contactCryptoIdentity.debugDescription)
+        logger.info("🛟 [\(contactCryptoIdentity.debugDescription, privacy: .public)] Since the app requested the re-creation of the channel with a device of the contact, we start a channel creation now")
 
-        let msg: ObvChannelProtocolMessageToSend
-        do {
-            msg = try protocolDelegate.getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ownedCryptoIdentity, andTheDeviceUid: contactDeviceUid, ofTheContactIdentity: contactCryptoIdentity)
-        } catch {
-            os_log("Could get initial message for starting channel creation with contact device protocol", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
+       let message = try protocolDelegate.getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ownedCryptoIdentity, andTheDeviceUid: contactDeviceUid, ofTheContactIdentity: contactCryptoIdentity)
 
-        let flowId = FlowIdentifier()
-        let prng = self.prng
-        let log = self.log
+       try await postChannelMessage(message, flowId: FlowIdentifier())
 
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-            
-            do {
-                _ = try channelDelegate.postChannelMessage(msg, randomizedWith: prng, within: obvContext)
-            } catch {
-                os_log("Could not start channel creation with contact device protocol", log: log, type: .fault)
-                throw Self.makeError(message: "Could not start channel creation with contact device protocol")
-            }
-            
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch {
-                os_log("Could not perform channel creation with contact device protocol: %{public}@", log: log, type: .fault, error.localizedDescription)
-                throw Self.makeError(message: "Could not perform channel creation with contact device protocol: \(error.localizedDescription)")
-            }
-
-        }
-                
     }
     
     
-    public func performContactDeviceDiscovery(contactIdentifier: ObvContactIdentifier) throws {
+    public func performContactDeviceDiscovery(contactIdentifier: ObvContactIdentifier) async throws {
         
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
 
         let ownedCryptoIdentity = contactIdentifier.ownedCryptoId.cryptoIdentity
         let contactCryptoIdentity = contactIdentifier.contactCryptoId.cryptoIdentity
-        let log = self.log
-        let flowId = FlowIdentifier()
-
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { [weak self] obvContext in
-            try self?.performContactDeviceDiscoveryProtocol(ownedCryptoIdentity: ownedCryptoIdentity, contactCryptoIdentity: contactCryptoIdentity, within: obvContext)
-            try obvContext.save(logOnFailure: log)
-        }
         
+        let message = try protocolDelegate.getInitialMessageForContactDeviceDiscoveryProtocol(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity)
+        try await postChannelMessage(message, flowId: FlowIdentifier())
+
     }
     
     
@@ -2903,7 +2930,7 @@ extension ObvEngine {
 
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: FlowIdentifier()) { obvContext in
             let challengeType = ChallengeType.mutualScan(firstIdentity: remoteCryptoId, secondIdentity: ownedCryptoId.cryptoIdentity)
-            guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedCryptoId.cryptoIdentity, using: prng, within: obvContext) else {
+            guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedCryptoId.cryptoIdentity, using: prng, within: obvContext.context) else {
                 os_log("Could not compute signature", log: log, type: .fault)
                 throw makeError(message: "Could not compute signature")
             }
@@ -2919,48 +2946,27 @@ extension ObvEngine {
     }
     
     
-    public func verifyMutualScanUrl(ownedCryptoId: ObvCryptoId, mutualScanUrl: ObvMutualScanUrl) -> Bool {
+    private func verifyMutualScanUrl(ownedCryptoId: ObvCryptoId, mutualScanUrl: ObvMutualScanUrl) -> Bool {
         let challengeType = ChallengeType.mutualScan(firstIdentity: ownedCryptoId.cryptoIdentity, secondIdentity: mutualScanUrl.cryptoId.cryptoIdentity)
         return ObvSolveChallengeStruct.checkResponse(mutualScanUrl.signature, to: challengeType, from: mutualScanUrl.cryptoId.cryptoIdentity)
     }
     
-    
-    public func startTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ObvCryptoId, mutualScanUrl: ObvMutualScanUrl) throws {
+
+    public func startTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ObvCryptoId, mutualScanUrl: ObvMutualScanUrl) async throws {
         
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
 
-        // We then launch a device discovery
-        let message: ObvChannelProtocolMessageToSend
-        do {
-            message = try protocolDelegate.getInitialMessageForTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ownedIdentity.cryptoIdentity,
-                                                                                                        remoteIdentity: mutualScanUrl.cryptoId.cryptoIdentity,
-                                                                                                        signature: mutualScanUrl.signature)
-        } catch let error {
-            os_log("Could not get initial message for device discovery for contact identity protocol", log: log, type: .fault)
-            assertionFailure()
-            throw error
+        guard self.verifyMutualScanUrl(ownedCryptoId: ownedIdentity, mutualScanUrl: mutualScanUrl) else {
+            assertionFailure("This happens when scanning a mutualScanUrl while the current owned identity does not match the one in the URL")
+            throw ObvError.invalidObvMutualScanUrl
         }
         
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: FlowIdentifier()) { obvContext in
-            do {
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-            } catch let error {
-                os_log("Could not post a local protocol message allowing to start a device discovery for a contact", log: log, type: .fault)
-                assertionFailure()
-                throw error
-            }
-
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch let error {
-                os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                throw error
-            }
-        }
-
+        let message = try protocolDelegate.getInitialMessageForTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ownedIdentity.cryptoIdentity,
+                                                                                                        remoteIdentity: mutualScanUrl.cryptoId.cryptoIdentity,
+                                                                                                        signature: mutualScanUrl.signature)
+        
+        try await postChannelMessage(message, flowId: FlowIdentifier())
+        
     }
     
 }
@@ -2989,10 +2995,10 @@ extension ObvEngine {
                                                                                              photoURL: photoURL,
                                                                                              serializedGroupType: serializedGroupType)
         
-        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+        defer { flowDelegate.endFlow(flowId: flowId) }
         try await self.postChannelMessage(message, flowId: flowId)
-        flowDelegate.endFlow(flowId: flowId)
-
+    
     }
     
 
@@ -3148,10 +3154,9 @@ extension ObvEngine {
                                                                                           groupIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier))
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
-
-        try await self.postChannelMessage(message, flowId: flowId)
+        defer { flowDelegate.endFlow(flowId: flowId) }
         
-        flowDelegate.endFlow(flowId: flowId)
+        try await self.postChannelMessage(message, flowId: flowId)
         
     }
     
@@ -3173,15 +3178,9 @@ extension ObvEngine {
             groupIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier))
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
-
-        do {
-            try await self.postChannelMessage(message, flowId: flowId)
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
-        }
+        defer { flowDelegate.endFlow(flowId: flowId) }
         
-        flowDelegate.endFlow(flowId: flowId)
+        try await self.postChannelMessage(message, flowId: flowId)
 
     }
     
@@ -3195,6 +3194,7 @@ extension ObvEngine {
         let log = self.log
 
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
+        defer { flowDelegate.endFlow(flowId: flowId) }
 
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
@@ -3209,7 +3209,6 @@ extension ObvEngine {
                 }
             }
         } catch {
-            flowDelegate.endFlow(flowId: flowId)
             throw error
         }
         
@@ -3224,17 +3223,22 @@ extension ObvEngine {
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
 
         let flowId = FlowIdentifier()
-        
+        let logger = self.logger
+
+        logger.info("💰 Will perform an owned device discovery now")
         let encryptedOwnedDeviceDiscoveryResult = try await networkFetchDelegate.performOwnedDeviceDiscoveryNow(ownedCryptoId: ownedCryptoId.cryptoIdentity, flowId: FlowIdentifier())
-        
+        logger.info("💰 Did perform an owned device discovery. We will decrypt the result.")
+
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvOwnedDeviceDiscoveryResult, Error>) in
             createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
                 do {
+                    logger.info("💰 Will decrypt the owned device discovery result.")
                     let ownedDeviceDiscoveryResult = try identityDelegate.decryptEncryptedOwnedDeviceDiscoveryResult(encryptedOwnedDeviceDiscoveryResult, forOwnedCryptoId: ownedCryptoId.cryptoIdentity, within: obvContext)
+                    logger.info("💰 Did decrypt the owned device discovery result. isMultidevice is \(ownedDeviceDiscoveryResult.obvOwnedDeviceDiscoveryResult.isMultidevice)")
                     let obvOwnedDeviceDiscoveryResult = ownedDeviceDiscoveryResult.obvOwnedDeviceDiscoveryResult
-                    continuation.resume(returning: obvOwnedDeviceDiscoveryResult)
+                    return continuation.resume(returning: obvOwnedDeviceDiscoveryResult)
                 } catch {
-                    continuation.resume(throwing: error)
+                    return continuation.resume(throwing: error)
                 }
             }
         }
@@ -3371,13 +3375,18 @@ extension ObvEngine {
     private func performContactDeviceDiscoveryForAppropriateContactsOfAllOwnedIdentites(flowId: FlowIdentifier) async throws {
                 
         let contacts = try await getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(flowId: flowId)
-        
-        for contact in contacts {
-            do {
-                try performContactDeviceDiscovery(contactIdentifier: contact)
-            } catch {
-                os_log("Could not perform contact discovery for a contact that requires one: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure() // In production, continue with the next contact
+
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for contact in contacts {
+                taskGroup.addTask { [weak self] in
+                    guard let self else { return }
+                    do {
+                        try await performContactDeviceDiscovery(contactIdentifier: contact)
+                    } catch {
+                        logger.fault("Could not perform contact discovery for a contact that requires one: \(error.localizedDescription, privacy: .public)")
+                        assertionFailure() // In production, do not fail
+                    }
+                }
             }
         }
         
@@ -3417,12 +3426,11 @@ extension ObvEngine {
         let message = try protocolDelegate.getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
                                                                                                     groupIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier))
         
-        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+        defer { flowDelegate.endFlow(flowId: flowId) }
 
         try await self.postChannelMessage(message, flowId: flowId)
         
-        flowDelegate.endFlow(flowId: flowId)
-
     }
 
 }
@@ -3432,16 +3440,12 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func updateKeycloakGroups(ownedCryptoId: ObvCryptoId, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date) throws {
+    public func updateKeycloakGroups(ownedCryptoId: ObvCryptoId, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date) async throws {
 
         assert(!Thread.isMainThread)
 
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-
-        let log = self.log
 
         guard !signedGroupBlobs.isEmpty || !signedGroupDeletions.isEmpty || !signedGroupKicks.isEmpty else {
             // Nothing to do, we return early
@@ -3455,16 +3459,9 @@ extension ObvEngine {
                                                                                                     keycloakCurrentTimestamp: keycloakCurrentTimestamp)
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
-
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
-        }
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        try await self.postChannelMessage(message, flowId: flowId)
 
     }
     
@@ -3480,10 +3477,8 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func startGroupCreationProtocol(groupName: String, groupDescription: String?, groupMembers: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?) throws {
-        
-        guard !groupMembers.isEmpty else { return }
-        
+    public func startGroupV1CreationProtocol(groupName: String, groupDescription: String?, groupMembers: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?) async throws {
+                
         guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
@@ -3491,48 +3486,63 @@ extension ObvEngine {
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         
         let log = self.log
+        let prng = self.prng
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    
+                    let contacts = Set(groupMembers.compactMap { ObvContactIdentity(contactCryptoIdentity: $0.cryptoIdentity,
+                                                                                     ownedCryptoIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                     identityDelegate: identityDelegate,
+                                                                                     within: obvContext) })
 
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                
-                let contacts = Set(groupMembers.compactMap { ObvContactIdentity(contactCryptoIdentity: $0.cryptoIdentity,
-                                                                                 ownedCryptoIdentity: ownedCryptoId.cryptoIdentity,
-                                                                                 identityDelegate: identityDelegate,
-                                                                                 within: obvContext) })
-                guard contacts.count == groupMembers.count else {
-                    let error = Self.makeError(message: "Could not start group creation. At least one of the contacts is invalid.")
-                    throw error
+                    guard contacts.count == groupMembers.count else {
+                        let error = Self.makeError(message: "Could not start group creation. At least one of the contacts is invalid.")
+                        throw error
+                    }
+                    let members = Set(contacts.map { CryptoIdentityWithCoreDetails(cryptoIdentity: $0.cryptoId.cryptoIdentity, coreDetails: $0.currentIdentityDetails.coreDetails) })
+
+                    let groupCoreDetails = ObvGroupCoreDetails(name: groupName, description: groupDescription)
+                    let message = try protocolDelegate.getInitiateGroupCreationMessageForGroupManagementProtocol(groupCoreDetails: groupCoreDetails,
+                                                                                                                 photoURL: photoURL,
+                                                                                                                 pendingGroupMembers: members,
+                                                                                                                 ownedIdentity: ownedCryptoId.cryptoIdentity)
+
+                    _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+
+                    return continuation.resume()
+                    
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
                 }
-                let members = Set(contacts.map { CryptoIdentityWithCoreDetails(cryptoIdentity: $0.cryptoId.cryptoIdentity, coreDetails: $0.currentIdentityDetails.coreDetails) })
-                
-                let groupCoreDetails = ObvGroupCoreDetails(name: groupName, description: groupDescription)
-                let message = try protocolDelegate.getInitiateGroupCreationMessageForGroupManagementProtocol(groupCoreDetails: groupCoreDetails,
-                                                                                                             photoURL: photoURL,
-                                                                                                             pendingGroupMembers: members,
-                                                                                                             ownedIdentity: ownedCryptoId.cryptoIdentity)
-
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
             }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
         }
         
     }
     
     
-    public func disbandGroupV1(groupUid: UID, ownedCryptoId: ObvCryptoId) async throws {
+    public func performDisbandOfGroupV1(groupV1Identifier: ObvGroupV1Identifier) async throws {
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
-        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
-        do {
-            try await postDisbandGroupMessageForGroupManagementProtocol(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, flowId: flowId)
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
+        
+        switch groupV1Identifier.groupType {
+        case .joined:
+            assertionFailure()
+            throw ObvError.cannotDisbandJoinedGroupV1
+        case .owned:
+            break
         }
+        
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        try await postDisbandGroupMessageForGroupManagementProtocol(ownedCryptoIdentity: groupV1Identifier.ownedCryptoId.cryptoIdentity, groupUid: groupV1Identifier.groupV1Identifier.groupUid, flowId: flowId)
+        
     }
     
     
@@ -3561,7 +3571,7 @@ extension ObvEngine {
     }
 
     
-    public func inviteContactsToGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, newGroupMembers: Set<ObvCryptoId>) throws {
+    public func inviteContactsToGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, newGroupMembers: Set<ObvCryptoId>) async throws {
         
         guard !newGroupMembers.isEmpty else { return }
         
@@ -3576,24 +3586,28 @@ extension ObvEngine {
         let prng = self.prng
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
-
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                let message = try protocolDelegate.getAddGroupMembersMessageForAddingMembersToContactGroupOwned(groupUid: groupUid,
-                                                                                                                ownedIdentity: ownedCryptoId.cryptoIdentity,
-                                                                                                                newGroupMembers: newMembersCryptoIdentities,
-                                                                                                                within: obvContext)
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+                do {
+                    let message = try protocolDelegate.getAddGroupMembersMessageForAddingMembersToContactGroupOwned(groupUid: groupUid,
+                                                                                                                    ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                                                    newGroupMembers: newMembersCryptoIdentities,
+                                                                                                                    within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    continuation.resume()
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
             }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
         }
 
     }
     
     
+    /// 2025-11-02 Used to be called from the old Group V1 interface. For now, this is not used anymore.
     public func reInviteContactToGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, pendingGroupMember: ObvCryptoId) throws {
         
         let newGroupMembers = Set([pendingGroupMember])
@@ -3632,7 +3646,7 @@ extension ObvEngine {
     }
     
     
-    public func removeContactsFromGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, removedGroupMembers: Set<ObvCryptoId>) throws {
+    public func removeContactsFromGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, removedGroupMembers: Set<ObvCryptoId>) async throws {
         
         guard !removedGroupMembers.isEmpty else { return }
         
@@ -3646,19 +3660,22 @@ extension ObvEngine {
         let log = self.log
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
-
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-                let message = try protocolDelegate.getRemoveGroupMembersMessageForGroupManagementProtocol(groupUid: groupUid,
-                                                                                                          ownedIdentity: ownedCryptoId.cryptoIdentity,
-                                                                                                          removedGroupMembers: removedMembersCryptoIdentities,
-                                                                                                          within: obvContext)
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+                do {
+                    let message = try protocolDelegate.getRemoveGroupMembersMessageForGroupManagementProtocol(groupUid: groupUid,
+                                                                                                              ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                                              removedGroupMembers: removedMembersCryptoIdentities,
+                                                                                                              within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    return continuation.resume()
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
             }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
         }
         
     }
@@ -3694,117 +3711,147 @@ extension ObvEngine {
     }
 
     
-    public func getContactGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId) throws -> ObvContactGroup {
+    public func getContactGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId) async throws -> ObvContactGroup {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         
-        var obvContactGroup: ObvContactGroup!
-        var error: Error?
         let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-            do {
-                guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
-                    throw Self.makeError(message: "Could not get group owned structure")
+
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvContactGroup, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: randomFlowId) { obvContext in
+                do {
+                    guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
+                        throw Self.makeError(message: "Could not get group owned structure")
+                    }
+                    guard let obvContactGroup = ObvContactGroup(groupStructure: groupStructure, identityDelegate: identityDelegate, within: obvContext) else {
+                        throw Self.makeError(message: "Could not create ObvContactGroup")
+                    }
+                    return continuation.resume(returning: obvContactGroup)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
                 }
-                guard let _obvContactGroup = ObvContactGroup(groupStructure: groupStructure, identityDelegate: identityDelegate, within: obvContext) else {
-                    throw Self.makeError(message: "Could not create ObvContactGroup")
-                }
-                obvContactGroup = _obvContactGroup
-            } catch let _error {
-                error = _error
-                return
             }
         }
-        
-        guard error == nil else {
-            throw error!
-        }
-        
-        return obvContactGroup
 
     }
     
     
-    public func getContactGroupJoined(groupUid: UID, groupOwner: ObvCryptoId, ownedCryptoId: ObvCryptoId) throws -> ObvContactGroup {
+    public func getContactGroupJoined(groupUid: UID, groupOwner: ObvCryptoId, ownedCryptoId: ObvCryptoId) async throws -> ObvContactGroup {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         
-        var obvContactGroup: ObvContactGroup!
-        var error: Error?
         let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-            do {
-                guard let groupStructure = try identityDelegate.getGroupJoinedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, groupOwner: groupOwner.cryptoIdentity, within: obvContext) else {
-                    throw Self.makeError(message: "Could not get group joined structure")
+
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvContactGroup, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: randomFlowId) { obvContext in
+                do {
+                    guard let groupStructure = try identityDelegate.getGroupJoinedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, groupOwner: groupOwner.cryptoIdentity, within: obvContext) else {
+                        throw Self.makeError(message: "Could not get group joined structure")
+                    }
+                    guard let obvContactGroup = ObvContactGroup(groupStructure: groupStructure, identityDelegate: identityDelegate, within: obvContext) else {
+                        throw Self.makeError(message: "Could not create ObvContactGroup")
+                    }
+                    return continuation.resume(returning: obvContactGroup)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
                 }
-                guard let _obvContactGroup = ObvContactGroup(groupStructure: groupStructure, identityDelegate: identityDelegate, within: obvContext) else {
-                    throw Self.makeError(message: "Could not create ObvContactGroup")
-                }
-                obvContactGroup = _obvContactGroup
-            } catch let _error {
-                error = _error
-                return
             }
         }
-        
-        guard error == nil else {
-            throw error!
-        }
-        
-        return obvContactGroup
-        
     }
     
     
-    public func getContactGroup(groupIdentifier: ObvGroupV1Identifier) throws -> ObvContactGroup {
+    public func getContactGroup(groupIdentifier: ObvGroupV1Identifier) async throws -> ObvContactGroup {
         
         switch groupIdentifier.groupType {
         case .owned:
-            return try getContactGroupOwned(groupUid: groupIdentifier.groupV1Identifier.groupUid, ownedCryptoId: groupIdentifier.ownedCryptoId)
+            return try await getContactGroupOwned(groupUid: groupIdentifier.groupV1Identifier.groupUid, ownedCryptoId: groupIdentifier.ownedCryptoId)
         case .joined:
-            return try getContactGroupJoined(groupUid: groupIdentifier.groupV1Identifier.groupUid, groupOwner: groupIdentifier.groupV1Identifier.groupOwner, ownedCryptoId: groupIdentifier.ownedCryptoId)
+            return try await getContactGroupJoined(groupUid: groupIdentifier.groupV1Identifier.groupUid, groupOwner: groupIdentifier.groupV1Identifier.groupOwner, ownedCryptoId: groupIdentifier.ownedCryptoId)
         }
         
     }
 
+
+    /// Fetches a stream of `ObvGroupTrustedAndPublishedDetails` instances for a specific group V1.
+    ///
+    /// This method is used when displaying the details of a particular group V1 in the UI.
+    /// Since the app's local database does not contain the published information about the group,
+    /// this method queries the engine's database to retrieve up-to-date `ObvGroupTrustedAndPublishedDetails` instances.
+    ///
+    /// - Note:
+    ///   This is particularly useful for displaying a group v1's **published details** (if they exist).
+    ///   Published details allow the user to review and accept updates, replacing the currently trusted details
+    ///   with the newly published ones.
+    public func getAsyncStreamOfJoinedGroupV1Details(groupIdentifier: ObvGroupV1Identifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvGroupTrustedAndPublishedDetails>) {
+        guard let identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
+        return try await identityDelegate.getAsyncStreamOfJoinedGroupV1Details(groupIdentifier: groupIdentifier)
+    }
+
     
-    public func updateLatestDetailsOfOwnedContactGroup(using newGroupDetails: ObvGroupDetails, ownedCryptoId: ObvCryptoId, groupUid: UID) throws {
+    public func finishAsyncStreamOfJoinedGroupV1Details(streamUUID: UUID) {
+        guard let identityDelegate else { assertionFailure(); return }
+        identityDelegate.finishAsyncStreamOfJoinedGroupV1Details(streamUUID: streamUUID)
+    }
+    
+
+    public func updateDetailsOfOwnedContactGroup(using newGroupDetails: ObvGroupDetails, ownedCryptoId: ObvCryptoId, groupUid: UID) async throws {
         
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         
-        let randomFlowId = FlowIdentifier()
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { (obvContext) in
-            guard let currentGroupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
-                throw makeError(message: "Could not find group structure")
-            }
-            guard currentGroupStructure.groupType == .owned else { throw makeError(message: "The group type is not owned") }
-            let publishedGroupDetailsWithPhoto = currentGroupStructure.publishedGroupDetailsWithPhoto
-            let currentLatestDetailsWithPhoto = currentGroupStructure.trustedOrLatestGroupDetailsWithPhoto
-            let newCoreDetails = newGroupDetails.coreDetails
-            
-            let newPhotoServerKeyAndLabel: PhotoServerKeyAndLabel?
-            let newPhotoURL: URL?
-            if currentLatestDetailsWithPhoto.hasIdenticalPhotoThanPhotoAtURL(newGroupDetails.photoURL) {
-                // The photo did not change, we can keep previous values
-                newPhotoServerKeyAndLabel = currentLatestDetailsWithPhoto.photoServerKeyAndLabel
-                newPhotoURL = currentLatestDetailsWithPhoto.photoURL
-            } else {
-                newPhotoServerKeyAndLabel = nil
-                newPhotoURL = newGroupDetails.photoURL
-            }
-            
-            let newLatestDetails = GroupDetailsElementsWithPhoto(coreDetails: newCoreDetails,
-                                                                 version: publishedGroupDetailsWithPhoto.version+1,
-                                                                 photoServerKeyAndLabel: newPhotoServerKeyAndLabel,
-                                                                 photoURL: newPhotoURL)
-
-            try identityDelegate.updateLatestDetailsOfContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, with: newLatestDetails, within: obvContext)
-            try obvContext.save(logOnFailure: log)
-        }
+        let flowId = FlowIdentifier()
         
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+                do {
+                    guard let currentGroupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
+                        throw makeError(message: "Could not find group structure")
+                    }
+                    guard currentGroupStructure.groupType == .owned else { throw makeError(message: "The group type is not owned") }
+                    let publishedGroupDetailsWithPhoto = currentGroupStructure.publishedGroupDetailsWithPhoto
+                    let currentLatestDetailsWithPhoto = currentGroupStructure.trustedOrLatestGroupDetailsWithPhoto
+                    let newCoreDetails = newGroupDetails.coreDetails
+                    
+                    let newPhotoServerKeyAndLabel: PhotoServerKeyAndLabel?
+                    let newPhotoURL: URL?
+                    if currentLatestDetailsWithPhoto.hasIdenticalPhotoThanPhotoAtURL(newGroupDetails.photoURL) {
+                        // The photo did not change, we can keep previous values
+                        newPhotoServerKeyAndLabel = currentLatestDetailsWithPhoto.photoServerKeyAndLabel
+                        newPhotoURL = currentLatestDetailsWithPhoto.photoURL
+                    } else {
+                        newPhotoServerKeyAndLabel = nil
+                        newPhotoURL = newGroupDetails.photoURL
+                    }
+                    
+                    let newLatestDetails = GroupDetailsElementsWithPhoto(coreDetails: newCoreDetails,
+                                                                         version: publishedGroupDetailsWithPhoto.version+1,
+                                                                         photoServerKeyAndLabel: newPhotoServerKeyAndLabel,
+                                                                         photoURL: newPhotoURL)
+
+                    try identityDelegate.updateLatestDetailsOfContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, with: newLatestDetails, within: obvContext)
+                    
+                    try identityDelegate.publishLatestDetailsOfContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext)
+                    guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
+                        throw makeError(message: "Could not find group structure")
+                    }
+                    guard groupStructure.groupType == .owned else {
+                        throw Self.makeError(message: "Could not publish latest details of owned contact group as the group type is not owned")
+                    }
+                    try startOwnedGroupLatestDetailsPublicationProtocol(for: groupStructure, within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    
+                    return continuation.resume()
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+
     }
     
     
@@ -3831,36 +3878,6 @@ extension ObvEngine {
                 }
             }
             guard error == nil else { throw error! }
-        }
-        
-    }
-
-    
-    public func publishLatestDetailsOfOwnedContactGroup(ownedCryptoId: ObvCryptoId, groupUid: UID) throws {
-        
-        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
-        
-        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
-        
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-                
-                try identityDelegate.publishLatestDetailsOfContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext)
-                guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
-                    throw makeError(message: "Could not find group structure")
-                }
-                guard groupStructure.groupType == .owned else {
-                    throw Self.makeError(message: "Could not publish latest details of owned contact group as the group type is not owned")
-                }
-                try startOwnedGroupLatestDetailsPublicationProtocol(for: groupStructure, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-                
-            }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
         }
         
     }
@@ -3921,33 +3938,45 @@ extension ObvEngine {
 
     
     // Called when the owned identity decides to leave a group she joined
-    public func leaveContactGroupJoined(ownedCryptoId: ObvCryptoId, groupUid: UID, groupOwner: ObvCryptoId) throws {
+    public func leaveGroupV1Joined(groupV1Identifier: ObvGroupV1Identifier) async throws {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
         guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
+        
+        switch groupV1Identifier.groupType {
+        case .owned:
+            assertionFailure()
+            throw ObvError.cannotLeaveOwnedGroupV1
+        case .joined:
+            break
+        }
 
         let log = self.log
-        
         let flowId = FlowIdentifier()
-        var error: Error?
-        createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            do {
-                let message = try protocolDelegate.getLeaveGroupJoinedMessageForGroupManagementProtocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
-                                                                                                        groupUid: groupUid,
-                                                                                                        groupOwner: groupOwner.cryptoIdentity,
-                                                                                                        within: obvContext)
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            } catch let _error {
-                error = _error
+        let prng = self.prng
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let message = try protocolDelegate.getLeaveGroupJoinedMessageForGroupManagementProtocol(
+                        ownedIdentity: groupV1Identifier.ownedCryptoId.cryptoIdentity,
+                        groupUid: groupV1Identifier.groupV1Identifier.groupUid,
+                        groupOwner: groupV1Identifier.groupV1Identifier.groupOwner.cryptoIdentity,
+                        within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    return continuation.resume()
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
             }
         }
-        guard error == nil else { throw error! }
-        
+
     }
     
-    
+    /// 2025-11-02: Used to be called when showing the details of a Group v1.
     public func refreshContactGroupJoined(ownedCryptoId: ObvCryptoId, groupUid: UID, groupOwner: ObvCryptoId) throws {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
@@ -3977,9 +4006,14 @@ extension ObvEngine {
 extension ObvEngine {
         
     /// This method returns the status of each register websocket. This is essentially used for debugging the websockets.
-    public func getWebSocketState(ownedIdentity: ObvCryptoId) async throws -> (URLSessionTask.State,TimeInterval?) {
-        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
-        return try await networkFetchDelegate.getWebSocketState(ownedIdentity: ownedIdentity.cryptoIdentity)
+    public func getWebSocketState(ownedIdentity: ObvCryptoId, handler: @escaping @Sendable (Result<(URLSessionTask.State, TimeInterval?), Error>) -> Void) async {
+        guard let networkFetchDelegate else {
+            queueForPostingNotificationsToTheApp.async {
+                handler(.failure(ObvError.networkFetchDelegateIsNil))
+            }
+            return
+        }
+        await networkFetchDelegate.getWebSocketState(ownedIdentity: ownedIdentity.cryptoIdentity, handler: handler)
     }
     
     /// This method returns a 16 bytes nonce and a serialized encryption key. This is called when sending a message, in order to make it
@@ -4002,12 +4036,24 @@ extension ObvEngine {
     }
 
     
-    public func deleteObvReturnReceipt(_ obvReturnReceipt: ObvEncryptedReceivedReturnReceipt) async {
+    public func deleteObvReturnReceipt(withServerUID serverUID: UID, ownedCryptoId: ObvCryptoId) async {
         do {
-            try await delegateManager.networkFetchDelegate?.sendDeleteReturnReceipt(ownedIdentity: obvReturnReceipt.ownedCryptoId.cryptoIdentity, serverUid: obvReturnReceipt.serverUid)
+            try await delegateManager.networkFetchDelegate?.sendDeleteReturnReceipt(ownedIdentity: ownedCryptoId.cryptoIdentity, serverUid: serverUID)
         } catch let error {
             os_log("Could not delete the ReturnReceipt on server: %{public}@", log: log, type: .error, error.localizedDescription)
         }
+    }
+    
+}
+
+
+// MARK: - Public API for receiving return receipt
+
+extension ObvEngine {
+    
+    public func getAsyncStreamOfEncryptedReceivedReturnReceipt() async throws -> AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt> {
+        guard let networkFetchDelegate else { assertionFailure(); throw ObvError.networkFetchDelegateIsNil }
+        return await networkFetchDelegate.getAsyncStreamOfEncryptedReceivedReturnReceipt()
     }
     
 }
@@ -4153,7 +4199,9 @@ extension ObvEngine {
         
         guard let networkPostDelegate = networkPostDelegate else { throw makeError(message: "The network post delegate is not set") }
 
-        guard let uid = UID(uid: messageIdRaw) else { throw ObvEngine.makeError(message: "Could not parse message identifier") }
+        guard let uid = UID(uid: messageIdRaw) else {
+            throw ObvEngine.makeError(message: "Could not parse message identifier: \(String(describing: String(data: messageIdRaw, encoding: .utf8)))")
+        }
         let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
         
         let randomFlowId = FlowIdentifier()
@@ -4167,6 +4215,13 @@ extension ObvEngine {
 
 extension ObvEngine {
     
+    /// Called by the app during bootstrap in order to receive a stream of `ObvMessageOrObvOwnedMessage` to process.
+    public func getAsyncStreamOfObvMessageOrObvOwnedMessages() async throws -> AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]> {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        let stream = await networkFetchDelegate.getAsyncStreamOfObvMessageOrObvOwnedMessages()
+        return stream
+    }
+
     
     /// Called by the app when a received message is properly processed.
     public func messageWasProcessed(messageId: ObvMessageIdentifier, attachmentsProcessingRequest: ObvAttachmentsProcessingRequest) async throws {
@@ -4182,6 +4237,20 @@ extension ObvEngine {
         try await networkFetchDelegate.markApplicationMessageForDeletionAndProcessAttachments(messageId: messageId, attachmentsProcessingRequest: attachmentsProcessingRequest, flowId: flowId)
         flowCompletionHandler()
         
+    }
+    
+    
+    public func putMessageOnHold(messageId: ObvMessageIdentifier) async throws {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        let flowId = FlowIdentifier()
+        try await networkFetchDelegate.putMessageOnHold(messageId: messageId, flowId: flowId)
+    }
+    
+    
+    public func fetchOnHoldMessage(messageId: ObvMessageIdentifier) async throws -> ObvMessageOrObvOwnedMessage? {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        let flowId = FlowIdentifier()
+        return try await networkFetchDelegate.fetchOnHoldMessage(messageId: messageId, flowId: flowId)
     }
     
     
@@ -4487,7 +4556,22 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
+    public func applicationWasInitializedButWasNeverOnScreen() async {
+        let flowId = FlowIdentifier()
+        await self.applicationWasInitializedButWasNeverOnScreen(flowId: flowId)
+    }
+    
+    
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for manager in delegateManager.registeredManagers {
+                taskGroup.addTask { await manager.applicationWasInitializedButWasNeverOnScreen(flowId: flowId) }
+            }
+        }
+    }
+    
+    
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool) {
         let flowId = FlowIdentifier()
         Task { [weak self] in await self?.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId) }
     }
@@ -5092,6 +5176,10 @@ extension ObvEngine {
                     }
                 }
                 
+                if !obvContext.context.hasChanges {
+                    flowDelegate.endFlow(flowId: flowId)
+                }
+                
                 do {
                     try obvContext.save(logOnFailure: log)
                 } catch {
@@ -5292,7 +5380,7 @@ extension ObvEngine: ObvUserInterfaceChannelDelegate {
 
                     case .delete:
                         // This is a special case: we simply delete any existing realated PersistedEngineDialog and return
-                        try PersistedEngineDialog.deletePersistedDialog(uid: uuid, appNotificationCenter: appNotificationCenter, within: obvContext)
+                        try PersistedEngineDialog.deletePersistedDialog(uid: uuid, appNotificationCenter: appNotificationCenter, within: obvContext.context)
                         return
                     }
                     
@@ -5311,16 +5399,16 @@ extension ObvEngine: ObvUserInterfaceChannelDelegate {
         }
         
         // We have a dialog to present to the user, we persist it in the `PersistedEngineDialog` database. If another `PersistedEngineDialog` exist with the same UUID, it is part of the same protocol and we simply update this instance.
-        if let previousDialog = try PersistedEngineDialog.get(uid: obvDialog.uuid, appNotificationCenter: appNotificationCenter, within: obvContext) {
+        if let previousDialog = try PersistedEngineDialog.get(uid: obvDialog.uuid, appNotificationCenter: appNotificationCenter, within: obvContext.context) {
             do {
                 try previousDialog.update(with: obvDialog)
             } catch {
                 os_log("Could not update PersistedEngineDialog with the new ObvDialog", log: log, type: .fault)
-                obvContext.delete(previousDialog)
-                _ = PersistedEngineDialog(with: obvDialog, appNotificationCenter: appNotificationCenter, within: obvContext)
+                obvContext.context.delete(previousDialog)
+                _ = try PersistedEngineDialog(with: obvDialog, appNotificationCenter: appNotificationCenter, within: obvContext.context)
             }
         } else {
-            _ = PersistedEngineDialog(with: obvDialog, appNotificationCenter: appNotificationCenter, within: obvContext)
+            _ = try PersistedEngineDialog(with: obvDialog, appNotificationCenter: appNotificationCenter, within: obvContext.context)
         }
 
     }
@@ -5432,12 +5520,9 @@ extension ObvEngine {
         let message = try protocolDelegate.getInitiateSyncAtomMessageForSynchronizationProtocol(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, syncAtom: syncAtom)
 
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
-        do {
-            try await postChannelMessage(message, flowId: flowId)
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
-        }
+        defer { flowDelegate.endFlow(flowId: flowId) }
+        
+        try await postChannelMessage(message, flowId: flowId)
         
     }
     
@@ -5495,23 +5580,22 @@ extension ObvEngine {
 
     
     private func postChannelMessage(_ message: ObvChannelProtocolMessageToSend, flowId: FlowIdentifier) async throws {
+
+        logger.debug("Will post the channel messagate within flow \(flowId.debugDescription, privacy: .public)")
         
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
+        guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
         
         let prng = self.prng
-        let log = self.log
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
-                do {
-                    _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                    try obvContext.save(logOnFailure: log)
-                    return continuation.resume()
-                } catch {
-                    return continuation.resume(throwing: error)
-                }
-            }
+        let op1 = PostChannelMessageOperation(message: message, prng: prng, channelDelegate: channelDelegate)
+        let composedOp = try createCompositionOfOneContextualOperation(op1: op1, flowId: flowId)
+        
+        do {
+            try await protocolDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+            logger.debug("Did post the channel messagate within flow \(flowId.debugDescription, privacy: .public)")
+        } catch {
+            logger.fault("Failed to post the channel messagate within flow \(flowId.debugDescription, privacy: .public)")
         }
 
     }
@@ -5790,6 +5874,7 @@ extension ObvEngine {
     
     enum ObvError: LocalizedError {
         
+        case invalidObvMutualScanUrl
         case createContextDelegateIsNil
         case protocolDelegateIsNil
         case flowDelegateIsNil
@@ -5802,8 +5887,8 @@ extension ObvEngine {
         case ownedIdentityIsNotActive
         case ownedIdentityIsKeycloakManaged
         case ownedIdentityIsNotKeycloakManaged
-        case couldNotRegisterAPIKeyAsItIsInvalid
-        case couldNotRegisterAPIKey
+        //case couldNotRegisterAPIKeyAsItIsInvalid
+        //case couldNotRegisterAPIKey
         case noAppropriateOwnedIdentityFound
         case couldNotParseMessageIdentifier
         case unexpectedNumberOfMessageIdentifiers
@@ -5813,9 +5898,18 @@ extension ObvEngine {
         case solveChallengeDelegateIsNil
         case failedToDeactivateLegacyBackups
         case backupsAreNotActive
+        case groupIsOwned
+        case cannotDisbandJoinedGroupV1
+        case cannotLeaveOwnedGroupV1
 
         var errorDescription: String? {
             switch self {
+            case .cannotLeaveOwnedGroupV1:
+                return "Cannot leave own group v1"
+            case .cannotDisbandJoinedGroupV1:
+                return "Cannot disband joined group v1"
+            case .invalidObvMutualScanUrl:
+                return "Invalid Obv mutual scan URL"
             case .backupsAreNotActive:
                 return "Backups are not active"
             case .obvBackupManagerNewIsNil:
@@ -5840,10 +5934,10 @@ extension ObvEngine {
                 return "Owned identity is keycloak managed"
             case .ownedIdentityIsNotKeycloakManaged:
                 return "Owned identity is not keycloak managed"
-            case .couldNotRegisterAPIKeyAsItIsInvalid:
-                return "Could not register API key as it is invalid"
-            case .couldNotRegisterAPIKey:
-                return "Could not register API key"
+//            case .couldNotRegisterAPIKeyAsItIsInvalid:
+//                return "Could not register API key as it is invalid"
+//            case .couldNotRegisterAPIKey:
+//                return "Could not register API key"
             case .syncSnapshotDelegateIsNil:
                 return "The sync snapshot delegate is nil"
             case .notificationDelegateIsNil:
@@ -5862,6 +5956,8 @@ extension ObvEngine {
                 return "The solve challenge delegate is nil"
             case .failedToDeactivateLegacyBackups:
                 return "Failed to deactivate legacy backups"
+            case .groupIsOwned:
+                return "Group is owned"
             }
         }
         
@@ -5874,10 +5970,10 @@ extension ObvEngine {
 
 extension ObvEngine {
         
-    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) throws -> CompositionOfOneContextualOperation<T> {
+    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>, flowId: FlowIdentifier = FlowIdentifier()) throws -> CompositionOfOneContextualOperation<T> {
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         let log = self.log
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: createContextDelegate, queueForComposedOperations: queueForComposedOperations, log: log, flowId: FlowIdentifier())
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: createContextDelegate, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
         composedOp.completionBlock = { [weak composedOp] in
             assert(composedOp != nil)
             composedOp?.logReasonIfCancelled(log: log)

@@ -28,12 +28,14 @@ protocol ObvAudioRecorderDelegate: AnyObject {
 
 }
 
-final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
+final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate, ObservableObject {
 
     public static let shared: ObvAudioRecorder = ObvAudioRecorder()
 
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ObvAudioRecorder.self))
 
+    private var recordDurationDispatchTimer: DispatchSourceTimer?
+    
     let recordingSession: AVAudioSession = AVAudioSession.sharedInstance()
     var audioRecorder: AVAudioRecorder? {
         didSet {
@@ -57,6 +59,14 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
     override init() {}
 
     var isRecording: Bool { audioRecorder?.isRecording ?? false }
+    
+    @Published var currentDuration: TimeInterval = 0.0
+    
+    private var minPower: Float = -60
+    private var maxPower: Float = 0
+    
+    @Published var liveWaveformSamples: [Float] = []
+    
     var duration: TimeInterval? {
         guard isRecording else { return nil }
         return audioRecorder?.currentTime
@@ -69,6 +79,26 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
         case audioRecorderError(_: Error)
     }
 
+    func updateWaveFormSamples() {
+        guard let recorder = audioRecorder else { return }
+        recorder.updateMeters()
+        let power = recorder.averagePower(forChannel: 0)
+        
+        // Met à jour des extrêmes observés
+        minPower = min(minPower * 0.97 + power * 0.03, minPower)
+        maxPower = max(maxPower * 0.97 + power * 0.03, maxPower)
+        
+        // Normalise dynamiquement
+        let normalized = normalize(power)
+        liveWaveformSamples.append(normalized)
+    }
+    
+    private func normalize(_ value: Float) -> Float {
+        guard maxPower > minPower else { return 0 }
+        let normalized = (value - minPower) / (maxPower - minPower)
+        return max(0, min(1, normalized))
+    }
+    
     func startRecording(url: URL, settings: [String: Int],
                         completionHandler: @escaping (Result<Void, StartRecordingError>) -> Void) {
         guard !isRecording else {
@@ -78,8 +108,10 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
         do {
             try recordingSession.setCategory(.record, mode: .default)
             try recordingSession.setActive(true)
-            recordingSession.requestRecordPermission() { granted in
-                guard granted else {
+            liveWaveformSamples.removeAll()
+            
+            recordingSession.requestRecordPermission() { [weak self] granted in
+                guard let self, granted else {
                     completionHandler(.failure(.noRecordPermission))
                     return
                 }
@@ -90,8 +122,28 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
                 }
                 self.audioRecorder?.delegate = self
                 os_log("🎤 Start Recording in %{public}@", log: self.log, type: .info, url.absoluteString)
+                self.audioRecorder?.isMeteringEnabled = true
                 self.audioRecorder?.record()
                 completionHandler(.success(()))
+                
+                // Use DispatchSourceTimer for reliable scheduling on Mac Catalyst and across run loop modes
+                let timer = DispatchSource.makeTimerSource(queue: .main)
+                timer.schedule(deadline: .now() + .milliseconds(30), repeating: .milliseconds(30))
+                self.recordDurationDispatchTimer = timer
+
+                timer.setEventHandler { [weak self] in
+                    guard let self = self else { return }
+                    assert(Thread.isMainThread)
+                    guard self.isRecording else {
+                        self.recordDurationDispatchTimer?.cancel()
+                        self.recordDurationDispatchTimer = nil
+                        return
+                    }
+                    self.currentDuration = self.duration ?? 0.0
+                    self.updateWaveFormSamples()
+                }
+
+                timer.resume()
             }
         } catch(let error) {
             completionHandler(.failure(.audioSessionError(error)))
@@ -103,22 +155,25 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
         case noAudioRecorderAvailable
     }
 
-    func stopRecording(completionHandler: @escaping (Result<URL, StopRecordingError>) -> Void) {
+    //func stopRecording(completionHandler: @escaping (Result<URL, StopRecordingError>) -> Void) {
+    func stopRecording() throws(StopRecordingError) -> URL {
         guard isRecording else {
-            completionHandler(.failure(.noRecordingsInProgress))
-            return
+            throw .noRecordingsInProgress
         }
         guard let audioRecorder = audioRecorder else {
             assertionFailure()
-            completionHandler(.failure(.noAudioRecorderAvailable))
-            return
+            throw .noAudioRecorderAvailable
         }
 
         let url = audioRecorder.url
         audioRecorder.stop()
         self.audioRecorder = nil
 
-        completionHandler(.success(url))
+        // Invalidate timers
+        self.recordDurationDispatchTimer?.cancel()
+        self.recordDurationDispatchTimer = nil
+
+        return url
     }
 
     func cancelRecording() {
@@ -129,16 +184,26 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
             audioRecorder.deleteRecording()
         }
         self.audioRecorder = nil
+
+        // Invalidate timers
+        self.recordDurationDispatchTimer?.cancel()
+        self.recordDurationDispatchTimer = nil
     }
 
     func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
         guard error != nil else { return }
         delegate?.recordingHasFailed()
+        // Invalidate timers on failure
+        self.recordDurationDispatchTimer?.cancel()
+        self.recordDurationDispatchTimer = nil
     }
 
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully: Bool) {
         guard !successfully else { return }
         delegate?.recordingHasFailed()
+        // Invalidate timers on failure
+        self.recordDurationDispatchTimer?.cancel()
+        self.recordDurationDispatchTimer = nil
     }
 
 

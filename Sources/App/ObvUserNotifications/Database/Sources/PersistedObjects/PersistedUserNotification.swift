@@ -55,6 +55,7 @@ public final class PersistedUserNotification: NSManagedObject {
     private enum Kind: Int {
         case receivedMessage = 0
         case reactionOnSentMessage = 1
+        case pollVoteOnSentMessage = 2
     }
     
     public enum Status: Int {
@@ -248,6 +249,18 @@ public final class PersistedUserNotification: NSManagedObject {
                              within: context)
     }
 
+    public static func createForPollVoteOnSentMessage(creator: Creator, requestIdentifier: String, obvMessage: ObvMessage, sentMessageVotedTo: ObvMessageAppIdentifier, reactor: ObvContactIdentifier, userNotificationCategory: ObvUserNotificationCategoryIdentifier, within context: NSManagedObjectContext) throws -> Self {
+        assert(sentMessageVotedTo.isSent)
+        assert(userNotificationCategory == .pollVote)
+        return try self.init(Kind: .pollVoteOnSentMessage,
+                             creator: creator,
+                             requestIdentifier: requestIdentifier,
+                             obvMessage: obvMessage,
+                             messageAppIdentifier: sentMessageVotedTo,
+                             reactor: reactor,
+                             userNotificationCategory: userNotificationCategory,
+                             within: context)
+    }
     
     /// When the app is launched, we persist the `ObvMessages` contained in persisted user notification. Each time such an `ObvMessage` is persisted, we call this method.
     /// This allows not to try to persist it again.

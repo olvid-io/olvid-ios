@@ -1,364 +1,1605 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "%@_ACCEPTED_TO_JOIN_THIS_GROUP" : {
-      "comment" : "System message displayed within a group discussion",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ has joined this group"
+  "sourceLanguage": "en",
+  "strings": {
+    "%@_ACCEPTED_TO_JOIN_THIS_GROUP": {
+      "comment": "System message displayed within a group discussion",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist dieser Gruppe beigetreten"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ a rejoint ce groupe"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ has joined this group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ se ha unido a este grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a rejoint ce groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ è entrato in questo gruppo"
           }
         }
       }
     },
-    "%@_ACCEPTED_TO_JOIN_THIS_GROUP_AT_%@" : {
-      "comment" : "System message displayed within a group discussion",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ has joined this group - %@"
+    "%@_ACCEPTED_TO_JOIN_THIS_GROUP_AT_%@": {
+      "comment": "System message displayed within a group discussion",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist dieser Gruppe beigetreten - %@"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ a rejoint ce groupe - %@"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ has joined this group - %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ se ha unido a este grupo - %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a rejoint ce groupe - %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ è entrato in questo gruppo - %@"
           }
         }
       }
     },
-    "%@_LEFT_THIS_GROUP" : {
-      "comment" : "System message displayed within a group discussion",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ left this group"
+    "%@_LEFT_THIS_GROUP": {
+      "comment": "System message displayed within a group discussion",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat diese Gruppe verlassen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ a quitté ce groupe"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ left this group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ abandonó este grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a quitté ce groupe"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha lasciato questo gruppo"
           }
         }
       }
     },
-    "%@_LEFT_THIS_GROUP_AT_%@" : {
-      "comment" : "System message displayed within a group discussion",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ left this group - %@"
+    "%@_LEFT_THIS_GROUP_AT_%@": {
+      "comment": "System message displayed within a group discussion",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat diese Gruppe verlassen - %@"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ a quitté ce groupe - %@"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ left this group - %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ abandonó este grupo - %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a quitté ce groupe - %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha lasciato questo gruppo - %@"
           }
         }
       }
     },
-    "A (now deleted) contact" : {
-      "comment" : "Can serve as a name in the sentence \\\"%@ accepted to join this group\\\"",
-      "extractionState" : "migrated",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deleted contact"
+    "A (now deleted) contact": {
+      "comment": "Can serve as a name in the sentence \\\"%@ accepted to join this group\\\"",
+      "extractionState": "migrated",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelöschter Kontakt"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contact supprimé"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleted contact"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contacto eliminado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact supprimé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contatto eliminato"
           }
         }
       }
     },
-    "ACCEPTED_INCOMING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Incoming call"
+    "ACCEPTED_INCOMING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingehender Anruf"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel entrant"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada entrante"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel entrant"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata in arrivo"
           }
         }
       }
     },
-    "ACCEPTED_OUTGOING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Outgoing call"
+    "ACCEPTED_OUTGOING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgehender Anruf"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel sortant"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outgoing call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada saliente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel sortant"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata in uscita"
           }
         }
       }
     },
-    "AND_%@_OTHERS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "and %@ others"
+    "AND_%@_OTHERS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "und %@ weitere"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "et %@ autres"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "and %@ others"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "y %@ demás"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "et %@ autres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e altri %@"
           }
         }
       }
     },
-    "AND_ONE_OTHER" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "and one other"
+    "AND_ONE_OTHER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "und eine weitere Person"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "et un autre"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "and one other"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "y otro"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "et un autre"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e un altro"
           }
         }
       }
     },
-    "ANSWERED_ON_OTHER_DEVICE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Call accepted on another device"
+    "ANSWERED_ON_OTHER_DEVICE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf auf einem anderen Gerät angenommen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel accepté depuis un autre appareil"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call accepted on another device"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada aceptada en otro dispositivo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel accepté depuis un autre appareil"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata accettata su un altro dispositivo"
           }
         }
       }
     },
-    "ANY_INCOMING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Incoming call..."
+    "ANY_INCOMING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingehender Anruf..."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel entrant..."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming call..."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada entrante..."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel entrant..."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata in arrivo..."
           }
         }
       }
     },
-    "ANY_OUTGOING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Outgoing call..."
+    "ANY_OUTGOING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgehender Anruf..."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel sortant..."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outgoing call..."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada en curso..."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel sortant..."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata in corso..."
           }
         }
       }
     },
-    "BUSY_OUTGOING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Busy outgoing call"
+    "BUSY_OUTGOING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belegter ausgehender Anruf"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel sortant occupé"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busy outgoing call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada saliente en curso"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel sortant occupé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata in corso"
           }
         }
       }
     },
-    "Choose" : {
-      "comment" : "Choose word, capitalized",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose"
+    "CONTACT_%@_IS_ONE_TO_ONE_AGAIN": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist wieder in Ihren Kontakten, Sie können Ihre Diskussion dort fortsetzen, wo Sie aufgehört haben 🥳."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choisir"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is part of your contacts again, you can continue your discussion where you left off 🤗."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ vuelve a estar en tus contactos, puedes continuar tu conversación donde la dejaste 🤗."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ fait à nouveau partie de vos contacts, vous pouvez reprendre la discussion là où vous l'aviez laissée 🤗."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ è di nuovo tra i tuoi contatti, puoi riprendere la discussione da dove l'avevi interrotta 🤗."
           }
         }
       }
     },
-    "Close" : {
-      "comment" : "Close word, capitalized",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Close"
+    "CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_%@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat einen Screenshot einer sensiblen Nachricht gemacht."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fermer"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ took a screenshot of a sensitive message."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hizo una captura de pantalla de un mensaje confidencial."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a fait une capture d'un message sensible."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha fatto uno screenshot di un messaggio sensibile."
           }
         }
       }
     },
-    "CONTACT_%@_IS_ONE_TO_ONE_AGAIN" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ is part of your contacts again, you can continue your discussion where you left off 🤗."
+    "CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_WHEN_CONTACT_IS_UNKNOWN": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Teilnehmer hat einen Screenshot einer sensiblen Nachricht erstellt."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ fait à nouveau partie de vos contacts, vous pouvez reprendre la discussion là où vous l'aviez laissée 🤗."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A participant took a screenshot of a sensitive message."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un participante tomó una captura de pantalla de un mensaje confidencial."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un particpant a fait une capture d'un message sensible."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un partecipante ha fatto uno screenshot di un messaggio sensibile."
           }
         }
       }
     },
-    "CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ took a screenshot of a sensitive message."
+    "CONTACT_REVOKED_BY_COMPANY_IDENTITY_PROVIDER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakt wurde von Ihrem Unternehmens-Identitätsanbieter widerrufen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ a fait une capture d'un message sensible."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact revoked by your company's identity provider"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contacto revocado por el proveedor de identidad de su empresa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact revoqué par le fournisseur d'identités de votre société"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contatto revocato dal provider di identità della tua azienda"
           }
         }
       }
     },
-    "CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_WHEN_CONTACT_IS_UNKNOWN" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A participant took a screenshot of a sensitive message."
+    "Choose": {
+      "comment": "Choose word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un particpant a fait une capture d'un message sensible."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scegli"
           }
         }
       }
     },
-    "CONTACT_REVOKED_BY_COMPANY_IDENTITY_PROVIDER" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contact revoked by your company's identity provider"
+    "Close": {
+      "comment": "Close word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schließen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contact revoqué par le fournisseur d'identités de votre société"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiudi"
           }
         }
       }
     },
-    "count attachments" : {
-      "comment" : "Number of attachments in message",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "One attachment"
+    "DISCUSSION_SHARED_SETTINGS_WERE_UPDATED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die gemeinsamen Einstellungen für die Diskussion wurden aktualisiert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discussion shared settings were updated"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La configuración compartida de la discusión fue actualizada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les paramètres partagés de la discussion ont été mis à jour"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le impostazioni di condivisione della discussione sono state aggiornate"
+          }
+        }
+      }
+    },
+    "Default": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standard"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Predeterminado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par défaut"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Predefinito"
+          }
+        }
+      }
+    },
+    "EPHEMERAL_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vergängliche Nachricht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ephemeral message"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensaje efímero"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message éphémère"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messaggio effimero"
+          }
+        }
+      }
+    },
+    "Edited": {
+      "comment": "Edited word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bearbeitet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifié"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited"
+          }
+        }
+      }
+    },
+    "FIFTEEN_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 giorni"
+          }
+        }
+      }
+    },
+    "FIVE_YEAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 Jahre"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 years"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 años"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 ans"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 anni"
+          }
+        }
+      }
+    },
+    "FROM_%@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "von %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "de %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "de %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "da %@"
+          }
+        }
+      }
+    },
+    "Forward": {
+      "comment": "Forward word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiterleiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reenviar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transférer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inoltra"
+          }
+        }
+      }
+    },
+    "GROUP_TITLE_WHEN_NO_SPECIFIC_TITLE_IS_GIVEN": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppe ohne Namen 😥"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group with no name 😅"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupo sin nombre 🤦‍♀️"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groupe sans nom 😅"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppo senza nome 😅"
+          }
+        }
+      }
+    },
+    "LAST_MESSAGE_WAS_REMOTELY_WIPED": {
+      "comment": "Subtitle displayed within a discussion cell when the message to preview was remotely wiped",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Nachricht wurde remote gelöscht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last message was remotely wiped"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El último mensaje fue borrado remotamente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernier message éliminé à distance"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'ultimo messaggio è stato cancellato da remoto"
+          }
+        }
+      }
+    },
+    "Latest Discussions": {
+      "comment": "Small string used in tab controller to sort by latest discussions",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neueste"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latest"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más reciente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récentes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recenti"
+          }
+        }
+      }
+    },
+    "MEMBERS_OF_GROUP_V2_WERE_UPDATED_SYSTEM_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Gruppenmitglieder wurden aktualisiert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group members have been updated."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los miembros del grupo han sido actualizados."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les membres du groupe ont été mis à jour."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I membri del gruppo sono stati aggiornati."
+          }
+        }
+      }
+    },
+    "MESSAGE_WAS_WIPED": {
+      "comment": "Subtitle displayed within a discussion cell when the message to preview is a wiped ephemeral message",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Nachricht wurde gelöscht 🗑️"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last message was wiped 🧹"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El último mensaje fue borrado 🗑️"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernier message expiré 🧹"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'ultimo messaggio è stato cancellato 🗑️"
+          }
+        }
+      }
+    },
+    "MISSED_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verpasster Anruf"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed Call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada Perdida"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel manqué"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata persa"
+          }
+        }
+      }
+    },
+    "MISSED_CALL_FILTERED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf verpasst, während Sie im \"Fokus\"-Modus waren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed call while you were in \"Focus\" mode."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada perdida mientras estabas en modo \"Concentración\"."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel manqué alors que vous étiez en mode « Concentration »."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata persa mentre eri in modalità \"Focus\"."
+          }
+        }
+      }
+    },
+    "Mark all as read": {
+      "comment": "Action title",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als gelesen markieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark all as read"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar todo como leído"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout marquer comme lu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segna tutto come letto"
+          }
+        }
+      }
+    },
+    "Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography.": {
+      "comment": "System message displayed at the top of each conversation.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✉️ Nachrichten, die in dieser Diskussion gepostet werden, sind mit Ende-zu-Ende-Verschlüsselung geschützt. Ihre Vertraulichkeit, ihre Authentizität und die Identität des Absenders werden durch Kryptografie garantiert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🔒 Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🔒 Los mensajes publicados en esta discusión están protegidos con cifrado de extremo a extremo. Su confidencialidad, autenticidad e identidad del remitente están garantizadas mediante criptografía."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🔒 Les messages postés dans cette discussion sont protégés par du chiffrement de bout-en-bout. Leur confidentialité, leur authenticité et l'identité de leur expéditeur sont garanties grâce à la cryptographie."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🔒 I messaggi pubblicati in questa discussione sono protetti tramite crittografia end-to-end. La loro riservatezza, autenticità e l'identità del mittente sono garantite tramite la crittografia."
+          }
+        }
+      }
+    },
+    "NINETY_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 giorni"
+          }
+        }
+      }
+    },
+    "NOT_PART_OF_THE_GROUP_ANYMORE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du bist nicht mehr Teil dieser Gruppe, entweder weil du sie verlassen hast, weil ein Administrator dich entfernt hat oder weil die Gruppe gelöscht wurde 🥲."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are not part of this group anymore, either because you left it, because an administrator removed you, or because the group was deleted 🥲."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no formas parte de este grupo, ya sea porque lo abandonaste, porque un administrador te eliminó o porque el grupo fue eliminado 😔."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous ne faites plus partie de ce groupe, parce que vous l'avez quitté, parce qu'un administrateur vous a retiré du groupe, ou tout simplement parce que le groupe a été supprimé 🥲."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non fai più parte di questo gruppo, perché lo hai lasciato tu, un amministratore ti ha rimosso, oppure perché il gruppo è stato eliminato 🥲."
+          }
+        }
+      }
+    },
+    "No message yet.": {
+      "comment": "Subtitle displayed within a discussion cell when there is no message preview to display",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Nachrichten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No message yet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay mensajes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun message pour le moment."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun messaggio ancora."
+          }
+        }
+      }
+    },
+    "ONE_DAY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Tag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 day"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 día"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 jour"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 giorno"
+          }
+        }
+      }
+    },
+    "ONE_HUNDRED_AND_HEIGHTY_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 giorni"
+          }
+        }
+      }
+    },
+    "ONE_YEAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Jahr"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 year"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 año"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 an"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 anno"
+          }
+        }
+      }
+    },
+    "POLL_MULTIPLE_CHOICE_LEGACY_TEXT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle eine oder mehrere Antworten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose one or more answers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige una o más respuestas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plusieurs réponses possibles"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scegli una o più risposte"
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abgelehnter eingehender Anruf"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejected incoming call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada entrante rechazada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel entrant rejeté"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata in arrivo rifiutata"
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL_AS_RECEIVE_CALL_SETTINGS_IS_FALSE": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ein eingehender sicherer Anruf wurde automatisch abgewiesen, da Sie entschieden haben, auf diesem Gerät keine Anrufe zu empfangen. Klicken Sie auf diese Nachricht, um die Einstellung anzuzeigen."
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%u attachments"
-                }
-              },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "No attachment"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ein eingehender sicherer Anruf wurde automatisch abgewiesen, da Sie entschieden haben, auf diesem Gerät keine Anrufe zu empfangen. Tippen Sie auf diese Nachricht, um die Einstellung anzuzeigen."
                 }
               }
             }
           }
         },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Une pièce jointe"
+        "en": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "An incoming secure call was automatically rejected as you chose not to receive calls on this device. Click this message to show the setting."
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%u pièces jointes"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "An incoming secure call was automatically rejected as you chose not to receive calls on this device. Tap this message to show the setting."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Una llamada segura entrante se rechazó automáticamente porque elegiste no recibir llamadas en este dispositivo. Haz clic en este mensaje para ver la configuración."
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Aucune pièce jointe"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Una llamada segura entrante se rechazó automáticamente porque elegiste no recibir llamadas en este dispositivo. Toca este mensaje para ver la configuración."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un appel entrant a été automatiquement refusé puisque vous avez choisi de ne pas recevoir d'appel sur cet appareil. Cliquez ce message pour afficher le paramètre."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un appel entrant a été automatiquement refusé puisque vous avez choisi de ne pas recevoir d'appel sur cet appareil. Touchez cette notification pour afficher le paramètre."
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Una chiamata sicura in arrivo è stata rifiutata automaticamente poiché hai scelto di non ricevere chiamate su questo dispositivo. Clicca su questo messaggio per visualizzare l'impostazione."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Una chiamata sicura in arrivo è stata rifiutata automaticamente poiché hai scelto di non ricevere chiamate su questo dispositivo. Tocca questo messaggio per visualizzare l'impostazione."
                 }
               }
             }
@@ -366,52 +1607,1051 @@
         }
       }
     },
-    "count new messages" : {
-      "comment" : "Number of new messages",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "1 new message"
+    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der eingehende Anruf wurde abgelehnt, da Olvid keinen Zugriff auf das Mikrofon hat. Um zukünftige Anrufe nicht mehr zu verpassen, gehen Sie bitte zu den Einstellungen und erteilen Sie Olvid Zugriff auf das Mikrofon."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The incoming call was rejected because Olvid is not allowed to access the Microphone. To never miss a call again, please go to Settings and grant Olvid access to the microphone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La llamada entrante fue rechazada porque Olvid no tiene permiso para acceder al micrófono. Para no perder más llamadas, ve a Ajustes y otorga a Olvid acceso al micrófono."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'appel entrant n'a pas abouti car Olvid n'a pas l'autorisation d'accéder au micro. Pour ne plus rater d'appel, allez dans les Réglages et autorisez l'accès au micro pour Olvid."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La chiamata in arrivo è stata rifiutata perché Olvid non ha il permesso di accedere al Microfono. Per non perdere mai più una chiamata, vai su Impostazioni e concedi a Olvid l'accesso al microfono."
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_GRANTED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der eingehende Anruf wurde abgelehnt, da Olvid keinen Zugriff auf das Mikrofon hatte. Glücklicherweise wurde diese Berechtigung inzwischen erteilt. Sie werden keinen Anruf mehr verpassen 🥳!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The incoming call was rejected because Olvid was not allowed to access the Microphone. Fortunately, since then, this autorisation was granted. You won't miss a call again 🥳!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La llamada entrante fue rechazada porque Olvid no tenía permiso para acceder al micrófono. Afortunadamente, desde entonces, se otorgó este permiso. ¡No volverás a perder una llamada! 🥳!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'appel entrant n'a pas abouti car Olvid n'avait pas l'autorisation d'accéder au micro. Fort heureusement, l'autorisation a été accordée. Vous ne raterez plus aucun appel 🥳 !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La chiamata in arrivo è stata rifiutata perché Olvid non aveva il permesso di accedere al microfono. Fortunatamente, da allora, l'autorizzazione è stata concessa. Non perderai più nessuna chiamata 🥳!"
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_UNDETERMINED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der eingehende Anruf wurde abgelehnt, da Olvid nicht auf das Mikrofon zugreifen darf. Bitte tippen Sie auf diese Nachricht, um Olvid den Zugriff auf das Mikrofon zu erlauben."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The incoming call was rejected because Olvid is not allowed to access the microphone. Please tap on this message to allow Olvid to access the Microphone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La llamada entrante fue rechazada porque Olvid no tiene permiso para acceder al micrófono. Por favor, pulsa en este mensaje para permitir que Olvid acceda al Micrófono."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'appel entrant n'a pas abouti car Olvid n'a pas l'autorisation d'accéder au micro. Cliquez sur ce message pour autoriser l'accès au micro."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La chiamata in arrivo è stata rifiutata perché Olvid non ha il permesso di accedere al microfono. Tocca questo messaggio per consentire a Olvid di accedere al microfono."
+          }
+        }
+      }
+    },
+    "REJECTED_ON_OTHER_DEVICE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf auf einem anderen Gerät abgelehnt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call rejected on another device"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada rechazada en otro dispositivo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel rejeté depuis un autre appareil"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata rifiutata su un altro dispositivo"
+          }
+        }
+      }
+    },
+    "REJECTED_OUTGOING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Kontakt ist nicht erreichbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your contact is not available"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu contacto no está disponible"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre correspondant est indisponible"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il tuo contatto non è disponibile"
+          }
+        }
+      }
+    },
+    "REJOINED_GROUP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du bist wieder Teil dieser Gruppe ✌️."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are again part of this group ✌️."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una vez más eres parte de este grupo ✌️."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous faites à nouveau partie du groupe ✌️"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sei di nuovo parte di questo gruppo ✌️."
+          }
+        }
+      }
+    },
+    "Read": {
+      "comment": "Read word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelesen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read"
+          }
+        }
+      }
+    },
+    "Remotely wiped": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fernlöschung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remotely wiped"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrado remotamente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éliminé à distance"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancellato da remoto"
+          }
+        }
+      }
+    },
+    "SEVEN_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 giorni"
+          }
+        }
+      }
+    },
+    "SIX_HOUR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 Stunden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 hours"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 horas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 heures"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 ore"
+          }
+        }
+      }
+    },
+    "SOMEONE": {
+      "comment": "placeholder if no contact name can be found",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "jemand"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "someone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "alguien"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "quelqu’un"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "qualcuno"
+          }
+        }
+      }
+    },
+    "SOMEONE_SHARED_A_PLACE": {
+      "comment": "Subtitle displayed within a discussion cell when the message is a location shared message from somebody",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat einen Ort geteilt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ shared a place"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ compartió un lugar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a partagé un lieu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha condiviso un luogo"
+          }
+        }
+      }
+    },
+    "SOMEONE_STARTED_SHARING_LOCATION": {
+      "comment": "Subtitle displayed within a discussion cell when the message is a location sharing message from somebody",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat das Teilen des Standorts gestartet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ started sharing location"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ empezó a compartir ubicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ partage désormais sa position"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha iniziato a condividere la posizione"
+          }
+        }
+      }
+    },
+    "SOMEONE_STOPPED_SHARING_LOCATION": {
+      "comment": "Subtitle displayed within a discussion cell when the message is a location sharing message from somebody",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat die Standortfreigabe beendet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ stopped sharing location"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ dejó de compartir ubicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ne partage plus sa position"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha smesso di condividere la posizione"
+          }
+        }
+      }
+    },
+    "THIRTY_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 giorni"
+          }
+        }
+      }
+    },
+    "THREE_YEAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 Jahre"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 years"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 años"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 ans"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 anni"
+          }
+        }
+      }
+    },
+    "TWELVE_HOURS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 Stunden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 hours"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 horas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 heures"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 ore"
+          }
+        }
+      }
+    },
+    "TWO_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vor 2 Tagen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 giorni"
+          }
+        }
+      }
+    },
+    "This contact was deleted from your contacts, either because you did or because this contact deleted you.": {
+      "comment": "System message displayed within a group discussion",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Kontakt wurde aus deinen Olvid-Kontakten gelöscht, entweder von dir selbst oder weil dieser Kontakt dich aus seinen eigenen Kontakten entfernt hat."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This contact was deleted from your Olvid contacts, either because you did or because this contact deleted you from their own contacts."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este contacto fue eliminado de tus contactos de Olvid, ya sea porque lo eliminaste tú o porque este contacto te eliminó de sus propios contactos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce contact a été supprimé de vos contacts Olvid, soit par vous-même, soit parce que ce contact vous a supprimé de ses propres contacts."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo contatto è stato eliminato dai tuoi contatti Olvid, o perché l'hai fatto tu o perché questo contatto ti ha eliminato dai suoi."
+          }
+        }
+      }
+    },
+    "This discussion was remotely wiped by %@": {
+      "comment": "System message displayed within a group discussion",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Konversation wurde von %@ remote gelöscht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This discussion was remotely wiped by %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta conversación fue borrada remotamente por %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette discussion a été effacée à distance par %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa conversazione è stata cancellata da remoto da %@"
+          }
+        }
+      }
+    },
+    "This discussion was remotely wiped by %@ on %@": {
+      "comment": "System message displayed within a group discussion",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Unterhaltung wurde von %@ am %@ remote gelöscht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This discussion was remotely wiped by %@ on %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta conversación fue eliminada remotamente por %@ el %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette discussion a été effacée à distance par %@ le %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa conversazione è stata cancellata da remoto da %@ il %@"
+          }
+        }
+      }
+    },
+    "UNANSWERED_OUTGOING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgehender Anruf ohne Antwort"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unanswered outgoing call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada saliente sin responder"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel sortant sans réponse"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata in uscita senza risposta"
+          }
+        }
+      }
+    },
+    "UNCOMPLETED_OUTGOING_CALL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abgebrochener ausgehender Anruf"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uncompleted outgoing call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada saliente incompleta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel sortant non abouti"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata in uscita non completata"
+          }
+        }
+      }
+    },
+    "UNKNOWN_USER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekannter Benutzer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown user"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuario desconocido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisateur inconnu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utente sconosciuto"
+          }
+        }
+      }
+    },
+    "UNREAD_EPHEMERAL_MESSAGE": {
+      "comment": "Subtitle displayed within a discussion cell when the message to preview is an unread ephemeral message",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungelesene temporäre Nachricht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unread ephemeral message"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensaje efímero no leído"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message éphémère non lu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messaggio effimero non letto"
+          }
+        }
+      }
+    },
+    "Unlimited": {
+      "comment": "Unlimited word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbegrenzt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlimited"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ilimitado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Illimité"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Illimitato"
+          }
+        }
+      }
+    },
+    "WITH_%@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mit %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "with %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "con %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "avec %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "con %@"
+          }
+        }
+      }
+    },
+    "WITH_%lld_PARTICIPANTS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "mit einem Teilnehmer"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%u new messages"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "mit %lld Teilnehmern"
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "No new message"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "ohne Teilnehmer"
                 }
               }
             }
           }
         },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "1 nouveau message"
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "with one participant"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%u nouveaux messages"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "with %lld participants"
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Aucun nouveau message"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "without any participant"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "con un participante"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "con %lld participantes"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "sin participantes"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "avec un participant"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "avec %lld participants"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "sans aucun participant"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "con un partecipante"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "con %lld partecipanti"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "senza partecipanti"
                 }
               }
             }
@@ -419,978 +2659,537 @@
         }
       }
     },
-    "Default" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Default"
+    "Wiped": {
+      "comment": "Wiped word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelöscht"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Par défaut"
-          }
-        }
-      }
-    },
-    "DISCUSSION_SHARED_SETTINGS_WERE_UPDATED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Discussion shared settings were updated"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiped"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les paramètres partagés de la discussion ont été mis à jour"
-          }
-        }
-      }
-    },
-    "Edited" : {
-      "comment" : "Edited word, capitalized",
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modifié"
-          }
-        }
-      }
-    },
-    "EIGHT_HOURS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "8 hours"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrado"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "8 heures"
-          }
-        }
-      }
-    },
-    "EPHEMERAL_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ephemeral message"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expiré"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Message éphémère"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancellato"
           }
         }
       }
     },
-    "FIFTEEN_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "15 days"
+    "YOU_ARE_NOW_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du bist jetzt Gruppenadministrator 😎."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "15 jours"
-          }
-        }
-      }
-    },
-    "FIVE_YEAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "5 years"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are now a group administrator 😎."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "5 ans"
-          }
-        }
-      }
-    },
-    "Forward" : {
-      "comment" : "Forward word, capitalized",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Forward"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora eres administrador del grupo 👑."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Transférer"
-          }
-        }
-      }
-    },
-    "FROM_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "from %@"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous êtes maintenant un administrateur de ce groupe 😎."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "de %@"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ora sei un amministratore del gruppo 👑."
           }
         }
       }
     },
-    "GROUP_TITLE_WHEN_NO_SPECIFIC_TITLE_IS_GIVEN" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Group with no name 😅"
+    "YOU_ARE_NO_LONGER_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du bist nicht mehr Gruppenadministrator."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Groupe sans nom 😅"
-          }
-        }
-      }
-    },
-    "INDEFINITELY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "indefinitely"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are no longer a group administrator."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Indéfiniment"
-          }
-        }
-      }
-    },
-    "LAST_MESSAGE_WAS_REMOTELY_WIPED" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message to preview was remotely wiped",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Last message was remotely wiped"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no eres administrador del grupo."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dernier message éliminé à distance"
-          }
-        }
-      }
-    },
-    "Latest Discussions" : {
-      "comment" : "Small string used in tab controller to sort by latest discussions",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Latest"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous n'êtes plus administrateur de ce groupe."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Récentes"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non sei più un amministratore del gruppo."
           }
         }
       }
     },
-    "Mark all as read" : {
-      "comment" : "Action title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark all as read"
+    "YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast einen Screenshot einer sensiblen Nachricht erstellt. Die anderen Teilnehmer wurden benachrichtigt."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tout marquer comme lu"
-          }
-        }
-      }
-    },
-    "MEMBERS_OF_GROUP_V2_WERE_UPDATED_SYSTEM_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Group members have been updated."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You took a screenshot of a sensitive message, other participants have been notified."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les membres du groupe ont été mis à jour."
-          }
-        }
-      }
-    },
-    "MESSAGE_WAS_WIPED" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message to preview is a wiped ephemeral message",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Last message was wiped 🧹"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has tomado una captura de pantalla de un mensaje confidencial. Se ha notificado a los demás participantes."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dernier message expiré 🧹"
-          }
-        }
-      }
-    },
-    "Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography." : {
-      "comment" : "System message displayed at the top of each conversation.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "🔒 Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez fait une capture d'un message sensible, les participants de cette discussion ont été notifiés."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "🔒 Les messages postés dans cette discussion sont protégés par du chiffrement de bout-en-bout. Leur confidentialité, leur authenticité et l'identité de leur expéditeur sont garanties grâce à la cryptographie."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai fatto uno screenshot di un messaggio sensibile, gli altri partecipanti sono stati avvisati."
           }
         }
       }
     },
-    "MISSED_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Missed Call"
+    "YOU_INTRODUCED_%@_TO_%@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast %@ mit %@ bekannt gemacht."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel manqué"
-          }
-        }
-      }
-    },
-    "MISSED_CALL_FILTERED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Missed call while you were in \"Focus\" mode."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You introduced %@ to %@."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel manqué alors que vous étiez en mode « Concentration »."
-          }
-        }
-      }
-    },
-    "NINETY_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "90 days"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presentaste a %@ a %@."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "90 jours"
-          }
-        }
-      }
-    },
-    "No message yet." : {
-      "comment" : "Subtitle displayed within a discussion cell when there is no message preview to display",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No message yet."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez présenté %@ à %@."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun message pour le moment."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai presentato %@ a %@."
           }
         }
       }
     },
-    "NOT_PART_OF_THE_GROUP_ANYMORE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are not part of this group anymore, either because you left it, because an administrator removed you, or because the group was deleted 🥲."
+    "YOU_INTRODUCED_%@_TO_ANOTHER_CONTACT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast %@ einem anderen Kontakt vorgestellt."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous ne faites plus partie de ce groupe, parce que vous l'avez quitté, parce qu'un administrateur vous a retiré du groupe, ou tout simplement parce que le groupe a été supprimé 🥲."
-          }
-        }
-      }
-    },
-    "ONE_DAY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 day"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You introduced %@ to another contact."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 jour"
-          }
-        }
-      }
-    },
-    "ONE_HOUR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 hour"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presentaste a %@ a otro contacto."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 heure"
-          }
-        }
-      }
-    },
-    "ONE_HUNDRED_AND_HEIGHTY_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "180 days"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez présenté %@ à un autre contact."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "180 jours"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai presentato %@ a un altro contatto."
           }
         }
       }
     },
-    "ONE_YEAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 year"
+    "YOU_INTRODUCED_THIS_CONTACT_TO_%@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast diesen Kontakt mit %@ bekannt gemacht."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 an"
-          }
-        }
-      }
-    },
-    "Read" : {
-      "comment" : "Read word, capitalized",
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lu"
-          }
-        }
-      }
-    },
-    "REJECTED_INCOMING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rejected incoming call"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You introduced this contact to %@."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel entrant rejeté"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presentaste este contacto a %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez présenté ce contact à %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai presentato questo contatto a %@."
           }
         }
       }
     },
-    "REJECTED_INCOMING_CALL_AS_RECEIVE_CALL_SETTINGS_IS_FALSE" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "mac" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "An incoming secure call was automatically rejected as you chose not to receive calls on this device. Click this message to show the setting."
+    "YOU_INTRODUCED_THIS_CONTACT_TO_ANOTHER_ONE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast diesen Kontakt mit einer anderen Person verbunden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You introduced this contact to another one."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presentaste este contacto a otra persona."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez présenté ce contact à un autre."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai presentato questo contatto a un altro."
+          }
+        }
+      }
+    },
+    "YOU_SHARED_A_PLACE": {
+      "comment": "Subtitle displayed within a discussion cell when the message is a place sharing message from you",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast einen Ort geteilt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You shared a place"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartiste un lugar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez partagé un lieu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai condiviso un luogo"
+          }
+        }
+      }
+    },
+    "YOU_STARTED_SHARING_LOCATION": {
+      "comment": "Subtitle displayed within a discussion cell when the message is a location sharing message from you",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast die Standortfreigabe gestartet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You started sharing location"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comenzaste a compartir ubicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous partagez désormais votre position"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai iniziato a condividere la posizione"
+          }
+        }
+      }
+    },
+    "YOU_STOPPED_SHARING_LOCATION": {
+      "comment": "Subtitle displayed within a discussion cell when the message is a location sharing message from you",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast die Standortfreigabe beendet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You stopped sharing location"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dejaste de compartir ubicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous ne partagez plus votre position"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai smesso di condividere la posizione"
+          }
+        }
+      }
+    },
+    "You": {
+      "comment": "You word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tú"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu"
+          }
+        }
+      }
+    },
+    "count attachments": {
+      "comment": "Number of attachments in message",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ein Anhang"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "An incoming secure call was automatically rejected as you chose not to receive calls on this device. Tap this message to show the setting."
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u Anhänge"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kein Anhang"
                 }
               }
             }
           }
         },
-        "fr" : {
-          "variations" : {
-            "device" : {
-              "mac" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Un appel entrant a été automatiquement refusé puisque vous avez choisi de ne pas recevoir d'appel sur cet appareil. Cliquez ce message pour afficher le paramètre."
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "One attachment"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Un appel entrant a été automatiquement refusé puisque vous avez choisi de ne pas recevoir d'appel sur cet appareil. Touchez cette notification pour afficher le paramètre."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The incoming call was rejected because Olvid is not allowed to access the Microphone. To never miss a call again, please go to Settings and grant Olvid access to the microphone."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'appel entrant n'a pas abouti car Olvid n'a pas l'autorisation d'accéder au micro. Pour ne plus rater d'appel, allez dans les Réglages et autorisez l'accès au micro pour Olvid."
-          }
-        }
-      }
-    },
-    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_GRANTED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The incoming call was rejected because Olvid was not allowed to access the Microphone. Fortunately, since then, this autorisation was granted. You won't miss a call again 🥳!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'appel entrant n'a pas abouti car Olvid n'avait pas l'autorisation d'accéder au micro. Fort heureusement, l'autorisation a été accordée. Vous ne raterez plus aucun appel 🥳 !"
-          }
-        }
-      }
-    },
-    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_UNDETERMINED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The incoming call was rejected because Olvid is not allowed to access the microphone. Please tap on this message to allow Olvid to access the Microphone."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'appel entrant n'a pas abouti car Olvid n'a pas l'autorisation d'accéder au micro. Cliquez sur ce message pour autoriser l'accès au micro."
-          }
-        }
-      }
-    },
-    "REJECTED_ON_OTHER_DEVICE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Call rejected on another device"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel rejeté depuis un autre appareil"
-          }
-        }
-      }
-    },
-    "REJECTED_OUTGOING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your contact is not available"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre correspondant est indisponible"
-          }
-        }
-      }
-    },
-    "REJOINED_GROUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are again part of this group ✌️."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous faites à nouveau partie du groupe ✌️"
-          }
-        }
-      }
-    },
-    "Remotely wiped" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remotely wiped"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Éliminé à distance"
-          }
-        }
-      }
-    },
-    "SEVEN_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "7 days"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "7 jours"
-          }
-        }
-      }
-    },
-    "SIX_HOUR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6 hours"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6 heures"
-          }
-        }
-      }
-    },
-    "SOMEONE" : {
-      "comment" : "placeholder if no contact name can be found",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "someone"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "quelqu’un"
-          }
-        }
-      }
-    },
-    "SOMEONE_SHARED_A_PLACE" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message is a location shared message from somebody",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ shared a place"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ a partagé un lieu"
-          }
-        }
-      }
-    },
-    "SOMEONE_STARTED_SHARING_LOCATION" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message is a location sharing message from somebody",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ started sharing location"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ partage désormais sa position"
-          }
-        }
-      }
-    },
-    "SOMEONE_STOPPED_SHARING_LOCATION" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message is a location sharing message from somebody",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ stopped sharing location"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ ne partage plus sa position"
-          }
-        }
-      }
-    },
-    "THIRTY_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 days"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 jours"
-          }
-        }
-      }
-    },
-    "This contact was deleted from your contacts, either because you did or because this contact deleted you." : {
-      "comment" : "System message displayed within a group discussion",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This contact was deleted from your Olvid contacts, either because you did or because this contact deleted you from their own contacts."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ce contact a été supprimé de vos contacts Olvid, soit par vous-même, soit parce que ce contact vous a supprimé de ses propres contacts."
-          }
-        }
-      }
-    },
-    "This discussion was remotely wiped by %@" : {
-      "comment" : "System message displayed within a group discussion",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This discussion was remotely wiped by %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette discussion a été effacée à distance par %@"
-          }
-        }
-      }
-    },
-    "This discussion was remotely wiped by %@ on %@" : {
-      "comment" : "System message displayed within a group discussion",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This discussion was remotely wiped by %@ on %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette discussion a été effacée à distance par %@ le %@"
-          }
-        }
-      }
-    },
-    "THREE_YEAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3 years"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3 ans"
-          }
-        }
-      }
-    },
-    "TWELVE_HOURS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12 hours"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12 heures"
-          }
-        }
-      }
-    },
-    "TWO_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2 days"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2 jours"
-          }
-        }
-      }
-    },
-    "UNANSWERED_OUTGOING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unanswered outgoing call"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel sortant sans réponse"
-          }
-        }
-      }
-    },
-    "UNCOMPLETED_OUTGOING_CALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uncompleted outgoing call"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appel sortant non abouti"
-          }
-        }
-      }
-    },
-    "UNKNOWN_USER" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unknown user"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utilisateur inconnu"
-          }
-        }
-      }
-    },
-    "Unlimited" : {
-      "comment" : "Unlimited word, capitalized",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unlimited"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Illimité"
-          }
-        }
-      }
-    },
-    "UNREAD_EPHEMERAL_MESSAGE" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message to preview is an unread ephemeral message",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unread ephemeral message"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Message éphémère non lu"
-          }
-        }
-      }
-    },
-    "Wiped" : {
-      "comment" : "Wiped word, capitalized",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wiped"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Expiré"
-          }
-        }
-      }
-    },
-    "WITH_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "with %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "avec %@"
-          }
-        }
-      }
-    },
-    "WITH_%lld_PARTICIPANTS" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "with one participant"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u attachments"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "with %lld participants"
-                }
-              },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "without any participant"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No attachment"
                 }
               }
             }
           }
         },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "avec un participant"
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un adjunto"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "avec %lld participants"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u adjuntos"
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "sans aucun participant"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ningún adjunto"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Une pièce jointe"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u pièces jointes"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aucune pièce jointe"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Un allegato"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u allegati"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nessun allegato"
                 }
               }
             }
@@ -1398,186 +3197,131 @@
         }
       }
     },
-    "You" : {
-      "comment" : "You word, capitalized",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You"
+    "count new messages": {
+      "comment": "Number of new messages",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 neue Nachricht"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u neue Nachrichten"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Keine neuen Nachrichten"
+                }
+              }
+            }
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous"
-          }
-        }
-      }
-    },
-    "YOU_ARE_NO_LONGER_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are no longer a group administrator."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous n'êtes plus administrateur de ce groupe."
-          }
-        }
-      }
-    },
-    "YOU_ARE_NOW_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are now a group administrator 😎."
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 new message"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u new messages"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No new message"
+                }
+              }
+            }
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous êtes maintenant un administrateur de ce groupe 😎."
-          }
-        }
-      }
-    },
-    "YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You took a screenshot of a sensitive message, other participants have been notified."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez fait une capture d'un message sensible, les participants de cette discussion ont été notifiés."
-          }
-        }
-      }
-    },
-    "YOU_INTRODUCED_%@_TO_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You introduced %@ to %@."
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 mensaje nuevo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u mensajes nuevos"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No hay mensajes nuevos"
+                }
+              }
+            }
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez présenté %@ à %@."
-          }
-        }
-      }
-    },
-    "YOU_INTRODUCED_%@_TO_ANOTHER_CONTACT" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You introduced %@ to another contact."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez présenté %@ à un autre contact."
-          }
-        }
-      }
-    },
-    "YOU_INTRODUCED_THIS_CONTACT_TO_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You introduced this contact to %@."
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 nouveau message"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u nouveaux messages"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aucun nouveau message"
+                }
+              }
+            }
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez présenté ce contact à %@."
-          }
-        }
-      }
-    },
-    "YOU_INTRODUCED_THIS_CONTACT_TO_ANOTHER_ONE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You introduced this contact to another one."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez présenté ce contact à un autre."
-          }
-        }
-      }
-    },
-    "YOU_SHARED_A_PLACE" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message is a place sharing message from you",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You shared a place"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez partagé un lieu"
-          }
-        }
-      }
-    },
-    "YOU_STARTED_SHARING_LOCATION" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message is a location sharing message from you",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You started sharing location"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous partagez désormais votre position"
-          }
-        }
-      }
-    },
-    "YOU_STOPPED_SHARING_LOCATION" : {
-      "comment" : "Subtitle displayed within a discussion cell when the message is a location sharing message from you",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You stopped sharing location"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous ne partagez plus votre position"
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 nuovo messaggio"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u nuovi messaggi"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nessun nuovo messaggio"
+                }
+              }
+            }
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

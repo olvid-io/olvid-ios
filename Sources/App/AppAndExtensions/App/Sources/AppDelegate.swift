@@ -35,6 +35,8 @@ import ObvLocation
 class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
 
     let appMainManager = AppMainManager()
+    private var menuController: ObvMenuController?
+
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: AppDelegate.self))
     static let errorDomain = "AppDelegate"
 
@@ -97,6 +99,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
         registerForRemoteNotificationsOnRealDeviceAndFailOnSimulator(application)
 
         return true
+    }
+    
+    
+    override func buildMenu(with builder: UIMenuBuilder) {
+        
+        if builder.system == .main {
+            menuController = ObvMenuController(with: builder)
+        }
+        
     }
     
     

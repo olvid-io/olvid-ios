@@ -21,18 +21,35 @@ import Foundation
 import CoreData
 import ObvLocation
 import ObvUICoreData
+import OlvidUtils
 
 
 /// This class is the datasource of the `ContinuousSharingLocationManager`. It monitors the `PersistedLocationContinuousSent` database to decide whether the location manager should continuously monitor the current device
 /// location (in order to update the `PersistedLocationContinuousSent` and to eventually send appropriate messages to contacts).
 @MainActor
-final class AppContinuousSharingLocationManagerDataSource: ContinuousSharingLocationManagerDataSource {
+final class AppContinuousSharingLocationManagerDataSource {
     
+    private let viewContext: NSManagedObjectContext
+    private let backgroundContext: NSManagedObjectContext
+
+    init(viewContext: NSManagedObjectContext, backgroundContext: NSManagedObjectContext) {
+        assert(viewContext.concurrencyType == .mainQueueConcurrencyType)
+        assert(backgroundContext.concurrencyType == .privateQueueConcurrencyType)
+        backgroundContext.automaticallyMergesChangesFromParent = true
+        self.viewContext = viewContext
+        self.backgroundContext = backgroundContext
+    }
+
     private var continuousSharingLocationManagerModelStreamManagerForStreamUUID = [UUID: ContinuousSharingLocationManagerModelStreamManager]()
     
-    func getAsyncSequenceOfContinuousSharingLocationManagerModel() throws -> (streamUUID: UUID, stream: AsyncStream<ObvLocation.ContinuousSharingLocationManagerModel>) {
-        let streamManager = ContinuousSharingLocationManagerModelStreamManager()
-        let (streamUUID, stream) = try streamManager.startStream()
+}
+
+
+extension AppContinuousSharingLocationManagerDataSource: ContinuousSharingLocationManagerDataSource {
+    
+    func getAsyncSequenceOfContinuousSharingLocationManagerModel() async throws -> (streamUUID: UUID, stream: AsyncStream<ObvLocation.ContinuousSharingLocationManagerModel>) {
+        let streamManager = ContinuousSharingLocationManagerModelStreamManager(context: backgroundContext)
+        let (streamUUID, stream) = try await streamManager.startStream()
         self.continuousSharingLocationManagerModelStreamManagerForStreamUUID[streamUUID] = streamManager
         return (streamUUID, stream)
     }
@@ -41,28 +58,17 @@ final class AppContinuousSharingLocationManagerDataSource: ContinuousSharingLoca
 
 
 extension AppContinuousSharingLocationManagerDataSource {
-    
-    private final class ContinuousSharingLocationManagerModelStreamManager: NSObject, NSFetchedResultsControllerDelegate {
-        
-        let streamUUID = UUID()
-        let frcForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice: NSFetchedResultsController<PersistedLocationContinuousSent>
-        let frcForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice: NSFetchedResultsController<PersistedLocationContinuousSent>
-        private var stream: AsyncStream<ContinuousSharingLocationManagerModel>?
-        private var continuation: AsyncStream<ContinuousSharingLocationManagerModel>.Continuation?
 
-        @MainActor
-        override init() {
-            self.frcForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice = PersistedLocationContinuousSent.getFetchedResultsControllerForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice(within: ObvStack.shared.viewContext)
-            self.frcForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice = PersistedLocationContinuousSent.getFetchedResultsControllerForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice(within: ObvStack.shared.viewContext)
-            super.init()
+    private final class ContinuousSharingLocationManagerModelStreamManager: ObvDataSourceStreamManagerWithTwoFetchedResultsController<ObvLocation.ContinuousSharingLocationManagerModel, PersistedLocationContinuousSent, PersistedLocationContinuousSent>, @unchecked Sendable {
+        
+        init(context: NSManagedObjectContext) {
+            let frcForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice = PersistedLocationContinuousSent.getFetchedResultsControllerForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice(within: context)
+            let frcForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice = PersistedLocationContinuousSent.getFetchedResultsControllerForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice(within: context)
+            super.init(frc1: frcForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice, frc2: frcForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice)
         }
         
-        private func createModel() throws -> ObvLocation.ContinuousSharingLocationManagerModel {
-            for frc in [frcForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice, frcForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice] {
-                guard let fetchedObjects = frc.fetchedObjects else {
-                    assertionFailure()
-                    throw ObvError.couldNotFetchPersistedLocationContinuousSent
-                }
+        override func createModel(fetchedObjects1: [PersistedLocationContinuousSent], fetchedObjects2: [PersistedLocationContinuousSent]) throws -> ContinuousSharingLocationManagerModel {
+            for fetchedObjects in [fetchedObjects1, fetchedObjects2] {
                 if let locationContinuousSent = fetchedObjects.first {
                     if !locationContinuousSent.isSharingLocationExpired {
                         return .init(continuousSharingLocationFromCurrentDeviceKind: .sharingFromCurrentOwnedDevice(maxExpiration: locationContinuousSent.locationSharingExpirationDate))
@@ -71,45 +77,7 @@ extension AppContinuousSharingLocationManagerDataSource {
             }
             return .init(continuousSharingLocationFromCurrentDeviceKind: .notSharingFromCurrentOwnedDevice )
         }
-        
-        @MainActor
-        func startStream() throws -> (streamUUID: UUID, stream: AsyncStream<ObvLocation.ContinuousSharingLocationManagerModel>) {
-            if let stream {
-                return (streamUUID, stream)
-            }
-            frcForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice.delegate = self
-            frcForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice.delegate = self
-            try frcForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice.performFetch()
-            try frcForMaximumExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice.performFetch()
-            let stream = AsyncStream(ObvLocation.ContinuousSharingLocationManagerModel.self) { [weak self] (continuation: AsyncStream<ObvLocation.ContinuousSharingLocationManagerModel>.Continuation) in
-                guard let self else { return }
-                self.continuation = continuation
-                do {
-                    let model = try createModel()
-                    continuation.yield(model)
-                } catch {
-                    assertionFailure()
-                }
-            }
-            self.stream = stream
-            return (streamUUID, stream)
-        }
-        
 
-        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>, didChangeContentWith diff: CollectionDifference<NSManagedObjectID>) {
-            guard let continuation else { assertionFailure(); return }
-            do {
-                let model = try createModel()
-                continuation.yield(model)
-            } catch {
-                assertionFailure()
-            }
-        }
-
-        enum ObvError: Error {
-            case couldNotFetchPersistedLocationContinuousSent
-        }
-        
     }
     
 }

@@ -189,20 +189,20 @@ public final class PersistedCallLogItem: NSManagedObject {
     }
     
     
-    private var obvGroupIdentifier: ObvGroupIdentifier? {
-        guard let groupIdentifier else { return nil }
-        switch groupIdentifier {
-        case .groupV1(let groupV1Identifier):
-            return .groupV1(.init(groupUid: groupV1Identifier.groupUid, groupOwner: groupV1Identifier.groupOwner))
-        case .groupV2(let groupV2Identifier):
-            return .groupV2(.init(groupV2Identifier))
-        }
-    }
+//    private var obvGroupIdentifier: ObvGroupIdentifier? {
+//        guard let groupIdentifier else { return nil }
+//        switch groupIdentifier {
+//        case .groupV1(let groupV1Identifier):
+//            return .groupV1(.init(groupUid: groupV1Identifier.groupUid, groupOwner: groupV1Identifier.groupOwner))
+//        case .groupV2(let groupV2Identifier):
+//            return .groupV2(.init(groupV2Identifier))
+//        }
+//    }
     
 
     // Non-nil in case of a call in a one2one discussion
     private var obvContactIdentifier: ObvContactIdentifier? {
-        guard obvGroupIdentifier == nil else { return nil }
+        guard groupIdentifier == nil else { return nil }
         guard logContacts.count == 1 else { return nil } // This can happen if another contact was added to a one2one call
         guard let contact = logContacts.first?.contactIdentity else { assertionFailure(); return nil }
         guard let obvContactIdentifier = try? contact.obvContactIdentifier else { assertionFailure(); return nil }
@@ -212,8 +212,8 @@ public final class PersistedCallLogItem: NSManagedObject {
     
     var obvDiscussionIdentifier: ObvDiscussionIdentifier? {
         guard let ownedCryptoId else { assertionFailure(); return nil }
-        if let obvGroupIdentifier {
-            switch obvGroupIdentifier {
+        if let groupIdentifier {
+            switch groupIdentifier {
             case .groupV1(let groupV1Identifier):
                 return .groupV1(id: .init(ownedCryptoId: ownedCryptoId, groupV1Identifier: groupV1Identifier))
             case .groupV2(let groupV2Identifier):
@@ -279,7 +279,7 @@ public final class PersistedCallLogItem: NSManagedObject {
     
     // MARK: - Observers
     
-    private static var observersHolder = PersistedCallLogItemObserversHolder()
+    nonisolated(unsafe) private static var observersHolder = PersistedCallLogItemObserversHolder()
     
     public static func addObserver(_ newObserver: PersistedCallLogItemObserver) async {
         await observersHolder.addObserver(newObserver)
@@ -343,7 +343,7 @@ extension PersistedCallLogItem {
             guard self.callReportKind?.toPersistedCallLogItemStructureCallReportKind() != nil else { return }
             do {
                 let callLog = try self.toStructure()
-                Task { await Self.observersHolder.aPersistedCallLogItemCallReportKindHasChanged(callLog: callLog) }
+                Task { await PersistedCallLogItem.observersHolder.aPersistedCallLogItemCallReportKindHasChanged(callLog: callLog) }
             } catch {
                 assertionFailure() // In production, continue
             }
@@ -356,7 +356,7 @@ extension PersistedCallLogItem {
 
 // MARK: - PersistedCallLogItem observers
 
-public protocol PersistedCallLogItemObserver {
+public protocol PersistedCallLogItemObserver: Sendable {
     func aPersistedCallLogItemCallReportKindHasChanged(callLog: PersistedCallLogItemStructure) async
 }
 

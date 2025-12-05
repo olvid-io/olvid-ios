@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,14 +18,15 @@
  */
 
 import Foundation
+import CoreData
 import ObvTypes
 import OlvidUtils
 
 
 public extension ObvAttachment {
     
-    init(attachmentId: ObvAttachmentIdentifier, fromContactIdentity: ObvContactIdentifier, networkFetchDelegate: ObvNetworkFetchDelegate, within obvContext: ObvContext) throws {
-        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: obvContext) else {
+    init(attachmentId: ObvAttachmentIdentifier, fromContactIdentity: ObvContactIdentifier, networkFetchDelegate: ObvNetworkFetchDelegate, within context: NSManagedObjectContext) throws {
+        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: context) else {
             throw ObvError.couldNotGetAttachment
         }
         let fromContactIdentity = fromContactIdentity

@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvMetaManager
 import ObvCrypto
@@ -63,6 +63,11 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
         protocolInstanceInputsCoordinator.delegateManager = delegateManager
         protocolStarterCoordinator.delegateManager = delegateManager
         contactTrustLevelWatcher.delegateManager = delegateManager
+        ReceivedMessage.delegateManager = delegateManager
+        
+        Task {
+            await ReceivedMessage.addObvObserver(self)
+        }
         
     }
     
@@ -145,6 +150,8 @@ extension ObvProtocolManager {
     }
     
 
+    public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
+    
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
 
         await delegateManager.contactTrustLevelWatcher.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
@@ -192,16 +199,16 @@ extension ObvProtocolManager {
         contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
             do {
                 
-                let protocolInstances = try ProtocolInstance.getAll(cryptoProtocolId: .ownedIdentityDeletionProtocol, delegateManager: delegateManager, within: obvContext)
+                let protocolInstances = try ProtocolInstance.getAll(cryptoProtocolId: .ownedIdentityDeletionProtocol, within: obvContext.context)
                     .filter({ $0.currentStateRawId == OwnedIdentityDeletionProtocol.StateId.firstDeletionStepPerformed.rawValue })
                 
                 guard !protocolInstances.isEmpty else { return }
                 
                 for protocolInstance in protocolInstances {
                     
-                    let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: protocolInstance.ownedCryptoIdentity),
-                                                          cryptoProtocolId: .ownedIdentityDeletionProtocol,
-                                                          protocolInstanceUid: protocolInstance.uid)
+                    let coreMessage = try CoreProtocolMessage(channelType: .local(ownedIdentity: protocolInstance.ownedCryptoIdentity),
+                                                              cryptoProtocolId: .ownedIdentityDeletionProtocol,
+                                                              protocolInstanceUid: protocolInstance.uid)
                     let replayMessage = OwnedIdentityDeletionProtocol.ReplayStartDeletionStepMessage(coreProtocolMessage: coreMessage)
                     guard let replayMessageToSend = replayMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         assertionFailure()
@@ -360,7 +367,7 @@ extension ObvProtocolManager {
             throw Self.makeError(message: "Could not parse the protocol received message")
         }
         
-        save(genericReceivedMessage, within: obvContext)
+        try save(genericReceivedMessage, within: obvContext)
         
     }
     
@@ -372,7 +379,7 @@ extension ObvProtocolManager {
             throw Self.makeError(message: "Could not parse the protocol received dialog response ")
         }
         
-        save(genericReceivedMessage, within: obvContext)
+        try save(genericReceivedMessage, within: obvContext)
         
     }
     
@@ -384,11 +391,13 @@ extension ObvProtocolManager {
             throw Self.makeError(message: "Could not parse the protocol received server response")
         }
         
-        save(genericReceivedMessage, within: obvContext)
+        try save(genericReceivedMessage, within: obvContext)
         
     }
     
-    private func save(_ genericReceivedMessage: GenericReceivedProtocolMessage, within obvContext: ObvContext) {
+    private func save(_ genericReceivedMessage: GenericReceivedProtocolMessage, within obvContext: ObvContext) throws {
+        
+        let delegateManager = self.delegateManager
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
             os_log("The notification delegate is not set", log: log, type: .fault)
@@ -405,26 +414,28 @@ extension ObvProtocolManager {
         
         if let receivedMessageUID = genericReceivedMessage.receivedMessageUID {
             let messageId = ObvMessageIdentifier(ownedCryptoIdentity: genericReceivedMessage.toOwnedIdentity, uid: receivedMessageUID)
-            if let existingReceivedMessage = ReceivedMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) {
+            if let existingReceivedMessage = try ReceivedMessage.get(messageId: messageId, within: obvContext.context) {
                 os_log("A ReceivedMessage with messageId %{public}@ already exist, we do not try to create a new one", log: log, type: .info, messageId.debugDescription)
                 receivedMessage = existingReceivedMessage
             } else {
                 os_log("No previous ReceivedMessage with messageId %{public}@ was found, we create it now", log: log, type: .info, messageId.debugDescription)
-                let createdReceivedMessage = ReceivedMessage(with: genericReceivedMessage, using: prng, delegateManager: delegateManager, within: obvContext)
+                let createdReceivedMessage = ReceivedMessage.createReceivedMessage(with: genericReceivedMessage, using: prng, within: obvContext.context)
                 receivedMessage = createdReceivedMessage
             }
         } else {
             os_log("We are processing a generic received message without messageId (thus, not downloaded from the network). We create a new ReceivedMessage in database", log: log, type: .info)
-            let createdReceivedMessage = ReceivedMessage(with: genericReceivedMessage, using: prng, delegateManager: delegateManager, within: obvContext)
+            let createdReceivedMessage = ReceivedMessage.createReceivedMessage(with: genericReceivedMessage, using: prng, within: obvContext.context)
             receivedMessage = createdReceivedMessage
         }
         
         // We notify that a new received message (due to a protocol received message) needs to be processed
         
         do {
+            let messageId = try receivedMessage.messageId
             try obvContext.addContextDidSaveCompletionHandler { (error) in
                 guard error == nil else { return }
-                ObvProtocolNotification.protocolMessageToProcess(protocolMessageId: receivedMessage.messageId, flowId: obvContext.flowId)
+                delegateManager.receivedMessageDelegate.processReceivedMessage(withId: messageId, flowId: obvContext.flowId)
+                ObvProtocolNotification.protocolMessageToProcess(protocolMessageId: messageId, flowId: obvContext.flowId)
                     .postOnBackgroundQueue(within: notificationDelegate)
             }
         } catch {
@@ -541,11 +552,11 @@ extension ObvProtocolManager {
     
     
     public func getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithContactDeviceProtocolInstances(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt> {
-        return try ChannelCreationWithContactDeviceProtocolInstance.getAll(within: obvContext)
+        return try ChannelCreationWithContactDeviceProtocolInstance.getAll(within: obvContext.context)
     }
 
     public func getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithOwnedDeviceProtocolInstances(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt> {
-        return try ChannelCreationWithOwnedDeviceProtocolInstance.getAll(within: obvContext)
+        return try ChannelCreationWithOwnedDeviceProtocolInstance.getAll(within: obvContext.context)
     }
 
     public func getInitialMessageForDownloadIdentityPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements) throws -> ObvChannelProtocolMessageToSend {
@@ -830,6 +841,22 @@ extension ObvProtocolManager {
     
     public func executeOnQueueForProtocolOperations<ReasonForCancelType: LocalizedErrorWithLogType>(operation: OperationWithSpecificReasonForCancel<ReasonForCancelType>) async throws {
         try await delegateManager.receivedMessageDelegate.executeOnQueueForProtocolOperations(operation: operation)
+    }
+    
+}
+
+
+// MARK: - Implementing ReceivedMessageObserver
+
+extension ObvProtocolManager: ReceivedMessageObserver {
+    
+    func aReceivedMessageWasDeleted(messageId: ObvTypes.ObvMessageIdentifier) async {
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            assertionFailure()
+            return
+        }
+        ObvProtocolNotification.protocolReceivedMessageWasDeleted(protocolMessageId: messageId)
+            .postOnBackgroundQueue(within: notificationDelegate)
     }
     
 }

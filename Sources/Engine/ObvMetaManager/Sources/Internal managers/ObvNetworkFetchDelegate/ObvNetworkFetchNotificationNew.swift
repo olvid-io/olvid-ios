@@ -44,13 +44,12 @@ public enum ObvNetworkFetchNotificationNew {
 	case wellKnownHasBeenUpdated(serverURL: URL, appInfo: [String: AppInfo], flowId: FlowIdentifier)
 	case wellKnownHasBeenDownloaded(serverURL: URL, appInfo: [String: AppInfo], flowId: FlowIdentifier)
 	case wellKnownDownloadFailure(serverURL: URL, flowId: FlowIdentifier)
-	case applicationMessagesDecrypted(messages: [ObvMessageOrObvOwnedMessage], flowId: FlowIdentifier)
 	case downloadingMessageExtendedPayloadWasPerformed(message: ObvMessageOrObvOwnedMessage, flowId: FlowIdentifier)
 	case pushTopicReceivedViaWebsocket(pushTopic: String)
 	case keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity)
 	case ownedDevicesMessageReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity)
-	case newReturnReceiptToProcess(encryptedReceivedReturnReceipt: ObvEncryptedReceivedReturnReceipt)
 	case serverAndInboxContainNoMoreUnprocessedMessages(ownedIdentity: ObvCryptoIdentity, downloadTimestampFromServer: Date)
+	case applicationMessagesWhereReceivedFromContacts(contactIds: Set<ObvContactIdentifier>)
 
 	private enum Name {
 		case fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive
@@ -64,13 +63,12 @@ public enum ObvNetworkFetchNotificationNew {
 		case wellKnownHasBeenUpdated
 		case wellKnownHasBeenDownloaded
 		case wellKnownDownloadFailure
-		case applicationMessagesDecrypted
 		case downloadingMessageExtendedPayloadWasPerformed
 		case pushTopicReceivedViaWebsocket
 		case keycloakTargetedPushNotificationReceivedViaWebsocket
 		case ownedDevicesMessageReceivedViaWebsocket
-		case newReturnReceiptToProcess
 		case serverAndInboxContainNoMoreUnprocessedMessages
+		case applicationMessagesWhereReceivedFromContacts
 
 		private var namePrefix: String { String(describing: ObvNetworkFetchNotificationNew.self) }
 
@@ -94,13 +92,12 @@ public enum ObvNetworkFetchNotificationNew {
 			case .wellKnownHasBeenUpdated: return Name.wellKnownHasBeenUpdated.name
 			case .wellKnownHasBeenDownloaded: return Name.wellKnownHasBeenDownloaded.name
 			case .wellKnownDownloadFailure: return Name.wellKnownDownloadFailure.name
-			case .applicationMessagesDecrypted: return Name.applicationMessagesDecrypted.name
 			case .downloadingMessageExtendedPayloadWasPerformed: return Name.downloadingMessageExtendedPayloadWasPerformed.name
 			case .pushTopicReceivedViaWebsocket: return Name.pushTopicReceivedViaWebsocket.name
 			case .keycloakTargetedPushNotificationReceivedViaWebsocket: return Name.keycloakTargetedPushNotificationReceivedViaWebsocket.name
 			case .ownedDevicesMessageReceivedViaWebsocket: return Name.ownedDevicesMessageReceivedViaWebsocket.name
-			case .newReturnReceiptToProcess: return Name.newReturnReceiptToProcess.name
 			case .serverAndInboxContainNoMoreUnprocessedMessages: return Name.serverAndInboxContainNoMoreUnprocessedMessages.name
+			case .applicationMessagesWhereReceivedFromContacts: return Name.applicationMessagesWhereReceivedFromContacts.name
 			}
 		}
 	}
@@ -166,11 +163,6 @@ public enum ObvNetworkFetchNotificationNew {
 				"serverURL": serverURL,
 				"flowId": flowId,
 			]
-		case .applicationMessagesDecrypted(messages: let messages, flowId: let flowId):
-			info = [
-				"messages": messages,
-				"flowId": flowId,
-			]
 		case .downloadingMessageExtendedPayloadWasPerformed(message: let message, flowId: let flowId):
 			info = [
 				"message": message,
@@ -188,14 +180,14 @@ public enum ObvNetworkFetchNotificationNew {
 			info = [
 				"ownedIdentity": ownedIdentity,
 			]
-		case .newReturnReceiptToProcess(encryptedReceivedReturnReceipt: let encryptedReceivedReturnReceipt):
-			info = [
-				"encryptedReceivedReturnReceipt": encryptedReceivedReturnReceipt,
-			]
 		case .serverAndInboxContainNoMoreUnprocessedMessages(ownedIdentity: let ownedIdentity, downloadTimestampFromServer: let downloadTimestampFromServer):
 			info = [
 				"ownedIdentity": ownedIdentity,
 				"downloadTimestampFromServer": downloadTimestampFromServer,
+			]
+		case .applicationMessagesWhereReceivedFromContacts(contactIds: let contactIds):
+			info = [
+				"contactIds": contactIds,
 			]
 		}
 		return info
@@ -314,15 +306,6 @@ public enum ObvNetworkFetchNotificationNew {
 		}
 	}
 
-	public static func observeApplicationMessagesDecrypted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping ([ObvMessageOrObvOwnedMessage], FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.applicationMessagesDecrypted.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messages = notification.userInfo!["messages"] as! [ObvMessageOrObvOwnedMessage]
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(messages, flowId)
-		}
-	}
-
 	public static func observeDownloadingMessageExtendedPayloadWasPerformed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageOrObvOwnedMessage, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.downloadingMessageExtendedPayloadWasPerformed.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
@@ -356,20 +339,20 @@ public enum ObvNetworkFetchNotificationNew {
 		}
 	}
 
-	public static func observeNewReturnReceiptToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvEncryptedReceivedReturnReceipt) -> Void) -> NSObjectProtocol {
-		let name = Name.newReturnReceiptToProcess.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let encryptedReceivedReturnReceipt = notification.userInfo!["encryptedReceivedReturnReceipt"] as! ObvEncryptedReceivedReturnReceipt
-			block(encryptedReceivedReturnReceipt)
-		}
-	}
-
 	public static func observeServerAndInboxContainNoMoreUnprocessedMessages(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, Date) -> Void) -> NSObjectProtocol {
 		let name = Name.serverAndInboxContainNoMoreUnprocessedMessages.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let downloadTimestampFromServer = notification.userInfo!["downloadTimestampFromServer"] as! Date
 			block(ownedIdentity, downloadTimestampFromServer)
+		}
+	}
+
+	public static func observeApplicationMessagesWhereReceivedFromContacts(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (Set<ObvContactIdentifier>) -> Void) -> NSObjectProtocol {
+		let name = Name.applicationMessagesWhereReceivedFromContacts.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let contactIds = notification.userInfo!["contactIds"] as! Set<ObvContactIdentifier>
+			block(contactIds)
 		}
 	}
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,19 +19,19 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvUICoreData
 
 
 final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromPersistedDraftOperationReasonForCancel>, @unchecked Sendable, UnprocessedPersistedMessageSentProvider {
     
-    private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
+    private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
     
     private(set) var messageSentPermanentID: MessageSentPermanentID?
 
-    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
-        self.draftPermanentID = draftPermanentID
+    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
+        self.draftObjectID = draftObjectID
         super.init()
     }
     
@@ -41,7 +41,7 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
         
         let draftToSend: PersistedDraft
         do {
-            guard let _draftToSend = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
+            guard let _draftToSend = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindDraftInDatabase)
             }
             draftToSend = _draftToSend

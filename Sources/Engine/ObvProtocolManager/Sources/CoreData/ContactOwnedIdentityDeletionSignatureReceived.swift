@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,7 @@ import OlvidUtils
 
 
 @objc(ContactOwnedIdentityDeletionSignatureReceived)
-final class ContactOwnedIdentityDeletionSignatureReceived: NSManagedObject, ObvManagedObject {
+final class ContactOwnedIdentityDeletionSignatureReceived: NSManagedObject {
         
     // MARK: Internal constants
 
@@ -37,23 +37,15 @@ final class ContactOwnedIdentityDeletionSignatureReceived: NSManagedObject, ObvM
     @NSManaged private var rawOwnedIdentity: Data
     @NSManaged private var signature: Data
 
-    // MARK: Variables
-            
-    private var ownedIdentity: ObvCryptoIdentity {
-        get { ObvCryptoIdentity(from: rawOwnedIdentity)! }
-        set { rawOwnedIdentity = newValue.getIdentity() }
-    }
-    
-    weak var obvContext: ObvContext?
-
     // MARK: - Initializer
 
-    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within obvContext: ObvContext) {
+    /// 2025-08-27: ok
+    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within context: NSManagedObjectContext) {
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactOwnedIdentityDeletionSignatureReceived.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactOwnedIdentityDeletionSignatureReceived.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
 
-        self.ownedIdentity = ownedCryptoIdentity
+        self.rawOwnedIdentity = ownedCryptoIdentity.getIdentity()
         self.signature = signature
         
     }
@@ -82,27 +74,31 @@ extension ContactOwnedIdentityDeletionSignatureReceived {
         }
     }
     
-    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within obvContext: ObvContext) throws -> Bool {
+    
+    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<ChannelCreationPingSignatureReceived> = ChannelCreationPingSignatureReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
             Predicate.withSignature(signature),
         ])
-        let count = try obvContext.count(for: request)
-        return count > 0
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item != nil
     }
     
-    static func deleteAllAssociatedWithOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    
+    static func deleteAllAssociatedWithOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: ContactOwnedIdentityDeletionSignatureReceived.entityName)
         fetchRequest.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
         request.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        let result = try context.execute(request) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }

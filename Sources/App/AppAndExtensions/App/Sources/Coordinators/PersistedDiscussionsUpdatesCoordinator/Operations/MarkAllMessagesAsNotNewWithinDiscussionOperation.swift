@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,17 +19,18 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvUICoreData
 import ObvTypes
+import ObvAppTypes
 
 
 final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<MarkAllMessagesAsNotNewWithinDiscussionOperation.ReasonForCancel>, @unchecked Sendable, OperationProvidingDiscussionReadJSON {
     
     enum Input {
         case persistedDiscussionObjectID(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
-        case draftPermanentID(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)
+        case draftObjectID(_ drafObjectID: TypeSafeManagedObjectID<PersistedDraft>)
         case discussionReadJSON(ownedCryptoId: ObvCryptoId, discussionRead: DiscussionReadJSON)
     }
     
@@ -45,9 +46,8 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
     private(set) var ownedIdentityHasAnotherReachableDevice = false
     
     enum Result {
-        case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
-        case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
         case processed(receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>])
+        case couldNotFindActiveDiscussionInDatabase(discussionIdentifier: ObvDiscussionIdentifier)
     }
 
     private(set) var result: Result?
@@ -68,8 +68,17 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
                 dateWhenMessageTurnedNotNew = .now
                 serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = nil
                 requestReceivedFromAnotherOwnedDevice = false
-            case .draftPermanentID(draftPermanentID: let draftPermanentID):
-                (ownedCryptoId, discussionId) = try PersistedObvOwnedIdentity.getDiscussionIdentifiers(from: draftPermanentID, within: obvContext.context)
+            case .draftObjectID(let draftObjectID):
+                guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                    assertionFailure()
+                    return cancel(withReason: .couldNotFindDraft)
+                }
+                discussionId = try draft.discussion.identifier
+                guard let _ownedCryptoId = draft.discussion.ownedIdentity?.cryptoId else {
+                    assertionFailure()
+                    return cancel(withReason: .couldNotFindOwnedIdentity)
+                }
+                ownedCryptoId = _ownedCryptoId
                 dateWhenMessageTurnedNotNew = .now
                 serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = nil
                 requestReceivedFromAnotherOwnedDevice = false
@@ -104,38 +113,64 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
                 assertionFailure(error.localizedDescription) // Continue anyway
             }
             
-            result = .processed(receivedMessagesForReadReceipts: markAllMessagesAsNotNewResult?.receivedMessagesForReadReceipts ?? [])
+            return result = .processed(receivedMessagesForReadReceipts: markAllMessagesAsNotNewResult?.receivedMessagesForReadReceipts ?? [])
             
         } catch {
             if let error = error as? ObvUICoreDataError {
-                switch error {
-                case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
-                    result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
-                    return
-                case .couldNotFindDiscussionWithId(discussionId: let discussionId):
-                    switch discussionId {
-                    case .groupV2(let id):
-                        switch id {
-                        case .groupV2Identifier(let groupIdentifier):
-                            result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
-                            return
-                        case .objectID:
-                            assertionFailure()
-                            return cancel(withReason: .coreDataError(error: error))
-                        }
-                    case .oneToOne(id: let discussionId):
-                        switch discussionId {
-                        case .objectID:
-                            assertionFailure()
-                            return cancel(withReason: .coreDataError(error: error))
-                        case .contactCryptoId(let contactCryptoId):
-                            result = .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactCryptoId)
-                            return
-                        }
-                    case .groupV1:
+                
+                // The only case we return a result that allows to keep a message for later is when the
+                // request comes from another owned device.
+                let discussionIdentifier: ObvDiscussionIdentifier
+                switch input {
+                case .draftObjectID, .persistedDiscussionObjectID:
+                    assertionFailure()
+                    return cancel(withReason: .coreDataError(error: error))
+                case .discussionReadJSON(ownedCryptoId: let ownedCryptoId, discussionRead: let discussionReadJSON):
+                    do {
+                        discussionIdentifier = try discussionReadJSON.getObvDiscussionId(ownedCryptoId: ownedCryptoId)
+                    } catch {
                         assertionFailure()
                         return cancel(withReason: .coreDataError(error: error))
                     }
+                }
+                
+                switch error {
+                    
+                case .couldNotFindDiscussion,
+                        .cannotChangeShareConfigurationOfLockedDiscussion,
+                        .cannotChangeShareConfigurationOfPreDiscussion:
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
+                case .couldNotFindGroupV1InDatabase:
+                    // If a group does not exist, any associated discussion also cannot exist.
+                    // Therefore, return a `couldNotFindActiveDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created,
+                    // which occurs automatically upon group creation.
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
+                case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
+                    // If a group does not exist, any associated discussion also cannot exist.
+                    // Therefore, return a `couldNotFindActiveDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created,
+                    // which occurs automatically upon group creation.
+                    assert(discussionIdentifier == ObvDiscussionIdentifier.groupV2(id: groupIdentifier))
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
+                case .couldNotFindOneToOneContactWithId(contactIdentifier: let contactIdentifier):
+                    // This can happen when receiving a shared config from a contact who just accepted
+                    // our invitation to be a oneToOne contact. We should not fail as this case is handled:
+                    // we will soon turn her into a oneToOne contact, and thus,
+                    // send her back our own shared config for the discussion.
+                    // Upon receiving our discussion shared settings, she will
+                    // again send us back her shared settings if required.
+                    //
+                    // If a contact is not one-to-one, any associated discussion is locked, or cannot exist.
+                    // Therefore, return a `couldNotFindDiscussionInDatabase` result.
+                    // The message will remain on hold until the discussion is created, or if the existing discussion
+                    // status is set to active again.
+                    let discussionIdentifier = ObvDiscussionIdentifier.oneToOne(id: contactIdentifier)
+                    return result = .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+
                 default:
                     assertionFailure()
                     return cancel(withReason: .coreDataError(error: error))
@@ -155,12 +190,14 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
         case couldNotFindDiscussion
         case contextIsNil
         case couldNotFindOwnedIdentity
+        case couldNotFindDraft
 
         var logType: OSLogType {
             switch self {
             case .coreDataError,
                     .contextIsNil,
-                    .couldNotFindOwnedIdentity:
+                    .couldNotFindOwnedIdentity,
+                    .couldNotFindDraft:
                 return .fault
             case .couldNotFindDiscussion:
                 return .error
@@ -177,6 +214,8 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
                 return "Could not find discussion in database"
             case .couldNotFindOwnedIdentity:
                 return "Could not find owned identity"
+            case .couldNotFindDraft:
+                return "Could not find draft"
             }
         }
 

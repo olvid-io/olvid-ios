@@ -19,23 +19,48 @@
 
 
 import SwiftUI
+import ObvSystemIcon
+import ObvTypes
 
 
-public protocol PersonalNoteEditorViewModelProtocol {
-    var initialText: String? { get }
+@MainActor
+public protocol PersonalNoteEditorViewActions {
+    func userWantsToUpdatePersonalNote(_ view: PersonalNoteEditorView, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws
 }
 
-
-public protocol PersonalNoteEditorViewActionsDelegate {
-    func userWantsToDismissPersonalNoteEditorView() async
-    func userWantsToUpdatePersonalNote(with newText: String?) async
+@MainActor
+public protocol PersonalNoteEditorViewNavigation {
+    func userWantsToDismissPersonalNoteEditorView(_ view: PersonalNoteEditorView)
 }
 
-
-public struct PersonalNoteEditorView<Model: PersonalNoteEditorViewModelProtocol>: View {
+public struct PersonalNoteEditorView: View {
     
     let model: Model
-    let actions: PersonalNoteEditorViewActionsDelegate
+    let actions: any PersonalNoteEditorViewActions
+    let navigation: any PersonalNoteEditorViewNavigation
+    
+    public init(model: Model, actions: PersonalNoteEditorViewActions, navigation: any PersonalNoteEditorViewNavigation) {
+        self.model = model
+        self.actions = actions
+        self.navigation = navigation
+    }
+    
+    public struct Model {
+        let about: About
+        let initialText: String?
+        
+        public init(initialText: String?, about: About) {
+            self.initialText = initialText
+            self.about = about
+        }
+        
+        public enum About {
+            case contact(ObvContactIdentifier)
+            case groupV1(ObvGroupV1Identifier)
+            case groupV2(ObvGroupV2Identifier)
+        }
+        
+    }
     
     @State private var text = ""
     @State private var isOkButtonDisabled = true
@@ -43,9 +68,7 @@ public struct PersonalNoteEditorView<Model: PersonalNoteEditorViewModelProtocol>
     @FocusState private var isFocused: Bool
     
     private func cancel() {
-        Task {
-            await actions.userWantsToDismissPersonalNoteEditorView()
-        }
+        navigation.userWantsToDismissPersonalNoteEditorView(self)
     }
     
     private func setInitialTextValue() {
@@ -60,7 +83,12 @@ public struct PersonalNoteEditorView<Model: PersonalNoteEditorViewModelProtocol>
     private func ok() {
         let newText = self.text
         Task {
-            await actions.userWantsToUpdatePersonalNote(with: newText)
+            do {
+                try await actions.userWantsToUpdatePersonalNote(self, with: newText, about: model.about)
+                navigation.userWantsToDismissPersonalNoteEditorView(self)
+            } catch {
+                assertionFailure()
+            }
         }
     }
     
@@ -85,16 +113,12 @@ public struct PersonalNoteEditorView<Model: PersonalNoteEditorViewModelProtocol>
                 .onChange(of: text, perform: textDidChange)
                 .foregroundColor(isShowingPlaceHolderText ? .secondary : .primary)
             HStack {
-                OlvidButton(
-                    style: .standardWithBlueText,
-                    title: Text("Cancel"),
-                    systemIcon: .xmarkCircle,
-                    action: cancel)
-                OlvidButton(
-                    style: .blue,
-                    title: Text("Ok"),
-                    systemIcon: .checkmarkCircle,
-                    action: ok)
+                OlvidButtonNew(action: cancel, style: .glassOrBordered) {
+                    Label(title: { Text("Cancel") }, icon: { Image(systemIcon: .xmarkCircle) })
+                }
+                OlvidButtonNew(action: ok) {
+                    Label(title: { Text("Ok") }, icon: { Image(systemIcon: .checkmarkCircle) })
+                }
                 .disabled(isOkButtonDisabled)
             }
         }
@@ -105,27 +129,27 @@ public struct PersonalNoteEditorView<Model: PersonalNoteEditorViewModelProtocol>
 }
 
 
+#if DEBUG
 
-struct PersonalNoteEditorView_Previews: PreviewProvider {
-    
-    private struct ModelForPreviews: PersonalNoteEditorViewModelProtocol {
-        let initialText: String?
-    }
-    
-    private struct ActionsForPreviews: PersonalNoteEditorViewActionsDelegate {
-        func userWantsToUpdatePersonalNote(with newText: String?) async {}
-        func userWantsToDismissPersonalNoteEditorView() async {}
-    }
-    
-    static var previews: some View {
-        Group {
-            PersonalNoteEditorView(
-                model: ModelForPreviews(initialText: "Some note writted before"),
-                actions: ActionsForPreviews())
-            PersonalNoteEditorView(
-                model: ModelForPreviews(initialText: nil),
-                actions: ActionsForPreviews())
-        }
-    }
-    
+@MainActor
+private struct ActionsForPreviews: PersonalNoteEditorViewActions {
+    func userWantsToUpdatePersonalNote(_ view: PersonalNoteEditorView, with newText: String?, about: PersonalNoteEditorView.Model.About) {}
 }
+
+@MainActor
+extension ActionsForPreviews: PersonalNoteEditorViewNavigation {
+    func userWantsToDismissPersonalNoteEditorView(_ view: PersonalNoteEditorView) {}
+}
+
+@MainActor
+private let actionsForPreviews = ActionsForPreviews()
+
+#Preview {
+    PersonalNoteEditorView(
+        model: .init(initialText: "Some note writted before",
+                     about: .contact(.sampleData)),
+        actions: actionsForPreviews,
+        navigation: actionsForPreviews)
+}
+
+#endif

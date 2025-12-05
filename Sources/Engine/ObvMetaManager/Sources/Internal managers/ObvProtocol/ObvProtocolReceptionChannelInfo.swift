@@ -234,7 +234,7 @@ extension ObvProtocolReceptionChannelInfo {
                 switch other {
                 case .obliviousChannel(remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: _),
                         .preKeyChannel(remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: _):
-                    if try identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext),
+                    if try identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context),
                        try identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: remoteCryptoIdentity, within: obvContext) {
                         return true
                     } else if remoteCryptoIdentity == ownedIdentity {
@@ -248,7 +248,7 @@ extension ObvProtocolReceptionChannelInfo {
             case .anyObliviousChannel(ownedIdentity: let ownedIdentity):
                 switch other {
                 case .obliviousChannel(remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: _):
-                    if try identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext),
+                    if try identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context),
                        try identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: remoteCryptoIdentity, within: obvContext) {
                         return true
                     } else if remoteCryptoIdentity == ownedIdentity {

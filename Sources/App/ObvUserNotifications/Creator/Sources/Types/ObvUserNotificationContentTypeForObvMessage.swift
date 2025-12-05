@@ -39,6 +39,9 @@ public enum ObvUserNotificationContentTypeForObvMessage {
     case addReactionOnSentMessage(content: UNNotificationContent, sentMessageReactedTo: ObvMessageAppIdentifier, reactor: ObvContactIdentifier, userNotificationCategory: ObvUserNotificationCategoryIdentifier)
     case removeReactionOnSentMessage(content: UNNotificationContent, sentMessageReactedTo: ObvMessageAppIdentifier, reactor: ObvContactIdentifier)
 
+    case addPollVoteOnSentMessage(content: UNNotificationContent, sentMessageVotedTo: ObvMessageAppIdentifier, reactor: ObvContactIdentifier, userNotificationCategory: ObvUserNotificationCategoryIdentifier)
+    case removePollVoteOnSentMessage(content: UNNotificationContent, sentMessageVotedTo: ObvMessageAppIdentifier, reactor: ObvContactIdentifier)
+    
     case removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: UNNotificationContent, obvDiscussionIdentifier: ObvDiscussionIdentifier)
 
     public var content: UNNotificationContent {
@@ -60,6 +63,10 @@ public enum ObvUserNotificationContentTypeForObvMessage {
         case .removeReactionOnSentMessage(content: let content, sentMessageReactedTo:_, reactor: _):
             return content
         case .removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: let content, obvDiscussionIdentifier: _):
+            return content
+        case .addPollVoteOnSentMessage(content: let content, sentMessageVotedTo: _, reactor: _, userNotificationCategory: _):
+            return content
+        case .removePollVoteOnSentMessage(content: let content, sentMessageVotedTo: _, reactor: _):
             return content
         }
     }
@@ -89,6 +96,10 @@ public enum ObvUserNotificationContentTypeForObvMessage {
             return .removeReactionOnSentMessage(content: mutableContent, sentMessageReactedTo: sentMessageReactedTo, reactor: reactor)
         case .removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: _, obvDiscussionIdentifier: let obvDiscussionIdentifier):
             return .removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: mutableContent, obvDiscussionIdentifier: obvDiscussionIdentifier)
+        case .addPollVoteOnSentMessage(content: let mutableContent, sentMessageVotedTo: let sentMessageVotedTo, reactor: let reactor, userNotificationCategory: let userNotificationCategory):
+            return .addPollVoteOnSentMessage(content: mutableContent, sentMessageVotedTo: sentMessageVotedTo, reactor: reactor, userNotificationCategory: userNotificationCategory)
+        case .removePollVoteOnSentMessage(content: let mutableContent, sentMessageVotedTo: let sentMessageVotedTo, reactor: let reactor):
+            return .removePollVoteOnSentMessage(content: mutableContent, sentMessageVotedTo: sentMessageVotedTo, reactor: reactor)
         }
             
     }

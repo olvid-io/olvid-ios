@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvMetaManager
@@ -28,12 +28,10 @@ final class SetWebSocketPendingServerQueryResponseOperation: ContextualOperation
     
     private let pendingServerQueryObjectId: NSManagedObjectID
     private let serverResponseType: ServerResponse.ResponseType
-    private let delegateManager: ObvNetworkFetchDelegateManager
     
-    init(pendingServerQueryObjectId: NSManagedObjectID, serverResponseType: ServerResponse.ResponseType, delegateManager: ObvNetworkFetchDelegateManager) {
+    init(pendingServerQueryObjectId: NSManagedObjectID, serverResponseType: ServerResponse.ResponseType) {
         self.pendingServerQueryObjectId = pendingServerQueryObjectId
         self.serverResponseType = serverResponseType
-        self.delegateManager = delegateManager
         super.init()
     }
     
@@ -41,7 +39,7 @@ final class SetWebSocketPendingServerQueryResponseOperation: ContextualOperation
         
         do {
             
-            guard let pendingServerQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectId, delegateManager: delegateManager, within: obvContext) else {
+            guard let pendingServerQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectId, within: obvContext.context) else {
                 assertionFailure()
                 return cancel(withReason: .couldNotFindPendingServerQueryInDatabase)
             }

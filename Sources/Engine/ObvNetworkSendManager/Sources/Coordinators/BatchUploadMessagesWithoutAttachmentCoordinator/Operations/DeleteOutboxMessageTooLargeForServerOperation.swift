@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,18 +26,16 @@ import OlvidUtils
 final class DeleteOutboxMessageTooLargeForServerOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
     
     private let messageId: ObvMessageIdentifier
-    private let delegateManager: ObvNetworkSendDelegateManager
 
-    init(messageId: ObvMessageIdentifier, delegateManager: ObvNetworkSendDelegateManager) {
+    init(messageId: ObvMessageIdentifier) {
         self.messageId = messageId
-        self.delegateManager = delegateManager
         super.init()
     }
     
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         do {
-            try OutboxMessage.delete(messageId: messageId, delegateManager: delegateManager, within: obvContext)
+            try OutboxMessage.delete(messageId: messageId, within: obvContext.context)
         } catch {
             assertionFailure()
         }

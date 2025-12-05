@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,20 +18,24 @@
  */
 
 import Foundation
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvMetaManager
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
-import os.log
 
 
 @objc(ContactGroupV2Details)
-final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+final class ContactGroupV2Details: NSManagedObject, ObvErrorMaker {
 
     private static let entityName = "ContactGroupV2Details"
     static let errorDomain = "ContactGroupV2Details"
+    
+    static weak var delegateManager: ObvIdentityDelegateManager?
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static var logger: Logger = { Logger(subsystem: ContactGroupV2Details.logSubsystem, category: "ContactGroupV2Details") }()
 
     // Attributes
     
@@ -100,27 +104,23 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     
     // Other variables
 
-    weak var obvContext: ObvContext?
-    var delegateManager: ObvIdentityDelegateManager?
     private var isRestoringBackup = false
     private var changedKeys = Set<String>()
+    private var photoURLsToDeleteOnDidSave = Set<URL>()
 
     // MARK: - Initializer
     
-    convenience init(serverPhotoInfo: GroupV2.ServerPhotoInfo?, serializedCoreDetails: Data, photoURL: URL?, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) {
+    convenience init(serverPhotoInfo: GroupV2.ServerPhotoInfo?, serializedCoreDetails: Data, photoURL: URL?, within context: NSManagedObjectContext) {
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Details.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.delegateManager = delegateManager
-
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: Self.entityName)
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Details.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
 
         self.serverPhotoInfo = serverPhotoInfo
         self.serializedCoreDetails = serializedCoreDetails
         do {
-            try self.setGroupPhoto(with: photoURL, delegateManager: delegateManager)
+            try self.setGroupPhoto(with: photoURL)
         } catch {
-            os_log("Could not set group photo: %{public}@", log: log, type: .fault, error.localizedDescription)
+            Self.logger.fault("Could not set group photo: \(error.localizedDescription)")
             assertionFailure() // Continue anyway
         }
         
@@ -128,22 +128,21 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(backupItem: ContactGroupV2DetailsBackupItem, within obvContext: ObvContext) {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Details.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(backupItem: ContactGroupV2DetailsBackupItem, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Details.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.rawPhotoServerIdentity = backupItem.rawPhotoServerIdentity
         self.rawPhotoServerKeyEncoded = backupItem.rawPhotoServerKeyEncoded
         self.photoServerLabel = backupItem.photoServerLabel
         self.serializedCoreDetails = backupItem.serializedCoreDetails
         self.isRestoringBackup = true
-        self.delegateManager = nil
     }
 
     
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreated in a second step
-    fileprivate convenience init(snapshotNode: ContactGroupV2DetailsSyncSnapshotNode, within obvContext: ObvContext) throws {
-        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Details.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
+    fileprivate convenience init(snapshotNode: ContactGroupV2DetailsSyncSnapshotNode, within context: NSManagedObjectContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Details.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.rawPhotoServerIdentity = snapshotNode.rawPhotoServerIdentity
         self.rawPhotoServerKeyEncoded = snapshotNode.rawPhotoServerKeyEncoded
         self.photoServerLabel = snapshotNode.photoServerLabel
@@ -153,23 +152,19 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         }
         self.serializedCoreDetails = serializedCoreDetails
         self.isRestoringBackup = true
-        self.delegateManager = nil
     }
 
     
-    func delete(delegateManager: ObvIdentityDelegateManager) throws {
-        let identityPhotosDirectory = delegateManager.identityPhotosDirectory
-        guard let obvContext = obvContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
-        if let currentPhotoURL = self.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory) {
-            try obvContext.addContextDidSaveCompletionHandler { error in
-                guard error == nil else { return }
-                if FileManager.default.fileExists(atPath: currentPhotoURL.path) {
-                    try? FileManager.default.removeItem(at: currentPhotoURL)
-                }
+    func delete() throws {
+        guard let context = self.managedObjectContext else { assertionFailure(); throw ObvIdentityManagerError.contextIsNil }
+        do {
+            if let currentPhotoURL = try self.getPhotoURL() {
+                photoURLsToDeleteOnDidSave.insert(currentPhotoURL)
             }
+        } catch {
+            assertionFailure()
         }
-        self.delegateManager = delegateManager
-        obvContext.delete(self)
+        context.delete(self)
     }
 
     
@@ -181,8 +176,8 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         }
     }
     
-    func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
-        guard let url = getRawPhotoURL(identityPhotosDirectory: identityPhotosDirectory) else { return nil }
+    func getPhotoURL() throws -> URL? {
+        guard let url = try getRawPhotoURL() else { return nil }
         guard FileManager.default.fileExists(atPath: url.path) else {
             //assertionFailure()
             return nil
@@ -190,15 +185,23 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         return url
     }
 
-    private func getRawPhotoURL(identityPhotosDirectory: URL) -> URL? {
-        guard let photoFilename = photoFilename else { return nil }
+    private func getRawPhotoURL() throws -> URL? {
+        guard let identityPhotosDirectory = Self.delegateManager?.identityPhotosDirectory else {
+            assertionFailure()
+            throw ObvIdentityManagerError.delegateManagerIsNotSet
+        }
+        guard let photoFilename else { return nil }
         let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
         return url
     }
 
     
-    func getPhotoURLAndUploader(identityPhotosDirectory: URL) -> (url: URL, uploader: ObvCryptoIdentity)? {
-        guard let photoFilename = photoFilename, let rawPhotoServerIdentity = rawPhotoServerIdentity else { return nil }
+    func getPhotoURLAndUploader() throws -> (url: URL, uploader: ObvCryptoIdentity)? {
+        guard let identityPhotosDirectory = Self.delegateManager?.identityPhotosDirectory else {
+            assertionFailure()
+            throw ObvIdentityManagerError.delegateManagerIsNotSet
+        }
+        guard let photoFilename, let rawPhotoServerIdentity = rawPhotoServerIdentity else { return nil }
         let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
         guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
         guard let uploader = ObvCryptoIdentity(from: rawPhotoServerIdentity) else { assertionFailure(); return nil }
@@ -206,8 +209,12 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     }
 
     
-    func getPhotoURLAndServerPhotoInfo(identityPhotosDirectory: URL) throws -> (photoURL: URL, serverPhotoInfo: GroupV2.ServerPhotoInfo)? {
-        guard let photoFilename = photoFilename, let rawPhotoServerIdentity = rawPhotoServerIdentity, let rawPhotoServerKeyEncoded, let photoServerLabel else { return nil }
+    func getPhotoURLAndServerPhotoInfo() throws -> (photoURL: URL, serverPhotoInfo: GroupV2.ServerPhotoInfo)? {
+        guard let identityPhotosDirectory = Self.delegateManager?.identityPhotosDirectory else {
+            assertionFailure()
+            throw ObvIdentityManagerError.delegateManagerIsNotSet
+        }
+        guard let photoFilename, let rawPhotoServerIdentity = rawPhotoServerIdentity, let rawPhotoServerKeyEncoded, let photoServerLabel else { return nil }
         let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
         guard FileManager.default.fileExists(atPath: url.path) else {
             assertionFailure()
@@ -221,22 +228,22 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     }
 
     
-    func setGroupPhoto(data: Data, delegateManager: ObvIdentityDelegateManager) throws {
-        guard let photoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { throw Self.makeError(message: "Could not get fresh path for photo") }
+    func setGroupPhoto(data: Data) throws {
+        guard let identityPhotosDirectory = Self.delegateManager?.identityPhotosDirectory else {
+            assertionFailure()
+            throw ObvIdentityManagerError.delegateManagerIsNotSet
+        }
+        guard let photoURLInEngine = freshPath(in: identityPhotosDirectory) else { throw Self.makeError(message: "Could not get fresh path for photo") }
         try data.write(to: photoURLInEngine)
-        try setGroupPhoto(with: photoURLInEngine, delegateManager: delegateManager)
+        try setGroupPhoto(with: photoURLInEngine)
         try FileManager.default.removeItem(at: photoURLInEngine) // The previous call created another hard link so we can delete the file we just created
-        self.delegateManager = delegateManager
     }
     
     
     /// Compare `self` to other details. If everything is identical (including the bytes of the photo) excepted for the `serverPhotoInfo`, this method returns `true`. Otherwise, it returns `false`.
     ///
     /// This is usefull when comparing trusted details to published details. If comparing these details with this method returns `true` then we can replace trusted details by the published details as it makes no difference to the user.
-    func trustedDetailsAreIdenticalToOtherDetailsExceptForTheServerPhotoInfo(publishedDetails: ContactGroupV2Details, delegateManager: ObvIdentityDelegateManager) -> Bool {
-        
-        self.delegateManager = delegateManager
-        let identityPhotosDirectory = delegateManager.identityPhotosDirectory
+    func trustedDetailsAreIdenticalToOtherDetailsExceptForTheServerPhotoInfo(publishedDetails: ContactGroupV2Details) throws -> Bool {
         
         // Make sure we are comparing trusted details to published details, and make sure the corresponding group is the same
         
@@ -252,7 +259,7 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         
         // Compare the photos bytes
         
-        switch (self.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory), publishedDetails.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)) {
+        switch (try self.getPhotoURL(), try publishedDetails.getPhotoURL()) {
         case (.some(let trustedPhotoURL), .some(let publishedPhotoURL)):
             guard FileManager.default.fileExists(atPath: trustedPhotoURL.path) && FileManager.default.fileExists(atPath: publishedPhotoURL.path) else { assertionFailure(); return false }
             guard FileManager.default.contentsEqual(atPath: trustedPhotoURL.path, andPath: publishedPhotoURL.path) else { return false }
@@ -269,11 +276,14 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     }
     
     
-    private func setGroupPhoto(with newPhotoURL: URL?, delegateManager: ObvIdentityDelegateManager) throws {
+    private func setGroupPhoto(with newPhotoURL: URL?) throws {
         
-        self.delegateManager = delegateManager
-        
-        let currentPhotoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) // Can be nil
+        guard let identityPhotosDirectory = Self.delegateManager?.identityPhotosDirectory else {
+            assertionFailure()
+            throw ObvIdentityManagerError.delegateManagerIsNotSet
+        }
+
+        let currentPhotoURL = try getPhotoURL() // Can be nil
         
         guard currentPhotoURL != newPhotoURL else { return }
 
@@ -292,15 +302,15 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
             self.photoFilename = nil
         }
 
-        assert(getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) == nil)
+        assert((try? getPhotoURL()) == nil)
 
         // If there is a new photo URL, we create a fresh new hard link to it.
         // Creating a hard link prevents the deletion of a photo referenced by another ContactGroupDetails instance.
         
-        if let newPhotoURL = newPhotoURL {
+        if let newPhotoURL {
             assert(FileManager.default.fileExists(atPath: newPhotoURL.path))
             if FileManager.default.fileExists(atPath: newPhotoURL.path) {
-                guard let newPhotoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { assertionFailure(); throw Self.makeError(message: "Could not get fresh path for photo") }
+                guard let newPhotoURLInEngine = freshPath(in: identityPhotosDirectory) else { assertionFailure(); throw Self.makeError(message: "Could not get fresh path for photo") }
                 do {
                     try FileManager.default.linkItem(at: newPhotoURL, to: newPhotoURLInEngine)
                 } catch {
@@ -326,9 +336,9 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     }
 
 
-    func hasPhotoForServerPhotoInfo(_ serverPhotoInfo: GroupV2.ServerPhotoInfo, delegateManager: ObvIdentityDelegateManager) -> Bool {
+    func hasPhotoForServerPhotoInfo(_ serverPhotoInfo: GroupV2.ServerPhotoInfo) throws -> Bool {
         guard self.serverPhotoInfo == serverPhotoInfo else { return false }
-        guard let photoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else { return false }
+        guard let photoURL = try getPhotoURL() else { return false }
         guard FileManager.default.fileExists(atPath: photoURL.path) else { return false }
         return true
     }
@@ -337,21 +347,19 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     // MARK: - Creating or updating (trusted) details of a keycloak group
     
     /// Returns ServerPhotoInfo if a photo needs to be downloaded
-    static func createOrUpdateContactGroupV2Details(for contactGroupV2: ContactGroupV2, keycloakGroupBlob: KeycloakGroupBlob, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) -> GroupV2.ServerPhotoInfo? {
+    static func createOrUpdateContactGroupV2Details(for contactGroupV2: ContactGroupV2, keycloakGroupBlob: KeycloakGroupBlob, within context: NSManagedObjectContext) throws -> GroupV2.ServerPhotoInfo? {
         
         let serverPhotoInfoIfPhotoNeedsToBeDownloaded: GroupV2.ServerPhotoInfo?
 
         if let self = contactGroupV2.trustedDetails {
-            serverPhotoInfoIfPhotoNeedsToBeDownloaded = self.updateKeycloakContactGroupV2Details(
+            serverPhotoInfoIfPhotoNeedsToBeDownloaded = try self.updateKeycloakContactGroupV2Details(
                 keycloakGroupBlob: keycloakGroupBlob,
-                delegateManager: delegateManager,
-                within: obvContext)
+                within: context)
         } else {
             serverPhotoInfoIfPhotoNeedsToBeDownloaded = createKeycloakContactGroupV2Details(
                 for: contactGroupV2,
                 keycloakGroupBlob: keycloakGroupBlob,
-                delegateManager: delegateManager,
-                within: obvContext)
+                within: context)
         }
         
         return serverPhotoInfoIfPhotoNeedsToBeDownloaded
@@ -360,15 +368,14 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     
     
     /// Returns ServerPhotoInfo if a photo needs to be downloaded
-    private static func createKeycloakContactGroupV2Details(for contactGroupV2: ContactGroupV2, keycloakGroupBlob: KeycloakGroupBlob, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) ->  GroupV2.ServerPhotoInfo? {
+    private static func createKeycloakContactGroupV2Details(for contactGroupV2: ContactGroupV2, keycloakGroupBlob: KeycloakGroupBlob, within context: NSManagedObjectContext) ->  GroupV2.ServerPhotoInfo? {
         
         assert(contactGroupV2.trustedDetails == nil)
         
         let trustedDetails = ContactGroupV2Details(serverPhotoInfo: keycloakGroupBlob.serverPhotoInfo,
                                                    serializedCoreDetails: keycloakGroupBlob.serializedGroupCoreDetails,
                                                    photoURL: nil,
-                                                   delegateManager: delegateManager,
-                                                   within: obvContext)
+                                                   within: context)
         
         trustedDetails.contactGroupInCaseTheDetailsAreTrusted = contactGroupV2
 
@@ -378,7 +385,7 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     
     
     /// Returns ServerPhotoInfo if a photo needs to be downloaded
-    private func updateKeycloakContactGroupV2Details(keycloakGroupBlob: KeycloakGroupBlob, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) -> GroupV2.ServerPhotoInfo? {
+    private func updateKeycloakContactGroupV2Details(keycloakGroupBlob: KeycloakGroupBlob, within context: NSManagedObjectContext) throws -> GroupV2.ServerPhotoInfo? {
         
         let serverPhotoInfoIfPhotoNeedsToBeDownloaded: GroupV2.ServerPhotoInfo?
 
@@ -387,18 +394,13 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         if self.serverPhotoInfo != keycloakGroupBlob.serverPhotoInfo {
             serverPhotoInfoIfPhotoNeedsToBeDownloaded = keycloakGroupBlob.serverPhotoInfo
             // If there is a photo, delete it as a new one will be downloaded from the server
-            if let currentPhotoURL = self.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
-                try? obvContext.addContextDidSaveCompletionHandler({ error in
-                    guard error == nil else { return }
-                    if FileManager.default.fileExists(atPath: currentPhotoURL.path) {
-                        try? FileManager.default.removeItem(at: currentPhotoURL)
-                    }
-                })
+            if let currentPhotoURL = try self.getPhotoURL() {
+                self.photoURLsToDeleteOnDidSave.insert(currentPhotoURL)
             }
             self.deletePhotoFilename()
             // The new serverPhotoInfo
             self.serverPhotoInfo = keycloakGroupBlob.serverPhotoInfo
-        } else if self.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) == nil {
+        } else if try self.getPhotoURL() == nil {
             // The server photo infos did not changed, but the photo is still not available. We need to download it.
             serverPhotoInfoIfPhotoNeedsToBeDownloaded = keycloakGroupBlob.serverPhotoInfo
         } else {
@@ -449,16 +451,16 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     }
 
     
-    static func getInfosAboutGroupsHavingPhotoFilename(identityPhotosDirectory: URL, within obvContext: ObvContext) throws -> [(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo, photoURL: URL)] {
+    static func getInfosAboutGroupsHavingPhotoFilename(within context: NSManagedObjectContext) throws -> [(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo, photoURL: URL)] {
         
         let request: NSFetchRequest<ContactGroupV2Details> = ContactGroupV2Details.fetchRequest()
         request.predicate = Predicate.withPhotoFilename
-        let items = try obvContext.fetch(request)
-        let results: [(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo, photoURL: URL)] = items.compactMap { details in
+        let items = try context.fetch(request)
+        let results: [(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo, photoURL: URL)] = try items.compactMap { details in
             
-            guard let photoURL = details.getRawPhotoURL(identityPhotosDirectory: identityPhotosDirectory),
+            guard let photoURL = try details.getRawPhotoURL(),
                   let group = details.contactGroupInCaseTheDetailsArePublished ?? details.contactGroupInCaseTheDetailsAreTrusted,
-                  let ownedIdentity = group.ownedIdentity?.cryptoIdentity,
+                  let ownedIdentity = try group.ownedIdentity?.cryptoIdentity,
                   let groupIdentifier = group.groupIdentifier,
                   let serverPhotoInfo = details.serverPhotoInfo
             else {
@@ -470,26 +472,26 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     }
     
     
-    static func getAllPhotoURLs(identityPhotosDirectory: URL, within obvContext: ObvContext) throws -> Set<URL> {
+    static func getAllPhotoURLs(within context: NSManagedObjectContext) throws -> Set<URL> {
         let request: NSFetchRequest<ContactGroupV2Details> = ContactGroupV2Details.fetchRequest()
         request.propertiesToFetch = [Predicate.Key.photoFilename.rawValue]
-        let details = try obvContext.fetch(request)
-        let photoURLs = Set(details.compactMap({ $0.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory) }))
+        let details = try context.fetch(request)
+        let photoURLs = try Set(details.compactMap({ try $0.getPhotoURL() }))
         return photoURLs
     }
 
     
-    static func deleteOrphaned(within obvContext: ObvContext) throws {
+    static func deleteOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = ContactGroupV2Details.fetchRequest()
         request.predicate = Predicate.withoutContactGroup
         let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         batchDeleteRequest.resultType = .resultTypeObjectIDs
-        let result = try obvContext.execute(batchDeleteRequest) as? NSBatchDeleteResult
+        let result = try context.execute(batchDeleteRequest) as? NSBatchDeleteResult
         // The previous call **immediately** updates the SQLite database
         // We merge the changes back to the current context
         if let objectIDArray = result?.result as? [NSManagedObjectID] {
             let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
         } else {
             assertionFailure()
         }
@@ -512,23 +514,34 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         defer {
             changedKeys.removeAll()
             isRestoringBackup = false
+            photoURLsToDeleteOnDidSave.removeAll()
         }
         
         guard !isRestoringBackup else { assert(isInserted); return }
+        
+        guard let delegateManager = Self.delegateManager else {
+            Self.logger.fault("The delegate manager is not set")
+            assertionFailure()
+            return
+        }
 
         // Send a backupableManagerDatabaseContentChanged notification
-        if let delegateManager = self.delegateManager {
-            if isInserted || isDeleted || isUpdated {
-                guard let flowId = obvContext?.flowId else { assertionFailure(); return }
-                ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-            }
+        if isInserted || isDeleted || isUpdated {
+            ObvBackupNotification.backupableManagerDatabaseContentChanged
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
-        // Potentially notify that the previous backed up profile snapshot is obsolete
-        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
-        
+        for photoURLToDeleteOnDidSave in self.photoURLsToDeleteOnDidSave {
+            if FileManager.default.fileExists(atPath: photoURLToDeleteOnDidSave.path) {
+                try? FileManager.default.removeItem(at: photoURLToDeleteOnDidSave)
+            }
+        }
+
         if !isDeleted {
+                        
+            // Potentially notify that the previous backed up profile snapshot is obsolete
+            // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+
             let previousBackedUpProfileSnapShotIsObsolete: Bool
             if isInserted {
                 previousBackedUpProfileSnapShotIsObsolete = true
@@ -541,15 +554,24 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
                 previousBackedUpProfileSnapShotIsObsolete = false
             }
             if previousBackedUpProfileSnapShotIsObsolete {
-                if let contactGroup = self.contactGroupInCaseTheDetailsAreTrusted ?? self.contactGroupInCaseTheDetailsArePublished, let ownedCryptoIdentity = contactGroup.ownedIdentity?.cryptoIdentity {
+                if let contactGroup = self.contactGroupInCaseTheDetailsAreTrusted ?? self.contactGroupInCaseTheDetailsArePublished, let ownedCryptoIdentity = try? contactGroup.ownedIdentity?.cryptoIdentity {
                     let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
                     Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2DetailsChanged(ownedCryptoId: ownedCryptoId) }
                 } else {
                     assertionFailure()
                 }
             }
-        }
 
+        }
+        
+        if !isDeleted && !isInserted && !changedKeys.isEmpty {
+            if let group = self.contactGroupInCaseTheDetailsAreTrusted ?? self.contactGroupInCaseTheDetailsArePublished, let obvGroupV2 = try? group.getObvGroupV2() {
+                let creationOrUpdateInitiator = group.creationOrUpdateInitiator
+                ObvIdentityNotificationNew.groupV2WasUpdated(obvGroupV2: obvGroupV2, initiator: creationOrUpdateInitiator)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+            }
+        }
+        
     }
     
     // MARK: - Observers
@@ -665,12 +687,12 @@ struct ContactGroupV2DetailsBackupItem: Codable, Hashable, ObvErrorMaker {
 
     }
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-        let contactGroupV2Details = ContactGroupV2Details(backupItem: self, within: obvContext)
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout BackupItemObjectAssociations) throws {
+        let contactGroupV2Details = ContactGroupV2Details(backupItem: self, within: context)
         try associations.associate(contactGroupV2Details, to: self)
     }
     
-    func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: BackupItemObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing to do here
     }
 
@@ -795,7 +817,7 @@ struct ContactGroupV2DetailsSyncSnapshotNode: ObvSyncSnapshotNode, Equatable, Ha
     }
     
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+    func restoreInstance(within context: NSManagedObjectContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
 
         let minimumDomain: Set<CodingKeys> = Set([.serializedCoreDetails])
         guard minimumDomain.isSubset(of: domain) else {
@@ -803,13 +825,13 @@ struct ContactGroupV2DetailsSyncSnapshotNode: ObvSyncSnapshotNode, Equatable, Ha
             throw ObvError.tryingToRestoreIncompleteNode
         }
                 
-        let contactGroupV2Details = try ContactGroupV2Details(snapshotNode: self, within: obvContext)
+        let contactGroupV2Details = try ContactGroupV2Details(snapshotNode: self, within: context)
         try associations.associate(contactGroupV2Details, to: self)
         
     }
     
     
-    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within context: NSManagedObjectContext) throws {
         // Nothing to do here
     }
 

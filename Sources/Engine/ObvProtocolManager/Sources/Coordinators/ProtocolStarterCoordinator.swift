@@ -204,7 +204,7 @@ extension ProtocolStarterCoordinator {
         let randomFlowId = FlowIdentifier()
         try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { (obvContext) in
             for member in pendingGroupMembers {
-                guard try identityDelegate.isIdentity(member.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
+                guard try identityDelegate.isIdentity(member.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context) else {
                     os_log("The identity %@ is not a contact of the owned identity", log: log, type: .error, member.coreDetails.getFullDisplayName())
                     throw makeError(message: "Trying to create a group that includes an identity that is not a contact of the owned identity")
                 }
@@ -988,7 +988,7 @@ extension ProtocolStarterCoordinator {
         let identitiesAndUIDs = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID)], Error>) in
             contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
                 do {
-                    let infos = try ProtocolInstance.getAllPrimaryKeysOfOwnedIdentityTransferProtocolInstances(within: obvContext)
+                    let infos = try ProtocolInstance.getAllPrimaryKeysOfOwnedIdentityTransferProtocolInstances(within: obvContext.context)
                     continuation.resume(returning: infos)
                 } catch {
                     continuation.resume(throwing: error)

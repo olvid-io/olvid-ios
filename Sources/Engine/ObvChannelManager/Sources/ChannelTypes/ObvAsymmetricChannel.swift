@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -60,7 +60,8 @@ final class ObvAsymmetricChannel: ObvNetworkChannel {
     
     // MARK: Encryption/Wrapping method and helpers
     
-    func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header? {
+    func wrapMessageKey(_ messageKey: any AuthenticatedEncryptionKey, isAppMessage: Bool, randomizedWith prng: any PRNGService) -> ObvNetworkMessageToSend.Header? {
+        assert(!isAppMessage, "Application messages are never encrypted through an asymmetric channel")
         guard let wrappedMessageKey = keyWrapperForIdentityDelegate.wrap(messageKey, for: identity, randomizedWith: prng) else {
             assertionFailure()
             return nil
@@ -82,9 +83,7 @@ final class ObvAsymmetricChannel: ObvNetworkChannel {
         }
         
         guard let messageKey = keyWrapperForIdentityDelegate.unwrap(wrappedKey, for: toOwnedIdentity, within: obvContext) else { return .couldNotUnwrap }
-        return .unwrapSucceeded(messageKey: messageKey,
-                                receptionChannelInfo: .asymmetricChannel,
-                                updateOrCheckGKMV2SupportOnMessageContentAvailable: nil)
+        return .unwrapSucceeded(messageKey: messageKey, receptionChannelInfo: .asymmetricChannel)
     }
     
     

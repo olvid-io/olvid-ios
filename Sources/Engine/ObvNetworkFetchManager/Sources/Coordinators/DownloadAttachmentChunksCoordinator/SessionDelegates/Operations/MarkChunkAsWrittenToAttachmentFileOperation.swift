@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,7 +41,7 @@ final class MarkChunkAsWrittenToAttachmentFileOperation: ContextualOperationWith
         
         do {
             
-            guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
+            guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else { return }
             
             try attachment.setCleartextChunkWasWrittenToAttachmentFile(chunkNumber: chunkNumber)
             

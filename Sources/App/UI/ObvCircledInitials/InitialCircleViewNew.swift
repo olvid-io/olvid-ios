@@ -20,7 +20,6 @@
 
 import SwiftUI
 import ObvDesignSystem
-import ObvSettings
 import ObvSystemIcon
 
 

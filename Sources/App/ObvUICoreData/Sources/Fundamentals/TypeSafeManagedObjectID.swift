@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,8 +19,10 @@
 
 import CoreData
 
-public final class TypeSafeManagedObjectID<T>: Hashable {
+public final class TypeSafeManagedObjectID<T>: Hashable, Sendable {
+    
     public let objectID: NSManagedObjectID
+    
     public init(objectID: NSManagedObjectID) {
         self.objectID = objectID
     }

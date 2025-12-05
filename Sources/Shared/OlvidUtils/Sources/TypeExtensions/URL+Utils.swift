@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -65,4 +65,28 @@ public extension URL {
         return safeURL
     }
     
+
+    var isDirectory: Bool {
+        get throws {
+            let urlResources = try self.resourceValues(forKeys: Set([.isDirectoryKey]))
+            guard let isDirectory = urlResources.isDirectory else { assertionFailure(); throw ObvURLExtensionError.cannotDetermineIfURLIsDirectory }
+            return isDirectory
+        }
+    }
+
+    
+    func excludeFromBackup() throws {
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        var mutableURL = self
+        try mutableURL.setResourceValues(resourceValues)
+    }
+
 }
+
+
+enum ObvURLExtensionError: Error {
+    case cannotDetermineIfURLIsDirectory
+}
+    
+    

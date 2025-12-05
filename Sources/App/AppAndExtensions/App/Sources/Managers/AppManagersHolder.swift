@@ -77,7 +77,7 @@ final actor AppManagersHolder {
         self.obvEngine = obvEngine
         self.backgroundTasksManager = backgroundTasksManager
 
-        self.appContinuousSharingLocationManagerDataSource = await AppContinuousSharingLocationManagerDataSource()
+        self.appContinuousSharingLocationManagerDataSource = await AppContinuousSharingLocationManagerDataSource(viewContext: ObvStack.shared.viewContext, backgroundContext: ObvStack.shared.newBackgroundContext())
         
         self.userNotificationsBadgesManager = UserNotificationsBadgesManager()
         self.hardLinksToFylesManager = HardLinksToFylesManager.makeHardLinksToFylesManagerForMainApp()
@@ -122,14 +122,20 @@ final actor AppManagersHolder {
     }
     
     
+    func applicationWasInitializedButWasNeverOnScreen() async {
+        await withTaskGroup(of: Void.self) { [weak self] taskGroup in
+            taskGroup.addTask { [weak self] in await self?.webSocketManager.applicationWasInitializedButWasNeverOnScreen() }
+            taskGroup.addTask { [weak self] in await self?.expirationMessagesManager.applicationWasInitializedButWasNeverOnScreen() }
+            taskGroup.addTask { [weak self] in await self?.userNotificationsBadgesManager.applicationWasInitializedButWasNeverOnScreen() }
+        }
+    }
+    
+    
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         await appBackupManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await applicationShortcutItemsManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        await expirationMessagesManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await userNotificationsBadgesManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await snackBarManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        //await callManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        await webSocketManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         if #available(iOS 17.0, *) {
             await tipManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         }

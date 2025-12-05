@@ -62,7 +62,7 @@ final class PingAppropriateRemoteDevicesWithoutChannelOperation: ContextualOpera
         
         let existingChannels: Set<ObliviousChannelIdentifier>
         do {
-            existingChannels = try channelDelegate.getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within: obvContext)
+            existingChannels = try channelDelegate.getAllObliviousChannelIdentifiers(within: obvContext)
         } catch {
             return cancel(withReason: .channelDelegate(error: error))
         }

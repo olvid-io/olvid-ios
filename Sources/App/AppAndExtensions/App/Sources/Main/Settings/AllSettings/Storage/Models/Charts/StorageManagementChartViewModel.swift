@@ -27,11 +27,10 @@ class StorageManagementChartViewModel: StorageManagementChartViewModelProtocol {
     
     private static let MAX_STORAGE_COUNT_IN_CHART: Int = 4
     
-    private(set) var filesPerDiscussions: [PersistedDiscussion: [FyleMessageJoinWithStatus]]
+    private(set) var sizesPerDiscussions: [PersistedDiscussion: Int64]
     
     var formattedTotalBytes: String {
-        let totalByteCount = filesPerDiscussions.values
-            .compactMap { $0.reduce(0) { $0 + $1.totalByteCount } } // Transform from [[FyleMessageJoinWithStatus]] to [totalByteCount per discussion]
+        let totalByteCount = sizesPerDiscussions.values
             .reduce(0, +) // from [totalByteCount per discussion] to totalByteCount for all discussions
         
         let formatter = ByteCountFormatter()
@@ -45,8 +44,7 @@ class StorageManagementChartViewModel: StorageManagementChartViewModelProtocol {
     
     var storageCharts: [StorageChart] {
         
-        let fullStorageCharts = filesPerDiscussions.compactMap { discussion, files in
-            let totalByteCount = files.reduce(0) { $0 + $1.totalByteCount }
+        let fullStorageCharts = sizesPerDiscussions.compactMap { discussion, totalByteCount in
             return StorageChart(name: discussion.title, value: Int(totalByteCount))
         }.sorted { $0.value > $1.value }
 
@@ -83,8 +81,8 @@ class StorageManagementChartViewModel: StorageManagementChartViewModelProtocol {
         return resultColors
     }
     
-    init(filesPerDiscussions: [PersistedDiscussion : [FyleMessageJoinWithStatus]]) {
-        self.filesPerDiscussions = filesPerDiscussions
+    init(sizesPerDiscussions: [PersistedDiscussion : Int64]) {
+        self.sizesPerDiscussions = sizesPerDiscussions
     }
 }
 

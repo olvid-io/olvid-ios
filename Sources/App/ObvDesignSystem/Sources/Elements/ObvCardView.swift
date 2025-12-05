@@ -19,6 +19,16 @@
 
 import SwiftUI
 
+public struct ObvCardViewParameters {
+    public static var defaultCornerRadius: CGFloat {
+        if #available(iOS 26.0, *) {
+            return 26
+        } else {
+            return 12
+        }
+    }
+}
+
 
 /// A View Builder allowing to create a card around the content.
 public struct ObvCardView<Content: View>: View {
@@ -31,6 +41,10 @@ public struct ObvCardView<Content: View>: View {
     
     private let shadowColor = Color(.displayP3, white: 0.0, opacity: 0.1)
 
+    private static var defaultCornerRadius: CGFloat {
+        ObvCardViewParameters.defaultCornerRadius
+    }
+
     /// - parameter shadow: `true` to display a shadow, `false` otherwise. Default is `true`.
     /// - parameter backgroundColor: The background color of the card. Default is secondary system background.
     /// - parameter padding: If `nil`, a default padding is applied. Otherwise, the specified padding is used.
@@ -39,12 +53,16 @@ public struct ObvCardView<Content: View>: View {
     public init(shadow: Bool = false,
                 backgroundColor: Color = Color(AppTheme.shared.colorScheme.secondarySystemBackground),
                 padding: CGFloat? = nil,
-                cornerRadius: CGFloat = 12.0,
+                cornerRadius: CGFloat? = nil,
                 @ViewBuilder content: () -> Content) {
         self.shadow = shadow
         self.backgroundColor = backgroundColor
         self.padding = padding
-        self.cornerRadius = cornerRadius
+        if let cornerRadius {
+            self.cornerRadius = cornerRadius
+        } else {
+            self.cornerRadius = Self.defaultCornerRadius
+        }
         self.content = content()
     }
 

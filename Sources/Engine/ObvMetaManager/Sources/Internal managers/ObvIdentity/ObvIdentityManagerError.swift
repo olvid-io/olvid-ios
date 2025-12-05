@@ -55,5 +55,11 @@ public enum ObvIdentityManagerError: Error {
     case unexpectedSyncSnapshotNode
     case unexpectedOwnedIdentity
     case ownedIdentityAlreadyExists
+    case cannotDetermineContactIdentifier
+    case couldNotDetermineMediatorOrGroupOwned
+    case identityServerIsNil
+    case cannotDetermineGroupIdentifier
+    case cannotDetermineObvTrustOrigin
+    case couldNotCastFetchedResult
     
 }

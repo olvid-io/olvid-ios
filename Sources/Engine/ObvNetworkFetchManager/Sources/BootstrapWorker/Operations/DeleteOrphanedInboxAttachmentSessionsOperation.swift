@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,7 +28,7 @@ final class DeleteOrphanedInboxAttachmentSessionsOperation: ContextualOperationW
         
         do {
             
-            try InboxAttachmentSession.deleteAllOrphaned(within: obvContext)
+            try InboxAttachmentSession.deleteAllOrphaned(within: obvContext.context)
 
         } catch {
             assertionFailure()

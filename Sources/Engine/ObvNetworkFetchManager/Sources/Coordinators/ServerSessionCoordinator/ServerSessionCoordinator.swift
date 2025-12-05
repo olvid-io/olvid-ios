@@ -419,7 +419,7 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
             contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
                 do {
-                    let response = try solveChallengeDelegate.solveChallenge(challengeType, for: ownedCryptoIdentity, using: prng, within: obvContext)
+                    let response = try solveChallengeDelegate.solveChallenge(challengeType, for: ownedCryptoIdentity, using: prng, within: obvContext.context)
                     continuation.resume(returning: response)
                 } catch {
                     continuation.resume(throwing: ObvError.coreDataError(error: error))

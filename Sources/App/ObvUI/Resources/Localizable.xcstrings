@@ -1,318 +1,668 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : ""
-          }
-        }
-      }
-    },
-    "DISCUSSIONS_LIST_SELECTION_PLACEHOLDER_CELL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Select one or more discussions"
+  "sourceLanguage": "en",
+  "strings": {
+    "Cancel": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abbrechen"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sélectionnez une ou plusieurs discussions"
-          }
-        }
-      }
-    },
-    "FIFTEEN_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "15 days"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "15 jours"
-          }
-        }
-      }
-    },
-    "FIVE_YEAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "5 years"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "5 ans"
-          }
-        }
-      }
-    },
-    "HOLD_DOWN_CMD_TO_SELECT_MULTIPLE_DISCUSSIONS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Please hold down the Command key to select multiple discussions at once."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Maintenez la touche Commande enfoncée pour sélectionner plusieurs conversations."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulla"
           }
         }
       }
     },
-    "NINETY_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "90 days"
+    "DISCUSSIONS_LIST_SELECTION_PLACEHOLDER_CELL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle eine oder mehrere Konversationen aus"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "90 jours"
-          }
-        }
-      }
-    },
-    "ONE_DAY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 day"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select one or more discussions"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 jour"
-          }
-        }
-      }
-    },
-    "ONE_HUNDRED_AND_HEIGHTY_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "180 days"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selecciona una o más conversaciones"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "180 jours"
-          }
-        }
-      }
-    },
-    "ONE_YEAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 year"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionnez une ou plusieurs discussions"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 an"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleziona una o più conversazioni"
           }
         }
       }
     },
-    "SEVEN_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "7 days"
+    "FIFTEEN_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 Tage"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "7 jours"
-          }
-        }
-      }
-    },
-    "SIX_HOUR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6 hours"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 days"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6 heures"
-          }
-        }
-      }
-    },
-    "THIRTY_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 days"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 días"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 jours"
-          }
-        }
-      }
-    },
-    "THREE_YEAR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3 years"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 jours"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3 ans"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 giorni"
           }
         }
       }
     },
-    "TWELVE_HOURS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12 hours"
+    "FIVE_YEAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 Jahre"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12 heures"
-          }
-        }
-      }
-    },
-    "TWO_DAYS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2 days"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 years"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2 jours"
-          }
-        }
-      }
-    },
-    "Unlimited" : {
-      "comment" : "Unlimited word, capitalized",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unlimited"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 años"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Illimité"
-          }
-        }
-      }
-    },
-    "VALUE_COPIED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Value copied"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 ans"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Valeur copiée"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 anni"
           }
         }
       }
     },
-    "WITH_%lld_PARTICIPANTS" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "with one participant"
+    "HOLD_DOWN_CMD_TO_SELECT_MULTIPLE_DISCUSSIONS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halten Sie die Befehlstaste gedrückt, um mehrere Konversationen gleichzeitig auszuwählen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please hold down the Command key to select multiple discussions at once."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantén presionada la tecla Comando para seleccionar varias conversaciones a la vez."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintenez la touche Commande enfoncée pour sélectionner plusieurs conversations."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenere premuto il tasto Comando per selezionare più conversazioni contemporaneamente."
+          }
+        }
+      }
+    },
+    "NINETY_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 giorni"
+          }
+        }
+      }
+    },
+    "ONE_DAY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Tag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 day"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 día"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 jour"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 giorno"
+          }
+        }
+      }
+    },
+    "ONE_HUNDRED_AND_HEIGHTY_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 giorni"
+          }
+        }
+      }
+    },
+    "ONE_YEAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Jahr"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 year"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 año"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 an"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 anno"
+          }
+        }
+      }
+    },
+    "SEVEN_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 giorni"
+          }
+        }
+      }
+    },
+    "SIX_HOUR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 Stunden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 hours"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 horas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 heures"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 ore"
+          }
+        }
+      }
+    },
+    "THIRTY_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 giorni"
+          }
+        }
+      }
+    },
+    "THREE_YEAR": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 Jahre"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 years"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 años"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 ans"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 anni"
+          }
+        }
+      }
+    },
+    "TWELVE_HOURS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 Stunden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 hours"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 horas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 heures"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 ore"
+          }
+        }
+      }
+    },
+    "TWO_DAYS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vor 2 Tagen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 days"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 días"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 jours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 giorni"
+          }
+        }
+      }
+    },
+    "Unlimited": {
+      "comment": "Unlimited word, capitalized",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbegrenzt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlimited"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ilimitado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Illimité"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Illimitato"
+          }
+        }
+      }
+    },
+    "WITH_%lld_PARTICIPANTS": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "mit einem Teilnehmer"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "with %lld participants"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "mit %lld Teilnehmern"
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "without any participant"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "ohne Teilnehmer"
                 }
               }
             }
           }
         },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "avec un participant"
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "with one participant"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "avec %lld participants"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "with %lld participants"
                 }
               },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "sans aucun participant"
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "without any participant"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "con un participante"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "con %lld participantes"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "sin participantes"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "avec un participant"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "avec %lld participants"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "sans aucun participant"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "con un partecipante"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "con %lld partecipanti"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "senza partecipanti"
                 }
               }
             }
@@ -321,5 +671,5 @@
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

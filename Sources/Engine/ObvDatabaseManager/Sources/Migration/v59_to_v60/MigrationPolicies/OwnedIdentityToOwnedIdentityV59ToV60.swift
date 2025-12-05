@@ -29,7 +29,16 @@ final class OwnedIdentityToOwnedIdentityV59ToV60: NSEntityMigrationPolicy, ObvEr
     static let errorDomain = "OwnedIdentity"
     static let debugPrintPrefix = "[\(errorDomain)][OwnedIdentityToOwnedIdentityV59ToV60]"
     
-    
+    /// See the explanation in `OwnedIdentityToOwnedIdentityWithValueTransformers`
+    override func begin(_ mapping: NSEntityMapping, with manager: NSMigrationManager) throws {
+        ValueTransformer.setValueTransformer(UIDTransformerForMigration(), forName: .uidTransformerName)
+        ValueTransformer.setValueTransformer(ObvCryptoIdentityTransformerForMigration(), forName: .obvCryptoIdentityTransformerName)
+        ValueTransformer.setValueTransformer(ObvOwnedCryptoIdentityTransformerForMigration(), forName: .obvOwnedCryptoIdentityTransformerName)
+        ValueTransformer.setValueTransformer(EncryptedDataTransformerForMigration(), forName: .encryptedDataTransformerName)
+        ValueTransformer.setValueTransformer(SeedTransformerForMigration(), forName: .seedTransformerName)
+        ValueTransformer.setValueTransformer(ObvEncodedTransformerForMigration(), forName: .obvEncodedTransformerName)
+    }
+
     override func createDestinationInstances(forSource sInstance: NSManagedObject, in mapping: NSEntityMapping, manager: NSMigrationManager) throws {
         
         do {
@@ -50,8 +59,6 @@ final class OwnedIdentityToOwnedIdentityV59ToV60: NSEntityMigrationPolicy, ObvEr
             
             // The new version of the model adds an "rawBackupSeed" attribute that we set to a deterministic value, that depends on the MAC key
             
-            ValueTransformer.setValueTransformer(ObvOwnedCryptoIdentityTransformerForMigration(), forName: .obvOwnedCryptoIdentityTransformerName)
-
             guard let ownedCryptoIdentity = sInstance.value(forKey: "ownedCryptoIdentity") as? ObvOwnedCryptoIdentity else {
                 assertionFailure()
                 throw ObvError.couldNotGetOwnedCryptoIdentity
@@ -99,27 +106,62 @@ final class OwnedIdentityToOwnedIdentityV59ToV60: NSEntityMigrationPolicy, ObvEr
 }
 
 
-private class ObvOwnedCryptoIdentityTransformerForMigration: ValueTransformer {
+private struct BackupSeedForLegacyIdentityForMigration {
+    public static let macPayload: UInt8 = 0xcc
+    public static let hashPadding = "backupKey".data(using: .utf8)!
+}
+
+
+private final class ObvCryptoIdentityTransformerForMigration: ValueTransformer {
     
-    override public class func transformedValueClass() -> AnyClass {
-        return ObvOwnedCryptoIdentity.self
+    override class func transformedValueClass() -> AnyClass {
+        return ObvCryptoIdentity.self
     }
     
-    override public class func allowsReverseTransformation() -> Bool {
+    override class func allowsReverseTransformation() -> Bool {
         return true
     }
     
+    /// Transform an ObvIdentity into an instance of Data
+    override func transformedValue(_ value: Any?) -> Any? {
+        guard let obvCryptoIdentity = value as? ObvCryptoIdentity else { assertionFailure(); return nil }
+        return obvCryptoIdentity.getIdentity()
+    }
+    
+    override func reverseTransformedValue(_ value: Any?) -> Any? {
+        guard let data = value as? Data else { assertionFailure(); return nil }
+        return ObvCryptoIdentity(from: data)
+    }
+}
+
+
+private extension NSValueTransformerName {
+    static let obvCryptoIdentityTransformerName = NSValueTransformerName(rawValue: "ObvCryptoIdentityTransformer")
+}
+
+
+private class ObvOwnedCryptoIdentityTransformerForMigration: ValueTransformer {
+
+    override public class func transformedValueClass() -> AnyClass {
+        return ObvOwnedCryptoIdentity.self
+    }
+
+    override public class func allowsReverseTransformation() -> Bool {
+        return true
+    }
+
     /// Transform an ObvCryptoIdentity into an instance of Data (which actually is the raw representation of an ObvEncoded object)
     override public func transformedValue(_ value: Any?) -> Any? {
-        guard let obvCryptoIdentity = value as? ObvOwnedCryptoIdentity else { return nil }
+        guard let obvCryptoIdentity = value as? ObvOwnedCryptoIdentity else { assertionFailure(); return nil }
         let obvEncoded = obvCryptoIdentity.obvEncode()
         return obvEncoded.rawData
     }
-    
+
     override public func reverseTransformedValue(_ value: Any?) -> Any? {
-        guard let data = value as? Data else { return nil }
-        guard let encodedList = ObvEncoded(withRawData: data) else { return nil }
-        return ObvOwnedCryptoIdentity(encodedList)
+        guard let data = value as? Data else { assertionFailure(); return nil }
+        guard let encodedList = ObvEncoded(withRawData: data) else { assertionFailure(); return nil }
+        let returnedValue = ObvOwnedCryptoIdentity(encodedList)
+        return returnedValue
     }
 }
 
@@ -129,7 +171,117 @@ private extension NSValueTransformerName {
 }
 
 
-private struct BackupSeedForLegacyIdentityForMigration {
-    public static let macPayload: UInt8 = 0xcc
-    public static let hashPadding = "backupKey".data(using: .utf8)!
+private class UIDTransformerForMigration: ValueTransformer {
+
+    override public class func transformedValueClass() -> AnyClass {
+        return UID.self
+    }
+
+    override public class func allowsReverseTransformation() -> Bool {
+        return true
+    }
+
+
+    /// Turn an UID into a Data object. This method never fails.
+    override public func transformedValue(_ value: Any?) -> Any? {
+        let uid = value as! UID
+        return uid.raw
+    }
+
+    /// Try to turn a Data object back into a UID. This method can return nil.
+    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+        guard let data = value as? Data else { assertionFailure(); return nil }
+        return UID(uid: data)
+    }
+
+}
+
+
+private extension NSValueTransformerName {
+    static let uidTransformerName = NSValueTransformerName(rawValue: "UIDTransformer")
+}
+
+
+private class EncryptedDataTransformerForMigration: ValueTransformer {
+    
+    override public class func transformedValueClass() -> AnyClass {
+        return EncryptedData.self
+    }
+    
+    override public class func allowsReverseTransformation() -> Bool {
+        return true
+    }
+    
+    override public func transformedValue(_ value: Any?) -> Any? {
+        guard let encryptedData = value as? EncryptedData else { assertionFailure(); return nil }
+        return encryptedData.raw
+    }
+    
+    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+        guard let data = value as? Data else { assertionFailure(); return nil }
+        return EncryptedData(data: data)
+    }
+    
+}
+
+
+private extension NSValueTransformerName {
+    static let encryptedDataTransformerName = NSValueTransformerName(rawValue: "EncryptedDataTransformer")
+}
+
+
+private class SeedTransformerForMigration: ValueTransformer {
+
+    override public class func transformedValueClass() -> AnyClass {
+        return Seed.self
+    }
+
+    override public class func allowsReverseTransformation() -> Bool {
+        return true
+    }
+
+
+    /// Turn an Seed into a Data object. This method never fails.
+    override public func transformedValue(_ value: Any?) -> Any? {
+        let uid = value as! Seed
+        return uid.raw
+    }
+
+    /// Try to turn a Data object back into a Seed. This method can return nil.
+    override public func reverseTransformedValue(_ value: Any?) -> Any? {
+        guard let data = value as? Data else { assertionFailure(); return nil }
+        return Seed(with: data)
+    }
+
+}
+
+private extension NSValueTransformerName {
+    static let seedTransformerName = NSValueTransformerName(rawValue: "SeedTransformer")
+}
+
+
+private class ObvEncodedTransformerForMigration: ValueTransformer {
+
+    override public class func transformedValueClass() -> AnyClass {
+        return ObvEncoded.self
+    }
+
+    public override class func allowsReverseTransformation() -> Bool {
+        return true
+    }
+
+    public override func transformedValue(_ value: Any?) -> Any? {
+        guard let encodedData = value as? ObvEncoded else { assertionFailure(); return nil }
+        return encodedData.rawData
+    }
+
+    public override func reverseTransformedValue(_ value: Any?) -> Any? {
+        guard let data = value as? Data else { assertionFailure(); return nil }
+        return ObvEncoded(withRawData: data)
+    }
+}
+
+
+private extension NSValueTransformerName {
+    static let obvEncodedTransformerName = NSValueTransformerName(rawValue: "ObvEncodedTransformer")
 }

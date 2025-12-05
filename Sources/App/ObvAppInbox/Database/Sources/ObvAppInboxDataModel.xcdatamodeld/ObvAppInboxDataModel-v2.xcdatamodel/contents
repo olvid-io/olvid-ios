@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23788.4" systemVersion="24F74" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="ObvAppInbox-v2">
+    <entity name="MessageIdentifierForLater" representedClassName="MessageIdentifierForLater" isAbstract="YES" syncable="YES">
+        <attribute name="messageUploadTimestampFromServer" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rawOwnedIdentity" attributeType="Binary"/>
+        <attribute name="rawUID" attributeType="Binary"/>
+        <attribute name="timestampOfFirstNonTruncatedListingAfterInsertion" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <fetchIndex name="byObvMessageIdentifier">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawUID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawOwnedIdentity"/>
+                <constraint value="rawUID"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingContactInGroupV1" representedClassName="MessageIdentifierForLaterExpectingContactInGroupV1" parentEntity="MessageIdentifierForLater" syncable="YES">
+        <attribute name="rawContactCryptoId" attributeType="Binary"/>
+        <attribute name="rawGroupOwner" attributeType="Binary"/>
+        <attribute name="rawGroupV1UID" attributeType="Binary"/>
+        <fetchIndex name="byObvGroupV1IdentifierWhenExpectingContactGroupV1">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupOwner" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV1UID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byObvGroupV1IdentifierAndContactCryptoIdWhenExpectingContactGroupV1">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupOwner" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV1UID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawContactCryptoId" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingContactInGroupV2" representedClassName="MessageIdentifierForLaterExpectingContactInGroupV2" parentEntity="MessageIdentifierForLater" syncable="YES">
+        <attribute name="rawCategory" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawContactCryptoId" attributeType="Binary"/>
+        <attribute name="rawGroupV2UID" attributeType="Binary"/>
+        <attribute name="serverURL" attributeType="URI"/>
+        <fetchIndex name="byObvGroupV2IdentifierWhenExpectingContactGroupV2">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawCategory" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV2UID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="serverURL" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byObvGroupV2IdentifierAndContactCryptoIdWhenExpectingContactGroupV2">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawCategory" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV2UID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="serverURL" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawContactCryptoId" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingDiscussionGroupV1" representedClassName="MessageIdentifierForLaterExpectingDiscussionGroupV1" parentEntity="MessageIdentifierForLater" syncable="YES">
+        <attribute name="rawGroupOwner" attributeType="Binary"/>
+        <attribute name="rawGroupV1UID" attributeType="Binary"/>
+        <fetchIndex name="byObvGroupV1IdentifierWhenExpectingDiscussionGroupV1">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupOwner" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV1UID" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingDiscussionGroupV2" representedClassName="MessageIdentifierForLaterExpectingDiscussionGroupV2" parentEntity="MessageIdentifierForLater" syncable="YES">
+        <attribute name="rawCategory" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawGroupV2UID" attributeType="Binary"/>
+        <attribute name="serverURL" attributeType="URI"/>
+        <fetchIndex name="byObvGroupV2IdentifierWhenExpectingDiscussionGroupV2">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawCategory" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV2UID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="serverURL" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingDiscussionOneToOne" representedClassName="MessageIdentifierForLaterExpectingDiscussionOneToOne" parentEntity="MessageIdentifierForLater" syncable="YES">
+        <attribute name="rawContactCryptoId" attributeType="Binary"/>
+        <fetchIndex name="byObvContactIdentifierWhenExpectingDiscussionOneToOne">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawContactCryptoId" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingReceivedMessage" representedClassName="MessageIdentifierForLaterExpectingReceivedMessage" isAbstract="YES" parentEntity="MessageIdentifierForLater" syncable="YES">
+        <attribute name="senderIdentifier" attributeType="Binary"/>
+        <attribute name="senderSequenceNumber" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="senderThreadIdentifier" attributeType="UUID" usesScalarValueType="NO"/>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingReceivedMessageInGroupV1Discussion" representedClassName="MessageIdentifierForLaterExpectingReceivedMessageInGroupV1Discussion" parentEntity="MessageIdentifierForLaterExpectingReceivedMessage" syncable="YES">
+        <attribute name="rawGroupOwner" attributeType="Binary"/>
+        <attribute name="rawGroupV1UID" attributeType="Binary"/>
+        <fetchIndex name="byReceivedMessageIdAndGroupV1Id">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderSequenceNumber" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderThreadIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV1UID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupOwner" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingReceivedMessageInGroupV2Discussion" representedClassName="MessageIdentifierForLaterExpectingReceivedMessageInGroupV2Discussion" parentEntity="MessageIdentifierForLaterExpectingReceivedMessage" syncable="YES">
+        <attribute name="rawCategory" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawGroupV2UID" attributeType="Binary"/>
+        <attribute name="serverURL" attributeType="URI"/>
+        <fetchIndex name="byReceivedMessageIdAndGroupV2Id">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderSequenceNumber" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderThreadIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawCategory" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV2UID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="serverURL" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingReceivedMessageInOneToOneDiscussion" representedClassName="MessageIdentifierForLaterExpectingReceivedMessageInOneToOneDiscussion" parentEntity="MessageIdentifierForLaterExpectingReceivedMessage" syncable="YES">
+        <attribute name="rawContactCryptoId" attributeType="Binary"/>
+        <fetchIndex name="byReceivedMessageIdAndContactId">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderSequenceNumber" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderThreadIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawContactCryptoId" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingSentMessage" representedClassName="MessageIdentifierForLaterExpectingSentMessage" isAbstract="YES" parentEntity="MessageIdentifierForLater" syncable="YES">
+        <attribute name="senderSequenceNumber" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="senderThreadIdentifier" attributeType="UUID" usesScalarValueType="NO"/>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingSentMessageInGroupV1Discussion" representedClassName="MessageIdentifierForLaterExpectingSentMessageInGroupV1Discussion" parentEntity="MessageIdentifierForLaterExpectingSentMessage" syncable="YES">
+        <attribute name="rawGroupOwner" attributeType="Binary"/>
+        <attribute name="rawGroupV1UID" attributeType="Binary"/>
+        <fetchIndex name="bySentMessageIdAndGroupV1Id">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderSequenceNumber" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderThreadIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupOwner" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV1UID" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingSentMessageInGroupV2Discussion" representedClassName="MessageIdentifierForLaterExpectingSentMessageInGroupV2Discussion" parentEntity="MessageIdentifierForLaterExpectingSentMessage" syncable="YES">
+        <attribute name="rawCategory" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawGroupV2UID" attributeType="Binary"/>
+        <attribute name="serverURL" attributeType="URI"/>
+        <fetchIndex name="bySentMessageIdAndGroupV2Id">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderSequenceNumber" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderThreadIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawCategory" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawGroupV2UID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="serverURL" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="MessageIdentifierForLaterExpectingSentMessageInOneToOneDiscussion" representedClassName="MessageIdentifierForLaterExpectingSentMessageInOneToOneDiscussion" parentEntity="MessageIdentifierForLaterExpectingSentMessage" syncable="YES">
+        <attribute name="rawContactCryptoId" attributeType="Binary"/>
+        <fetchIndex name="bySentMessageIdAndContactId">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderSequenceNumber" type="Binary" order="ascending"/>
+            <fetchIndexElement property="senderThreadIdentifier" type="Binary" order="ascending"/>
+            <fetchIndexElement property="rawContactCryptoId" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="PersistedEncryptedReceivedReturnReceipt" representedClassName="PersistedEncryptedReceivedReturnReceipt" syncable="YES">
+        <attribute name="creationTimestamp" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="nonce" attributeType="Binary"/>
+        <attribute name="rawEncryptedPayload" attributeType="Binary"/>
+        <attribute name="rawOwnedIdentity" attributeType="Binary"/>
+        <attribute name="rawServerUID" attributeType="Binary"/>
+        <attribute name="receiptTimestamp" attributeType="Date" usesScalarValueType="NO"/>
+        <fetchIndex name="byOwnedIdentityAndNonce">
+            <fetchIndexElement property="rawOwnedIdentity" type="Binary" order="ascending"/>
+            <fetchIndexElement property="nonce" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byCreationTimestamp">
+            <fetchIndexElement property="creationTimestamp" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+</model>

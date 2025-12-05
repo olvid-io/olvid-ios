@@ -19,15 +19,16 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvEncoder
 import ObvTypes
 import ObvCrypto
 import ObvMetaManager
 
+
 @objc(ProtocolInstance)
-final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+final class ProtocolInstance: NSManagedObject, ObvErrorMaker {
     
     // MARK: Internal constants
     
@@ -35,30 +36,49 @@ final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     static let errorDomain = "ProtocolInstance"
     
     // MARK: Attributes
-    
-    private(set) var cryptoProtocolId: CryptoProtocolId {
-        get {
-            let rawValue = kvoSafePrimitiveValue(forKey: Predicate.Key.cryptoProtocolRawId.rawValue) as! Int
-            let cryptoProtocolId = CryptoProtocolId(rawValue: rawValue)!
-            return cryptoProtocolId
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue.rawValue, forKey: Predicate.Key.cryptoProtocolRawId.rawValue)
-        }
-    }
-    
+        
+    @NSManaged private var cryptoProtocolRawId: Int
     @NSManaged private(set) var currentStateRawId: Int
-    @NSManaged private(set) var encodedCurrentState: ObvEncoded
-    @NSManaged private(set) var ownedCryptoIdentity: ObvCryptoIdentity // Part of primary key (with `uid`)
-    @NSManaged private(set) var uid: UID // Part of primary key (with `ownedCryptoIdentity`)
+    @NSManaged private var rawEncodedCurrentState: Data? // Non-optional in the model, raw value of an ObvEncoded
+    @NSManaged private var rawOwnedCryptoIdentity: Data? // Non-optional in the model
+    @NSManaged private var rawUID: Data? // Non-optional in the model
     
     // MARK: Other variables
     
-    weak var delegateManager: ObvProtocolDelegateManager?
-    weak var obvContext: ObvContext?
+    var cryptoProtocolId: CryptoProtocolId {
+        get throws {
+            guard let cryptoProtocolId = CryptoProtocolId(rawValue: cryptoProtocolRawId) else { assertionFailure(); throw ObvError.couldNotParseValue }
+            return cryptoProtocolId
+        }
+    }
     
+    var ownedCryptoIdentity: ObvCryptoIdentity {
+        get throws(ObvError) {
+            guard let rawOwnedCryptoIdentity else { assertionFailure(); throw .unexpectedNilValue }
+            guard let ownedCryptoIdentity = ObvCryptoIdentity(from: rawOwnedCryptoIdentity) else { assertionFailure(); throw .couldNotParseValue }
+            return ownedCryptoIdentity
+        }
+    }
+    
+    var uid: UID {
+        get throws(ObvError) {
+            guard let rawUID else { assertionFailure(); throw .unexpectedNilValue }
+            guard let uid = UID(uid: rawUID) else { assertionFailure(); throw .couldNotParseValue }
+            return uid
+        }
+    }
+    
+    var encodedCurrentState: ObvEncoded {
+        get throws(ObvError) {
+            guard let rawEncodedCurrentState else { assertionFailure(); throw .unexpectedNilValue }
+            guard let encoded = ObvEncoded(withRawData: rawEncodedCurrentState) else { assertionFailure(); throw .couldNotParseValue }
+            return encoded
+        }
+    }
+
     // MARK: - Initializer
     
+    /// 2025-08-27: ok
     convenience init?(cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID, ownedCryptoIdentity: ObvCryptoIdentity, initialState: ConcreteProtocolState, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolInstance.entityName)
@@ -70,7 +90,7 @@ final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         
         // Check that no entry with the same `uid` and `contactIdentity` exists
         do {
-            guard try !ProtocolInstance.exists(uid: protocolInstanceUid, ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext) else {
+            guard try !ProtocolInstance.exists(uid: protocolInstanceUid, ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext.context) else {
                 os_log("Cannot create a protocol instance with the same uid and owned identity twice", log: log, type: .error)
                 return nil
             }
@@ -78,7 +98,7 @@ final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
             os_log("%@", log: log, type: .fault, error.localizedDescription)
             return nil
         }
-        let entityDescription = NSEntityDescription.entity(forEntityName: ProtocolInstance.entityName, in: obvContext)!
+        let entityDescription = NSEntityDescription.entity(forEntityName: ProtocolInstance.entityName, in: obvContext.context)!
         
         // We check that the identity passed is indeed "owned" or, in the case of the owned identity transfer protocol, if the identity is ephemeral
         do {
@@ -91,18 +111,19 @@ final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         
         guard let encodedCurrentState = try? initialState.obvEncode() else { assertionFailure(); return nil }
         
-        self.init(entity: entityDescription, insertInto: obvContext)
-        self.cryptoProtocolId = cryptoProtocolId
+        self.init(entity: entityDescription, insertInto: obvContext.context)
+        
+        self.cryptoProtocolRawId = cryptoProtocolId.rawValue
         self.currentStateRawId = initialState.rawId
-        self.encodedCurrentState = encodedCurrentState
-        self.ownedCryptoIdentity = ownedCryptoIdentity
-        self.uid = protocolInstanceUid
-        self.delegateManager = delegateManager
+        self.rawEncodedCurrentState = encodedCurrentState.rawData
+        self.rawOwnedCryptoIdentity = ownedCryptoIdentity.getIdentity()
+        self.rawUID = protocolInstanceUid.raw
+        
     }
     
-    private func delete() throws {
-        guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context")}
-        context.delete(self)
+    private func deleteProtocolInstance() throws {
+        guard let managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        managedObjectContext.delete(self)
     }
     
 }
@@ -113,7 +134,7 @@ final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 extension ProtocolInstance {
     
     func updateCurrentState(with state: ConcreteProtocolState) throws {
-        self.encodedCurrentState = try state.obvEncode()
+        self.rawEncodedCurrentState = try state.obvEncode().rawData
         self.currentStateRawId = state.rawId
     }
 }
@@ -124,34 +145,36 @@ extension ProtocolInstance {
 
     struct Predicate {
         enum Key: String {
-            case uid = "uid"
             case cryptoProtocolRawId = "cryptoProtocolRawId"
-            case ownedCryptoIdentity = "ownedCryptoIdentity"
             case currentStateRawId = "currentStateRawId"
+            case rawEncodedCurrentState = "rawEncodedCurrentState"
+            case rawOwnedCryptoIdentity = "rawOwnedCryptoIdentity"
+            case rawUID = "rawUID"
         }
         static func withCryptoProtocolId(_ cryptoProtocolId: CryptoProtocolId) -> NSPredicate {
             NSPredicate(Key.cryptoProtocolRawId, EqualToInt: cryptoProtocolId.rawValue)
         }
         static func withUID(_ uid: UID) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.uid.rawValue, uid)
+            NSPredicate(Key.rawUID, EqualToData: uid.raw)
         }
         static func withUIDDistinctFrom(_ uid: UID) -> NSPredicate {
-            NSPredicate(format: "%K != %@", Key.uid.rawValue, uid)
+            NSCompoundPredicate(notPredicateWithSubpredicate: withUID(uid))
         }
         static func withOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.ownedCryptoIdentity.rawValue, ownedIdentity)
+            NSPredicate(Key.rawOwnedCryptoIdentity, EqualToData: ownedIdentity.getIdentity())
         }
         static func withCurrentStateRawId(_ currentStateRawId: Int) -> NSPredicate {
             NSPredicate(Key.currentStateRawId, EqualToInt: currentStateRawId)
         }
     }
     
-    @nonobjc class func fetchRequest() -> NSFetchRequest<ProtocolInstance> {
+    
+    @nonobjc static func fetchRequest() -> NSFetchRequest<ProtocolInstance> {
         return NSFetchRequest<ProtocolInstance>(entityName: ProtocolInstance.entityName)
     }
 
         
-    static func get(cryptoProtocolId: CryptoProtocolId, uid: UID, ownedIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> ProtocolInstance? {
+    static func get(cryptoProtocolId: CryptoProtocolId, uid: UID, ownedIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> ProtocolInstance? {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withCryptoProtocolId(cryptoProtocolId),
@@ -159,26 +182,31 @@ extension ProtocolInstance {
             Predicate.withUID(uid),
         ])
         request.fetchLimit = 1
-        let item = (try? obvContext.fetch(request))?.first
-        item?.delegateManager = delegateManager
+        let item = try context.fetch(request).first
         return item
     }
     
 
-    static func getAll(delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> [ProtocolInstance]? {
+    static func getAll(within context: NSManagedObjectContext) throws -> [ProtocolInstance] {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
-        let items = try? obvContext.fetch(request)
-        return items?.map { $0.delegateManager = delegateManager; return $0 }
+        let items = try context.fetch(request)
+        return items
     }
     
     
     static func getAllOwnedCryptoIdsAssociatedToProtocolInstances(within context: NSManagedObjectContext) throws -> Set<ObvCryptoIdentity> {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: ProtocolInstance.entityName)
         request.resultType = .dictionaryResultType
-        request.propertiesToFetch = [Predicate.Key.ownedCryptoIdentity.rawValue]
+        request.propertiesToFetch = [Predicate.Key.rawOwnedCryptoIdentity.rawValue]
         request.returnsDistinctResults = true
-        guard let results = try context.fetch(request) as? [[String: ObvCryptoIdentity]] else { assertionFailure(); throw ObvError.couldNotCastFetchedResult }
-        let ownedCryptoIds = Set(results.compactMap({ $0[Predicate.Key.ownedCryptoIdentity.rawValue] }))
+        guard let results = try context.fetch(request) as? [[String: Data]] else {
+            assertionFailure()
+            throw ObvError.couldNotCastFetchedResult
+        }
+        let ownedCryptoIds: Set<ObvCryptoIdentity> = Set(results.compactMap {
+            guard let identity = $0[Predicate.Key.rawOwnedCryptoIdentity.rawValue] else { assertionFailure(); return nil }
+            return ObvCryptoIdentity(from: identity)
+        })
         return ownedCryptoIds
     }
     
@@ -206,23 +234,23 @@ extension ProtocolInstance {
     }
     
     
-    static func getAll(cryptoProtocolId: CryptoProtocolId, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [ProtocolInstance] {
+    static func getAll(cryptoProtocolId: CryptoProtocolId, within context: NSManagedObjectContext) throws -> [ProtocolInstance] {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = Predicate.withCryptoProtocolId(cryptoProtocolId)
-        let items = try obvContext.fetch(request)
-        return items.map { $0.delegateManager = delegateManager; return $0 }
+        let items = try context.fetch(request)
+        return items
     }
     
     
-    static func getAllPrimaryKeysOfOwnedIdentityTransferProtocolInstances(within obvContext: ObvContext) throws -> [(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID)] {
+    static func getAllPrimaryKeysOfOwnedIdentityTransferProtocolInstances(within context: NSManagedObjectContext) throws -> [(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID)] {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = Predicate.withCryptoProtocolId(.ownedIdentityTransfer)
-        let items = try obvContext.fetch(request)
-        return items.map({ ($0.ownedCryptoIdentity, $0.uid) })
+        let items = try context.fetch(request)
+        return items.compactMap { try? ($0.ownedCryptoIdentity, $0.uid) }
     }
     
     
-    static func delete(uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    static func deleteProtocolInstance(uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
         // We do not execute a batch delete since this method does not call the willSave/didSave methods, which are required.
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -231,37 +259,45 @@ extension ProtocolInstance {
         ])
         request.fetchLimit = 1
         request.propertiesToFetch = []
-        guard let item = (try? obvContext.fetch(request))?.first else { return }
-        obvContext.delete(item)
+        guard let item = try context.fetch(request).first else { return }
+        try item.deleteProtocolInstance()
     }
     
-    static func count(within obvContext: ObvContext) -> Int {
+    
+    static func count(within context: NSManagedObjectContext) -> Int {
         let request = NSFetchRequest<ProtocolInstance>(entityName: ProtocolInstance.entityName)
-        return (try? obvContext.count(for: request)) ?? 0
+        return (try? context.count(for: request)) ?? 0
     }
     
-    static func exists(uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+    
+    static func exists(uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withUID(uid),
             Predicate.withOwnedIdentity(ownedCryptoIdentity),
         ])
-        return try obvContext.count(for: request) != 0
-
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item != nil
     }
     
-    static func exists(cryptoProtocolId: CryptoProtocolId, uid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+    
+    static func exists(cryptoProtocolId: CryptoProtocolId, uid: UID, ownedIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withCryptoProtocolId(cryptoProtocolId),
             Predicate.withOwnedIdentity(ownedIdentity),
             Predicate.withUID(uid),
         ])
-        return try obvContext.count(for: request) != 0
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item != nil
     }
 
     
-    static func deleteProtocolInstancesInAFinalState(within obvContext: ObvContext) throws {
+    static func deleteProtocolInstancesInAFinalState(within context: NSManagedObjectContext) throws {
 
         for cryptoProtocolId in CryptoProtocolId.allCases {
             let finalStateRawIds = cryptoProtocolId.finalStateRawIds
@@ -278,28 +314,24 @@ extension ProtocolInstance {
             request.predicate = predicate
             request.propertiesToFetch = []
             request.fetchBatchSize = 100
-            let items = try obvContext.fetch(request)
-            guard !items.isEmpty else { continue }
-            items.forEach({ obvContext.delete($0) })
+            let items = try context.fetch(request)
+            try items.forEach { try $0.deleteProtocolInstance() }
         }
         
     }
     
     
-    static func deleteOwnedIdentityTransferProtocolInstances(within obvContext: ObvContext) throws {
-        
+    static func deleteOwnedIdentityTransferProtocolInstances(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = Predicate.withCryptoProtocolId(.ownedIdentityTransfer)
         request.propertiesToFetch = []
         request.fetchBatchSize = 100
-        let items = try obvContext.fetch(request)
-        guard !items.isEmpty else { return }
-        items.forEach({ obvContext.delete($0) })
-        
+        let items = try context.fetch(request)
+        try items.forEach({ try $0.deleteProtocolInstance() })
     }
     
     
-    static func deleteAllProtocolInstancesOfOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, withProtocolInstanceUidDistinctFrom protocolInstanceUid: UID, within obvContext: ObvContext) throws {
+    static func deleteAllProtocolInstancesOfOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, withProtocolInstanceUidDistinctFrom protocolInstanceUid: UID, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedIdentity(ownedCryptoIdentity),
@@ -307,9 +339,10 @@ extension ProtocolInstance {
         ])
         request.fetchBatchSize = 100
         request.propertiesToFetch = []
-        let items = try obvContext.fetch(request)
-        try items.forEach({ try $0.delete() })
+        let items = try context.fetch(request)
+        try items.forEach({ try $0.deleteProtocolInstance() })
     }
+    
 }
 
 
@@ -319,6 +352,9 @@ extension ProtocolInstance {
     
     enum ObvError: Error {
         case couldNotCastFetchedResult
+        case noContext
+        case couldNotParseValue
+        case unexpectedNilValue
     }
     
 }

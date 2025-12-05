@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -92,16 +92,15 @@ extension KeycloakContactAdditionProtocol {
             let keycloakState: ObvKeycloakState
             let signedOwnedDetails: SignedObvKeycloakUserDetails
             do {
-                let (_keycloakState, _signedOwnedDetails) = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext)
-                guard let _keycloakState = _keycloakState else {
+                guard let keycloakStateAndUserDetails = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext) else {
                     os_log("Could not find Keycloak State of owned identity", log: log, type: .fault)
                     return FinishedState()
                 }
-                guard let _signedOwnedDetails = _signedOwnedDetails else {
+                guard let _signedOwnedDetails = keycloakStateAndUserDetails.signedUserDetails else {
                     os_log("KeycloakContactAdditionProtocol: Could not find owned signed details", log: log, type: .fault)
                     return FinishedState()
                 }
-                keycloakState = _keycloakState
+                keycloakState = keycloakStateAndUserDetails.keycloakState
                 signedOwnedDetails = _signedOwnedDetails
             }
             let jwks = keycloakState.jwks
@@ -124,7 +123,7 @@ extension KeycloakContactAdditionProtocol {
             let childProtocolInstanceUid = UID.gen(with: prng)
             os_log("Creating a link between the parent with uid %@ and the child protocol with uid %@, with owned identity %@", log: log, type: .debug, protocolInstanceUid.debugDescription, childProtocolInstanceUid.debugDescription, ownedIdentity.debugDescription)
 
-            guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            guard let thisProtocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, within: obvContext.context) else {
                 os_log("Could not retrive this protocol instance", log: log, type: .fault)
                 return FinishedState()
             }
@@ -195,7 +194,7 @@ extension KeycloakContactAdditionProtocol {
             let contactCreated: Bool
             let trustTimestamp = Date()
             let trustOrigin: TrustOrigin = .keycloak(timestamp: trustTimestamp, keycloakServer: keycloakServerURL)
-            if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+            if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                 contactCreated = true
                 try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
             } else {
@@ -266,7 +265,7 @@ extension KeycloakContactAdditionProtocol {
             let trustTimestamp = receivedMessage.trustTimestamp
 
             let trustOrigin: TrustOrigin = .keycloak(timestamp: trustTimestamp, keycloakServer: keycloakServerURL)
-            if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+            if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                 try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
 
                 for contactDeviceUid in contactDeviceUids {
@@ -307,7 +306,7 @@ extension KeycloakContactAdditionProtocol {
             // Verify the received contact signature
             // To the contrary of the Android version, the iOS version assumes that we only trust our own keycloak server.
             
-            guard let jwks = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext).obvKeycloakState?.jwks,
+            guard let jwks = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext)?.keycloakState.jwks,
                   let signedContactUserDetails = try? SignedObvKeycloakUserDetails.verifySignedUserDetails(signedContactDetails, with: jwks).signedUserDetails,
                   let userCoreDetails = try? signedContactUserDetails.getObvIdentityCoreDetails()
             else {
@@ -372,7 +371,7 @@ extension KeycloakContactAdditionProtocol {
 
             let trustTimestamp = Date()
             let trustOrigin: TrustOrigin = .keycloak(timestamp: trustTimestamp, keycloakServer: keycloakServerURL)
-            if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+            if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
                 try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
 
                 for contactDeviceUid in contactDeviceUids {

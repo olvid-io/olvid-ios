@@ -17,8 +17,9 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import CoreData
 import UIKit
+import SwiftUI
+import CoreData
 import StoreKit
 import os.log
 import UniformTypeIdentifiers
@@ -42,7 +43,7 @@ public protocol NewOnboardingFlowViewControllerDataSource: NewWelcomeScreenViewD
 }
 
 
-public protocol NewOnboardingFlowViewControllerDelegate: AnyObject, SubscriptionPlansViewActionsProtocol {
+public protocol NewOnboardingFlowViewControllerDelegate: AnyObject {
     
     func onboardingIsFinished(onboardingFlow: NewOnboardingFlowViewController, ownedCryptoIdGeneratedDuringOnboarding: ObvCryptoId) async
     
@@ -63,11 +64,12 @@ public protocol NewOnboardingFlowViewControllerDelegate: AnyObject, Subscription
     
     func onboardingRequiresToDiscoverKeycloakServer(onboardingFlow: NewOnboardingFlowViewController, keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)
         
+    @MainActor
     func onboardingRequiresKeycloakAuthentication(onboardingFlow: NewOnboardingFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState)
     
     func onboardingRequiresKeycloakToSyncAllManagedIdentities() async
     
-    func onboardingRequiresToRegisterAndUploadOwnedIdentityToKeycloakServer(ownedCryptoId: ObvCryptoId) async throws
+    func onboardingRequiresToRegisterAndUploadOwnedIdentityToKeycloakServer(ownedCryptoId: ObvCryptoId, keycloakUserIdAndState: (keycloakUserId: String, obvKeycloakState: ObvKeycloakState)?) async throws
     
     /// Called when the first view of the owned identity transfer protocol flow is shown.
     /// - Parameters:
@@ -137,6 +139,8 @@ public protocol NewOnboardingFlowViewControllerDelegate: AnyObject, Subscription
     func shouldSetupNewBackupsDuringOnboarding(_ onboardingFlow: NewOnboardingFlowViewController) async -> Bool
     
     func userWantsToBeRemindedToWriteDownBackupKey(_ onboardingFlow: NewOnboardingFlowViewController) async
+    
+    func onboardingIsFinished(onboardingFlow: NewOnboardingFlowViewController, existingOwnedCryptoIdBoundToKeycloak: ObvCryptoId) async
 
 }
 
@@ -148,16 +152,18 @@ public struct Onboarding {
     /// - The `initialOnboarding` mode is used for the very first onboarding only. MDM configurations are considered in this mode only.
     /// - The `addNewDevice` mode is used when starting an owned identity transfer protocol on a source device (where the owned identity already exist).
     /// - The `addProfile` mode is used on a device where an owned identity already exist, but where the user wants to add an owned identity existing on another device. This thus starts the owned identity transfer protocol on the target device.
+    /// - The `bindExistingProfileToKeycloak` mode is used when a user with an existing profile scans (or taps) an `OlvidURL` of kind `.configuration` with a `ObvKeycloakConfigurationAndServer`. This indicates she wants to start the flow allowing to bind the existing identity to a keycloak.
     public enum Mode {
         case initialOnboarding(mdmConfig: MDMConfiguration?)
         case addNewDevice(ownedCryptoId: ObvCryptoId, ownedDetails: CNContact, isTransferRestricted: Bool)
         case addProfile
+        case bindExistingProfileToKeycloak(ownedCryptoId: ObvCryptoId, keycloakConfigurationAndServer: ObvKeycloakConfigurationAndServer)
         
         var mdmConfigDuringInitialOnboarding: MDMConfiguration? {
             switch self {
             case .initialOnboarding(let mdmConfig):
                 return mdmConfig
-            case .addNewDevice, .addProfile:
+            case .addNewDevice, .addProfile, .bindExistingProfileToKeycloak:
                 return nil
             }
         }
@@ -178,7 +184,7 @@ public struct Onboarding {
 
 
 @MainActor
-public final class NewOnboardingFlowViewController: UIViewController, NewOwnedIdentityGeneratedViewControllerDelegate, UINavigationControllerDelegate, ChooseBetweenBackupRestoreAndAddThisDeviceViewControllerDelegate, ChooseBackupFileViewControllerDelegate, EnterBackupKeyViewControllerDelegate, WaitingForBackupRestoreViewControllerDelegate, ManagedDetailsViewerViewControllerDelegate, TransfertProtocolSourceCodeDisplayerViewControllerDelegate, TransfertProtocolTargetCodeFormViewControllerDelegate, InputSASOnSourceViewControllerDelegate, OwnedIdentityTransferSummaryViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
+public final class NewOnboardingFlowViewController: UIViewController, NewOwnedIdentityGeneratedViewControllerDelegate, UINavigationControllerDelegate, ChooseBetweenBackupRestoreAndAddThisDeviceViewControllerDelegate, ChooseBackupFileViewControllerDelegate, EnterBackupKeyViewControllerDelegate, WaitingForBackupRestoreViewControllerDelegate, TransfertProtocolSourceCodeDisplayerViewControllerDelegate, TransfertProtocolTargetCodeFormViewControllerDelegate, InputSASOnSourceViewControllerDelegate, OwnedIdentityTransferSummaryViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
     
     private var internalState = NewOnboardingState.initial
     
@@ -187,6 +193,7 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
     private var flowNavigationControllerHeightConstraint: NSLayoutConstraint?
     
     private static var log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: NewOnboardingFlowViewController.self))
+    private static var logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: NewOnboardingFlowViewController.self))
     
     public weak var delegate: NewOnboardingFlowViewControllerDelegate?
     
@@ -202,7 +209,17 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
     
     private let dataSource: NewOnboardingFlowViewControllerDataSource
     
-    public init(logSubsystem: String, directoryForTempFiles: URL, mode: Onboarding.Mode, dataSource: NewOnboardingFlowViewControllerDataSource) {
+    let olvidShopViewActions: any OlvidShopViewActions
+    let olvidShopViewDataSources: OlvidShopView.DataSources
+    
+    public init(logSubsystem: String,
+                directoryForTempFiles: URL,
+                mode: Onboarding.Mode,
+                dataSource: NewOnboardingFlowViewControllerDataSource,
+                olvidShopViewActions: any OlvidShopViewActions,
+                olvidShopViewDataSources: OlvidShopView.DataSources) {
+        self.olvidShopViewActions = olvidShopViewActions
+        self.olvidShopViewDataSources = olvidShopViewDataSources
         self.dataSource = dataSource
         self.mode = mode
         self.directoryForTempFiles = directoryForTempFiles
@@ -234,7 +251,8 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
         case .addNewDevice(_, _, isTransferRestricted: let isTransferRestricted):
             return isTransferRestricted
         case .initialOnboarding,
-                .addProfile:
+                .addProfile,
+                .bindExistingProfileToKeycloak:
             assertionFailure()
             return nil
         }
@@ -264,7 +282,7 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
         switch mode {
         case .initialOnboarding:
             return false
-        case .addNewDevice, .addProfile:
+        case .addNewDevice, .addProfile, .bindExistingProfileToKeycloak:
             return true
         }
     }
@@ -307,6 +325,14 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
             
             rootViewController = AddProfileViewController(showCloseButton: defaultShowCloseButton, delegate: self)
             
+        case .bindExistingProfileToKeycloak(ownedCryptoId: let ownedCryptoId, keycloakConfigurationAndServer: let keycloakConfigurationAndServer):
+            
+            let model = IdentityProviderValidationView.Model(
+                keycloakConfiguration: keycloakConfigurationAndServer.keycloakConfiguration,
+                isConfiguredFromMDM: false,
+                isBindingExistingProfile: .yes(ownedCryptoId: ownedCryptoId))
+            rootViewController = IdentityProviderValidationViewController(model: model, delegate: self)
+            
         }
         
         flowNavigationController = UINavigationController(rootViewController: rootViewController)
@@ -325,7 +351,7 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
             // Go back to the initial screen of the onboarding
             internalState = .initial
             await showNextOnboardingScreen(animated: true)
-        case .addNewDevice, .addProfile:
+        case .addNewDevice, .addProfile, .bindExistingProfileToKeycloak:
             // This flow has been dismissed by the meta flow controller
             break
         }
@@ -399,15 +425,24 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
             }
             let identityProviderValidationVC = IdentityProviderValidationViewController(
                 model: .init(keycloakConfiguration: keycloakConfiguration,
-                             isConfiguredFromMDM: isConfiguredFromMDM),
+                             isConfiguredFromMDM: isConfiguredFromMDM,
+                             isBindingExistingProfile: .no),
                 delegate: self)
             viewControllers.append(identityProviderValidationVC)
             flowNavigationController.setViewControllers(viewControllers, animated: animated)
         case .keycloakUserDetailsAndStuffAvailable(let keycloakUserDetailsAndStuff, let keycloakServerRevocationsAndStuff, let keycloakState):
-            let managedDetailsViewerVC = ManagedDetailsViewerViewController(
-                model: .init(keycloakUserDetailsAndStuff: keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff),
-                keycloakState: keycloakState,
-                delegate: self)
+            let model: ManagedDetailsViewerView.Model
+            switch mode {
+            case .bindExistingProfileToKeycloak(ownedCryptoId: let ownedCryptoId, _):
+                model = .init(keycloakUserDetailsAndStuff: keycloakUserDetailsAndStuff,
+                              keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff,
+                              existingOwnedCryptoIdToBind: ownedCryptoId)
+            case .initialOnboarding, .addNewDevice, .addProfile:
+                model = .init(keycloakUserDetailsAndStuff: keycloakUserDetailsAndStuff,
+                              keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff,
+                              existingOwnedCryptoIdToBind: nil)
+            }
+            let managedDetailsViewerVC = ManagedDetailsViewerViewController(model: model, keycloakState: keycloakState, delegate: self)
             flowNavigationController.pushViewController(managedDetailsViewerVC, animated: true)
         case .userIndicatedSheHasAnExistingProfile:
             let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
@@ -462,8 +497,17 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
             flowNavigationController.setViewControllers([vc], animated: animated)
         case .userMustChooseDeviceToKeepActiveOnSourceDevice(ownedCryptoId: let ownedCryptoId, ownedDetails: let ownedDetails, enteredSAS: let enteredSAS, ownedDeviceDiscoveryResult: let ownedDeviceDiscoveryResult, currentDeviceIdentifier: let currentDeviceIdentifier, targetDeviceName: let targetDeviceName, protocolInstanceUID: let protocolInstanceUID):
             let vc = ChooseDeviceToKeepActiveViewController(
-                model: .init(ownedCryptoId: ownedCryptoId, ownedDetails: ownedDetails, enteredSAS: enteredSAS, ownedDeviceDiscoveryResult: ownedDeviceDiscoveryResult, currentDeviceIdentifier: currentDeviceIdentifier, targetDeviceName: targetDeviceName, protocolInstanceUID: protocolInstanceUID),
-                delegate: self)
+                model: .init(ownedCryptoId: ownedCryptoId,
+                             ownedDetails: ownedDetails,
+                             enteredSAS: enteredSAS,
+                             ownedDeviceDiscoveryResult: ownedDeviceDiscoveryResult,
+                             currentDeviceIdentifier: currentDeviceIdentifier,
+                             targetDeviceName: targetDeviceName,
+                             protocolInstanceUID: protocolInstanceUID),
+                delegate: self,
+                olvidShopViewActions: olvidShopViewActions,
+                olvidShopViewDataSources: olvidShopViewDataSources,
+                uiKitDelegateForSwiftUISheet: self)
             flowNavigationController.setViewControllers([vc], animated: animated)
         case .finalOwnedIdentityTransferCheckOnSourceDevice(ownedCryptoId: let ownedCryptoId, ownedDetails: let ownedDetails, enteredSAS: let enteredSAS, ownedDeviceDiscoveryResult: let ownedDeviceDiscoveryResult, targetDeviceName: let targetDeviceName, protocolInstanceUID: let protocolInstanceUID, deviceToKeepActive: let deviceToKeepActive):
             guard let isTransferRestricted else { assertionFailure(); return }
@@ -493,6 +537,12 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
             let router = ObvAppBackupSetupRouter(navigationController: flowNavigationController, delegate: self, context: .onboarding)
             self.routerAndProfileKind = (router, profileKind) // Strong pointer to the router
             router.pushInitialViewController()
+        case .keycloakDistributionServerMismatch(distributionServerRequiredByKeycloak: let distributionServerRequiredByKeycloak, ownedCryptoIdToBind: let ownedCryptoIdToBind):
+            let model = KeycloakDistributionServerMismatchView.Model(
+                distributionServerRequiredByKeycloak: distributionServerRequiredByKeycloak,
+                ownedCryptoIdToBind: ownedCryptoIdToBind)
+            let vc = KeycloakDistributionServerMismatchViewController(model: model)
+            flowNavigationController.pushViewController(vc, animated: animated)
         }
     }
     
@@ -547,6 +597,22 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
         }
     }
     
+    
+}
+
+
+// MARK: - UIKitDelegateForSwiftUISheet
+
+extension NewOnboardingFlowViewController: UIKitDelegateForSwiftUISheet {
+    
+    public func userWantsToPresentView<Content>(_ view: some View, content: @escaping () -> Content) async where Content : View {
+        let hostingController = UIHostingController(rootView: content())
+        await self.presentOnTopAndAwaitCompletion(hostingController, animated: true)
+    }
+    
+    public func userWantsToDismissPresentedView(_ view: some View) async {
+        await self.dismissTopPresentedViewControllerAndAwaitCompletion(animated: true)
+    }
     
 }
 
@@ -746,7 +812,7 @@ extension NewOnboardingFlowViewController: NewAutorisationRequesterViewControlle
         
         switch viewController.self {
         case is NewUnmanagedDetailsChooserViewController:
-            newSize = .normal
+            newSize = .large
         case is NewAutorisationRequesterViewController:
             newSize = .normal
         case is ChooseBetweenBackupRestoreAndAddThisDeviceViewController:
@@ -800,7 +866,8 @@ extension NewOnboardingFlowViewController: ProtectedTransferWarningViewControlle
             self.internalState = .userWantsToProceedWithAddingDevice(ownedCryptoId: ownedCryptoId, ownedDetails: ownedDetails)
             await showNextOnboardingScreen(animated: true)
         case .initialOnboarding,
-                .addProfile:
+                .addProfile,
+                .bindExistingProfileToKeycloak:
             assertionFailure()
         }
     }
@@ -829,7 +896,7 @@ extension NewOnboardingFlowViewController {
         switch mode {
         case .initialOnboarding:
             userIsPerformingInitialOnboarding = true
-        case .addNewDevice, .addProfile:
+        case .addNewDevice, .addProfile, .bindExistingProfileToKeycloak:
             userIsPerformingInitialOnboarding = false
         }
         
@@ -875,13 +942,13 @@ extension NewOnboardingFlowViewController {
     
     /// Returns the CryptoId of the restore owned identity. When many identities were restored, only one is returned here
     func restoreBackupNow(controller: WaitingForBackupRestoreViewController, backupRequestIdentifier: UUID) async throws -> ObvCryptoId {
-        guard let delegate else { throw ObvError.theDelegateIsNotSet }
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
         return try await delegate.onboardingRequiresToRestoreBackup(onboardingFlow: self, backupRequestIdentifier: backupRequestIdentifier)
     }
     
     
     func userWantsToEnableAutomaticBackup(controller: WaitingForBackupRestoreViewController) async throws {
-        guard let delegate else { throw ObvError.theDelegateIsNotSet }
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
         try await delegate.userWantsToEnableAutomaticBackup(onboardingFlow: self)
     }
     
@@ -987,38 +1054,22 @@ extension NewOnboardingFlowViewController: ObvScannerHostingViewDelegate {
 }
 
 
-// MARK: - IdentityProviderValidationViewControllerDelegate
+// MARK: - ManagedDetailsViewerViewControllerDelegate
 
-extension NewOnboardingFlowViewController: IdentityProviderValidationViewControllerDelegate {
+extension NewOnboardingFlowViewController: ManagedDetailsViewerViewControllerDelegate {
     
-    func discoverKeycloakServer(controller: IdentityProviderValidationViewController, keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration) {
-        guard let delegate else { throw ObvError.theDelegateIsNotSet }
-        return try await delegate.onboardingRequiresToDiscoverKeycloakServer(onboardingFlow: self, keycloakServerURL: keycloakServerURL)
-    }
-    
-    
-    func userWantsToAuthenticateOnKeycloakServer(controller: IdentityProviderValidationViewController, keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws {
-        guard let delegate else { throw ObvError.theDelegateIsNotSet }
-        let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff, keycloakState) = try await delegate.onboardingRequiresKeycloakAuthentication(
-            onboardingFlow: self,
-            keycloakConfiguration: keycloakConfiguration,
-            keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
-        internalState = .keycloakUserDetailsAndStuffAvailable(keycloakUserDetailsAndStuff: keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff, keycloakState: keycloakState)
-        await showNextOnboardingScreen(animated: true)
-    }
-    
-    
-    // MARK: - ManagedDetailsViewerViewControllerDelegate
-    
-    @MainActor
-    func userWantsToCreateProfileWithDetailsFromIdentityProvider(controller: ManagedDetailsViewerViewController, keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff), keycloakState: ObvKeycloakState) async {
+    func userWantsToCreateProfileOrBindExistingProfileWithIdentityProvider(_ vc: ManagedDetailsViewerViewController,
+                                                                           bindExistingOrCreate: BindExistingOrCreateNewProfile,
+                                                                           keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff),
+                                                                           keycloakState: ObvKeycloakState) async {
         
         guard let delegate else {
             assertionFailure()
             return
         }
         
-        // We are dealing with an identity server. If there was no previous olvid identity for this user, then we can safely generate a new one. If there was a previous identity, we must make sure that the server allows revocation before trying to create a new identity.
+        // We are dealing with an identity server. If there was no previous olvid identity for this user on the server, then we can safely generate a new one.
+        // If there was a previous identity, we must make sure that the server allows revocation before trying to create a new identity.
         
         guard keycloakDetails.keycloakUserDetailsAndStuff.identity == nil || keycloakDetails.keycloakServerRevocationsAndStuff.revocationAllowed else {
             // If this happens, there is an UI bug.
@@ -1036,36 +1087,53 @@ extension NewOnboardingFlowViewController: IdentityProviderValidationViewControl
         // We use the hardcoded API here, it will be updated during the keycloak registration
         
         let currentDetails = ObvIdentityDetails(coreDetails: coreDetails, photoURL: nil)
+
+        // The following depends on whether we are creating a new profile, or bindingi an existing profile to an identity provider
+
+        let ownedIdentityToBind: ObvCryptoId
         
-        // Request the generation of the owned identity and sync it with the app
-        
-        let ownedCryptoId: ObvCryptoId
-        do {
-            ownedCryptoId = try await delegate.onboardingRequiresToGenerateOwnedIdentity(
-                onboardingFlow: self,
-                identityDetails: currentDetails,
-                nameForCurrentDevice: defaultNameForCurrentDevice,
-                keycloakState: keycloakState,
-                customServerAndAPIKey: customServerAndAPIKey)
-        } catch {
-            os_log("Could not generate owned identity: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-            assertionFailure()
-            return
+        switch bindExistingOrCreate {
+            
+        case .createNewProfile:
+            
+            // Request the generation of the owned identity and sync it with the app
+            
+            let ownedCryptoId: ObvCryptoId
+            do {
+                ownedCryptoId = try await delegate.onboardingRequiresToGenerateOwnedIdentity(
+                    onboardingFlow: self,
+                    identityDetails: currentDetails,
+                    nameForCurrentDevice: defaultNameForCurrentDevice,
+                    keycloakState: keycloakState,
+                    customServerAndAPIKey: customServerAndAPIKey)
+            } catch {
+                os_log("Could not generate owned identity: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+            
+            do {
+                try await delegate.onboardingRequiresToSyncAppDatabasesWithEngine(onboardingFlow: self)
+            } catch {
+                os_log("Could not sync engine and app: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+            
+            ownedIdentityToBind = ownedCryptoId
+
+        case .bindExistingProfile(existingOwnedCryptoIdToBind: let existingOwnedCryptoIdToBind):
+            
+            ownedIdentityToBind = existingOwnedCryptoIdToBind
+            
         }
         
-        do {
-            try await delegate.onboardingRequiresToSyncAppDatabasesWithEngine(onboardingFlow: self)
-        } catch {
-            os_log("Could not sync engine and app: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-            assertionFailure()
-            return
-        }
-        
-        // The owned identity is created, we register it with the keycloak manager
+        // The owned identity was created and synced with app, or already existed. In both cazses, we can register it with the keycloak manager
         
         do {
-            try await delegate.onboardingRequiresToRegisterAndUploadOwnedIdentityToKeycloakServer(ownedCryptoId: ownedCryptoId)
+            try await delegate.onboardingRequiresToRegisterAndUploadOwnedIdentityToKeycloakServer(ownedCryptoId: ownedIdentityToBind, keycloakUserIdAndState: (keycloakDetails.keycloakUserDetailsAndStuff.id, keycloakState))
         } catch {
+            Self.logger.fault("Could not bind existing profile to keycloak server: \(error.localizedDescription, privacy: .public)")
             let alert = UIAlertController(title: String(localizedInThisBundle: "DIALOG_TITLE_IDENTITY_PROVIDER_ERROR"),
                                           message: String(localizedInThisBundle: "DIALOG_MESSAGE_FAILED_TO_UPLOAD_IDENTITY_TO_KEYCLOAK"),
                                           preferredStyle: .alert)
@@ -1074,10 +1142,53 @@ extension NewOnboardingFlowViewController: IdentityProviderValidationViewControl
             return
         }
         
-        // We are done, we can proceed with the next screen
+        // We are done, we can proceed with the next screen or tell our delegate that we are done
         
-        await requestNextAutorisationPermissionAfterCreatingTheOwnedIdentity(profileKind: .keycloakManaged(ownedCryptoId: ownedCryptoId))
+        switch bindExistingOrCreate {
+            
+        case .createNewProfile:
+
+            await requestNextAutorisationPermissionAfterCreatingTheOwnedIdentity(profileKind: .keycloakManaged(ownedCryptoId: ownedIdentityToBind))
+
+        case .bindExistingProfile:
+            
+            await delegate.onboardingIsFinished(onboardingFlow: self, existingOwnedCryptoIdBoundToKeycloak: ownedIdentityToBind)
+                        
+        }
         
+        
+    }
+
+}
+
+
+// MARK: - IdentityProviderValidationViewControllerDelegate
+
+extension NewOnboardingFlowViewController: IdentityProviderValidationViewControllerDelegate {
+    
+    func discoverKeycloakServer(controller: IdentityProviderValidationViewController, keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration) {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.onboardingRequiresToDiscoverKeycloakServer(onboardingFlow: self, keycloakServerURL: keycloakServerURL)
+    }
+    
+    
+    func userWantsToAuthenticateOnKeycloakServer(controller: IdentityProviderValidationViewController, keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff, keycloakState) = try await delegate.onboardingRequiresKeycloakAuthentication(
+            onboardingFlow: self,
+            keycloakConfiguration: keycloakConfiguration,
+            keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
+        switch isBindingExistingProfile {
+        case .no:
+            internalState = .keycloakUserDetailsAndStuffAvailable(keycloakUserDetailsAndStuff: keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff, keycloakState: keycloakState)
+        case .yes(let ownedCryptoId):
+            if ownedCryptoId.belongsTo(serverURL: keycloakUserDetailsAndStuff.server) {
+                internalState = .keycloakUserDetailsAndStuffAvailable(keycloakUserDetailsAndStuff: keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff, keycloakState: keycloakState)
+            } else {
+                internalState = .keycloakDistributionServerMismatch(distributionServerRequiredByKeycloak: keycloakUserDetailsAndStuff.server, ownedCryptoIdToBind: ownedCryptoId)
+            }
+        }
+        await showNextOnboardingScreen(animated: true)
     }
     
     
@@ -1206,7 +1317,7 @@ extension NewOnboardingFlowViewController: TransferProtocolTargetShowSasViewCont
     
     
     func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(controller: TransferProtocolTargetShowSasViewController, keycloakConfiguration: ObvKeycloakConfiguration, transferProofElements: ObvKeycloakTransferProofElements) async throws -> ObvKeycloakTransferProofAndAuthState {
-        guard let delegate else { throw ObvError.theDelegateIsNotSet }
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
         return try await delegate.userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(onboardingFlow: self, keycloakConfiguration: keycloakConfiguration, transferProofElements: transferProofElements)
     }
     
@@ -1302,7 +1413,7 @@ extension NewOnboardingFlowViewController: ChooseDeviceToKeepActiveViewControlle
     
     
     func refreshDeviceDiscovery(controller: ChooseDeviceToKeepActiveViewController, for ownedCryptoId: ObvCryptoId) async throws -> ObvOwnedDeviceDiscoveryResult {
-        guard let delegate else { throw ObvError.theDelegateIsNotSet }
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
         let result = try await delegate.onboardingRequiresToPerformOwnedDeviceDiscoveryNow(for: ownedCryptoId)
         return result.ownedDeviceDiscoveryResult
     }
@@ -1312,33 +1423,32 @@ extension NewOnboardingFlowViewController: ChooseDeviceToKeepActiveViewControlle
 
 // MARK: - SubscriptionPlansViewActionsProtocol (required for ChooseDeviceToKeepActiveViewControllerDelegate)
 
-extension NewOnboardingFlowViewController {
-    
-    public func fetchSubscriptionPlans(for ownedCryptoId: ObvCryptoId, alsoFetchFreePlan: Bool) async throws -> (freePlanIsAvailable: Bool, products: [Product]) {
-        guard let delegate else { throw ObvError.theDelegateIsNotSet }
-        return try await delegate.fetchSubscriptionPlans(for: ownedCryptoId, alsoFetchFreePlan: alsoFetchFreePlan)
-    }
-    
-    
-    public func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws -> APIKeyElements {
-        guard let delegate else { throw ObvError.theDelegateIsNotSet }
-        let newAPIKeyElements = try await delegate.userWantsToStartFreeTrialNow(ownedCryptoId: ownedCryptoId)
-        return newAPIKeyElements
-    }
-    
-    
-    public func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
-        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
-        return try await delegate.userWantsToBuy(product)
-    }
-    
-    
-    public func userWantsToRestorePurchases() async throws {
-        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
-        try await delegate.userWantsToRestorePurchases()
-    }
-    
-}
+//extension NewOnboardingFlowViewController {
+//    
+//    public func fetchSubscriptionPlans(for ownedCryptoId: ObvCryptoId, alsoFetchFreePlan: Bool) async throws -> (freePlanIsAvailable: Bool, products: [Product]) {
+//        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+//        return try await delegate.fetchSubscriptionPlans(for: ownedCryptoId, alsoFetchFreePlan: alsoFetchFreePlan)
+//    }
+//    
+//    
+//    public func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws {
+//        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+//        try await delegate.userWantsToStartFreeTrialNow(ownedCryptoId: ownedCryptoId)
+//    }
+//    
+//    
+//    public func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
+//        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+//        return try await delegate.userWantsToBuy(product)
+//    }
+//    
+//    
+//    public func userWantsToRestorePurchases() async throws {
+//        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+//        try await delegate.userWantsToRestorePurchases()
+//    }
+//    
+//}
 
 
 // MARK: - NewIdentityProviderManualConfigurationViewControllerDelegate
@@ -1404,62 +1514,36 @@ extension NewOnboardingFlowViewController: ObvAppBackupSetupRouterDelegate {
 }
 
 
-// MARK: - OlvidURLHandler
+// MARK: - Handling certain OlvidURLs
 
-extension NewOnboardingFlowViewController: OlvidURLHandler {
+extension NewOnboardingFlowViewController {
     
-    @MainActor
-    public func handleOlvidURL(_ olvidURL: OlvidURL) async {
-        switch olvidURL.category {
+    /// Called by the `MetaFlowController` when the user scans (or taps) an `OlvidURL` containing a `ServerAndAPIKey` (i.e, a license)  during an onboarding.
+    public func handleOlvidURLOfTypeConfigurationWithServerAndAPIKey(serverAndAPIKey: ServerAndAPIKey) async {
 
-        case .openIdRedirect:
-            // This case should have been dealt with by the MetaFlowController
-            assertionFailure()
-
-        case .invitation:
-            // Not handled while the user is performing an onboarding (it used to be, in the old flow, but not anymore)
-            assertionFailure()
-
-        case .mutualScan:
-            // Not handled while the user is performing an onboarding
-            assertionFailure()
-
-        case .configuration(let serverAndAPIKey, _, let keycloakConfig):
-            
-            if let serverAndAPIKey {
-                await userWantsToUseCustomServerAndAPIKey(serverAndAPIKey)
-            } else if let keycloakConfig {
-                self.internalState = .keycloakConfigAvailable(keycloakConfiguration: keycloakConfig.keycloakConfiguration, isConfiguredFromMDM: false)
-                await showNextOnboardingScreen(animated: true)
-            } else {
-                assertionFailure()
-                // betaConfiguration are not handled
-            }
-
-        }
-
-    }
-    
-    
-    @MainActor
-    private func userWantsToUseCustomServerAndAPIKey(_ customServerAndAPIKey: ServerAndAPIKey) async {
-        
         let title = String(localizedInThisBundle: "USE_CUSTOM_API_KEY_AND_SERVER_ALERT_TITLE")
-        let message = String.localizedStringWithFormat(String(localizedInThisBundle: "USE_CUSTOM_API_KEY_AND_SERVER_ALERT_BODY_%@_%@"), customServerAndAPIKey.server.absoluteString, customServerAndAPIKey.apiKey.uuidString)
+        let message = String.localizedStringWithFormat(String(localizedInThisBundle: "USE_CUSTOM_API_KEY_AND_SERVER_ALERT_BODY_%@_%@"), serverAndAPIKey.server.absoluteString, serverAndAPIKey.apiKey.uuidString)
         
         let alert = UIAlertController(title:  title,
                                       message: message,
                                       preferredStyleForTraitCollection: .current)
         alert.addAction(.init(title: "Cancel", style: .cancel))
         alert.addAction(.init(title: "Ok", style: .default) { _ in
-            self.customServerAndAPIKey = customServerAndAPIKey
+            self.customServerAndAPIKey = serverAndAPIKey
         })
         
         present(alert, animated: true)
-        
-    }
 
+    }
     
+    
+    /// Called by the `MetaFlowController` when the user scans (or taps) an `OlvidURL` containing a `ObvKeycloakConfigurationAndServer` during an onboarding.
+    public func handleOlvidURLOfTypeConfigurationWithKeycloakConfigurationAndServer(keycloakConfig: ObvKeycloakConfigurationAndServer) async {
+        self.internalState = .keycloakConfigAvailable(keycloakConfiguration: keycloakConfig.keycloakConfiguration, isConfiguredFromMDM: false)
+        await showNextOnboardingScreen(animated: true)
+    }
+    
+
     // MARK: - Helpers
     
     @MainActor

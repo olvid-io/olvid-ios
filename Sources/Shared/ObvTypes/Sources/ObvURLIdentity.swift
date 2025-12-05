@@ -22,7 +22,7 @@ import ObvCrypto
 import ObvEncoder
 
 
-public struct ObvURLIdentity {
+public struct ObvURLIdentity: Sendable, Hashable {
     
     public let cryptoId: ObvCryptoId
     public let fullDisplayName: String
@@ -87,11 +87,21 @@ extension ObvURLIdentity: CustomStringConvertible {
 
 extension ObvURLIdentity {
     
-    public var urlRepresentation: URL {
+    public enum URLRepresentationType {
+        case doubleScan
+        case sharing
+    }
+    
+    public func urlRepresentation(for representationType: URLRepresentationType) -> URL {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "invitation.olvid.io"
-        components.path = "/"
+        switch representationType {
+        case .doubleScan:
+            components.path = "/1"
+        case .sharing:
+            components.path = "/"
+        }
         components.fragment = self.obvEncode().rawData.base64EncodedString()
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "+", with: "-")

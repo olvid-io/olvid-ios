@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvTypes
 import ObvMetaManager
 import ObvCrypto
@@ -905,7 +905,7 @@ extension GroupV2Protocol {
                         if inviterIsPending {
                             let ownGroupInvitationNonce = try identityDelegate.getOwnGroupInvitationNonceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                             let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: inviter)
-                            let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                            let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
                             let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: inviter, fromOwnedIdentity: ownedIdentity))
                             let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                             guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -1397,7 +1397,7 @@ extension GroupV2Protocol {
                 if !identitiesToPing.isEmpty {
                     for identityToPing in identitiesToPing {
                         let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: identityToPing)
-                        let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                        let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
                         let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: identityToPing, fromOwnedIdentity: ownedIdentity))
                         let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                         guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -1659,7 +1659,7 @@ extension GroupV2Protocol {
             
             // Check that the signature was not replayed by searching the DB
             
-            guard try !GroupV2SignatureReceived.exists(ownedCryptoIdentity: ownedIdentity, signature: signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity, within: obvContext) else {
+            guard try !GroupV2SignatureReceived.exists(ownedCryptoIdentity: ownedIdentity, signature: signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity, within: obvContext.context) else {
                 return FinalState()
             }
 
@@ -1711,7 +1711,7 @@ extension GroupV2Protocol {
             
             // If we reach this point, we received a valid signature on a valid nonce that allowed to identify the group member. We store it in DB to prevent replay attacks.
             
-            _ = GroupV2SignatureReceived(ownedCryptoIdentity: ownedIdentity, signature: signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity, within: obvContext)
+            _ = GroupV2SignatureReceived(ownedCryptoIdentity: ownedIdentity, signature: signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity, within: obvContext.context)
             
             // Move the pending member to the group members. Note that this call also creates a contact for the owned identity if required. If not, it adds the appropriate TrustOrigin for the existing contact.
             
@@ -1722,7 +1722,7 @@ extension GroupV2Protocol {
             if !isReponse {
                 let ownGroupInvitationNonce = try identityDelegate.getOwnGroupInvitationNonceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: memberWhoSignedTheNonce.identity)
-                let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
                 let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: memberWhoSignedTheNonce.identity, fromOwnedIdentity: ownedIdentity))
                 let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: true)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -1990,7 +1990,7 @@ extension GroupV2Protocol {
             guard invitationAccepted else {
                 
                 do {
-                    let leaveSignature = try solveChallengeDelegate.solveChallenge(.groupLeaveNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce), for: ownedIdentity, using: prng, within: obvContext)
+                    let leaveSignature = try solveChallengeDelegate.solveChallenge(.groupLeaveNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce), for: ownedIdentity, using: prng, within: obvContext.context)
                     let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                     let concreteMessage = PutGroupLogOnServerMessage(coreProtocolMessage: coreMessage)
                     let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putGroupLog(groupIdentifier: groupIdentifier, querySignature: leaveSignature)
@@ -2071,7 +2071,7 @@ extension GroupV2Protocol {
                 let identitiesToPing = Set(serverBlobWithCheckedIntegrity.groupMembers.map({ $0.identity })).filter({ $0 != ownedIdentity })
                 for identity in identitiesToPing {
                     let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: identity)
-                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
                     let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: identity, fromOwnedIdentity: ownedIdentity))
                     let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -2472,7 +2472,7 @@ extension GroupV2Protocol {
                     let identitiesToPing = try identityDelegate.getAllOtherMembersOrPendingMembersOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext).map(\.identity)
                     for identity in identitiesToPing {
                         let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: identity)
-                        let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                        let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
                         let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: identity, fromOwnedIdentity: ownedIdentity))
                         let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                         guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -2899,7 +2899,7 @@ extension GroupV2Protocol {
                                                                                 identityDelegate: identityDelegate,
                                                                                 prng: prng,
                                                                                 solveChallengeDelegate: solveChallengeDelegate,
-                                                                                within: obvContext)
+                                                                                within: obvContext.context)
             
             // Check that we have a channel with all the members that we invite.
             // Also check that we have a channel with the members to whom we will need to send a new invitation nonce
@@ -2960,7 +2960,7 @@ extension GroupV2Protocol {
                                                                                     blobVersionSeed: updatedBlobVersionSeed,
                                                                                     solveChallengeDelegate: solveChallengeDelegate,
                                                                                     with: prng,
-                                                                                    within: obvContext)
+                                                                                    within: obvContext.context)
             
             // Solve the challenge required by the server when updating a blob
             
@@ -3400,7 +3400,7 @@ extension GroupV2Protocol {
                 
                 for member in membersToKick {
                     let challenge = ChallengeType.groupKick(encryptedAdministratorChain: encryptedAdministratorChain, groupInvitationNonce: member.groupInvitationNonce)
-                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
                     let channelType = ObvChannelSendChannelType.asymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
                     let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
                     let concreteMessage = KickMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, encryptedAdministratorChain: encryptedAdministratorChain, signature: signature)
@@ -3993,7 +3993,7 @@ extension GroupV2Protocol {
                 
                 // Put a group left log on server
                 
-                let leaveSignature = try solveChallengeDelegate.solveChallenge(.groupLeaveNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce), for: ownedIdentity, using: prng, within: obvContext)
+                let leaveSignature = try solveChallengeDelegate.solveChallenge(.groupLeaveNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce), for: ownedIdentity, using: prng, within: obvContext.context)
                 let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = PutGroupLogOnServerMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putGroupLog(groupIdentifier: groupIdentifier, querySignature: leaveSignature)
@@ -4466,7 +4466,7 @@ extension GroupV2Protocol {
                 
                 for member in membersToKick {
                     let challenge = ChallengeType.groupKick(encryptedAdministratorChain: encryptedAdministratorChain, groupInvitationNonce: member.groupInvitationNonce)
-                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
                     let channelType = ObvChannelSendChannelType.asymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
                     let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
                     let concreteMessage = KickMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, encryptedAdministratorChain: encryptedAdministratorChain, signature: signature)
@@ -4678,7 +4678,7 @@ extension GroupV2Protocol {
                 for identityToPing in output.insertedOrUpdatedIdentities {
                     let otherProtocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
                     let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: output.ownGroupInvitationNonce, recipientIdentity: identityToPing)
-                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
                     let coreMessage = getCoreMessageForSameProtocolButOtherProtocolInstanceUid(
                         for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: identityToPing, fromOwnedIdentity: ownedIdentity),
                         otherProtocolInstanceUid: otherProtocolInstanceUid)
@@ -4736,7 +4736,7 @@ extension GroupV2Protocol {
             
             // If the pending member is a contact already, make sure it is keycloak managed
             
-            if try identityDelegate.isIdentity(pendingMemberIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) {
+            if try identityDelegate.isIdentity(pendingMemberIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context) {
                 guard try identityDelegate.isContactCertifiedByOwnKeycloak(contactIdentity: pendingMemberIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext) else {
                     // The pending member is a contact, but it is not keycloak managed. We do not send a ping to her
                     return FinalState()
@@ -4750,7 +4750,7 @@ extension GroupV2Protocol {
             // Sign the group invitation nonce and send a ping message to the pending member
             
             let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: pendingMemberIdentity)
-            let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+            let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext.context)
             let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: pendingMemberIdentity, fromOwnedIdentity: ownedIdentity))
             let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
             guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }

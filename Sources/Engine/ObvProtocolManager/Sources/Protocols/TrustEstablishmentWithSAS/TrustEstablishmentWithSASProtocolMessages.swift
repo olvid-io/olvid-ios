@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -88,7 +88,7 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             let encodedOwnIdentityCoreDetails: Data
             (contactIdentity, contactIdentityFullDisplayName, encodedOwnIdentityCoreDetails) = try message.encodedInputs.obvDecode()
             ownIdentityCoreDetails = try ObvIdentityCoreDetails(encodedOwnIdentityCoreDetails)
@@ -123,8 +123,8 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             contactIdentity = try encodedElements[0].obvDecode()
             let encodedContactIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
@@ -162,8 +162,8 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             (contactIdentity, contactIdentityFullDisplayName, decommitment, seedAliceForSas) = try encodedElements.obvDecode()
         }
         
@@ -197,8 +197,8 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             contactIdentity = try encodedElements[0].obvDecode()
             let encodedContactIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
@@ -232,7 +232,7 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog response") }
             invitationAccepted = try encodedUserDialogResponse.obvDecode()
             guard let userDialogUuid = message.userDialogUuid else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog uuid") }
@@ -263,7 +263,7 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             invitationAccepted = try message.encodedInputs.obvDecode()
         }
         
@@ -293,8 +293,8 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedElements = message.encodedInputs
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedElements = try message.encodedInputs
             guard encodedElements.count == 3 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             seedBobForSas = try encodedElements[0].obvDecode()
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[1])
@@ -327,7 +327,7 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             decommitment = try message.encodedInputs.obvDecode()
         }
         
@@ -353,7 +353,7 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog response") }
             sasEnteredByUser = try encodedUserDialogResponse.obvDecode()
             guard let uuid = message.userDialogUuid else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog uuid") }
@@ -384,7 +384,7 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             contactSas = try message.encodedInputs.obvDecode()
         }
         
@@ -407,7 +407,7 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
@@ -436,7 +436,7 @@ extension TrustEstablishmentWithSASProtocol {
         // Initializers
         
         init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog response") }
             let encodedContactIdentityCoreDetails: Data
             (encodedContactIdentityCoreDetails, contactIdentity) = try encodedUserDialogResponse.obvDecode()
@@ -465,7 +465,7 @@ extension TrustEstablishmentWithSASProtocol {
         
         init(with message: ReceivedMessage) throws {
             // Never used
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,7 +32,7 @@ final class DetermineAttachmentsWithMissingSignedURLsOperation: ContextualOperat
         
         do {
             
-            attachmentsWithMissingSignedURL = try InboxAttachment.getAllDownloadableWithMissingSignedURL(within: obvContext)
+            attachmentsWithMissingSignedURL = try InboxAttachment.getAllDownloadableWithMissingSignedURL(within: obvContext.context)
                         
         } catch {
             assertionFailure()

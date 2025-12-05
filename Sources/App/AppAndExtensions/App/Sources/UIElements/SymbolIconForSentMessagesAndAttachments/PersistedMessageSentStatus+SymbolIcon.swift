@@ -66,9 +66,7 @@ extension PersistedMessageSent.MessageStatus {
         
     }
     
-    
-    func getLocalizedStringKey(messageHasMoreThanOneRecipient: Bool) -> LocalizedStringKey {
-        
+    private func getLocalizedStringKeyValue(messageHasMoreThanOneRecipient: Bool) -> String {
         switch self {
             
         case .sentFromAnotherOwnedDevice:
@@ -121,8 +119,16 @@ extension PersistedMessageSent.MessageStatus {
             return "SENT_MESSAGE_STATUS_KIND_UNPROCESSED"
             
         }
-
-        
+    }
+    
+    func getLocalizedStringKey(messageHasMoreThanOneRecipient: Bool) -> LocalizedStringKey {
+        let localizedStringKey = LocalizedStringKey(getLocalizedStringKeyValue(messageHasMoreThanOneRecipient: messageHasMoreThanOneRecipient))
+        return localizedStringKey
+    }
+    
+    func getAccessibilityLabel(messageHasMoreThanOneRecipient: Bool) -> String {
+        let key: String = getLocalizedStringKeyValue(messageHasMoreThanOneRecipient: messageHasMoreThanOneRecipient)
+        return NSLocalizedString("\(key)", comment: "")
     }
     
 }
