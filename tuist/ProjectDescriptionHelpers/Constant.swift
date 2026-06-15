@@ -25,13 +25,18 @@ public struct Constant {
         "es",
         "it",
         "de",
-        //"zh-Hans",
-        //"pt"
+        "ru",
+        "uk",
+        "pt-BR",
+        "pt-PT",
+        "zh-Hans",
+        "ja",
+        "ko",
     ]
             
     public static let appCategory = "public.app-category.social-networking"
 
-    public static let nsHumanReadableCopyrightValue = "Copyright © 2019-2025 Olvid SAS"
+    public static let nsHumanReadableCopyrightValue = "Copyright © 2019-2026 Olvid SAS"
     
     public static func olvidBundleDisplayName(for appType: OlvidAppType) -> String {
         switch appType {
@@ -125,7 +130,7 @@ public struct Constant {
     static let fileHeaderTemplate = """
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *

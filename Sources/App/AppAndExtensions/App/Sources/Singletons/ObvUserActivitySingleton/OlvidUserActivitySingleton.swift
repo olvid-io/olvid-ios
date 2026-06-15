@@ -140,7 +140,7 @@ extension OlvidUserActivitySingleton {
     private func determineCurrentDiscussionWhenShowing(_ viewController: SomeSingleDiscussionViewController) -> ObvDiscussionIdentifier? {
         assert(Thread.isMainThread)
         if let persistedDiscussion = try? PersistedDiscussion.get(objectID: viewController.discussionObjectID.objectID, within: ObvStack.shared.viewContext),
-           let discussionIdentifier = persistedDiscussion.discussionIdentifier {
+           let discussionIdentifier = try? persistedDiscussion.discussionIdentifier {
             return discussionIdentifier
         } else {
             assertionFailure()

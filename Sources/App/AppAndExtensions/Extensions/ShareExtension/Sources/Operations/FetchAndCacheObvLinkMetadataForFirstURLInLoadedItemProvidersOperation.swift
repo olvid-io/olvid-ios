@@ -21,6 +21,7 @@ import Foundation
 import OSLog
 import OlvidUtils
 import LinkPresentation
+import ObvAppTypes
 
 
 /// This operation is used by the share extension. If one of the `LoadedItemProviderToPaste` occurs to be an https URL, this operation fetches a "link preview" for it so that the share extension can cache it.

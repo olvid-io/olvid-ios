@@ -21,7 +21,7 @@ import Foundation
 @preconcurrency import ObvCrypto
 
 
-public struct ObvDecryptedReceivedReturnReceipt {
+public struct ObvDecryptedReceivedReturnReceipt: Sendable {
 
     public let contactCryptoId: ObvCryptoId
     public let status: ObvReturnReceiptStatus

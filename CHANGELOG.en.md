@@ -1,5 +1,55 @@
 # Changelog
 
+## [4.2 (960)] - 2026-05-03
+
+- You can now transfer your chat history between devices — a feature many of you have been waiting for!
+- Improved paste experience: copy text, media, or attachments from anywhere — even outside Olvid — and paste them directly into the message composition area. A new "Paste" button is also available in the "+" menu for easy access.
+- Added a new setting to disable autocorrection, making it easier to copy and paste code without unwanted changes.
+- Improved reply experience: dismiss the blur view to continue your conversation while keeping the reply context visible.
+- Added notifications to alert you when one of your devices is about to be deactivated.
+- When you type the @ symbol to mention someone, the order of contacts in the list is now more natural.
+- Adding or removing group members now includes haptic feedback to help prevent accidental additions or removals.
+- New for Enterprise users: managed profiles can now authenticate using their Olvid cryptographic identity as an alternative to standard OpenID Connect, making authentication fully transparent.
+- Managed profiles can now also authenticate via a single-use magic link, simplifying the first login flow.
+- Replaced the repeated notification authorization prompt with a non-intrusive in-app tip, shown only when relevant.
+- Force-press the Olvid app icon to quickly access the scanner and connect with other Olvid users faster than ever.
+- Fixed the "Stop sharing" button not working correctly in the location-sharing view inside a message.
+- Fixed incorrect tips being shown while sharing your location.
+- Resolved an issue that could occur when downloading an attachment received more than three months ago.
+- Fixed a graphical issue in the message editing screen.
+- Fixed a crash that could occur when editing a sent message.
+- Attempting to register or bind a revoked managed profile now displays a specific, actionable error message instead of a generic failure.
+- Japanese and Korean are now supported languages.
+
+## [4.1 (953)] - 2026-03-12
+
+- Redesigned message composer for a sleek new interface when typing text, adding attachments, voice messages, and sending messages.
+- Introduced real-time location sharing for 2 minutes, with updates almost every second, in addition to the existing 1-hour and unlimited options.
+- Faster processing of return receipts, ensuring smoother app startup—especially after your device has been off for a while.
+- Improved call setup speed and reliability by optimizing network connection handling.
+- You can now condense the introductory message in discussions for a cleaner view.
+- Olvid is now available in 4 more languages.
+- Received messages now show the exact date and time they were delivered to the server.
+- Fixed an issue where notifications would not appear for messages containing only attachments.
+- Resolved a problem where actions from user notifications were sometimes unreliable.
+- Fixed bugs in the location sharing feature for better reliability.
+- Fixed an issue where tapping an Olvid call in the iPhone call log would not always start a new call.
+- Fixed an issue where unbinding would incorrectly occur when reconnecting to a Keycloak instance you are already linked to.
+- Fixed an issue where poll results in group discussions could appear incorrect for users who joined after the poll was created.
+- Fixed an issue where reaction dates could appear incorrect to users who joined a group after the reaction was sent.
+- Fixed an issue sometimes preventing users from listening to audio messages.
+- Fixed an issue where it was possible to forward a received message without downloading all its attachments first.
+- Fixed a UI issue preventing users from easily muting a discussion for a certain time.
+- On macOS, pressing the Esc key now dismisses the Photos app window if it opens with no items, preventing it from getting stuck.
+- Expired read-once messages are now reliably deleted when the app starts up.
+- May fix the camera button of the standard CallKit interface.
+- Updated WebRTC to version 7390 for improved performance.
+- Improved the design of the call participant screen.
+- Advanced users can now use alternative TURN servers with rotating IP addresses.
+- Fixed a rare crash that could occur during app use.
+- The "Open Settings" button now works correctly on macOS.
+- Resolved an issue where the "Create group with..." button on contact sheets did not always respond as expected.
+
 ## [4.0.3 (944)] - 2025-12-01
 
 - Olvid+ now offers new subscription plans, allowing you to share your subscription with family and stay securely connected together.
@@ -36,14 +86,11 @@
 
 ## [4.0 (907)] - 2025-09-20
 
-- We are ready for iOS26, iPadOS26, and macOS26.
-- Redesigned navigation on iPad and macOS.
 - We've enhanced the message reception process to ensure smoother and more consistent performance.
 - You can now share entire directories with Olvid! Simply select a folder, and it will be automatically zipped and attached.
 - Enhanced result sharing, especially for articles.
 - Fixed a rare issue where some discussions might not appear in your recent discussions list.
 - Fixed an issue where attachments sent from your other devices might fail to download.
-- Fixed inconsistent profile ordering between the profile selection view and the fast-switching gesture.
 - Various improvements and bug fixes to keep things running smoothly.
 - We're working on the #1 feature request. Stay tuned!
 

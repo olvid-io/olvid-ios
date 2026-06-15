@@ -192,19 +192,19 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
         
         assert(Thread.isMainThread)
         
-        let ownedIdentityChooserVC = OwnedIdentityChooserViewController(
+        let ownedIdentityChooserVC = OwnedIdentityChooserNavigationStackHostingView(
             currentOwnedCryptoId: currentOwnedCryptoId,
             actions: self,
             dataSource: self.ownedIdentityChooserViewDataSource,
             avatarViewDataSource: avatarViewDataSource,
             configuration: .init(mode: .changeCurrentProfile,
                                  explanation: nil,
-                                 title: "MY_PROFILES",
+                                 title: String(localized: "MY_PROFILES"),
                                  isEmbeddedInHostingController: true),
             callbackOnViewDidDisappear: nil,
             toggleToDismiss: .init(get: { false }, set: { [weak self] value in
                 guard value else { return }
-                (self?.presentedViewController as? OwnedIdentityChooserViewController)?.dismiss(animated: true)
+                (self?.presentedViewController as? OwnedIdentityChooserNavigationStackHostingView)?.dismiss(animated: true)
             }))
         
         // Presenting a popover on a toolbar item crashes under macOS26.
@@ -281,9 +281,9 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
 
 // MARK: - Implementing OwnedIdentityChooserViewActionsProtocol
 
-extension ShowOwnedIdentityButtonUIViewController: OwnedIdentityChooserViewActionsProtocol {
+extension ShowOwnedIdentityButtonUIViewController: OwnedIdentityChooserNavigationStackActions {
     
-    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
+    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
         if currentOwnedCryptoId == chosenOwnedCryptoId {
             await userWantsToEditCurrentOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
         } else {
@@ -302,14 +302,14 @@ extension ShowOwnedIdentityButtonUIViewController: OwnedIdentityChooserViewActio
     }
 
     
-    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
+    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
         guard currentOwnedCryptoId == currentOwnedCryptoId else { assertionFailure(); return }
         let deepLink = ObvDeepLink.myId(ownedCryptoId: currentOwnedCryptoId)
         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
             .postOnDispatchQueue()
     }
     
-    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView) async {
+    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack) async {
         ObvMessengerInternalNotification.userWantsToAddOwnedProfile
             .postOnDispatchQueue()
     }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,7 +58,7 @@ public final class ObvServerGroupBlobLockServerMethod: ObvServerDataMethod {
     }
 
     public enum PossibleReturnStatus {
-        case ok(encryptedBlob: EncryptedData, logItems: Set<Data>, adminPublicKey: PublicKeyForAuthentication)
+        case ok(encryptedBlob: EncryptedData, logItems: Set<Data>, adminPublicKey: PublicKeyForAuthentication, lastModificationTimestamp: Date)
         case deletedFromServer
         case groupIsLocked
         case invalidSignature
@@ -108,7 +108,7 @@ public final class ObvServerGroupBlobLockServerMethod: ObvServerDataMethod {
             return .success(.generalError)
         case .ok:
             
-            guard listOfReturnedDatas.count == 3 else {
+            guard listOfReturnedDatas.count == 4 else {
                 os_log("The server did not return the expected number of elements", log: log, type: .error)
                 assertionFailure()
                 let error = Self.makeError(message: "The server did not return the expected number of elements")
@@ -120,7 +120,11 @@ public final class ObvServerGroupBlobLockServerMethod: ObvServerDataMethod {
                 guard let listOfEncodedLogItems = [ObvEncoded](listOfReturnedDatas[1]) else { throw Self.makeError(message: "Decoding failed") }
                 let logItems = Set(listOfEncodedLogItems.compactMap({ Data($0) }))
                 guard let adminPublicKey = PublicKeyForAuthenticationDecoder.obvDecode(listOfReturnedDatas[2]) else { throw Self.makeError(message: "Could not decode key") }
-                return .success(.ok(encryptedBlob: encryptedBlob, logItems: logItems, adminPublicKey: adminPublicKey))
+                
+                guard let updateTimestampInMilliseconds = Int(listOfReturnedDatas[3]) else { assertionFailure(); throw Self.makeError(message: "Could not decode update timestamp")}
+                let lastModificationTimestamp = Date(timeIntervalSince1970: TimeInterval(milliseconds: updateTimestampInMilliseconds))
+
+                return .success(.ok(encryptedBlob: encryptedBlob, logItems: logItems, adminPublicKey: adminPublicKey, lastModificationTimestamp: lastModificationTimestamp))
             } catch {
                 os_log("Decoding failed: %{public}@", log: log, type: .error, error.localizedDescription)
                 assertionFailure()

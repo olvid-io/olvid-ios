@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -66,8 +66,6 @@ public struct NewSubscriptionStatusView: View {
         .init(feature: .multidevice, showAsAvailable: apiPermissions.contains(.multidevice))
     ]}
 
-    @Namespace private var namespace
-
     public var body: some View {
         VStack {
             if let title = self.title {
@@ -98,11 +96,11 @@ public struct NewSubscriptionStatusView: View {
                     if apiKeyStatus != .licensesExhausted {
                         SeparatorView()
                             .padding(.bottom, 16)
-                        FeatureListView(title: NSLocalizedString("Free features", comment: ""),
+                        FeatureListView(title: String(localizedInThisBundle: "Free features"),
                                         features: self.freeFeature)
                         SeparatorView()
                             .padding(.bottom, 16)
-                        FeatureListView(title: NSLocalizedString("Premium features", comment: ""),
+                        FeatureListView(title: String(localizedInThisBundle: "Premium features"),
                                         features: premiumFeatures)
                     }
                     if let refreshStatusAction {

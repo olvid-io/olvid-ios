@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import UIKit
 import ObvPlatformBase
 import ObvUI
 import ObvUICoreData
-
+import ObvAppTypes
 
 protocol TextBubbleDelegate: AnyObject {
     
@@ -30,8 +30,8 @@ protocol TextBubbleDelegate: AnyObject {
     /// Delegation method called whenever a user taps on a user mention within the text
     /// - Parameters:
     ///   - textBubble: An instance of ``TextBubble``.
-    ///   - mentionableIdentity: An instance of ``ObvMentionableIdentityAttribute.Value`` that the user tapped.
-    func textBubble(_ textBubble: TextBubble, userDidTapOn mentionableIdentity: ObvMentionableIdentityAttribute.Value) async
+    ///   - mentionableIdentity: An instance of ``ObvMentionAttribute.Value`` that the user tapped.
+    func textBubble(_ textBubble: TextBubble, userDidTapOn mentionableIdentity: ObvMentionAttribute.Value) async
     
     
     /// Called whenever an URL is interacted with in the ``TextBubble``.
@@ -102,7 +102,7 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
     }
 
 
-    private let textView = UITextView()
+    private let textView = TextBubbleTextView()
     private let bubble = BubbleView()
     let expirationIndicator = ExpirationIndicatorView()
     let expirationIndicatorSide: ExpirationIndicatorView.Side
@@ -163,7 +163,19 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         textView.textContainerInset = UIEdgeInsets.zero
         textView.isEditable = false
         textView.isSelectable = true // Must be set to `true` for the data detector to work
-        textView.tintColor = .white // Set Tint Color for selection to be displayed.
+        // Tint color drives the text-selection highlight colour.
+        // Sent-message bubbles (adaptiveOlvidBlue background, white text) need an adaptive tint:
+        // in light mode OlvidLight is a light blue, so a dark grey provides contrast; in dark mode
+        // OlvidDark is a dark blue, so a light grey works. Received-message bubbles also adapt:
+        // systemBlue in light mode (visible on a light surface), white in dark mode (systemBlue is
+        // nearly invisible on the dark systemFill bubble background).
+        textView.tintColor = textColor == .white
+            ? UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark ? UIColor(white: 0.7, alpha: 1.0) : .white
+            }
+            : UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark ? .white : .systemBlue
+            }
         textView.adjustsFontForContentSizeCategory = true
         textView.textColor = textColor
         textView.linkTextAttributes = [:] // Do not specify any attributes for link, let the attributed string decide
@@ -206,6 +218,31 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
 
     }
 
+
+    #if targetEnvironment(macCatalyst)
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard let event, event.buttonMask.contains(.secondary) else {
+            return super.hitTest(point, with: event)
+        }
+        guard self.point(inside: point, with: event) else { return nil }
+        if textView.selectedRange.length == 0 {
+            // Two-layer defence against right-click word auto-selection:
+            // 1. Suppress the selectedRange setter so the macOS NSTextView layer cannot
+            //    update the UIKit selection even though it processes mouseDown independently.
+            // 2. Return self so UIKit routes the event to TextBubble, not UITextView,
+            //    allowing the parent UICollectionView's context menu to fire instead.
+            textView.suppressAutoSelection = true
+            DispatchQueue.main.async { [weak self] in
+                self?.textView.suppressAutoSelection = false
+            }
+            return self
+        }
+        // User has an explicit selection — let UITextView handle the right-click and
+        // show its system text menu (Copy, Look Up, etc.) for the selected text.
+        return super.hitTest(point, with: event)
+    }
+    #endif
+
 }
 
 
@@ -222,7 +259,7 @@ extension TextBubble: UITextViewDelegate {
             return delegate.textView(self, shouldInteractWith: URL, interaction: interaction)
         }
     }
-        
+
 }
 
 
@@ -554,28 +591,6 @@ private extension AttributedString {
 }
 
 
-// MARK: - Finding a mention in an NSAttributedString
-
-private extension NSAttributedString {
-    
-    func findFirstMention(in characterRange: NSRange) -> ObvMentionableIdentityAttribute.Value? {
-        
-        var mentionFound: ObvMentionableIdentityAttribute.Value?
-        
-        self.enumerateAttributes(in: characterRange) { attributes, range, _ in
-            if let mention = attributes[.mention] as? ObvMentionableIdentityAttribute.Value {
-                mentionFound = mention
-                return
-            }
-        }
-
-        return mentionFound
-        
-    }
-    
-}
-
-
 private extension [PresentationIntent.IntentType] {
     
     func extractFirstListItemOrdinal() -> Int? {
@@ -589,5 +604,28 @@ private extension [PresentationIntent.IntentType] {
         }
         return nil
     }
-    
+
+}
+
+
+// MARK: - TextBubbleTextView
+
+/// UITextView subclass used by TextBubble to intercept selectedRange assignments on Mac Catalyst.
+/// When `suppressAutoSelection` is true, any attempt to set a non-empty selectedRange is ignored.
+/// This blocks the macOS NSTextView layer from auto-selecting the word under the cursor on
+/// right-click, which happens independently of UIKit's hit-test routing.
+private final class TextBubbleTextView: UITextView {
+
+    #if targetEnvironment(macCatalyst)
+    var suppressAutoSelection = false
+
+    override var selectedRange: NSRange {
+        get { super.selectedRange }
+        set {
+            guard !(suppressAutoSelection && newValue.length > 0) else { return }
+            super.selectedRange = newValue
+        }
+    }
+    #endif
+
 }

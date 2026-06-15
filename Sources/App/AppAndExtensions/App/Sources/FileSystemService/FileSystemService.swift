@@ -54,6 +54,13 @@ extension FileSystemService {
     
     func createAllDirectoriesIfRequired() {
         
+        // Delete the content of the tmp directory
+        
+        let tempFilesURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.url
+        try? FileManager.default.removeItem(at: tempFilesURL)
+        
+        // (Re)create the directories
+
         for containerURL in ObvUICoreDataConstants.ContainerURL.allCases {
             let url = containerURL.url
             var title = containerURL.title
@@ -92,7 +99,7 @@ extension FileSystemService {
             Self.logger.fault("Could not exclude from backup content of the securityApplicationGroupURL: \(error, privacy: .public)")
             assertionFailure()
         }
-            
+                    
     }
     
     

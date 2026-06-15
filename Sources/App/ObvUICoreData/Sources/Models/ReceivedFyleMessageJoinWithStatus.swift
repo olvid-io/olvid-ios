@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,9 +21,10 @@ import Foundation
 import CoreData
 import CoreServices
 import ObvTypes
-import os.log
+import OSLog
 import ObvSettings
 import ObvUICoreDataStructs
+import ObvAppTypes
 
 
 @objc(ReceivedFyleMessageJoinWithStatus)
@@ -37,6 +38,8 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
         case downloading = 1
         case complete = 2
         case cancelledByServer = 3
+        case notYetDownloadableAsReceivedByUserNotification = 4
+        case untransferred = 5
     }
         
     // MARK: Properties
@@ -62,6 +65,13 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
     public override var fullFileIsAvailable: Bool { status == .complete }
 
     private var changedKeys = Set<String>()
+
+    private var skipAllNotificationsOnDidSave = false
+    
+    override func setSkipAllNotificationsOnDidSave(to newValue: Bool) {
+        super.setSkipAllNotificationsOnDidSave(to: newValue)
+        self.skipAllNotificationsOnDidSave = newValue
+    }
 
     // MARK: - Initializer
     
@@ -98,8 +108,29 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
             self.rawStatus = FyleStatus.complete.rawValue
             self.setTotalByteCount(to: fileSize)
         } else {
-            self.rawStatus = obvAttachment.downloadPaused ? FyleStatus.downloadable.rawValue : FyleStatus.downloading.rawValue
-            self.setTotalByteCount(to: obvAttachment.totalUnitCount)
+            switch obvAttachment.status {
+            case .paused(let expectedTotalUnitCount):
+                self.setTotalByteCount(to: expectedTotalUnitCount)
+                self.rawStatus = FyleStatus.downloadable.rawValue
+            case .resumed(let expectedTotalUnitCount):
+                self.setTotalByteCount(to: expectedTotalUnitCount)
+                self.rawStatus = FyleStatus.downloading.rawValue
+            case .downloaded(url: _):
+                try fyle.updateFyle(with: obvAttachment)
+                if let fileSize = fyle.getFileSize() {
+                    self.rawStatus = FyleStatus.complete.rawValue
+                    self.setTotalByteCount(to: fileSize)
+                }
+            case .cancelledByServer:
+                self.setTotalByteCount(to: 0)
+                self.rawStatus = FyleStatus.cancelledByServer.rawValue
+            case .markedForDeletion:
+                self.setTotalByteCount(to: 0)
+                self.rawStatus = FyleStatus.downloading.rawValue
+            case .receivedInUserNotification:
+                self.setTotalByteCount(to: 0)
+                self.rawStatus = FyleStatus.notYetDownloadableAsReceivedByUserNotification.rawValue
+            }
         }
 
         // Set the remaining properties and relationships
@@ -195,6 +226,7 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
                 throw ObvUICoreDataError.couldNotFindFyle
             }
             try fyle.updateFyle(with: obvAttachment)
+            self.setTotalByteCount(to: max(fyle.getFileSize() ?? 0, totalByteCount))
             let attachmentFullyReceived = (fyle.getFileSize() == totalByteCount)
             if attachmentFullyReceived {
                 tryToSetStatusTo(.complete)
@@ -205,6 +237,9 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
             tryToSetStatusTo(.cancelledByServer)
 
         case .markedForDeletion:
+            break
+            
+        case .receivedInUserNotification:
             break
 
         }
@@ -238,6 +273,59 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
 
 }
 
+
+// MARK: - History transfer
+
+extension ReceivedFyleMessageJoinWithStatus {
+    
+    /// Creates a `ReceivedFyleMessageJoinWithStatus` during a history transfer from a source to this destination device. A previous `ReceivedFyleMessageJoinWithStatus` cannot exist.
+    static func createReceivedDuringHistoryTransfer(receivedMessage: PersistedMessageReceived,
+                                                        attachment: ObvHistoryReceivedMessage.Attachment) throws {
+        let join = try Self.init(receivedMessage: receivedMessage, attachment: attachment)
+        assert(join.fyle != nil, "The fyle should have been created by the init of the superclass")
+    }
+
+    
+    /// Initialiser called exclusively during a history transfer from a source to this destination device.
+    private convenience init(receivedMessage: PersistedMessageReceived,
+                             attachment: ObvHistoryReceivedMessage.Attachment) throws {
+        
+        guard let context = receivedMessage.managedObjectContext else {
+            assertionFailure()
+            throw ObvUICoreDataError.noContext
+        }
+        
+        try self.init(sha256: attachment.sha256,
+                      totalByteCount: Int64(attachment.size),
+                      fileName: attachment.filename.trimmingWhitespacesAndNewlines(),
+                      uti: attachment.uti,
+                      rawStatus: FyleStatus.untransferred.rawValue,
+                      messageSortIndex: receivedMessage.sortIndex,
+                      index: attachment.number,
+                      forEntityName: ReceivedFyleMessageJoinWithStatus.entityName,
+                      within: context)
+        
+        guard let fyle else {
+            assertionFailure()
+            throw ObvUICoreDataError.theFyleShouldHaveBeenCreatedByTheSuperclassInitializer
+        }
+
+        if let fileSize = fyle.getFileSize() {
+            self.rawStatus = FyleStatus.complete.rawValue
+            self.setTotalByteCount(to: fileSize)
+        } else {
+            self.rawStatus = FyleStatus.untransferred.rawValue
+        }
+
+        self.receivedMessage = receivedMessage
+
+        self.setSkipAllNotificationsOnDidSave(to: true)
+        
+    }
+
+}
+
+
 // MARK: - Other methods
 
 extension ReceivedFyleMessageJoinWithStatus {
@@ -266,6 +354,13 @@ extension ReceivedFyleMessageJoinWithStatus {
         tryToSetStatusTo(.downloadable)
     }
 
+    func setStatusToDownloadedDuringHistoryTransfer(fileSize: Int64) {
+        if self.rawStatus != FyleStatus.complete.rawValue {
+            self.rawStatus = FyleStatus.complete.rawValue
+        }
+        self.setTotalByteCount(to: fileSize)
+        self.setSkipAllNotificationsOnDidSave(to: true)
+    }
     
     public func markAsOpened() {
         guard !self.wasOpened else { return }
@@ -338,6 +433,24 @@ extension ReceivedFyleMessageJoinWithStatus {
         static func forReceivedMessage(_ receivedMessage: PersistedMessageReceived) -> NSPredicate {
             NSPredicate(Key.receivedMessage, equalTo: receivedMessage)
         }
+        static var isComplete: NSPredicate {
+            NSPredicate(FyleMessageJoinWithStatus.Predicate.Key.rawStatus, EqualToInt: FyleStatus.complete.rawValue)
+        }
+        static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            let key: String = [
+                Key.receivedMessage.rawValue,
+                PersistedMessage.Predicate.Key.discussion.rawValue,
+                PersistedDiscussion.Predicate.Key.ownedIdentityIdentity].joined(separator: ".")
+            return NSPredicate(key, EqualToData: ownedCryptoId.getIdentity())
+        }
+        static func fyleSha256IsIn(sha256s: [Data]) -> NSPredicate {
+            assert(sha256s.count < 200)
+            let key = [
+                FyleMessageJoinWithStatus.Predicate.Key.fyle.rawValue,
+                Fyle.Predicate.Key.sha256.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(key, in: sha256s)
+        }
     }
 
     
@@ -346,30 +459,88 @@ extension ReceivedFyleMessageJoinWithStatus {
     }
     
     
+    /// Returns a subset of sha256s, containing only the sha256s of files that are known and complete.
+    public static func filterKnownAndCompleteFyles(sha256s: [Data], within context: NSManagedObjectContext) throws -> [Data] {
+        let sliceSize = 100
+        var knownAndComplete = [Data]()
+        let slices = sha256s.toSlices(ofMaxSize: sliceSize)
+        for slice in slices {
+            let request: NSFetchRequest<ReceivedFyleMessageJoinWithStatus> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.isComplete,
+                Predicate.fyleSha256IsIn(sha256s: slice),
+            ])
+            request.fetchLimit = sliceSize
+            let results = try context.fetch(request)
+            for result in results {
+                if let sha256 = result.fyle?.sha256 {
+                    knownAndComplete.append(sha256)
+                }
+            }
+        }
+        return knownAndComplete
+    }
+
+    
+    /// Returns a dictionary keyed by Fyle's sha256, where values are the file size on disk.
+    ///
+    /// This is used during a message history transfer on the source device.
+    public static func getSha256AndSizeOfCompleteFyles(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [Data: UInt64] {
+        let request: NSFetchRequest<ReceivedFyleMessageJoinWithStatus> = Self.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+            Predicate.isComplete,
+        ])
+        request.propertiesToFetch = [
+            FyleMessageJoinWithStatus.Predicate.Key.fyle.rawValue,
+        ]
+        request.fetchBatchSize = 200
+        let items = try context.fetch(request)
+        var sizeFromSha256 = [Data: UInt64]()
+        for item in items {
+            guard let fyle = item.fyle, let size = fyle.getFileSize() else { assertionFailure(); continue }
+            sizeFromSha256[fyle.sha256] = UInt64(size)
+        }
+        return sizeFromSha256
+    }
+    
+
     public static func getReceivedFyleMessageJoinWithStatus(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus {
         guard let obj = try context.existingObject(with: objectID) as? ReceivedFyleMessageJoinWithStatus else { throw ObvUICoreDataError.couldNotFindReceivedFyleMessageJoinWithStatus }
         return obj
     }
     
     
-    private static func get(obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus? {
-        let metadata = try FyleMetadata.jsonDecode(obvAttachment.metadata)
+    private static func get(contactIdentifier: ObvContactIdentifier,
+                            messageIdentifier: Data,
+                            sha256: Data,
+                            within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus? {
         guard let receivedMessage = try PersistedMessageReceived.get(
-            messageIdentifierFromEngine: obvAttachment.messageIdentifier,
-            from: obvAttachment.fromContactIdentity,
+            messageIdentifierFromEngine: messageIdentifier,
+            from: contactIdentifier,
             within: context) else {
             throw ObvUICoreDataError.couldNotFindPersistedMessageReceived
         }
         let request: NSFetchRequest<ReceivedFyleMessageJoinWithStatus> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            FyleMessageJoinWithStatus.Predicate.withSha256(metadata.sha256),
+            FyleMessageJoinWithStatus.Predicate.withSha256(sha256),
             Predicate.forReceivedMessage(receivedMessage),
         ])
         request.fetchLimit = 1
         let receivedFyleMessageJoinWithStatuses = try context.fetch(request)
         return receivedFyleMessageJoinWithStatuses.first
     }
- 
+    
+    
+    private static func get(obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus? {
+        let metadata = try FyleMetadata.jsonDecode(obvAttachment.metadata)
+        return try Self.get(contactIdentifier: obvAttachment.fromContactIdentity,
+                            messageIdentifier: obvAttachment.messageIdentifier,
+                            sha256: metadata.sha256,
+                            within: context)
+    }
+
+    
     /// Returns a dictionary where each key is the objectID of a `PersistedDiscussion` having at least one `FyleMessageJoinWithStatus`, and the value is the sum of total byte count of those fyles..
     /// Note that if a discussion has no relevant attachment, it does *not* appear in the returned dictionary.
     ///
@@ -458,7 +629,10 @@ extension ReceivedFyleMessageJoinWithStatus {
         
         defer {
             self.changedKeys.removeAll()
+            self.setSkipAllNotificationsOnDidSave(to: false)
         }
+        
+        guard !self.skipAllNotificationsOnDidSave else { return }
         
         // Request the sending of a "read" receipt, if appropriate
 

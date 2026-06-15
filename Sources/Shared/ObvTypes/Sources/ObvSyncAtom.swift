@@ -60,7 +60,7 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Se
         }
     }
     
-    /// This enum is used in certain `ObvSyncAtom` (well, for now, only in the pinnedDiscussions atom)
+    /// This enum is used in certain `ObvSyncAtom`
     public enum DiscussionIdentifier: Equatable, Hashable, ObvCodable, Sendable {
 
         case oneToOne(contactCryptoId: ObvCryptoId)

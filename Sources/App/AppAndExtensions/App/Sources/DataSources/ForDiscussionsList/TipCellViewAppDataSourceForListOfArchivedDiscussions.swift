@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import Foundation
 import Combine
 import ObvDiscussionsList
 import ObvSettings
+import ObvAppCoreConstants
 
 
 @MainActor
@@ -47,6 +48,42 @@ extension TipCellViewAppDataSourceForListOfArchivedDiscussions: TipCellViewDataS
         }
     }
     
+}
+
+
+// MARK: - Implementing TipCellViewDataSourceActions
+
+extension TipCellViewAppDataSourceForListOfArchivedDiscussions: TipCellViewDataSourceActions {
+    
+    /// Called when the users taps the "Ok" button on the tip about OS upgrade. In that case, we reset the `dateOfLastOSUpgradeTipDisplay` and request a refresh of the data source. This will dismiss the tip.
+    func userWantsToDismissOSUpgradeCell(_ view: ObvDiscussionsList.OSUpgradeCell) {
+        guard let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) else { assertionFailure(); return }
+        userDefaults.setDate(Date.now, for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastOSUpgradeTipDisplay)
+        for manager in self.tipCellViewModelStreamManagerForStreamUUID.values {
+            manager.createAndYieldModelIfNeeded()
+        }
+    }
+
+    /// Called when the user taps the dismiss button of the `OwnedDeviceExpiringSoonTipView`.
+    func userWantsToDismissOwnedDeviceExpiringSoonTipView(_ view: ObvDiscussionsList.OwnedDeviceExpiringSoonTipView) {
+        // Record the current date before returning the model.
+        guard let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) else { assertionFailure(); return }
+        userDefaults.setDate(.now, for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastOwnedDeviceExpiringTipDisplay)
+        ObvMessengerSettings.ObvTips.setDateWhenUserDimissedTip(to: .now)
+        for manager in self.tipCellViewModelStreamManagerForStreamUUID.values {
+            manager.createAndYieldModelIfNeeded()
+        }
+    }
+
+    
+    /// Called when the user taps the dismiss button of the `RequestUserNotificationsAuthorizationTipView`.
+    func userWantsToDismissRequestUserNotificationsAuthorizationTipView(_ view: ObvDiscussionsList.RequestUserNotificationsAuthorizationTipView) {
+        ObvMessengerSettings.ObvTips.setDateWhenUserDimissedTip(to: .now)
+        for manager in self.tipCellViewModelStreamManagerForStreamUUID.values {
+            manager.createAndYieldModelIfNeeded()
+        }
+    }
+
 }
 
 
@@ -101,6 +138,13 @@ extension TipCellViewAppDataSourceForListOfArchivedDiscussions {
             return TipCellViewModel.archivedDiscussionsHelpMessage(discussionsAreUnarchivedAutomatically: ObvMessengerSettings.Discussions.unarchiveDiscussions)
         }
         
+        fileprivate func createAndYieldModelIfNeeded() {
+            Task {
+                let model = createModel()
+                self.yieldModelIfNeeded(model: model)
+            }
+        }
+
         private func yieldModelIfNeeded(model: TipCellViewModel?) {
             guard let continuation else { assertionFailure(); return }
             guard previouslyYieldedModel != model else { return }

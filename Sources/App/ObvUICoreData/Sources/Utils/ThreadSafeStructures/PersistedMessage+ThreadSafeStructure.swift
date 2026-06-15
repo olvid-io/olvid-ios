@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvUICoreDataStructs
+import ObvAppTypes
 
 
 // MARK: - Thread safe structure
@@ -63,7 +64,7 @@ extension PersistedMessage {
             assertionFailure()
             throw ObvUICoreDataError.ownedIdentityIsNil
         }
-        let doesMentionOwnedIdentity = try self.mentions.map({ try $0.mentionnedCryptoId }).contains(ownedCryptoId)
+        let doesMentionOwnedIdentity = try self.mentions.map({ try $0.mentionedCryptoId }).contains(ownedCryptoId)
         let isPersistedMessageSent = self is PersistedMessageSent
         return .init(doesMentionOwnedIdentity: doesMentionOwnedIdentity, isPersistedMessageSent: isPersistedMessageSent)
     }

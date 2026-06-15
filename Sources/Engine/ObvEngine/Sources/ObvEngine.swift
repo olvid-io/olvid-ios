@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -755,6 +755,83 @@ extension ObvEngine {
                     continuation.resume(returning: isKeycloakManaged)
                 } catch {
                     continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
+    /// Returns the Keycloak server URL stored for the given owned identity.
+    public func getOwnedIdentityKeycloakServer(_ ownedCryptoId: ObvCryptoId) async throws -> URL {
+        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+            createContextDelegate.performBackgroundTask { context in
+                do {
+                    let keycloakServerURL = try identityDelegate.getOwnedIdentityKeycloakServer(ownedCryptoId: ownedCryptoId, within: context)
+                    continuation.resume(returning: keycloakServerURL)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
+    /// Persists whether the Keycloak server currently supports ID-based authentication for the given owned identity.
+    /// This is updated on each synchronization after reading `.well-known/olvid`.
+    public func setOwnedIdentityKeycloakSupportsIdBasedAuth(ownedCryptoId: ObvCryptoId, supportsIdBasedAuth: Bool) async throws {
+
+        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
+        let log = self.log
+
+        self.logger.info("🧥 Call to setOwnedIdentityKeycloakSupportsIdBasedAuth")
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            queueForSynchronizingCallsToManagers.sync {
+                createContextDelegate.performBackgroundTaskAndWait { context in
+                    do {
+                        try identityDelegate.setOwnedIdentityKeycloakSupportsIdBasedAuth(
+                            ownedCryptoId: ownedCryptoId,
+                            supportsIdBasedAuth: supportsIdBasedAuth,
+                            within: context)
+                        try context.save(logOnFailure: log)
+                        return continuation.resume()
+                    } catch {
+                        assertionFailure()
+                        return continuation.resume(throwing: error)
+                    }
+                }
+            }
+        }
+        
+    }
+    
+    
+    /// Generates a cryptographically random nonce for use in the Keycloak ID-based authentication challenge request.
+    public func getNonceForKeycloakIdBasedAuth() -> Data {
+        return prng.genBytes(count: ObvConstants.serverSessionNonceLength)
+    }
+    
+    
+    /// Uses the owned identity's private key to solve a Keycloak ID-based authentication challenge.
+    /// - Parameter challenge: The raw challenge bytes received from the Keycloak server.
+    /// - Returns: The signed response to be sent back to the `getSession` endpoint.
+    public func solveChallengeForKeycloakIdBasedAuth(ownedCryptoId: ObvCryptoId, challenge: Data) async throws -> Data {
+        
+        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        guard let solveChallengeDelegate else { throw ObvError.solveChallengeDelegateIsNil }
+        
+        let prng = self.prng
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, any Error>) in
+            createContextDelegate.performBackgroundTask { context in
+                do {
+                    let response = try solveChallengeDelegate.solveChallenge(.keycloakIdBasedAuthentication(challenge: challenge), for: ownedCryptoId.cryptoIdentity, using: prng, within: context)
+                    return continuation.resume(returning: response)
+                } catch {
+                    return continuation.resume(throwing: error)
                 }
             }
         }
@@ -4142,7 +4219,7 @@ extension ObvEngine {
     }
     
     
-    /// This method allows the app to post a message for the specified device of a contact.
+    /// This method allows the app to post a message for the specified device of a contact. For now (2026-01-08), this is only used by the app when sending a WebRTC message).
     public func post(messagePayload: Data, toContactDevice contactDeviceIdentifier: ObvContactDeviceIdentifier, completionHandler: (() -> Void)? = nil) throws -> ObvMessageIdentifier {
         
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
@@ -4194,6 +4271,47 @@ extension ObvEngine {
         
     }
     
+    
+    /// This method allows the app to post a message for the specified other owned device. For now (2026-01-08), this is only used by the app when sending a WebRTC message).
+    public func post(messagePayload: Data, toOtherOwnedDevice otherOwnedDeviceIdentifier: ObvOwnedDeviceIdentifier, withUserContent: Bool = false) async throws {
+
+        guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
+        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
+        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+
+        let message = ObvChannelApplicationMessageToSend(toOtherOwnedDevice: otherOwnedDeviceIdentifier, messagePayload: messagePayload, withUserContent: withUserContent)
+        let flowId = try flowDelegate.startNewFlow(completionHandler: nil)
+        let prng = self.prng
+        let log = self.log
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let messageIdentifiersForToIdentities = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
+                    guard messageIdentifiersForToIdentities.keys.count == 1, let messageId = messageIdentifiersForToIdentities.keys.first else {
+                        assertionFailure()
+                        throw ObvError.unexpectedNumberOfMessageIdentifiers
+                    }
+                    guard let ownedIdentities = messageIdentifiersForToIdentities[messageId], ownedIdentities.count == 1, ownedIdentities.first == otherOwnedDeviceIdentifier.ownedCryptoId.cryptoIdentity  else {
+                        assertionFailure()
+                        throw ObvError.unexpectedOwnedIdentity
+                    }
+
+                    try flowDelegate.addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId: flowId,
+                                                                                                            messageId: messageId,
+                                                                                                            attachmentIds: [],
+                                                                                                            waitUntilMessageAndAttachmentsAreSent: false)
+                    try obvContext.save(logOnFailure: log)
+
+                    return continuation.resume()
+                    
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+        
+    }
     
     public func cancelPostOfMessage(withIdentifier messageIdRaw: Data, ownedCryptoId: ObvCryptoId) throws {
         
@@ -4507,9 +4625,16 @@ extension ObvEngine {
                     case .applicationMessage(let message):
 
                         if message.messageId.ownedCryptoIdentity == message.remoteCryptoIdentity {
+                            let attachments: [ObvOwnedAttachment] = message.attachmentsInfos.enumerated().map { attachmentNumber, networkFetchAttachmentInfos in
+                                let attachmentId = ObvAttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber)
+                                let attachment = ObvOwnedAttachment(metadata: networkFetchAttachmentInfos.metadata,
+                                                                    status: .receivedInUserNotification,
+                                                                    attachmentId: attachmentId,
+                                                                    messageUploadTimestampFromServer: encryptedMessage.messageUploadTimestampFromServer)
+                                return attachment
+                            }
                             let obvOwnedMessage = ObvOwnedMessage(messageId: message.messageId,
-                                                                  attachments: [],
-                                                                  expectedAttachmentsCount: message.attachmentsInfos.count,
+                                                                  attachments: attachments,
                                                                   messageUploadTimestampFromServer: encryptedMessage.messageUploadTimestampFromServer,
                                                                   downloadTimestampFromServer: encryptedMessage.downloadTimestampFromServer,
                                                                   localDownloadTimestamp: encryptedMessage.localDownloadTimestamp,
@@ -4519,11 +4644,19 @@ extension ObvEngine {
                             decryptedNotification = .obvMessageOrObvOwnedMessage(.obvOwnedMessage(obvOwnedMessage))
                         } else {
                             let fromContactIdentity = ObvContactIdentifier(contactCryptoIdentity: message.remoteCryptoIdentity, ownedCryptoIdentity: message.messageId.ownedCryptoIdentity)
+                            let attachments: [ObvAttachment] = message.attachmentsInfos.enumerated().map { attachmentNumber, networkFetchAttachmentInfos in
+                                let attachmentId = ObvAttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber)
+                                let attachment = ObvAttachment(fromContactIdentity: fromContactIdentity,
+                                                               metadata: networkFetchAttachmentInfos.metadata,
+                                                               status: .receivedInUserNotification,
+                                                               attachmentId: attachmentId,
+                                                               messageUploadTimestampFromServer: encryptedMessage.messageUploadTimestampFromServer)
+                                return attachment
+                            }
                             let obvMessage = ObvMessage(fromContactIdentity: fromContactIdentity,
                                                         fromContactDeviceUID: message.remoteDeviceUid,
                                                         messageId: message.messageId,
-                                                        attachments: [],
-                                                        expectedAttachmentsCount: message.attachmentsInfos.count,
+                                                        attachments: attachments,
                                                         messageUploadTimestampFromServer: encryptedMessage.messageUploadTimestampFromServer,
                                                         downloadTimestampFromServer: encryptedMessage.downloadTimestampFromServer,
                                                         localDownloadTimestamp: encryptedMessage.localDownloadTimestamp,
@@ -5048,7 +5181,7 @@ extension ObvEngine {
         // we call the appropriate method from the engine coordinator now
         
         for ownedCryptoIdentity in restoredOwnedIdentities {
-            engineCoordinator.processNewActiveOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, flowId: backupRequestIdentifier)
+            await engineCoordinator.processNewActiveOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, flowId: backupRequestIdentifier)
         }
         
         return Set(restoredOwnedIdentities.map({ ObvCryptoId(cryptoIdentity: $0) }))
@@ -5221,10 +5354,10 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func getTurnCredentials(ownedCryptoId: ObvCryptoId) async throws -> ObvTurnCredentials {
+    public func getWellKnownTurnCredentials(ownedCryptoId: ObvCryptoId) async throws -> ObvWellKnownTurnCredentials {
         guard let networkFetchDelegate else { assertionFailure(); throw ObvError.networkFetchDelegateIsNil }
         let flowId = FlowIdentifier()
-        return try await networkFetchDelegate.getTurnCredentials(ownedCryptoId: ownedCryptoId.cryptoIdentity, flowId: flowId)
+        return try await networkFetchDelegate.getWellKnownTurnCredentials(ownedCryptoId: ownedCryptoId.cryptoIdentity, flowId: flowId)
     }
     
 }
@@ -5901,6 +6034,7 @@ extension ObvEngine {
         case groupIsOwned
         case cannotDisbandJoinedGroupV1
         case cannotLeaveOwnedGroupV1
+        case unexpectedOwnedIdentity
 
         var errorDescription: String? {
             switch self {
@@ -5958,6 +6092,8 @@ extension ObvEngine {
                 return "Failed to deactivate legacy backups"
             case .groupIsOwned:
                 return "Group is owned"
+            case .unexpectedOwnedIdentity:
+                return "Unexpected owned identity"
             }
         }
         

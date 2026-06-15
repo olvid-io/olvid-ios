@@ -1,278 +1,614 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "BUTTON_ADD_REACTION_FROM_FAVORITES" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zu Favoriten hinzufügen"
+  "sourceLanguage": "en",
+  "strings": {
+    "BUTTON_ADD_REACTION_FROM_FAVORITES": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu Favoriten hinzufügen"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add to favorites"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to favorites"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Añadir a favoritos"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir a favoritos"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter aux favoris"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter aux favoris"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aggiungi ai preferiti"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiungi ai preferiti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お気に入りに追加"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "즐겨찾기에 추가"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionar aos favoritos"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionar aos favoritos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить в избранное"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додати до улюблених"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加到收藏夹"
           }
         }
       }
     },
-    "BUTTON_REMOVE_OWN_REACTION_FROM_MESSAGE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reaktion entfernen"
+    "BUTTON_REMOVE_OWN_REACTION_FROM_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reaktion entfernen"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove your reaction"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove your reaction"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eliminar tu reacción"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar tu reacción"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer votre réaction"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer votre réaction"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rimuovi la tua reazione"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rimuovi la tua reazione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リアクションを削除"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "내 반응 삭제"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover sua reação"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover a sua reação"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить вашу реакцию"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видалити вашу реакцію"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除您的表情"
           }
         }
       }
     },
-    "BUTTON_REMOVE_REACTION_FROM_FAVORITES" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aus Favoriten entfernen"
+    "BUTTON_REMOVE_REACTION_FROM_FAVORITES": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus Favoriten entfernen"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove from favorites"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from favorites"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eliminar de favoritos"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar de favoritos"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retirer des favoris"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer des favoris"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rimuovi dai preferiti"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rimuovi dai preferiti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お気に入りから削除"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "즐겨찾기에서 제거"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover dos favoritos"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover dos favoritos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить из избранного"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видалити з обраних"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从收藏夹中移除"
           }
         }
       }
     },
-    "DOUBLE_CLICK_A_MESSAGE_TO_ADD_A_REACTION" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Doppeltippen Sie eine Nachricht, um darauf zu reagieren."
+    "DOUBLE_CLICK_A_MESSAGE_TO_ADD_A_REACTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doppeltippen Sie eine Nachricht, um darauf zu reagieren."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Double click a message to react."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double click a message to react."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haz doble clic en un mensaje para reaccionar."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz doble clic en un mensaje para reaccionar."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cliquez deux fois sur un message pour réagir."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cliquez deux fois sur un message pour réagir."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tocca due volte un messaggio per reagire."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca due volte un messaggio per reagire."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メッセージをダブルタップしてリアクションを追加します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메시지를 두 번 탭하여 반응을 추가하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque duas vezes em uma mensagem para reagir."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque duas vezes numa mensagem para reagir."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дважды нажмите на сообщение, чтобы отреагировать."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Двічі клацніть повідомлення, щоб відреагувати."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "双击消息以进行反应。"
           }
         }
       }
     },
-    "DOUBLE_TAP_A_MESSAGE_TO_ADD_A_REACTION" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Doppeltippen Sie eine Nachricht, um darauf zu reagieren."
+    "DOUBLE_TAP_A_MESSAGE_TO_ADD_A_REACTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doppeltippen Sie eine Nachricht, um darauf zu reagieren."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Double tap a message to react."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double tap a message to react."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toca dos veces un mensaje para reaccionar."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca dos veces un mensaje para reaccionar."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tapez deux fois sur un message pour réagir."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tapez deux fois sur un message pour réagir."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tocca due volte un messaggio per reagire."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca due volte un messaggio per reagire."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メッセージをダブルタップしてリアクションを付けます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메시지를 두 번 탭하여 반응을 표시하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque duas vezes em uma mensagem para reagir."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque duas vezes numa mensagem para reagir."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дважды нажмите на сообщение, чтобы отреагировать."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Двічі торкніться повідомлення, щоб відреагувати."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "双击消息以进行反应。"
           }
         }
       }
     },
-    "REACTIONS" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reaktionen"
+    "REACTIONS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reaktionen"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reactions"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reactions"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reacciones"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reacciones"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Réactions"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réactions"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reazioni"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reazioni"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リアクション"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "반응"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reações"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reações"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Реакции"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Реакції"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表情"
           }
         }
       }
     },
-    "RIGHT_CLICK_ON_A_REACTION_TO_SHOW_MORE_OPTIONS" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Klicke mit der rechten Maustaste auf eine beliebige Reaktion, um weitere Optionen anzuzeigen."
+    "RIGHT_CLICK_ON_A_REACTION_TO_SHOW_MORE_OPTIONS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klicke mit der rechten Maustaste auf eine beliebige Reaktion, um weitere Optionen anzuzeigen."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Right click any reaction for more options."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right click any reaction for more options."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mantén pulsado cualquier reacción para ver más opciones."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantén pulsado cualquier reacción para ver más opciones."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cliquez une réaction pour plus d’options."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cliquez une réaction pour plus d’options."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clicca con il tasto destro su qualsiasi reazione per altre opzioni."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clicca con il tasto destro su qualsiasi reazione per altre opzioni."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リアクションを右クリックすると、さらに多くのオプションが表示されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "더 많은 옵션을 보려면 반응에 마우스 오른쪽 버튼을 클릭하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clique com o botão direito em qualquer reação para ver mais opções."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clique com o botão direito em qualquer reação para ver mais opções."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Щелкните правой кнопкой мыши любой реакцией, чтобы увидеть больше опций."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клацніть правою кнопкою миші будь-яку реакцію для отримання додаткових опцій."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右键单击任何表情符号，以查看更多选项。"
           }
         }
       }
     },
-    "SWIPE_RIGHT_ON_A_REACTION_TO_SHOW_MORE_OPTIONS" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wische auf eine Reaktion, um weitere Optionen anzuzeigen."
+    "SWIPE_RIGHT_ON_A_REACTION_TO_SHOW_MORE_OPTIONS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wische auf eine Reaktion, um weitere Optionen anzuzeigen."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Swipe any reaction for more options."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe any reaction for more options."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Desliza cualquier reacción para ver más opciones."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desliza cualquier reacción para ver más opciones."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Glissez une réaction pour plus d’options."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glissez une réaction pour plus d’options."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scorri qualsiasi reazione per altre opzioni."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scorri qualsiasi reazione per altre opzioni."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リアクションを左右にスワイプすると、その他のオプションが表示されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 옵션을 보려면 반응을 가로로 스와이프하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deslize qualquer reação para ver mais opções."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deslize qualquer reação para ver mais opções."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проведите пальцем по любому реакциям, чтобы увидеть больше опций."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проведіть пальцем по будь-якій реакції, щоб відкрити додаткові опції."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "滑动任何表情以查看更多选项。"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

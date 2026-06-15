@@ -30,15 +30,17 @@ public struct ObvLocationsCellViewModel: Sendable, Hashable, Equatable {
     let ownedCryptoId: ObvCryptoId
     let numberOfLocationsReceivedForTheCurrentOwnedCryptoId: Int
     let someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: Bool
+    let numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: Int
  
-    public init(ownedCryptoId: ObvCryptoId, numberOfLocationsReceivedForTheCurrentOwnedCryptoId: Int, someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: Bool) {
+    public init(ownedCryptoId: ObvCryptoId, numberOfLocationsReceivedForTheCurrentOwnedCryptoId: Int, someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: Bool, numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: Int) {
         self.ownedCryptoId = ownedCryptoId
         self.numberOfLocationsReceivedForTheCurrentOwnedCryptoId = numberOfLocationsReceivedForTheCurrentOwnedCryptoId
         self.someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice = someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice
+        self.numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity = numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity
     }
     
     var isRelevantToDisplay: Bool {
-        numberOfLocationsReceivedForTheCurrentOwnedCryptoId > 0 || someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice
+        numberOfLocationsReceivedForTheCurrentOwnedCryptoId > 0 || someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice || numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity > 0
     }
     
 }
@@ -76,7 +78,7 @@ struct LocationsCellView: View {
     }
 
     private var doEmbedInternalViewInButton: Bool {
-        return viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId > 0
+        return viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId > 0 || viewModel.numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity > 0
     }
     
     public var body: some View {
@@ -113,15 +115,23 @@ struct LocationsCellView: View {
             HStack {
                 
                 Label {
-                    switch (viewModel.someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice, viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId > 0) {
-                    case (false, false):
+                    switch (viewModel.someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice, viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId > 0, viewModel.numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity > 0) {
+                    case (false, false, false):
                         Text("LOCATION_CELL_LABEL_YOU_ARE_NOT_SHARING_YOUR_LOCATION")
-                    case (false, true):
+                    case (false, true, false):
                         Text("LOCATION_CELL_LABEL_\(viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId)_LOCATIONS_ARE_SHARED_WITH_YOU")
-                    case (true, false):
+                    case (true, false, false):
                         Text("LOCATION_CELL_LABEL_YOU_ARE_CURRENTLY_SHARING_YOUR_LOCATION")
-                    case (true, true):
+                    case (true, true, false):
                         Text("LOCATION_CELL_LABEL_YOU_ARE_CURRENTLY_SHARING_YOUR_LOCATION_AND_\(viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId)_LOCATIONS_ARE_SHARED_WITH_YOU")
+                    case (true, false, true):
+                        Text("LOCATION_CELL_LABEL_YOU_ARE_CURRENTLY_SHARING_YOUR_LOCATION_AND_\(viewModel.numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity)_IS_SHARING_YOUR_LOCATION")
+                    case (false, true, true):
+                        Text("LOCATION_CELL_LABEL_\(viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId)_LOCATIONS_ARE_SHARED_WITH_YOU_AND_\(viewModel.numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity)_IS_SHARING_YOUR_LOCATION")
+                    case (true, true, true):
+                        Text("LOCATION_CELL_LABEL_YOU_ARE_CURRENTLY_SHARING_YOUR_LOCATION_AND_\(viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId)_LOCATIONS_ARE_SHARED_WITH_YOU_AND_\(viewModel.numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity)_IS_SHARING_YOUR_LOCATION")
+                    case (false, false, true):
+                        Text("LOCATION_CELL_LABEL_\(viewModel.numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity)_IS_SHARING_YOUR_LOCATION")
                     }
                 } icon: {
                     Image(systemIcon: .locationCircle)
@@ -137,7 +147,7 @@ struct LocationsCellView: View {
                         .buttonStyle(.bordered)
                 }
                 
-                if viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId > 0 {
+                if viewModel.numberOfLocationsReceivedForTheCurrentOwnedCryptoId > 0 || viewModel.numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity > 0 {
                     ObvChevronRight()
                 }
                 
@@ -192,8 +202,48 @@ private let actionsForPreviews = ActionsForPreviews()
                       actions: actionsForPreviews)
 }
 
-#Preview("All") {
+#Preview("three shared and sharing") {
     LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[4],
+                      actions: actionsForPreviews)
+}
+
+#Preview("One other sharing") {
+    LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[5],
+                      actions: actionsForPreviews)
+}
+
+#Preview("three others sharing") {
+    LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[6],
+                      actions: actionsForPreviews)
+}
+
+#Preview("one shared and one other sharing") {
+    LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[7],
+                      actions: actionsForPreviews)
+}
+
+#Preview("three shared and three other sharing") {
+    LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[8],
+                      actions: actionsForPreviews)
+}
+
+#Preview("sharing and one other sharing") {
+    LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[9],
+                      actions: actionsForPreviews)
+}
+
+#Preview("sharing and three other sharing") {
+    LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[10],
+                      actions: actionsForPreviews)
+}
+
+#Preview("sharing and one shared and one other sharing") {
+    LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[11],
+                      actions: actionsForPreviews)
+}
+
+#Preview("sharing and two shared and three other sharing") {
+    LocationsCellView(viewModel:  ObvLocationsCellViewModel.sampleData[12],
                       actions: actionsForPreviews)
 }
 

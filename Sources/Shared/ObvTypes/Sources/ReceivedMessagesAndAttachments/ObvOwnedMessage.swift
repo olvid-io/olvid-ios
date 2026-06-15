@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,6 @@ public struct ObvOwnedMessage: Equatable, Hashable {
     
     public let messageId: ObvMessageIdentifier
     public let attachments: [ObvOwnedAttachment]
-    public let expectedAttachmentsCount: Int
     public let messageUploadTimestampFromServer: Date
     public let downloadTimestampFromServer: Date
     public let localDownloadTimestamp: Date
@@ -54,10 +53,9 @@ public struct ObvOwnedMessage: Equatable, Hashable {
         return .init(ownedCryptoId: ownedCryptoId, deviceUID: deviceUID)
     }
 
-    public init(messageId: ObvMessageIdentifier, attachments: [ObvOwnedAttachment], expectedAttachmentsCount: Int, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, messagePayload: Data, extendedMessagePayload: Data?, deviceUID: UID?) {
+    public init(messageId: ObvMessageIdentifier, attachments: [ObvOwnedAttachment], messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, messagePayload: Data, extendedMessagePayload: Data?, deviceUID: UID?) {
         self.messageId = messageId
         self.attachments = attachments
-        self.expectedAttachmentsCount = expectedAttachmentsCount
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer
         self.downloadTimestampFromServer = downloadTimestampFromServer
         self.localDownloadTimestamp = localDownloadTimestamp

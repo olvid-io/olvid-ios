@@ -23,6 +23,7 @@ import CoreData
 import OlvidUtils
 import ObvUICoreData
 import ObvEncoder
+import ObvAppTypes
 
 
 final class MigrateUtiOfFyleMessageJoinWithStatusForLinkPreviewIfAppropriateOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {

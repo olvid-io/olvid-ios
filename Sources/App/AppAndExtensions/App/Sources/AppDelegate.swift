@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 @_exported import UIKit // this is to fix the need to import `UIKit` for several key parts of the app, introduced by tuist
 import CoreData
-import os.log
+import OSLog
 import Intents
 import ObvEngine
 import ObvCoreDataStack

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvCrypto
 import ObvTypes
 import ObvMetaManager
@@ -31,6 +31,7 @@ final class GetTurnCredentialsCoordinator {
     private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     private static let logCategory = "ServerPushNotificationsCoordinator"
     private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+    private static var logger = Logger(subsystem: defaultLogSubsystem, category: logCategory)
 
     var delegateManager: ObvNetworkFetchDelegateManager?
     
@@ -38,13 +39,13 @@ final class GetTurnCredentialsCoordinator {
 
 
 protocol GetTurnCredentialsDelegate: AnyObject {
-    func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvTurnCredentials
+    func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvWellKnownTurnCredentials
 }
 
 
 extension GetTurnCredentialsCoordinator: GetTurnCredentialsDelegate {
     
-    func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvTurnCredentials {
+    func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvWellKnownTurnCredentials {
         
         guard let delegateManager = delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
@@ -97,12 +98,12 @@ extension GetTurnCredentialsCoordinator: GetTurnCredentialsDelegate {
                     throw ObvError.okFromServerButNoCredentialsReturned
                 }
                 switch try await delegateManager.wellKnownCacheDelegate.getTurnURLs(for: ownedCryptoId.serverURL, flowId: flowId) {
-                case .success(let turnServersURL):
-                    let obvTurnCredentials = ObvTurnCredentials(turnCredentials: turnCredentials, turnServersURL: turnServersURL)
-                    os_log("☎️ Returning Turn Credentials received from server", log: Self.log, type: .info)
+                case .success(let (turnServerURLs, turnServerAlternativeURLs)):
+                    let obvTurnCredentials = ObvWellKnownTurnCredentials(turnCredentials: turnCredentials, turnServerURLs: turnServerURLs, turnServerAlternativeURLs: turnServerAlternativeURLs)
+                    Self.logger.info("☎️ Returning Turn Credentials received from server")
                     return obvTurnCredentials
                 case .failure(let error):
-                    os_log("Cannot retrive turn server URLs %{public}@", log: Self.log, type: .error, error.localizedDescription)
+                    Self.logger.error("Could not retrive turn server URLs \(error.localizedDescription, privacy: .public)")
                     throw ObvError.couldNotRetrieveTurnServers
                 }
                 
@@ -148,14 +149,15 @@ extension GetTurnCredentialsCoordinator {
 
 // MARK: - Helpers
 
-fileprivate extension ObvTurnCredentials {
+fileprivate extension ObvWellKnownTurnCredentials {
     
-    init(turnCredentials: TurnCredentials, turnServersURL: [String]) {
+    init(turnCredentials: TurnCredentials, turnServerURLs: [String], turnServerAlternativeURLs: [String]) {
         self.init(callerUsername: turnCredentials.expiringUsername1,
                   callerPassword: turnCredentials.password1,
                   recipientUsername: turnCredentials.expiringUsername2,
                   recipientPassword: turnCredentials.password2,
-                  turnServersURL: turnServersURL)
+                  turnServerURLs: turnServerURLs,
+                  turnServerAlternativeURLs: turnServerAlternativeURLs)
     }
     
 }

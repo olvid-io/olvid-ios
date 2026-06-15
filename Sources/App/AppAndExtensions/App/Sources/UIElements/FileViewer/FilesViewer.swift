@@ -138,7 +138,7 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
 
     private var previewControllerIsShown = false
 
-    private let previewController = CustomQLPreviewController()
+    let previewController = CustomQLPreviewController()
     
     private var section: Int? // Section of the initial index path
     

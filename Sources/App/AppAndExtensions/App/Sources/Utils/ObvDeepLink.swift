@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -44,6 +44,7 @@ enum ObvDeepLinkHost: CaseIterable {
     case allGroups
     case olvidCallView
     case groupCreation
+    case webRTCHistoryTransferConfirmation
 
     var name: String { String(describing: self) }
 
@@ -84,6 +85,7 @@ enum ObvDeepLink: Equatable {
     case allGroups(ownedCryptoId: ObvCryptoId)
     case olvidCallView
     case groupCreation
+    case webRTCHistoryTransferConfirmation(sourceDeviceIdentifier: ObvOwnedDeviceIdentifier, transferId: String) // On the destination
 
     var description: String {
         switch self {
@@ -133,6 +135,8 @@ enum ObvDeepLink: Equatable {
             return host.name
         case .groupCreation:
             return host.name
+        case .webRTCHistoryTransferConfirmation(sourceDeviceIdentifier: let sourceDeviceIdentifier, transferId: let transferId):
+            return [host.name, sourceDeviceIdentifier.description, transferId].joined(separator: "|")
         }
     }
     
@@ -212,6 +216,11 @@ enum ObvDeepLink: Equatable {
             self = .olvidCallView
         case .groupCreation:
             self = .groupCreation
+        case .webRTCHistoryTransferConfirmation:
+            guard splits.count == 3 else { assertionFailure(); return nil }
+            guard let ownedDeviceIdentifier = ObvOwnedDeviceIdentifier(splits[1]) else { assertionFailure(); return nil }
+            let transferId = splits[2]
+            self = .webRTCHistoryTransferConfirmation(sourceDeviceIdentifier: ownedDeviceIdentifier, transferId: transferId)
         }
     }
 
@@ -239,6 +248,7 @@ enum ObvDeepLink: Equatable {
         case .allGroups: return .allGroups
         case .olvidCallView: return .olvidCallView
         case .groupCreation: return .groupCreation
+        case .webRTCHistoryTransferConfirmation: return .webRTCHistoryTransferConfirmation
         }
     }
 
@@ -289,6 +299,8 @@ enum ObvDeepLink: Equatable {
             return nil
         case .groupCreation:
             return nil
+        case .webRTCHistoryTransferConfirmation(sourceDeviceIdentifier: let sourceDeviceIdentifier, transferId: _):
+            return sourceDeviceIdentifier.ownedCryptoId
         }
     }
     

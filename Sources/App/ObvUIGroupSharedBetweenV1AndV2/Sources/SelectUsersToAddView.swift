@@ -831,17 +831,20 @@ public struct VerticalListOfUsersViewCell: View {
 
         var body: some View {
             if let user {
-                Button(action: buttonAction) {
-                    HStack {
-                        ProfilePictureView(model: profilePictureViewModel(user: user))
-                        TextView(model: textViewModel(user: user))
-                        Spacer()
-                        Image(systemIcon: isSelected ? .personCropCircleFillBadgePlus : .circle)
-                            .font(.system(size: 20))
-                            .foregroundStyle(isSelected ? .green : .secondary)
-                            .animation(nil, value: isSelected)
-                    }
+                HStack {
+                    ProfilePictureView(model: profilePictureViewModel(user: user))
+                    TextView(model: textViewModel(user: user))
+                    Spacer()
+                    Image(systemIcon: isSelected ? .personCropCircleFillBadgePlus : .circle)
+                        .font(.system(size: 20))
+                        .foregroundStyle(isSelected ? .green : .secondary)
+                        .animation(nil, value: isSelected)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    buttonAction()
+                }
+                .sensoryFeedbackOniOS17(.selection, trigger: isSelected)
             } else {
                 PlaceholderForUserCell(avatarSize: avatarSize)
             }

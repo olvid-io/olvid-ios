@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 
 import Foundation
 import OlvidUtils
-import os.log
+import OSLog
 import ObvEngine
 import ObvTypes
 import ObvEncoder
@@ -117,9 +117,9 @@ final class ExtractReceivedExtendedPayloadOperation: OperationWithSpecificReason
         let expectedAttachmentsCount: Int
         switch input {
         case .messageSentByContact(obvMessage: let obvMessage):
-            expectedAttachmentsCount = obvMessage.expectedAttachmentsCount
+            expectedAttachmentsCount = obvMessage.attachments.count
         case .messageSentByOtherDeviceOfOwnedIdentity(obvOwnedMessage: let obvOwnedMessage):
-            expectedAttachmentsCount = obvOwnedMessage.expectedAttachmentsCount
+            expectedAttachmentsCount = obvOwnedMessage.attachments.count
         }
 
         guard let max = attachmentNumbers.max(), let min = attachmentNumbers.min(), max < expectedAttachmentsCount, min >= 0 else {

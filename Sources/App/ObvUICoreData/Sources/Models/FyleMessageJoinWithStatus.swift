@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import UIKit
 import OlvidUtils
 import UniformTypeIdentifiers
@@ -117,6 +117,12 @@ public class FyleMessageJoinWithStatus: NSManagedObject, FyleJoin {
         case video
         case audio
         case other
+    }
+    
+    private var skipAllNotificationsOnDidSave = false
+    
+    func setSkipAllNotificationsOnDidSave(to newValue: Bool) {
+        self.skipAllNotificationsOnDidSave = newValue
     }
     
     // MARK: - Initializer
@@ -456,7 +462,13 @@ extension FyleMessageJoinWithStatus {
     
     public override func didSave() {
         super.didSave()
+
+        // We don't set skipAllNotificationsOnDidSave back to false, this
+        // is done by one of the two concrete subclasses (SentFyleMessageJoinWithStatus or
+        // ReceivedFyleMessageJoinWithStatus)
         
+        guard !self.skipAllNotificationsOnDidSave else { return }
+
         if isInserted {
             ObvMessengerCoreDataNotification.fyleMessageJoinWithStatusWasInserted(fyleMessageJoinObjectID: typedObjectID)
                 .postOnDispatchQueue()

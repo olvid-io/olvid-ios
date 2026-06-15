@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,6 @@ import ObvUICoreData
 import ObvUI
 
 
-@available(iOS 16.0, *)
 final class NewDiscussionsListViewModel: NewDiscussionsSelectionViewControllerDelegate {
 
     let discussionsViewModel: DiscussionsViewModel
@@ -51,31 +50,4 @@ final class NewDiscussionsListViewModel: NewDiscussionsSelectionViewControllerDe
         newDiscussionsSelectionViewController.dismiss(animated: true)
     }
     
-}
-
-
-
-@available(iOS 15.0, *)
-final class DiscussionsListViewModel: DiscussionsSelectionViewControllerDelegate {
-        
-    let discussionsViewModel: DiscussionsViewModel
-    let ownedCryptoId: ObvCryptoId
-
-    init(ownedCryptoId: ObvCryptoId, discussionsViewModel: DiscussionsViewModel) {
-        self.ownedCryptoId = ownedCryptoId
-        self.discussionsViewModel = discussionsViewModel
-    }
-
-    var preselectedDiscussions: Set<ObvManagedObjectPermanentID<PersistedDiscussion>> {
-        return Set(discussionsViewModel.selectedDiscussions.map({ $0.persistedDiscussion.discussionPermanentID }))
-    }
-    
-    // MARK: - DiscussionsSelectionViewControllerDelegate
-    
-    func userAcceptedlistOfSelectedDiscussions(_ listOfSelectedDiscussions: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>, in discussionsSelectionViewController: UIViewController) {
-        discussionsViewModel.discussions.forEach { discussion in
-            discussion.selected = listOfSelectedDiscussions.contains(where: { $0 == discussion.persistedDiscussion.discussionPermanentID })
-        }
-        discussionsSelectionViewController.dismiss(animated: true)
-    }
 }

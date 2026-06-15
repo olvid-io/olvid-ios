@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,6 @@ import CoreData
 import ObvUICoreData
 
 
-@available(iOS 14.0, *)
 final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, ViewShowingHardLinks, UIViewWithTappableStuff {
 
     enum Configuration: Equatable, Hashable {
@@ -34,17 +33,19 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, downsizedThumbnail: UIImage?)
         case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>)
         case cancelledByServer // Also used when there is an error with the Fyle URL
+        case notYetDownloadableAsReceivedByUserNotification // When the attachment was initialized thanks to a user notification. It is not yet downloadable but should soon be.
         // For received attachments sent from other owned device
         case downloadableSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, downsizedThumbnail: UIImage?)
         case downloadingSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, downsizedThumbnail: UIImage?)
         // For both (downsizedThumbnail always nil for sent attachments)
         case complete(downsizedThumbnail: UIImage?, hardlink: HardLinkToFyle?, thumbnail: UIImage?)
+        case untransferred // The message was stored on this device during a history transfer, but the user decided not to transfer this attachment for the message
 
         var hardlink: HardLinkToFyle? {
             switch self {
             case .complete(downsizedThumbnail: _, hardlink: let hardlink, thumbnail: _), .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, progress: _):
                 return hardlink
-            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
+            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent, .notYetDownloadableAsReceivedByUserNotification, .untransferred:
                 return nil
             }
         }
@@ -145,7 +146,7 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
                 imageView.reset()
             }
             tapToReadView.messageObjectID = nil
-            bubble.backgroundColor = .systemFill
+            bubble.backgroundColor = .clear // better when displaying an image with a transparent background (like a memoji)
         case .cancelledByServer:
             tapToReadView.isHidden = true
             hidingView.isHidden = false
@@ -153,6 +154,21 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             tapToReadView.messageObjectID = nil
             imageView.reset()
             bubble.backgroundColor = .systemFill
+        case .notYetDownloadableAsReceivedByUserNotification:
+            tapToReadView.isHidden = true
+            hidingView.isHidden = false
+            fyleProgressView.setConfiguration(.notYetDownloadableAsReceivedByUserNotification)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            bubble.backgroundColor = .systemFill
+        case .untransferred:
+            tapToReadView.isHidden = true
+            hidingView.isHidden = false
+            fyleProgressView.setConfiguration(.untransferred)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            bubble.backgroundColor = .systemFill
+
         case .none:
             assertionFailure()
         }

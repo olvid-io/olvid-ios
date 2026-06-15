@@ -393,6 +393,19 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                         }) {
                             Label("MUTE_NOTIFICATIONS", systemIcon: .bellBadgeSlash)
                         }
+                        .confirmationDialog(
+                                Text("MUTE_NOTIFICATIONS"),
+                                isPresented: $showingMuteActionSheet,
+                                titleVisibility: .visible
+                            ) {
+                                ForEach(ObvMuteDurationOption.allCases, id: \.self) { duration in
+                                    Button(duration.description) {
+                                        muteNotificationsDuration.set(duration)
+                                        changed.toggle()
+                                    }
+                                }
+                                Button(CommonString.Word.Cancel, role: .cancel) {}
+                            }
                     }
 
                     Section(footer: Text("discussion-expiration-settings-view.body.section.mention-notification-mode.picker.footer.title")) {
@@ -631,26 +644,8 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                 })
                 )
             }
-            .actionSheet(isPresented: $showingMuteActionSheet) {
-                return ActionSheet(title: Text("MUTE_NOTIFICATIONS"),
-                                   buttons: muteActionSheetButtons)
-            }
         }
         .navigationViewStyle(StackNavigationViewStyle()) // Prevents split on iPad
-    }
-
-    private var muteActionSheetButtons: [ActionSheet.Button] {
-        var buttons = [ActionSheet.Button]()
-        buttons += ObvMuteDurationOption.allCases.map { duration in
-            return Alert.Button.default(
-                Text(duration.description),
-                action: {
-                    muteNotificationsDuration.set(duration)
-                    changed.toggle()
-                })
-        }
-        buttons += [.cancel()]
-        return buttons
     }
 }
 

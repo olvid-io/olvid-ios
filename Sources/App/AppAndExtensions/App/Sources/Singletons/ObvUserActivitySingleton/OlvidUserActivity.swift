@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -176,51 +176,6 @@ extension OlvidUserActivity {
         return lhs.ownedCryptoId == rhs.ownedCryptoId &&
         lhs.currentFlow == rhs.currentFlow &&
         lhs.currentDiscussion == rhs.currentDiscussion
-    }
-    
-}
-
-
-// MARK: - Private helpers
-
-extension PersistedDiscussion {
-    
-    var discussionIdentifier: ObvDiscussionIdentifier? {
-        do {
-            switch try self.kind {
-            case .oneToOne(withContactIdentity: let contactIdentity):
-                if let contactIdentity {
-                    let contactId = try contactIdentity.obvContactIdentifier
-                    return .oneToOne(id: contactId)
-                } else {
-                    // This occurs in a locked discussion, if the contact was permanently deleted
-                    assert(self.status == .locked)
-                    guard let contactId = (self as? PersistedOneToOneDiscussion)?.contactIdentifier else { assertionFailure(); return nil }
-                    return .oneToOne(id: contactId)
-                }
-            case .groupV1(withContactGroup: let groupV1):
-                if let groupV1 {
-                    let groupId = try groupV1.obvGroupIdentifier
-                    return .groupV1(id: groupId)
-                } else {
-                    // This occurs in a locked discussion (in which case the group is nil)
-                    guard let groupId = (self as? PersistedGroupDiscussion)?.groupIdentifier else { assertionFailure(); return nil }
-                    return .groupV1(id: groupId)
-                }
-            case .groupV2(withGroup: let groupV2):
-                if let groupV2 {
-                    let groupId = try groupV2.obvGroupIdentifier
-                    return .groupV2(id: groupId)
-                } else {
-                    // This occurs in a locked discussion (in which case the group is nil)
-                    guard let groupId = (self as? PersistedGroupV2Discussion)?.obvGroupIdentifier else { assertionFailure(); return nil }
-                    return .groupV2(id: groupId)
-                }
-            }
-        } catch {
-            assertionFailure()
-            return nil
-        }
     }
     
 }

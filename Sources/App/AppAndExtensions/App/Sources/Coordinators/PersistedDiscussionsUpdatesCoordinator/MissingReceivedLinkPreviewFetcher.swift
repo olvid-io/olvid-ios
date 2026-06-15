@@ -26,6 +26,7 @@ import LinkPresentation
 import UniformTypeIdentifiers
 import CoreData
 import ObvAppCoreConstants
+import ObvAppTypes
 
 protocol MissingReceivedLinkPreviewFetcherDelegate {
     func fetchMissingPreviewIfNeeded(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>, cacheDelegate: DiscussionCacheDelegate?) async throws

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -128,10 +128,12 @@ final class ObvObliviousChannel: NSManagedObject {
 
             // 1. If the number of encrypted messages since the last successfull full ratchet is too high, we must start a new full ratchet
             guard numberOfEncryptedMessagesSinceLastFullRatchet < ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet else {
-                Self.logger.info("Full ratchet required for the send seed: \(self.numberOfEncryptedMessagesSinceLastFullRatchet) >= \(ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet)")
+                let nbr = self.numberOfEncryptedMessagesSinceLastFullRatchet
+                Self.logger.info("Full ratchet required for the send seed: \(nbr) >= \(ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet)")
                 return true
             }
-            Self.logger.info("[1/2] No need to perform a full ratchet of the send seed: \(self.numberOfEncryptedMessagesSinceLastFullRatchet) < \(ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet)")
+            let numberOfEncryptedMessagesSinceLastFullRatchetForLog = self.numberOfEncryptedMessagesSinceLastFullRatchet
+            Self.logger.info("[1/2] No need to perform a full ratchet of the send seed: \(numberOfEncryptedMessagesSinceLastFullRatchetForLog) < \(ObvConstants.thresholdNumberOfEncryptedMessagesPerFullRatchet)")
             
             // 2. If the elapsed time since the last successfull full ratchet is too high, we must start a new full ratchet
             let timeIntervalSinceLastFullRatchet: TimeInterval = Date.now.timeIntervalSince(timestampOfLastFullRatchet)
@@ -693,7 +695,7 @@ extension ObvObliviousChannel: ObvNetworkChannel {
             
             acceptableChannels = acceptableChannelsWithContacts + acceptableChannelsWithOtherOwnedDevices
 
-        case .confirmedObliviousChannelOrPreKeyChannelWithContactDevice(contactDevice: let contactDevice) :
+        case .confirmedObliviousChannelOrPreKeyChannelWithContactDevice(contactDevice: let contactDevice):
 
             let acceptableChannelWithContact = try getAllAcceptableChannels(
                 ownedCryptoId: contactDevice.ownedCryptoId,
@@ -708,7 +710,23 @@ extension ObvObliviousChannel: ObvNetworkChannel {
             assert(acceptableChannelWithContact.count == 1)
             
             return acceptableChannelWithContact
+            
+        case .confirmedObliviousChannelOrPreKeyChannelWithOtherOwnedDevice(otherOwnedDevice: let otherOwnedDevice, withUserContent: _):
+            
+            let acceptableChannelWithOtherOwnedDevice = try getAllAcceptableChannels(
+                ownedCryptoId: otherOwnedDevice.ownedCryptoId,
+                remoteCryptoId: otherOwnedDevice.ownedCryptoId,
+                remoteDeviceUIDs: Set([otherOwnedDevice.deviceUID]),
+                necessarilyConfirmed: true,
+                usePreKeyIfRequired: true,
+                identityDelegate: identityDelegate,
+                keyWrapper: keyWrapper,
+                within: obvContext)
 
+            assert(acceptableChannelWithOtherOwnedDevice.count == 1)
+
+            return acceptableChannelWithOtherOwnedDevice
+            
         case .asymmetricChannel,
              .asymmetricChannelBroadcast,
              .local,

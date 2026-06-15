@@ -60,7 +60,7 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
     
 
     /// Expected to be non-nil
-    var contactCryptoId: ObvCryptoId? {
+    public var contactCryptoId: ObvCryptoId? {
         guard let rawContactIdentityIdentity else { assertionFailure(); return nil }
         return try? ObvCryptoId(identity: rawContactIdentityIdentity)
     }
@@ -123,6 +123,37 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
         return oneToOneDiscussion
     }
     
+    
+    /// Exclusively called during a history transfer, to this destination device, when the message transferred does not exist on this device. In that case, we create a locked discussion to store the message.
+    static func createLockedDiscussionDuringHistoryTransferOnThisDestinationDevice(contactIdentifier: ObvContactIdentifier, suggestedTitle: String?, within context: NSManagedObjectContext) throws -> PersistedOneToOneDiscussion {
+        
+        guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: contactIdentifier.ownedCryptoId, within: context) else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotFindOwnedIdentity
+        }
+        
+        let title: String
+        if let contactIdentity = try PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: context) {
+            title = contactIdentity.nameForSettingOneToOneDiscussionTitle
+        } else {
+            title = suggestedTitle ?? String(localizedInThisBundle: "LOCKED_DISCUSSION")
+        }
+        
+        let discussion = try PersistedOneToOneDiscussion(
+            title: title,
+            ownedIdentity: ownedIdentity,
+            forEntityName: PersistedOneToOneDiscussion.entityName,
+            status: .locked,
+            shouldApplySharedConfigurationFromGlobalSettings: true,
+            isRestoringSyncSnapshotOrBackup: true)
+        
+        discussion.rawContactIdentityIdentity = contactIdentifier.contactCryptoId.getIdentity()
+        discussion.contactIdentity = nil
+        
+        return discussion
+        
+    }
+
     
     // MARK: - Status management
     
@@ -364,7 +395,7 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
     }
     
     
-    override func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: String?) throws {
+    override func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: AttributedString?) throws {
 
         try super.processLocalUpdateMessageRequest(from: ownedIdentity, for: messageSent, newTextBody: newTextBody)
         

@@ -346,18 +346,30 @@ struct NameOnVideoView: View {
     let preferredFont: Font?
     
     var body: some View {
-        Text(verbatim: verbatim)
-            .font(preferredFont ?? .title2)
-            .foregroundStyle(Color.white)
-            .if(preferredFont == .title2) { $0.padding() }
-            .if(preferredFont != .title2) {
-                $0.padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-            }
-            .background {
-                ObvVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
-                    .clipShape(RoundedRectangle(cornerRadius: preferredFont == .title2 ? 12 : 8, style: .continuous))
-            }
+        if #available(iOS 26.0, *) {
+            Text(verbatim: verbatim)
+                .font(preferredFont ?? .title2)
+                .foregroundStyle(Color.primary)
+                .if(preferredFont == .title2) { $0.padding() }
+                .if(preferredFont != .title2) {
+                    $0.padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                }
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: preferredFont == .title2 ? 26 : 12, style: .continuous))
+        } else {
+            Text(verbatim: verbatim)
+                .font(preferredFont ?? .title2)
+                .foregroundStyle(Color.white)
+                .if(preferredFont == .title2) { $0.padding() }
+                .if(preferredFont != .title2) {
+                    $0.padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                }
+                .background {
+                    ObvVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+                        .clipShape(RoundedRectangle(cornerRadius: preferredFont == .title2 ? 12 : 8, style: .continuous))
+                }
+        }
     }
 }
 

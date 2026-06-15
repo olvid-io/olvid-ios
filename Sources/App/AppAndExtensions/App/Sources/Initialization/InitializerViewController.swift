@@ -21,6 +21,7 @@ import UIKit
 import OlvidUtils
 import ObvCoreDataStack
 import ObvUI
+import ObvAppTypes
 
 final class InitializerViewController: UIViewController {
     

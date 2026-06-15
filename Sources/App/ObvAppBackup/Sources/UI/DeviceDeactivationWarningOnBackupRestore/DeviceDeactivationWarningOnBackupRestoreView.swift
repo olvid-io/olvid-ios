@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import ObvTypes
 import ObvSystemIcon
 import ObvCrypto
 import ObvAppTypes
+import ObvDesignSystem
 
 
 @MainActor
@@ -159,7 +160,7 @@ struct DeviceDeactivationWarningOnBackupRestoreView: View {
 
                 ForEach(deactivatedDevices, id: \.identifier) { device in
                     HStack {
-                        DeviceImageView(platform: device.platform)
+                        ObvDeviceImageView(platform: device.platform)
                         Text(device.deviceName)
                         Spacer()
                     }

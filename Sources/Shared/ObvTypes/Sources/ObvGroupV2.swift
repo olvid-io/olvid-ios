@@ -35,7 +35,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     public let publishedDetailsAndPhoto: DetailsAndPhoto?
     public let updateInProgress: Bool
     public let serializedSharedSettings: String? // non-nil only for keycloak groups
-    public let lastModificationTimestamp: Date? // non-nil only for keycloak groups
+    public let lastModificationTimestamp: Date
     public let serializedGroupType: Data?
 
     public static let errorDomain = "ObvGroupV2"
@@ -54,7 +54,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         var key: Data { rawValue.data(using: .utf8)! }
     }
 
-    public init(groupIdentifier: Identifier, ownIdentity: ObvCryptoId, ownPermissions: Set<Permission>, otherMembers: Set<IdentityAndPermissionsAndDetails>, trustedDetailsAndPhoto: DetailsAndPhoto, publishedDetailsAndPhoto: DetailsAndPhoto?, updateInProgress: Bool, serializedSharedSettings: String?, lastModificationTimestamp: Date?, serializedGroupType: Data?) {
+    public init(groupIdentifier: Identifier, ownIdentity: ObvCryptoId, ownPermissions: Set<Permission>, otherMembers: Set<IdentityAndPermissionsAndDetails>, trustedDetailsAndPhoto: DetailsAndPhoto, publishedDetailsAndPhoto: DetailsAndPhoto?, updateInProgress: Bool, serializedSharedSettings: String?, lastModificationTimestamp: Date, serializedGroupType: Data?) {
         self.groupIdentifier = groupIdentifier
         self.ownIdentity = ownIdentity
         self.ownPermissions = ownPermissions
@@ -137,7 +137,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                       publishedDetailsAndPhoto: publishedDetailsAndPhoto,
                       updateInProgress: updateInProgress,
                       serializedSharedSettings: serializedSharedSettings,
-                      lastModificationTimestamp: lastModificationTimestamp,
+                      lastModificationTimestamp: lastModificationTimestamp ?? .now,
                       serializedGroupType: serializedGroupType)
         } catch {
             assertionFailure(error.localizedDescription)

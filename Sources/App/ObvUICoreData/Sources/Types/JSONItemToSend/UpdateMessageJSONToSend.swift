@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvTypes
+import ObvAppTypes
 
 
 public struct UpdateMessageJSONToSend: Equatable, Hashable {

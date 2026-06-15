@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -205,7 +205,7 @@ extension ObvNetworkFetchManagerImplementation {
         delegateManager.networkFetchFlowDelegate.postServerQuery(serverQuery, within: context)
     }
 
-    public func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvTurnCredentials {
+    public func getWellKnownTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvWellKnownTurnCredentials {
         guard let getTurnCredentialsDelegate = delegateManager.getTurnCredentialsDelegate else {
             assertionFailure()
             throw Self.makeError(message: "The turn credentials delegate is not set")
@@ -298,40 +298,12 @@ extension ObvNetworkFetchManagerImplementation {
                 os_log("Attachment does not exist in InboxAttachment (3)", log: Self.log, type: .error)
                 return
             }
-            guard let metadata = inboxAttachment.metadata,
-                let fromCryptoIdentity = inboxAttachment.fromCryptoIdentity
-                else {
-                    os_log("Attachment is not ready yet", log: Self.log, type: .error)
-                    return
-            }
-            guard let inboxAttachmentUrl = inboxAttachment.getURL(withinInbox: delegateManager.inbox) else {
-                os_log("Cannot determine the inbox attachment URL", log: Self.log, type: .fault)
+            do {
+                receivedAttachment = try inboxAttachment.getObvNetworkFetchReceivedAttachment(inbox: delegateManager.inbox)
+            } catch {
+                Self.logger.error("Could not get ObvNetworkFetchReceivedAttachment: \(error.localizedDescription, privacy: .public)")
                 return
             }
-            guard let message = inboxAttachment.message else {
-                os_log("Could not find message associated to attachment, which is unexpected at this point", log: Self.log, type: .fault)
-                assertionFailure()
-                return
-            }
-            let totalUnitCount: Int64
-            if inboxAttachment.status == .cancelledByServer {
-                totalUnitCount = 0
-            } else {
-                guard let _totalUnitCount = inboxAttachment.plaintextLength else {
-                    os_log("Could not find cleartext attachment size. The file might not exist yet (which is the case if the decryption key has not been set).", log: Self.log, type: .fault)
-                    assertionFailure()
-                    return
-                }
-                totalUnitCount = _totalUnitCount
-            }
-            receivedAttachment = ObvNetworkFetchReceivedAttachment(fromCryptoIdentity: fromCryptoIdentity,
-                                                                   attachmentId: attachmentId,
-                                                                   messageUploadTimestampFromServer: message.messageUploadTimestampFromServer,
-                                                                   downloadTimestampFromServer: message.downloadTimestampFromServer,
-                                                                   metadata: metadata,
-                                                                   totalUnitCount: totalUnitCount,
-                                                                   url: inboxAttachmentUrl,
-                                                                   status: inboxAttachment.status.toObvNetworkFetchReceivedAttachmentStatus)
         }
         return receivedAttachment
     }

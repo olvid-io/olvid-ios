@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,7 +36,7 @@ extension AppManagersHolder: KeycloakManagerDelegate {
     func bindOwnedIdentityToKeycloak(ownedCryptoId: ObvTypes.ObvCryptoId, keycloakState: ObvTypes.ObvKeycloakState, keycloakUserId: String) async throws {
         try await self.obvEngine.bindOwnedIdentityToKeycloak(ownedCryptoId: ownedCryptoId, keycloakState: keycloakState, keycloakUserId: keycloakUserId)
     }
-
+    
     func unbindOwnedIdentityFromKeycloak(ownedCryptoId: ObvCryptoId, isUnbindRequestByUser: Bool) async throws(ObvUnbindOwnedIdentityFromKeycloakError) {
         try await self.obvEngine.unbindOwnedIdentityFromKeycloak(ownedCryptoId: ownedCryptoId, isUnbindRequestByUser: isUnbindRequestByUser)
     }
@@ -116,6 +116,22 @@ extension AppManagersHolder: KeycloakManagerDelegate {
     
     func isOwnedIdentityKeycloakManaged(_ ownedCryptoId: ObvCryptoId) async throws -> Bool {
         return try await self.obvEngine.isOwnedIdentityKeycloakManaged(ownedCryptoId)
+    }
+    
+    func getOwnedIdentityKeycloakServer(_ ownedCryptoId: ObvCryptoId) async throws -> URL {
+        return try await self.obvEngine.getOwnedIdentityKeycloakServer(ownedCryptoId)
+    }
+    
+    func setOwnedIdentityKeycloakSupportsIdBasedAuth(ownedCryptoId: ObvCryptoId, supportsIdBasedAuth: Bool) async throws {
+        try await self.obvEngine.setOwnedIdentityKeycloakSupportsIdBasedAuth(ownedCryptoId: ownedCryptoId, supportsIdBasedAuth: supportsIdBasedAuth)
+    }
+
+    func getNonceForKeycloakIdBasedAuth() async -> Data {
+        return self.obvEngine.getNonceForKeycloakIdBasedAuth()
+    }
+
+    func solveChallengeForKeycloakIdBasedAuth(ownedCryptoId: ObvCryptoId, challenge: Data) async throws -> Data {
+        return try await self.obvEngine.solveChallengeForKeycloakIdBasedAuth(ownedCryptoId: ownedCryptoId, challenge: challenge)
     }
 
     // MARK: - Not directly implemented by the engine

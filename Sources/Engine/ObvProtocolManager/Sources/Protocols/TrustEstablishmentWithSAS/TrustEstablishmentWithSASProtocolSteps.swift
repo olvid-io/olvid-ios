@@ -598,7 +598,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let seedBobForSas: Seed
                 do {
                     guard !commitment.isEmpty else { throw Self.makeError(message: "The commitment is empty") }
-                    seedBobForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, within: obvContext)
+                    seedBobForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, forProtocol: .trustEstablishmentWithSAS, within: obvContext.context)
                 } catch {
                     os_log("Could not compute (deterministic but diversified) seed for sas", log: log, type: .error)
                     throw ObvError.couldNotComputeDeterministicButDiversifiedSeedForSas
@@ -706,7 +706,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let seedBobForSas: Seed
                 do {
                     guard !commitment.isEmpty else { throw ObvError.emptyCommitment }
-                    seedBobForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, within: obvContext)
+                    seedBobForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, forProtocol: .trustEstablishmentWithSAS, within: obvContext.context)
                 } catch {
                     os_log("Could not compute (deterministic but diversified) seed for sas", log: log, type: .error)
                     throw ObvError.couldNotComputeDeterministicButDiversifiedSeedForSas

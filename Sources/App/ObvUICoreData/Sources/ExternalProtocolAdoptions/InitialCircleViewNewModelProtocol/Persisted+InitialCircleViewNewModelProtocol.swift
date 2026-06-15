@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,5 +23,34 @@ import ObvUIObvCircledInitials
 
 
 extension PersistedGroupV2Member: InitialCircleViewNewModelProtocol {
-    // We only need to declare the protocol conformance here
+    
+    public var circledInitialsConfiguration: CircledInitialsConfiguration {
+        
+        if let contact {
+            
+            return contact.circledInitialsConfiguration
+            
+        } else {
+            
+            guard let cryptoId else {
+                return .icon(.lockFill)
+            }
+            
+            var components = PersonNameComponents()
+            components.givenName = firstName
+            components.familyName = lastName
+
+            let name = PersonNameComponentsFormatter.localizedString(from: components, style: .default)
+
+            return .contact(initial: name,
+                            photo: nil,
+                            showGreenShield: false,
+                            showRedShield: false,
+                            cryptoId: cryptoId,
+                            tintAdjustementMode: .disabled)
+            
+        }
+        
+    }
+    
 }

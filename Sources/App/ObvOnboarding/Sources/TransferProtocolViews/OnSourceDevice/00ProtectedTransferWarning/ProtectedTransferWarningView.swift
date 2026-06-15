@@ -141,16 +141,14 @@ private struct OkButton: View {
     @Environment(\.isEnabled) var isEnabled
 
     var body: some View {
-        Button(action: action) {
-            Label("OK", systemIcon: .checkmarkCircleFill)
-                .lineLimit(0)
-                .foregroundStyle(.white)
-                .padding(.all)
-                .frame(maxWidth: .infinity)
+        OlvidButtonNew(action: action) {
+            Label {
+                Text("OK")
+            } icon: {
+                Image(systemIcon: .checkmarkCircleFill)
+            }
+
         }
-        .background(Color.blue01)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
     }
     
 }
@@ -163,16 +161,14 @@ private struct BackButton: View {
     @Environment(\.isEnabled) var isEnabled
 
     var body: some View {
-        Button(action: action) {
-            Label("Back", systemIcon: .arrowshapeTurnUpBackwardFill)
-                .lineLimit(0)
-                .foregroundStyle(.primary)
-                .padding(.all)
-                .frame(maxWidth: .infinity)
+        OlvidButtonNew(action: action, style: .glassOrBordered) {
+            Label {
+                Text("BACK")
+            } icon: {
+                Image(systemIcon: .arrowshapeTurnUpBackwardFill)
+            }
+
         }
-        .background(Color(UIColor.systemFill))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
     }
     
 }

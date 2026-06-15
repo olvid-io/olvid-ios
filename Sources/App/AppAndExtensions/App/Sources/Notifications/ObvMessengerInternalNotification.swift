@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -66,7 +66,7 @@ enum ObvMessengerInternalNotification {
 	case applyRetentionPoliciesBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case updateBadgeBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case applyAllRetentionPoliciesNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case userWantsToSendEditedVersionOfSentMessage(ownedCryptoId: ObvCryptoId, sentMessageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, newTextBody: String)
+	case userWantsToSendEditedVersionOfSentMessage(ownedCryptoId: ObvCryptoId, sentMessageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, newTextBody: AttributedString)
 	case userWantsToMarkAllMessagesAsNotNewWithinDiscussion(persistedDiscussionObjectID: NSManagedObjectID, completionHandler: (Bool) -> Void)
 	case serverDoesNotSuppoortCall
 	case userWantsToEditContactNicknameAndPicture(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhoto: UIImage?)
@@ -95,7 +95,6 @@ enum ObvMessengerInternalNotification {
 	case listMessagesOnServerBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case userWantsToSendOneToOneInvitationToContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
 	case userWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ObvCryptoId, objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>)
-	case userWantsToForwardMessage(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, discussionPermanentIDs: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>)
 	case badgeForNewMessagesHasBeenUpdated(ownedCryptoId: ObvCryptoId, newCount: Int)
 	case badgeForInvitationsHasBeenUpdated(ownedCryptoId: ObvCryptoId, newCount: Int)
 	case requestRunningLog(completion: (RunningLogError) -> Void)
@@ -181,7 +180,6 @@ enum ObvMessengerInternalNotification {
 		case listMessagesOnServerBackgroundTaskWasLaunched
 		case userWantsToSendOneToOneInvitationToContact
 		case userWantsToWipeFyleMessageJoinWithStatus
-		case userWantsToForwardMessage
 		case badgeForNewMessagesHasBeenUpdated
 		case badgeForInvitationsHasBeenUpdated
 		case requestRunningLog
@@ -277,7 +275,6 @@ enum ObvMessengerInternalNotification {
 			case .listMessagesOnServerBackgroundTaskWasLaunched: return Name.listMessagesOnServerBackgroundTaskWasLaunched.name
 			case .userWantsToSendOneToOneInvitationToContact: return Name.userWantsToSendOneToOneInvitationToContact.name
 			case .userWantsToWipeFyleMessageJoinWithStatus: return Name.userWantsToWipeFyleMessageJoinWithStatus.name
-			case .userWantsToForwardMessage: return Name.userWantsToForwardMessage.name
 			case .badgeForNewMessagesHasBeenUpdated: return Name.badgeForNewMessagesHasBeenUpdated.name
 			case .badgeForInvitationsHasBeenUpdated: return Name.badgeForInvitationsHasBeenUpdated.name
 			case .requestRunningLog: return Name.requestRunningLog.name
@@ -548,11 +545,6 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 				"objectIDs": objectIDs,
-			]
-		case .userWantsToForwardMessage(messagePermanentID: let messagePermanentID, discussionPermanentIDs: let discussionPermanentIDs):
-			info = [
-				"messagePermanentID": messagePermanentID,
-				"discussionPermanentIDs": discussionPermanentIDs,
 			]
 		case .badgeForNewMessagesHasBeenUpdated(ownedCryptoId: let ownedCryptoId, newCount: let newCount):
 			info = [
@@ -931,12 +923,12 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToSendEditedVersionOfSentMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, TypeSafeManagedObjectID<PersistedMessageSent>, String) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToSendEditedVersionOfSentMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, TypeSafeManagedObjectID<PersistedMessageSent>, AttributedString) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSendEditedVersionOfSentMessage.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let sentMessageObjectID = notification.userInfo!["sentMessageObjectID"] as! TypeSafeManagedObjectID<PersistedMessageSent>
-			let newTextBody = notification.userInfo!["newTextBody"] as! String
+			let newTextBody = notification.userInfo!["newTextBody"] as! AttributedString
 			block(ownedCryptoId, sentMessageObjectID, newTextBody)
 		}
 	}
@@ -1176,15 +1168,6 @@ enum ObvMessengerInternalNotification {
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let objectIDs = notification.userInfo!["objectIDs"] as! Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>
 			block(ownedCryptoId, objectIDs)
-		}
-	}
-
-	static func observeUserWantsToForwardMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedMessage>, Set<ObvManagedObjectPermanentID<PersistedDiscussion>>) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToForwardMessage.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let messagePermanentID = notification.userInfo!["messagePermanentID"] as! ObvManagedObjectPermanentID<PersistedMessage>
-			let discussionPermanentIDs = notification.userInfo!["discussionPermanentIDs"] as! Set<ObvManagedObjectPermanentID<PersistedDiscussion>>
-			block(messagePermanentID, discussionPermanentIDs)
 		}
 	}
 

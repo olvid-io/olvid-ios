@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,10 +63,13 @@ final class EngineCoordinator {
         
         notificationCenterTokens.append(contentsOf: [
             ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: notificationDelegate) { [weak self] (ownedCryptoIdentity) in
-                self?.processOwnedIdentityWasReactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier())
+                Task { [weak self] in await self?.processOwnedIdentityWasReactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier()) }
+            },
+            ObvIdentityNotificationNew.observeOwnedIdentityWasDeactivated(within: notificationDelegate) { ownedCryptoIdentity in
+                Task { [weak self] in await self?.processOwnedIdentityWasDeactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier()) }
             },
             ObvIdentityNotificationNew.observeNewActiveOwnedIdentity(within: notificationDelegate) { [weak self] ownedCryptoIdentity in
-                self?.processNewActiveOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier())
+                Task { [weak self] in await self?.processNewActiveOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier()) }
             },
             ObvIdentityNotificationNew.observeDeletedContactDevice(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity, contactDeviceUid) in
                 self?.deleteObliviousChannelBetweenThisDeviceAndRemoteDevice(ownedIdentity: ownedIdentity, remoteDeviceUid: contactDeviceUid, remoteIdentity: contactIdentity, flowId: FlowIdentifier()) // ok
@@ -1005,17 +1008,32 @@ extension EngineCoordinator {
     /// For a new owned identity, this does nothing, since she does not have any contact yet.
     /// But for an owned identity that was restored by means of a backup, there might by several
     /// contacts already. In that case, since the backup does not restore any contact device, we want to refresh those devices.
-    private func processOwnedIdentityWasReactivated(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
+    private func processOwnedIdentityWasReactivated(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async {
         startOwnedDeviceDiscoveryProtocol(ownedCryptoIdentity)
         startDeviceDiscoveryForAllContactsOfOwnedIdentity(ownedCryptoIdentity)
         startChannelCreationProtocolWithContactDevicesHavingNoChannelAndNoOngoingChannelCreationProtocol(flowId: flowId)
         startChannelCreationProtocolWithOtherOwnedDevicesHavingNoChannelAndNoOngoingChannelCreationProtocol(flowId: flowId)
+        do {
+            try await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
+        } catch {
+            self.logger.fault("Could not inform the network fetch manager of the updated list of owned identities: \(error)")
+            assertionFailure()
+        }
     }
     
     
+    private func processOwnedIdentityWasDeactivated(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async {
+        do {
+            try await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
+        } catch {
+            self.logger.fault("Could not inform the network fetch manager of the updated list of owned identities: \(error)")
+            assertionFailure()
+        }
+    }
+    
     /// When a new identity is created in an active state, we do the exact same things than when an identity is reactivated.
-    func processNewActiveOwnedIdentity(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        processOwnedIdentityWasReactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
+    func processNewActiveOwnedIdentity(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async {
+        await processOwnedIdentityWasReactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
     }
 
     

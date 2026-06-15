@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -226,10 +226,10 @@ extension PersistedPoll {
     }
     
     
-    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date?) throws {
+    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date) throws {
         
         // Set or update the vote
-        let timestamp = messageUploadTimestampFromServer ?? Date.now
+        let timestamp = messageUploadTimestampFromServer
         if let pollVote = pollVoteFromContact(with: contact.cryptoId, for: pollCandidateUUID) {
             pollVote.update(version: version, voted: voted, timestamp: timestamp)
         } else if let pollCandidate = self.candidates.first(where: { $0.uuid == pollCandidateUUID }) {
@@ -263,8 +263,36 @@ extension PersistedPoll {
     
 }
 
+
+// MARK: - History transfer
+
 extension PersistedPoll {
-    func toPollJSON() throws -> PollJSON {
+    
+    static func createDuringHistoryTransfer(poll: PollJSON, message: PersistedMessage) throws {
+        guard let context = message.managedObjectContext else {
+            assertionFailure()
+            throw ObvUICoreDataError.noContext
+        }
+        let obvPoll = poll.toObvPoll()
+        let poll = try self.init(obvPoll: obvPoll, within: context)
+        poll.message = message
+    }
+    
+    func setPollVotesDuringHistoryTransfer(pollVotes: [ObvHistoryReceivedMessage.PollVote]) throws {
+        for pollVote in pollVotes {
+            guard let candidate = self.candidates.first(where: { $0.uuid == pollVote.candidate }) else {
+                assertionFailure()
+                continue
+            }
+            try candidate.setPollVoteDuringHistoryTransfer(pollVote: pollVote)
+        }
+    }
+    
+}
+
+
+extension PersistedPoll {
+    public func toPollJSON() throws -> PollJSON {
 
         let answerType: PollJSON.PollAnswerType
         switch self.type {

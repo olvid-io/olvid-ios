@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,13 +18,14 @@
  */
 
 import Foundation
+import CoreData
+import OSLog
 import OlvidUtils
-import os.log
 import ObvEngine
 import ObvTypes
 import ObvUICoreData
-import CoreData
 import ObvCrypto
+import ObvAppTypes
 
 
 final class SendWebRTCMessageOperation: AsyncOperationWithSpecificReasonForCancel<SendWebRTCMessageOperation.ReasonForCancel>, @unchecked Sendable {

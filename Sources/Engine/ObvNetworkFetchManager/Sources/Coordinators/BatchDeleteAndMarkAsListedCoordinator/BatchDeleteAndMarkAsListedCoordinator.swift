@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvServerInterface
 import ObvTypes
 import ObvOperation
@@ -226,7 +226,17 @@ extension BatchDeleteAndMarkAsListedCoordinator {
         do {
             (data, response) = try await Self.urlSession.data(for: method.getURLRequest())
         } catch {
-            assertionFailure()
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain {
+                switch nsError.code {
+                case Int(CFNetworkErrors.cfurlErrorNotConnectedToInternet.rawValue):
+                    break
+                default:
+                    assertionFailure()
+                }
+            } else {
+                assertionFailure()
+            }
             throw error
         }
         

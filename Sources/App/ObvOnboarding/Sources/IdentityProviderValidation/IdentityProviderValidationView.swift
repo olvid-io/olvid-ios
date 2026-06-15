@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,12 +23,32 @@ import AppAuth
 import ObvSystemIcon
 import AuthenticationServices
 import ObvTypes
+import ObvAppTypes
 import ObvDesignSystem
+import ObvKeycloakManager
 
 
-protocol IdentityProviderValidationViewActionsProtocol: AnyObject {
-    func discoverKeycloakServer(keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)
-    func userWantsToAuthenticateOnKeycloakServer(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws
+/// Delegate protocol through which `IdentityProviderValidationView` requests actions from its coordinator.
+///
+/// Marked `@MainActor` because all callbacks originate from SwiftUI button taps and are forwarded
+/// to the onboarding flow controller, which lives on the main actor.
+@MainActor
+protocol IdentityProviderValidationViewActionsProtocol {
+
+    /// Called when the user taps the cancel/dismiss button. Only shown when `Model.showDismissButton` is `true`.
+    func userWantsToDismiss(_ view: IdentityProviderValidationView)
+
+    func discoverKeycloakServer(_ view: IdentityProviderValidationView, keycloakServerURL: URL) async throws -> KeycloakServerDiscoveryResult
+
+    func userWantsToAuthenticateOnKeycloakServer(
+        _ view: IdentityProviderValidationView,
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        magicLink: ObvMagicLink?,
+        discoveryResult: KeycloakServerDiscoveryResult,
+        isConfiguredFromMDM: Bool,
+        isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile
+    ) async throws
+
 }
 
 
@@ -36,16 +56,26 @@ struct IdentityProviderValidationView: View {
     
     let model: Model
     let actions: IdentityProviderValidationViewActionsProtocol
+
     @State private var discoveryStatus: KeycloakServerDiscoveryStatus = .toDiscover
 
     @State private var errorForAlert: Error?
     @State private var isAlertShown = false
+    
+    @State private var isInvalidMagicLinkAlertShown = false
 
     
     struct Model {
         let keycloakConfiguration: ObvKeycloakConfiguration
+        /// A one-time token embedded in the OlvidURL that opened this screen. When non-nil the
+        /// authenticate button exchanges it directly instead of launching a browser OIDC flow.
+        let magicLink: ObvMagicLink?
         let isConfiguredFromMDM: Bool
         let isBindingExistingProfile: BindingExistingProfile
+        /// When `true`, a cancel button is shown in the navigation bar. Set to `true` when this screen
+        /// is presented modally (e.g. binding an existing profile via a deep link), and `false` during
+        /// the linear onboarding flow where the user must not be able to skip the step.
+        let showDismissButton: Bool
         
         enum BindingExistingProfile {
             case no
@@ -60,7 +90,7 @@ struct IdentityProviderValidationView: View {
         case toDiscover
         case discovering
         case discoveryFailed
-        case discovered(keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration))
+        case discovered(discoveryResult: KeycloakServerDiscoveryResult)
         
         var isDiscovered: Bool {
             switch self {
@@ -73,7 +103,6 @@ struct IdentityProviderValidationView: View {
     }
 
     
-    @MainActor
     private func discoverKeycloakServerIfRequired() async {
         switch discoveryStatus {
         case .toDiscover:
@@ -83,8 +112,8 @@ struct IdentityProviderValidationView: View {
         }
         discoveryStatus = .discovering
         do {
-            let keycloakServerKeyAndConfig = try await actions.discoverKeycloakServer(keycloakServerURL: model.keycloakConfiguration.keycloakServerURL)
-            discoveryStatus = .discovered(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
+            let discoveryResult = try await actions.discoverKeycloakServer(self, keycloakServerURL: model.keycloakConfiguration.keycloakServerURL)
+            discoveryStatus = .discovered(discoveryResult: discoveryResult)
         } catch {
             discoveryStatus = .discoveryFailed
         }
@@ -103,14 +132,29 @@ struct IdentityProviderValidationView: View {
         discoveryStatus.isDiscovered ? "IDENTITY_PROVIDER_CONFIGURED_SUCCESS" : "IDENTITY_PROVIDER_CONFIGURED_FAILURE"
     }
     
+    @State private var isShowingKeycloakConfigurationDetails = false
+
+    @State private var isAuthenticating: Bool = false
     
-    private func userWantsToAuthenticate(keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async {
+    // Synchronous entry point from the button action so SwiftUI can animate `isAuthenticating`
+    // before the async work starts. The defer in the Task ensures the flag resets on any exit path.
+    private func authenticateButtonTapped(discoveryResult: KeycloakServerDiscoveryResult) {
+        withAnimation { isAuthenticating = true }
+        Task {
+            defer { withAnimation { isAuthenticating = false } }
+            await userWantsToAuthenticate(discoveryResult: discoveryResult)
+        }
+    }
+    
+    private func userWantsToAuthenticate(discoveryResult: KeycloakServerDiscoveryResult) async {
         do {
             try await actions.userWantsToAuthenticateOnKeycloakServer(
+                self,
                 keycloakConfiguration: model.keycloakConfiguration,
+                magicLink: model.magicLink,
+                discoveryResult: discoveryResult,
                 isConfiguredFromMDM: model.isConfiguredFromMDM,
-                isBindingExistingProfile: model.isBindingExistingProfile,
-                keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
+                isBindingExistingProfile: model.isBindingExistingProfile)
         } catch {
             // Do not show an alert if the user just cancelled the authentication process
             let nsError = error as NSError
@@ -121,86 +165,120 @@ struct IdentityProviderValidationView: View {
                     return
                 }
             }
+            if let error = error as? KeycloakManager.ObvError {
+                switch error {
+                case .invalidMagicLink:
+                    isInvalidMagicLinkAlertShown = true
+                    return
+                default:
+                    break
+                }
+            }
             errorForAlert = error
             isAlertShown = true
         }
     }
     
     
-    private var authenticationFailureAlertTitle: LocalizedStringKey {
+    private var authenticationFailureAlertTitle: String {
         if let errorForAlert {
-            return "KEYCLOAK_AUTHENTICATION_FAILED_ALERT_\((errorForAlert as NSError).localizedDescription)"
+            return String(localizedInThisBundle: "KEYCLOAK_AUTHENTICATION_FAILED_ALERT_\((errorForAlert as NSError).localizedDescription)")
         } else {
-            return "KEYCLOAK_AUTHENTICATION_FAILED_ALERT"
+            return String(localizedInThisBundle: "KEYCLOAK_AUTHENTICATION_FAILED_ALERT")
         }
+    }
+    
+    private var authenticateButtonTitle: LocalizedStringKey {
+        return (model.magicLink == nil) ? "AUTHENTICATE" : "USE_MAGIC_LINK_BUTTON_TITLE"
+    }
+    
+    private var authenticateButtonIcon: SystemIcon {
+        return (model.magicLink == nil) ? .personCropCircleBadgeCheckmark : .wandAndSparkles
     }
     
     
     var body: some View {
         
-        switch discoveryStatus {
-            
-        case .toDiscover, .discovering:
-            
-            DiscoveringInProgressView(isConfiguredFromMDM: model.isConfiguredFromMDM)
-                .onAppear {
-                    Task { await discoverKeycloakServerIfRequired() }
-                }
-            
-        case .discoveryFailed, .discovered:
-            
-            ScrollView {
-                VStack {
-                    
-                    ObvHeaderView(title: "IDENTITY_PROVIDER".localizedInThisBundle,
-                                  subtitle: nil)
-                    
-                    HStack {
-                        Spacer()
-                        BigCircledSystemIconView(
-                            systemIcon: systemIcon,
-                            backgroundColor: systemIconColor)
-                        Spacer()
-                    }
-                    .padding(.top, 32)
-                    .padding(.bottom, 32)
-                    
-                    Text(discoveryStatusLocalizedStringKey)
-                        .font(.system(.body, design: .default))
-                    
-                    Spacer()
-                    
-                }.padding(.horizontal)
-            }
-            
-            if case .discovered(keycloakServerKeyAndConfig: let config) = discoveryStatus {
+        Group {
+            switch discoveryStatus {
                 
-                Group {
-                    if #available(iOS 26.0, *) {
-                        Button(action: { Task { await userWantsToAuthenticate(keycloakServerKeyAndConfig: config) } }) {
-                            Label("AUTHENTICATE", systemIcon: .personCropCircleBadgeCheckmark)
-                                .padding(.vertical)
+            case .toDiscover, .discovering:
+                
+                DiscoveringInProgressView(isConfiguredFromMDM: model.isConfiguredFromMDM)
+                
+            case .discoveryFailed, .discovered:
+                
+                ScrollView {
+                    VStack {
+                        
+                        ObvHeaderView(title: "IDENTITY_PROVIDER".localizedInThisBundle,
+                                      subtitle: nil)
+                        
+                        HStack {
+                            Spacer()
+                            BigCircledSystemIconView(
+                                systemIcon: systemIcon,
+                                backgroundColor: systemIconColor)
+                            Spacer()
                         }
-                        .buttonStyle(.glassProminent)
-                        .buttonSizing(.flexible)
-                    } else {
-                        Button(action: { Task { await userWantsToAuthenticate(keycloakServerKeyAndConfig: config) } }) {
-                            Label("AUTHENTICATE", systemIcon: .personCropCircleBadgeCheckmark)
-                                .padding(.vertical)
-                                .frame(maxWidth: .infinity)
+                        .padding(.top, 32)
+                        .padding(.bottom, 32)
+                        
+                        Text(discoveryStatusLocalizedStringKey)
+                            .font(.system(.body, design: .default))
+                        
+                        Spacer()
+                        
+                    }.padding(.horizontal)
+                }
+                
+                if case .discovered(discoveryResult: let discoveryResult) = discoveryStatus {
+                    
+                    OlvidButtonNew {
+                        authenticateButtonTapped(discoveryResult: discoveryResult)
+                    } label: {
+                        HStack {
+                            if isAuthenticating { ProgressView() }
+                            Label { Text(authenticateButtonTitle) } icon: { Image(systemIcon: authenticateButtonIcon) }
                         }
-                        .buttonStyle(.borderedProminent)
                     }
+                    .disabled(isAuthenticating)
+                    .padding()
+                    .alert(authenticationFailureAlertTitle, isPresented: $isAlertShown) {
+                        Button("OK".localizedInThisBundle, role: .cancel) { }
+                    }
+                    .alert(String(localizedInThisBundle: "INVALID_MAGIC_LINK_ALERT_TITLE"), isPresented: $isInvalidMagicLinkAlertShown, actions: {}) {
+                        Text("INVALID_MAGIC_LINK_ALERT_MESSAGE")
+                    }
+                    
                 }
-                .padding()
-                .alert(authenticationFailureAlertTitle, isPresented: $isAlertShown) {
-                    Button("OK".localizedInThisBundle, role: .cancel) { }
-                }
-
+                
             }
-            
         }
-        
+        .task(discoverKeycloakServerIfRequired)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    isShowingKeycloakConfigurationDetails = true
+                } label: {
+                    Image(systemIcon: .questionmarkCircle)
+                }
+            }
+            if model.showDismissButton {
+                ToolbarItem(placement: .cancellationAction) {
+                    ObvButtonWithCancelRole(action: { actions.userWantsToDismiss(self) })
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingKeycloakConfigurationDetails) {
+            NewKeycloakConfigurationDetailsView(model: .init(keycloakConfiguration: model.keycloakConfiguration))
+                .presentationDetents([.medium])
+                .presentationCornerRadiusOniOS16Dot4(ObvCardViewParameters.defaultCornerRadius)
+                .presentationDragIndicator(.visible)
+        }
+
     }
 }
 

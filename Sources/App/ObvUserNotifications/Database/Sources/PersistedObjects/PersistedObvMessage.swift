@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import ObvTypes
 import ObvCrypto
+import ObvEncoder
 
 
 @objc(PersistedObvMessage)
@@ -31,11 +32,11 @@ final class PersistedObvMessage: NSManagedObject {
     // MARK: - Attributes
     
     @NSManaged private var downloadTimestampFromServer: Date? // Expected to be non-nil
-    @NSManaged private var expectedAttachmentsCount: Int
     @NSManaged private var extendedMessagePayload: Data?
     @NSManaged private var localDownloadTimestamp: Date? // Expected to be non-nil
     @NSManaged private var messagePayload: Data? // Expected to be non-nil
     @NSManaged private var messageUploadTimestampFromServer: Date? // Expected to be non-nil
+    @NSManaged private var rawAttachmentMetadatas: Data? // Encoded of a list of Data
     @NSManaged private var rawContactDeviceUID: Data? // Expected to be non-nil (except for old notifications)
     @NSManaged private var rawContactIdentity: Data? // Expected to be non-nil
     @NSManaged private var rawMessageIdFromServer: Data?
@@ -55,6 +56,17 @@ final class PersistedObvMessage: NSManagedObject {
                 throw ObvError.rawOwnedIdentityIsNil
             }
             return try ObvCryptoId(identity: rawOwnedIdentity)
+        }
+    }
+    
+    private var attachmentMetadatas: [Data] {
+        get throws {
+            guard let rawAttachmentMetadatas else { return [] }
+            guard let encoded = ObvEncoded(withRawData: rawAttachmentMetadatas) else { assertionFailure(); throw ObvError.attachmentMetadatasDecodingFailed }
+            guard let listOfEncoded = [ObvEncoded](encoded) else { assertionFailure(); throw ObvError.attachmentMetadatasDecodingFailed }
+            let datas = listOfEncoded.compactMap { Data($0) }
+            guard datas.count == listOfEncoded.count else { assertionFailure(); throw ObvError.attachmentMetadatasDecodingFailed }
+            return datas
         }
     }
     
@@ -100,12 +112,20 @@ final class PersistedObvMessage: NSManagedObject {
                 assertionFailure()
                 throw ObvError.unexpectedNilValue
             }
+            let fromContactIdentity = try fromContactIdentity
+            let messageId = try messageId
+            let attachments: [ObvAttachment] = try self.attachmentMetadatas.enumerated().map { attachmentNumber, metadata in
+                    .init(fromContactIdentity: fromContactIdentity,
+                          metadata: metadata,
+                          status: .receivedInUserNotification,
+                          attachmentId: .init(messageId: messageId, attachmentNumber: attachmentNumber),
+                          messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            }
             return ObvMessage(
-                fromContactIdentity: try fromContactIdentity,
+                fromContactIdentity: fromContactIdentity,
                 fromContactDeviceUID: self.fromContactDeviceUID,
-                messageId: try messageId,
-                attachments: [], // Since the ObvMessage comes from a remote user notification, we expect no attachments.
-                expectedAttachmentsCount: expectedAttachmentsCount,
+                messageId: messageId,
+                attachments: attachments,
                 messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                 downloadTimestampFromServer: downloadTimestampFromServer,
                 localDownloadTimestamp: localDownloadTimestamp,
@@ -126,7 +146,7 @@ final class PersistedObvMessage: NSManagedObject {
         self.rawContactIdentity = obvMessage.fromContactIdentity.contactCryptoId.getIdentity()
         self.rawContactDeviceUID = obvMessage.fromContactDeviceUID?.raw // Expected to be non-nil
         self.rawMessageIdFromServer = obvMessage.messageId.uid.raw
-        self.expectedAttachmentsCount = obvMessage.expectedAttachmentsCount
+        self.rawAttachmentMetadatas = obvMessage.attachments.isEmpty ? nil : obvMessage.attachments.map(\.metadata).obvEncode().rawData
         self.messageUploadTimestampFromServer = obvMessage.messageUploadTimestampFromServer
         self.downloadTimestampFromServer = obvMessage.downloadTimestampFromServer
         self.localDownloadTimestamp = obvMessage.localDownloadTimestamp
@@ -134,8 +154,6 @@ final class PersistedObvMessage: NSManagedObject {
         self.extendedMessagePayload = obvMessage.extendedMessagePayload
         self.wasPersistedInApp = false
         
-        // Note that we discard any content found in obvMessage.attachments (which is empty anyway when the ObvMessage comes from the notification extension).
-
     }
     
     static func createContent(obvMessage: ObvMessage, within context: NSManagedObjectContext) throws -> PersistedObvMessage {
@@ -208,6 +226,7 @@ extension PersistedObvMessage {
         case rawMessageIdFromServerIsNil
         case couldNotParseMessageIdFromServer
         case unexpectedNilValue
+        case attachmentMetadatasDecodingFailed
     }
     
 }

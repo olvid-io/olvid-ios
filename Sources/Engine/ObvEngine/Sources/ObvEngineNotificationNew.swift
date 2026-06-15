@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,7 +49,6 @@ public enum ObvEngineNotificationNew {
 	case engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: ObvCryptoId, performOwnedDeviceDiscoveryOnFinish: Bool)
 	case outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)])
 	case outboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: Data, ownedIdentity: ObvCryptoId)
-	case callerTurnCredentialsReceived(ownedIdentity: ObvCryptoId, callUuid: UUID, turnCredentials: ObvTurnCredentials)
 	case messageWasAcknowledged(ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool)
 	case attachmentWasAcknowledgedByServer(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
 	case attachmentDownloadCancelledByServer(obvAttachment: ObvAttachment)
@@ -119,7 +118,6 @@ public enum ObvEngineNotificationNew {
 		case engineRequiresOwnedIdentityToRegisterToPushNotifications
 		case outboxMessagesAndAllTheirAttachmentsWereAcknowledged
 		case outboxMessageCouldNotBeSentToServer
-		case callerTurnCredentialsReceived
 		case messageWasAcknowledged
 		case attachmentWasAcknowledgedByServer
 		case attachmentDownloadCancelledByServer
@@ -199,7 +197,6 @@ public enum ObvEngineNotificationNew {
 			case .engineRequiresOwnedIdentityToRegisterToPushNotifications: return Name.engineRequiresOwnedIdentityToRegisterToPushNotifications.name
 			case .outboxMessagesAndAllTheirAttachmentsWereAcknowledged: return Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
 			case .outboxMessageCouldNotBeSentToServer: return Name.outboxMessageCouldNotBeSentToServer.name
-			case .callerTurnCredentialsReceived: return Name.callerTurnCredentialsReceived.name
 			case .messageWasAcknowledged: return Name.messageWasAcknowledged.name
 			case .attachmentWasAcknowledgedByServer: return Name.attachmentWasAcknowledgedByServer.name
 			case .attachmentDownloadCancelledByServer: return Name.attachmentDownloadCancelledByServer.name
@@ -322,12 +319,6 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"messageIdentifierFromEngine": messageIdentifierFromEngine,
 				"ownedIdentity": ownedIdentity,
-			]
-		case .callerTurnCredentialsReceived(ownedIdentity: let ownedIdentity, callUuid: let callUuid, turnCredentials: let turnCredentials):
-			info = [
-				"ownedIdentity": ownedIdentity,
-				"callUuid": callUuid,
-				"turnCredentials": turnCredentials,
 			]
 		case .messageWasAcknowledged(ownedIdentity: let ownedIdentity, messageIdentifierFromEngine: let messageIdentifierFromEngine, timestampFromServer: let timestampFromServer, isAppMessageWithUserContent: let isAppMessageWithUserContent, isVoipMessage: let isVoipMessage):
 			info = [
@@ -696,16 +687,6 @@ public enum ObvEngineNotificationNew {
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			block(messageIdentifierFromEngine, ownedIdentity)
-		}
-	}
-
-	public static func observeCallerTurnCredentialsReceived(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UUID, ObvTurnCredentials) -> Void) -> NSObjectProtocol {
-		let name = Name.callerTurnCredentialsReceived.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
-			let callUuid = notification.userInfo!["callUuid"] as! UUID
-			let turnCredentials = notification.userInfo!["turnCredentials"] as! ObvTurnCredentials
-			block(ownedIdentity, callUuid, turnCredentials)
 		}
 	}
 

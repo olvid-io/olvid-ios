@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvMetaManager
 import ObvTypes
@@ -53,7 +53,7 @@ final class RecreateURLSessionForCallingUIKitCompletionHandlerOperation: Context
                 return cancel(withReason: .cannotFindAttachmentInDatabase)
             }
 
-            guard let attachmentId = attachment.attachmentId else { assertionFailure(); return }
+            let attachmentId = try attachment.attachmentId
 
             guard let decryptedAttachmentURL = attachment.getURL(withinInbox: delegateManager.inbox) else {
                 assertionFailure()

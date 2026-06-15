@@ -102,6 +102,8 @@ extension ObvOwnedDetailedInfosViewAppDataSource {
         private var latestKeycloakStateAndUserDetails: ObvKeycloakStateAndUserDetails?
         private var latestOwnedIdentityKeycloakApiKey: UUID?
         
+        private var refreshLatestKeycloakStateAndUserDetailsPerformedOnce = false
+        
         init(ownedCryptoId: ObvTypes.ObvCryptoId, context: NSManagedObjectContext, delegate: ObvOwnedDetailedInfosViewModelStreamManagerDelegate) {
             self.ownedCryptoId = ownedCryptoId
             self.delegate = delegate
@@ -110,18 +112,24 @@ extension ObvOwnedDetailedInfosViewAppDataSource {
             super.init(frc1: frc1, frc2: frc2)
         }
         
+
+        /// Queries the engine to set certain values. Note that these values are not refreshed. In the future, we should have a fetched results controller at the
+        /// engine level and request a stream of keycloak informations. For now, the user is forced to quit the interface and come back so see fresh values.
         private func refreshLatestKeycloakStateAndUserDetails() {
+            guard let delegate else { assertionFailure(); return }
             Task {
-                guard let delegate else { assertionFailure(); return }
+                guard !refreshLatestKeycloakStateAndUserDetailsPerformedOnce else { return }
+                defer { refreshLatestKeycloakStateAndUserDetailsPerformedOnce = true }
                 do {
                     self.latestKeycloakStateAndUserDetails = try await delegate.getOwnedIdentityKeycloakState(self, ownedCryptoId: ownedCryptoId)
                     self.latestOwnedIdentityKeycloakApiKey = try await delegate.getRegisteredKeycloakAPIKey(self, ownedCryptoId: ownedCryptoId)
-                    try await self.getFetchedObjectsAndYieldModelIfNeeded()
+                    Task { try await self.getFetchedObjectsAndYieldModelIfNeeded() }
                 } catch {
                     assertionFailure()
                 }
             }
         }
+        
         
         override func createModel(fetchedObjects1: [PersistedObvOwnedIdentity], fetchedObjects2: [PersistedObvOwnedDevice]) throws -> ObvOwnedDetailedInfosView.Model {
             assert(fetchedObjects1.count <= 1)
@@ -152,7 +160,8 @@ extension ObvSingleOwnedIdentity.ObvOwnedDetailedInfosView.Model {
         if ownedIdentity.isKeycloakManaged {
             isKeycloakManaged = .yes(signedDetails: latestKeycloakStateAndUserDetails?.signedUserDetails,
                                      ownedIdentityKeycloakApiKey: latestOwnedIdentityKeycloakApiKey,
-                                     isTransferRestricted: latestKeycloakStateAndUserDetails?.keycloakState.isTransferRestricted)
+                                     isTransferRestricted: latestKeycloakStateAndUserDetails?.keycloakState.isTransferRestricted,
+                                     supportsIdBasedAuth: latestKeycloakStateAndUserDetails?.keycloakState.supportedAuthenticationMethods.idBased != nil)
         } else {
             isKeycloakManaged = .no
         }

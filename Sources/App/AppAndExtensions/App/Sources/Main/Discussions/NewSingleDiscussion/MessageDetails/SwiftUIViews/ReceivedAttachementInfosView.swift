@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,6 +49,8 @@ fileprivate extension ReceivedFyleMessageJoinWithStatus {
         case .downloading: return .arrowDownCircle
         case .complete: return .arrowDownCircleFill
         case .cancelledByServer: return .exclamationmarkCircle
+        case .untransferred: return .repeatCircle
+        case .notYetDownloadableAsReceivedByUserNotification: return .networkSlash
         }
     }
     
@@ -56,7 +58,7 @@ fileprivate extension ReceivedFyleMessageJoinWithStatus {
         switch self.status {
         case .downloading:
             return true
-        case .downloadable, .complete, .cancelledByServer:
+        case .downloadable, .complete, .cancelledByServer, .untransferred, .notYetDownloadableAsReceivedByUserNotification:
             return false
         }
     }

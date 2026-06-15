@@ -237,11 +237,15 @@ struct ChooseDeviceToKeepActiveView<Model: ChooseDeviceToKeepActiveViewModelProt
                 }.padding(.horizontal)
 
                 if model.ownedDeviceDiscoveryResult.isMultidevice {
-                    InternalButton("VALIDATE", action: { proceedButtonTapped(deviceToKeepActive: nil) })
-                        .padding()
+                    OlvidButtonNew(action: { proceedButtonTapped(deviceToKeepActive: nil) }) {
+                        Text("VALIDATE")
+                    }
+                    .padding()
                 } else if let selectedDevice {
-                    InternalButton(titleOfKeepDeviceActiveButton(device: selectedDevice), action: { proceedButtonTapped(deviceToKeepActive: selectedDevice) })
-                        .padding()
+                    OlvidButtonNew(action: { proceedButtonTapped(deviceToKeepActive: selectedDevice) }) {
+                        Text(titleOfKeepDeviceActiveButton(device: selectedDevice))
+                    }
+                    .padding()
                 }
             }
             
@@ -354,43 +358,6 @@ private struct DeviceView: View {
         .onTapGesture(perform: cellTapped)
     }
 }
-
-
-
-// MARK: - Button used in this view only
-
-private struct InternalButton: View {
-    
-    private let key: LocalizedStringKey
-    private let action: () -> Void
-    @Environment(\.isEnabled) var isEnabled
-    
-    init(_ key: LocalizedStringKey, action: @escaping () -> Void) {
-        self.key = key
-        self.action = action
-    }
-        
-    var body: some View {
-        Button(action: action) {
-            Text(key)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 26)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity)
-        }
-        .background(Color.blue01)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
-    }
-    
-}
-
-
-
-
-
-
-
 
 
 #if DEBUG

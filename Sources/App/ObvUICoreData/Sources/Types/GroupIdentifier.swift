@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,15 +19,8 @@
   
 
 import Foundation
-import ObvCrypto
-import ObvTypes
 
 public enum GroupIdentifierBasedOnObjectID {
     case groupV1(TypeSafeManagedObjectID<PersistedContactGroup>)
     case groupV2(TypeSafeManagedObjectID<PersistedGroupV2>)
-}
-
-public enum GroupIdentifier {
-    case groupV1(groupV1Identifier: GroupV1Identifier)
-    case groupV2(groupV2Identifier: GroupV2Identifier)
 }

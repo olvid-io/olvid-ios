@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -61,6 +61,12 @@ public protocol ObvDiscussionsListViewControllerActionsProtocol: AnyObject {
     
     func userWantsToDiscoverOlvidPlus(_ vc: ObvDiscussionsListViewController)
     func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ vc: ObvDiscussionsListViewController)
+
+    func userWantsToManageTheirDevices(_ vc: ObvDiscussionsListViewController, ownedCryptoId: ObvCryptoId)
+
+    func userWantsToShowThisDeviceReactivationOptions(_ vc: ObvDiscussionsListViewController, ownedCryptoId: ObvCryptoId)
+
+    func userWantsToRequestNotificationsAuthorization(_ vc: ObvDiscussionsListViewController)
 
 }
 
@@ -123,6 +129,11 @@ public final class ObvDiscussionsListViewController: UIHostingController<ObvDisc
 // MARK: - Implementing ObvDiscussionsListViewActionsProtocol
 
 extension ObvDiscussionsListViewController: ObvDiscussionsListViewActionsProtocol {
+    
+    func userWantsToRequestNotificationsAuthorization(_ view: RequestUserNotificationsAuthorizationTipView) {
+        guard let internalDelegate else { assertionFailure(); return }
+        internalDelegate.userWantsToRequestNotificationsAuthorization(self)
+    }
     
     func userDidSwitchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
         guard let internalDelegate else { assertionFailure(); return }
@@ -270,6 +281,26 @@ extension ObvDiscussionsListViewController: ObvDiscussionsListViewActionsProtoco
         internalDelegate.userWantsToDismissOlvidPlusSuccessfulSubscriptionView(self)
     }
     
+    func userWantsToShowThisDeviceReactivationOptions(_ view: ProfileIsDeactivatedOnThisDeviceTipView, ownedCryptoId: ObvCryptoId) {
+        guard let internalDelegate else { assertionFailure(); return }
+        internalDelegate.userWantsToShowThisDeviceReactivationOptions(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+extension ObvDiscussionsListViewController: OwnedDeviceExpriginSoonTipViewActions {
+    
+    func userWantsToDiscoverOlvidPlus(_ view: OwnedDeviceExpiringSoonTipView) {
+        guard let internalDelegate else { assertionFailure(); return }
+        internalDelegate.userWantsToDiscoverOlvidPlus(self)
+    }
+    
+    func userWantsToManageTheirDevices(_ view: OwnedDeviceExpiringSoonTipView, ownedCryptoId: ObvCryptoId) {
+        guard let internalDelegate else { assertionFailure(); return }
+        internalDelegate.userWantsToManageTheirDevices(self, ownedCryptoId: ownedCryptoId)
+    }
+    
 }
 
 
@@ -279,6 +310,11 @@ private final class ViewsActions: ObvDiscussionsListViewActionsProtocol {
                         
     weak var delegate: ObvDiscussionsListViewActionsProtocol?
     
+    func userWantsToRequestNotificationsAuthorization(_ view: RequestUserNotificationsAuthorizationTipView) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToRequestNotificationsAuthorization(view)
+    }
+
     func userDidSwitchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
         guard let delegate else { assertionFailure(); return }
         await delegate.userDidSwitchCurrentOwnedCryptoId(to: newOwnedCryptoId)
@@ -424,6 +460,21 @@ private final class ViewsActions: ObvDiscussionsListViewActionsProtocol {
         delegate.userWantsToDismissOlvidPlusSuccessfulSubscriptionView(view)
     }
     
+    func userWantsToDiscoverOlvidPlus(_ view: OwnedDeviceExpiringSoonTipView) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToDiscoverOlvidPlus(view)
+    }
+    
+    func userWantsToManageTheirDevices(_ view: OwnedDeviceExpiringSoonTipView, ownedCryptoId: ObvCryptoId) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToManageTheirDevices(view, ownedCryptoId: ownedCryptoId)
+    }
+    
+    func userWantsToShowThisDeviceReactivationOptions(_ view: ProfileIsDeactivatedOnThisDeviceTipView, ownedCryptoId: ObvCryptoId) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToShowThisDeviceReactivationOptions(view, ownedCryptoId: ownedCryptoId)
+    }
+
     enum ObvError: Error {
         case delegateNotSet
     }

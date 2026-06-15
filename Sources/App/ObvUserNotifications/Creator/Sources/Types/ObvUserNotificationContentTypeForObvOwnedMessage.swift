@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,6 +28,7 @@ public enum ObvUserNotificationContentTypeForObvOwnedMessage {
     case silentWithUpdatedBadgeCount(content: UNNotificationContent)
     case removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: UNNotificationContent, obvDiscussionIdentifier: ObvDiscussionIdentifier, lastReadMessageServerTimestamp: Date?)
     case removePreviousNotificationsBasedOnObvMessageAppIdentifiers(content: UNNotificationContent, messageAppIdentifiers: [ObvMessageAppIdentifier])
+    case historyTransferRequestFromAnotherOwnedDevice(content: UNNotificationContent) // When receiving a transfer history confirmation request on this destination device, from a source (owned) device.
 
     public var content: UNNotificationContent {
         switch self {
@@ -38,6 +39,8 @@ public enum ObvUserNotificationContentTypeForObvOwnedMessage {
         case .removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: let content, obvDiscussionIdentifier: _, lastReadMessageServerTimestamp: _):
             return content
         case .removePreviousNotificationsBasedOnObvMessageAppIdentifiers(content: let content, messageAppIdentifiers: _):
+            return content
+        case .historyTransferRequestFromAnotherOwnedDevice(content: let content):
             return content
         }
     }
@@ -57,6 +60,10 @@ public enum ObvUserNotificationContentTypeForObvOwnedMessage {
             let mutableContent = content.mutableCopy() as! UNMutableNotificationContent
             mutableContent.badge = NSNumber(value: badgeCount)
             return .removePreviousNotificationsBasedOnObvMessageAppIdentifiers(content: mutableContent, messageAppIdentifiers: messageAppIdentifiers)
+        case .historyTransferRequestFromAnotherOwnedDevice(content: let content):
+            let mutableContent = content.mutableCopy() as! UNMutableNotificationContent
+            mutableContent.badge = NSNumber(value: badgeCount)
+            return .historyTransferRequestFromAnotherOwnedDevice(content: mutableContent)
         }
     }
 

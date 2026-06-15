@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import CoreData
 import ObvLocation
 import ObvUICoreData
 import OlvidUtils
+import ObvAppTypes
 
 
 /// This class is the datasource of the `ContinuousSharingLocationManager`. It monitors the `PersistedLocationContinuousSent` database to decide whether the location manager should continuously monitor the current device
@@ -47,7 +48,7 @@ final class AppContinuousSharingLocationManagerDataSource {
 
 extension AppContinuousSharingLocationManagerDataSource: ContinuousSharingLocationManagerDataSource {
     
-    func getAsyncSequenceOfContinuousSharingLocationManagerModel() async throws -> (streamUUID: UUID, stream: AsyncStream<ObvLocation.ContinuousSharingLocationManagerModel>) {
+    func getAsyncSequenceOfContinuousSharingLocationManagerModel() async throws -> (streamUUID: UUID, stream: AsyncStream<ContinuousSharingLocationManagerModel>) {
         let streamManager = ContinuousSharingLocationManagerModelStreamManager(context: backgroundContext)
         let (streamUUID, stream) = try await streamManager.startStream()
         self.continuousSharingLocationManagerModelStreamManagerForStreamUUID[streamUUID] = streamManager
@@ -59,7 +60,7 @@ extension AppContinuousSharingLocationManagerDataSource: ContinuousSharingLocati
 
 extension AppContinuousSharingLocationManagerDataSource {
 
-    private final class ContinuousSharingLocationManagerModelStreamManager: ObvDataSourceStreamManagerWithTwoFetchedResultsController<ObvLocation.ContinuousSharingLocationManagerModel, PersistedLocationContinuousSent, PersistedLocationContinuousSent>, @unchecked Sendable {
+    private final class ContinuousSharingLocationManagerModelStreamManager: ObvDataSourceStreamManagerWithTwoFetchedResultsController<ContinuousSharingLocationManagerModel, PersistedLocationContinuousSent, PersistedLocationContinuousSent>, @unchecked Sendable {
         
         init(context: NSManagedObjectContext) {
             let frcForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice = PersistedLocationContinuousSent.getFetchedResultsControllerForLatestNeverExpiringPersistedLocationContinuousSentFromCurrentOwnedDevice(within: context)

@@ -32,6 +32,48 @@
             "state": "translated",
             "value": "File dall'app File di Apple"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Filesアプリのファイル"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Apple 파일 앱 파일"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arquivo do app Arquivos da Apple"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ficheiro da app Arquivos da Apple"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл из приложения «Файлы» Apple"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл з програми «Файли» від Apple"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple 文件应用中的文件"
+          }
         }
       }
     },
@@ -65,6 +107,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nodo Finder di Apple su macOS"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS上のApple Finderノード"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "macOS의 Apple Finder 노드"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nó do Localizar (Finder) no macOS"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nó do Apple Finder no macOS"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Узел Apple Finder в macOS"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вузол Apple Finder під macOS"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS 中的 Apple Finder 节点"
           }
         }
       }
@@ -100,6 +184,48 @@
             "state": "translated",
             "value": "Metadati della presentazione del link Apple"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Link プレゼンテーションのメタデータ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Apple 링크 프리젠테이션 메타데이터"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metadados de apresentação do Link da Apple"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metadados da Apresentação do Link Apple"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Метаданные Apple Link Presentation"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Метадані презентації Apple Link"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Link 演示文稿元数据"
+          }
         }
       }
     },
@@ -134,6 +260,48 @@
             "state": "translated",
             "value": "Audio m4a Apple"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple m4a オーディオ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Apple m4a 오디오"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Áudio m4a da Apple"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Áudio m4a da Apple"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аудио Apple m4a"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аудіо Apple m4a"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple m4a 音频"
+          }
         }
       }
     },
@@ -166,6 +334,48 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ольвид"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "Olvid"
@@ -206,6 +416,48 @@
             "state": "translated",
             "value": "Olvid"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оливье"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
         }
       }
     },
@@ -239,6 +491,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trascinamento avviato da Chromium"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chromiumがドラッグを開始"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "크로미움에서 드래그 시작"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrastar iniciado pelo Chromium"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrastar iniciado pelo Chromium"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перетаскивание инициировано Chromium"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перетягування ініційовано Chromium"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chromium 启动拖动"
           }
         }
       }
@@ -274,6 +568,48 @@
             "state": "translated",
             "value": "Documento Microsoft Excel"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Excel ドキュメント"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Microsoft Excel 문서"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft Excel"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documente Microsoft Excel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ Microsoft Excel"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ Microsoft Excel"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Excel 文档"
+          }
         }
       }
     },
@@ -307,6 +643,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Documento Microsoft PowerPoint"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft PowerPoint ドキュメント"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Microsoft PowerPoint 문서"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft PowerPoint"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft Powerpoint"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ Microsoft PowerPoint"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ Microsoft PowerPoint"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft PowerPoint 文档"
           }
         }
       }
@@ -342,6 +720,48 @@
             "state": "translated",
             "value": "Documento Microsoft Word 97"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word 97 ドキュメント"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Microsoft Word 97 문서"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft Word 97"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documente Microsoft Word 97"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ Microsoft Word 97"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ Microsoft Word 97"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word 97 文档"
+          }
         }
       }
     },
@@ -375,6 +795,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Documento Microsoft Word"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word ドキュメント"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Microsoft Word 문서"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft Word"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documento Microsoft Word"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ Microsoft Word"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ Microsoft Word"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word 文档"
           }
         }
       }
@@ -412,6 +874,48 @@
             "state": "translated",
             "value": "L'accesso alla fotocamera ti permette di scansionare il codice QR dei tuoi contatti e di scattare foto e video direttamente all'interno di una conversazione."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラへのアクセスにより、連絡先のQRコードをスキャンしたり、チャット内から写真や動画を撮影したりできます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "카메라 접근 권한을 통해 연락처의 QR 코드를 스캔하고, 대화 내에서 바로 사진과 비디오를 촬영할 수 있습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O acesso à câmera permite que você escaneie o código QR de seus contatos e tire fotos e vídeos diretamente de uma conversa."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O acesso à câmara permite-lhe digitalizar o código QR dos seus contactos e tirar fotografias e vídeos diretamente numa conversa."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ к камере позволяет сканировать QR-коды контактов и делать фотографии и видео прямо в диалоге."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Надання доступу до камери дозволяє сканувати QR-коди ваших контактів, а також робити фотографії та відео безпосередньо в чаті."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "访问相机功能可让您扫描联系人的二维码，并可以直接在对话中拍摄照片和视频。"
+          }
         }
       }
     },
@@ -448,6 +952,48 @@
             "state": "translated",
             "value": "Usa Face ID per accedere a Olvid"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Face IDを使用してOlvidにアクセス"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Face ID를 사용하여 Olvid에 접속하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use o Face ID para acessar o Olvid"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use o Face ID para aceder ao Olvid"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Используйте Face ID для доступа к Olvid"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Використовуйте Face ID для доступу до Olvid"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用面容 ID 访问 Olvid"
+          }
         }
       }
     },
@@ -458,31 +1004,73 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copyright © 2019-2025 Olvid SAS"
+            "value": "Copyright © 2019-2026 Olvid SAS"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Copyright © 2019-2025 Olvid SAS"
+            "value": "Copyright © 2019-2026 Olvid SAS"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copyright © 2019-2025 Olvid SAS"
+            "value": "Copyright © 2019-2026 Olvid SAS"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copyright © 2019-2025 Olvid SAS"
+            "value": "Copyright © 2019-2026 Olvid SAS"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copyright © 2019-2025 Olvid SAS"
+            "value": "Copyright © 2019-2026 Olvid SAS"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2026 Olvid SAS"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "저작권 © 2019-2026 Olvid SAS"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2026 Olvid SAS"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2026 Olvid SAS"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2026 Olvid SAS"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2026 Olvid SAS"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版权所有 © 2019-2026 Olvid SAS"
           }
         }
       }
@@ -520,6 +1108,48 @@
             "state": "translated",
             "value": "La tua posizione è necessaria quando decidi di condividerla con altri utenti."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "他のユーザーと位置情報を共有する場合、位置情報は必須です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "다른 사용자와 위치를 공유하기로 결정하면 위치 정보가 필요합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sua localização é necessária quando você decidir compartilhá-la com outros usuários."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A sua localização é necessária quando decidir partilhá-la com outros utilizadores."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше местоположение необходимо, когда вы решите поделиться им с другими пользователями."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше місцезнаходження необхідне, коли ви вирішите поділитися ним з іншими користувачами."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当您决定与他人分享位置时，您的位置信息是必需的。"
+          }
         }
       }
     },
@@ -555,6 +1185,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "La tua posizione è necessaria quando decidi di condividerla con altri utenti."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "他のユーザーと位置情報を共有する場合、位置情報の共有が必要になります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "다른 사용자와 위치를 공유하기로 결정하면 위치 정보가 필요합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sua localização é necessária quando você decidir compartilhá-la com outros usuários."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A sua localização é necessária quando decidir partilhá-la com outros utilizadores."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше местоположение необходимо, когда вы решите поделиться им с другими пользователями."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше місцезнаходження необхідне, коли ви вирішите поділитися ним з іншими користувачами."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当您决定与他人共享位置时，您的位置信息是必需的。"
           }
         }
       }
@@ -592,6 +1264,48 @@
             "state": "translated",
             "value": "La tua posizione è necessaria quando decidi di condividerla con altri utenti."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "他のユーザーと位置情報を共有する場合、位置情報が必要です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "다른 사용자와 위치를 공유하기로 결정하면 위치 정보가 필요합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sua localização é necessária quando você decidir compartilhá-la com outros usuários."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A sua localização é necessária quando decidir partilhá-la com outros utilizadores."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше местоположение необходимо, когда вы решите поделиться им с другими пользователями."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше місцезнаходження необхідне, коли ви вирішите поділитися ним з іншими користувачами."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当您决定与他人分享位置时，您的位置信息是必需的。"
+          }
         }
       }
     },
@@ -627,6 +1341,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "La tua posizione è necessaria quando decidi di condividerla con altri utenti."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "他のユーザーと位置情報を共有する場合、位置情報は必要になります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "다른 사용자와 위치를 공유하기로 결정하면 위치 정보가 필요합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sua localização é necessária quando você decidir compartilhá-la com outros usuários."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A sua localização é necessária quando decidir partilhá-la com outros utilizadores."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше местоположение необходимо, когда вы решите поделиться им с другими пользователями."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше місцезнаходження необхідне, коли ви вирішите поділитися ним з іншими користувачами."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当您决定与他人分享时，需要提供您的位置信息。"
           }
         }
       }
@@ -664,6 +1420,48 @@
             "state": "translated",
             "value": "L'accesso al microfono è necessario per effettuare chiamate audio sicure e registrare video e messaggi vocali."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安全な音声通話や、ビデオやボイスメッセージの録音を行うには、マイクへのアクセスを許可する必要があります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "안전한 오디오 통화를 하고 동영상 및 음성 메시지를 녹음하려면 마이크 액세스 권한을 허용해야 합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir o acesso ao microfone é necessário para fazer chamadas de áudio seguras e gravar vídeos e mensagens de voz."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir o acesso ao microfone é necessário para efetuar chamadas de áudio seguras e para gravar vídeos e mensagens de voz."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для осуществления защищенных аудиозвонков и записи видео и голосовых сообщений требуется доступ к микрофону."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Надання доступу до мікрофона необхідне для здійснення безпечних аудіо- та відеодзвінків, а також для запису відео та голосових повідомлень."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为了进行安全的语音通话以及录制视频和语音信息，需要允许访问麦克风。"
+          }
         }
       }
     },
@@ -700,6 +1498,48 @@
             "state": "translated",
             "value": "È necessario l'accesso in scrittura per salvare un'immagine nella tua libreria foto. Tieni presente che Olvid non avrà accesso alle altre foto della tua libreria."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真に保存するには、書き込み権限が必要です。Olvidは、お客様の写真ライブラリ内の他の写真にはアクセスしないことをご了承ください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "사진을 사진 보관함에 저장하려면 쓰기 권한이 필요합니다. Olvid은 사진 보관함의 다른 사진에 접근할 수 없다는 점을 참고해 주시기 바랍니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "É necessário acesso à escrita para salvar uma imagem na sua biblioteca de fotos. Observe que o Olvid não terá acesso às outras fotos da sua biblioteca."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "É necessário acesso à escrita para guardar uma imagem na sua biblioteca de fotos. Tenha em atenção que o Olvid não terá acesso às outras fotos da sua biblioteca."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для сохранения фотографии в вашу фотобиблиотеку требуется доступ к записи. Обратите внимание, что Olvid не будет иметь доступа к другим фотографиям в вашей фотобиблиотеке."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для збереження зображення в бібліотеку фотографій потрібен доступ до запису. Зверніть увагу, що Olvid не матиме доступу до інших фотографій у вашій бібліотеці."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为了将图片保存到您的照片库，需要写入权限。请注意，Olvid不会访问您照片库中的其他照片。"
+          }
         }
       }
     },
@@ -733,6 +1573,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Backup di Olvid"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid バックアップ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Olvid 백업"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup do Olvid"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cópia de Segurança Olvid"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Резервная копия Olvid"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Резервна копія Olvid"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid 备份"
           }
         }
       }
@@ -768,6 +1650,48 @@
             "state": "translated",
             "value": "Anteprima Link Olvid"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid リンクプレビュー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Olvid 링크 미리보기"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pré-visualização do Link Olvid"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pré-visualização de Link Olvid"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предпросмотр ссылки Olvid"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перегляд посилання Olvid"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid 链接预览"
+          }
         }
       }
     },
@@ -801,6 +1725,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Posizione Internet Web"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブサイトの場所"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "웹 인터넷 위치"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Localização na Web"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Localização Web da Internet"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Интернет-адрес"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Веб-інтернет-локація"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "网页互联网位置"
           }
         }
       }

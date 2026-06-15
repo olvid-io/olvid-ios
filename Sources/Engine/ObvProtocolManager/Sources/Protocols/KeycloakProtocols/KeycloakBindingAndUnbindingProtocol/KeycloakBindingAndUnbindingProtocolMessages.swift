@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -142,7 +142,7 @@ extension KeycloakBindingAndUnbindingProtocol {
                     keycloakUserId.obvEncode(),
                     keycloakState.keycloakServer.obvEncode(),
                     keycloakState.clientId.obvEncode(),
-                    keycloakState.clientSecret?.obvEncode() ?? "".obvEncode(),
+                    (keycloakState.clientSecret ?? "").obvEncode(),
                     try keycloakState.jwks.obvEncode(),
                     try signatureVerificationKey.obvEncode(),
                     keycloakState.isTransferRestricted.obvEncode()
@@ -173,10 +173,16 @@ extension KeycloakBindingAndUnbindingProtocol {
                 isTransferRestricted = false
             }
             
+            let supportedAuthenticationMethods = SupportedAuthenticationMethods(
+                openIdConnect: .init(clientId: clientId, clientSecret: clientSecret.isEmpty ? nil : clientSecret),
+                idBased: nil)
+            
+            // Note that the idBased authentication method is not required
+            // We will query the keycloak server's well-known for supported authentication methods
+            
             self.keycloakState = ObvKeycloakState(
                 keycloakServer: keycloakServer,
-                clientId: clientId,
-                clientSecret: clientSecret.isEmpty ? nil : clientSecret,
+                supportedAuthenticationMethods: supportedAuthenticationMethods,
                 jwks: jwks,
                 rawAuthState: nil,
                 signatureVerificationKey: signatureVerificationKey,

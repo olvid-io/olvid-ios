@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -170,18 +170,20 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
         case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
         case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>, fileSize: Int, uti: String)
         case cancelledByServer(fileSize: Int, uti: String, filename: String?)
+        case notYetDownloadableAsReceivedByUserNotification
         // For received attachments sent from other owned device
         case downloadableSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
         case downloadingSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
         // For both
         case complete(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, wasOpened: Bool?)
+        case untransferred(fileSize: Int, uti: String, filename: String?)
         
         var hardlink: HardLinkToFyle? {
             switch self {
             case .complete(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, wasOpened: _),
                  .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, progress: _):
                 return hardlink
-            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
+            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent, .notYetDownloadableAsReceivedByUserNotification, .untransferred:
                 return nil
             }
         }
@@ -239,7 +241,8 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
         addSubview(imageView)
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.clipsToBounds = true
-        
+        imageView.backgroundColor = .clear
+
         addSubview(labelsBackgroundView)
         labelsBackgroundView.translatesAutoresizingMaskIntoConstraints = false
         labelsBackgroundView.clipsToBounds = true
@@ -346,6 +349,7 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
                 setTitleOnSubtitleView(filename: filename)
                 setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
             }
+            imageView.backgroundColor = .clear
         case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
@@ -353,6 +357,7 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
             imageView.reset()
             setTitleOnSubtitleView(filename: filename)
             setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            imageView.backgroundColor = .clear
         case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.downloadableSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
@@ -360,6 +365,7 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
             imageView.reset()
             setTitleOnSubtitleView(filename: filename)
             setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            imageView.backgroundColor = .clear
         case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
@@ -367,6 +373,7 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
             imageView.reset()
             setTitleOnSubtitleView(filename: filename)
             setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            imageView.backgroundColor = .clear
         case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.downloadingSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
@@ -374,6 +381,7 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
             imageView.reset()
             setTitleOnSubtitleView(filename: filename)
             setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            imageView.backgroundColor = .clear
         case .completeButReadRequiresUserInteraction(messageObjectID: let messageObjectID, fileSize: let fileSize, uti: let uti):
             tapToReadView.isHidden = false
             fyleProgressView.setConfiguration(.complete)
@@ -381,6 +389,7 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
             imageView.reset()
             setTitleOnSubtitleView(filename: nil)
             setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            imageView.backgroundColor = .clear
         case .complete(hardlink: let hardlink, thumbnail: let thumbnail, fileSize: let fileSize, uti: let uti, filename: let filename, wasOpened: _):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.complete)
@@ -397,6 +406,7 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
                 setTitleOnSubtitleView(filename: filename)
                 setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
             }
+            imageView.backgroundColor = .clear
         case .cancelledByServer(fileSize: let fileSize, uti: let uti, filename: let filename):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.cancelled)
@@ -404,6 +414,23 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
             imageView.reset()
             setTitleOnSubtitleView(filename: filename)
             setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            imageView.backgroundColor = .clear
+        case .notYetDownloadableAsReceivedByUserNotification:
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.notYetDownloadableAsReceivedByUserNotification)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(filename: nil)
+            hideSubtitleOnSubtitleView()
+            imageView.backgroundColor = .clear
+        case .untransferred(fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.untransferred)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(filename: filename)
+            setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            imageView.backgroundColor = .quaternarySystemFill
         }
 
     }
@@ -429,6 +456,10 @@ final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, Vi
         if subtitleLabel.text != subtitleText {
             subtitleLabel.text = subtitleText
         }
+    }
+    
+    private func hideSubtitleOnSubtitleView() {
+        subtitleLabel.text = nil
     }
 
     

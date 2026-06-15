@@ -72,6 +72,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     var retainWipedOutboundMessages: Binding<Bool>!
     var notificationSound: Binding<OptionalNotificationSound>!
     var performInteractionDonation: Binding<Bool>!
+    var autocorrectionType: Binding<ObvTextAutocorrectionType>!
 
     @Published var changed: Bool // This allows to "force" the refresh of the view
 
@@ -108,6 +109,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         self.retainWipedOutboundMessages = Binding<Bool>(get: getRetainWipedOutboundMessages, set: setRetainWipedOutboundMessages)
         self.notificationSound = Binding<OptionalNotificationSound>(get: getNotificationSound, set: setNotificationSound)
         self.performInteractionDonation = Binding<Bool>(get: getPerformInteractionDonation, set: setPerformInteractionDonation)
+        self.autocorrectionType = Binding<ObvTextAutocorrectionType>(get: getAutocorrectionType, set: setAutocorrectionType)
         observeChangesMadeFromOtherOwnedDevices()
     }
     
@@ -305,6 +307,17 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
             self.changed.toggle()
         }
     }
+
+    private func getAutocorrectionType() -> ObvTextAutocorrectionType {
+        ObvMessengerSettings.Discussions.autocorrectionType
+    }
+
+    private func setAutocorrectionType(_ newValue: ObvTextAutocorrectionType) {
+        ObvMessengerSettings.Discussions.autocorrectionType = newValue
+        withAnimation {
+            self.changed.toggle()
+        }
+    }
 }
 
 
@@ -330,6 +343,7 @@ struct DiscussionsDefaultSettingsWrapperView: View {
                                        retainWipedOutboundMessages: model.retainWipedOutboundMessages,
                                        notificationSound: model.notificationSound,
                                        performInteractionDonation: model.performInteractionDonation,
+                                       autocorrectionType: model.autocorrectionType,
                                        changed: $model.changed)
     }
     
@@ -352,6 +366,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
     @Binding var retainWipedOutboundMessages: Bool
     @Binding var notificationSound: OptionalNotificationSound
     @Binding var performInteractionDonation: Bool
+    @Binding var autocorrectionType: ObvTextAutocorrectionType
     @Binding var changed: Bool
 
     @State private var presentChooseNotificationSoundSheet: Bool = false
@@ -389,6 +404,15 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
             Section(footer: sendReadReceiptSectionFooter) {
                 Toggle(isOn: $doSendReadReceipt) {
                     Label("SEND_READ_RECEIPTS_LABEL", systemImage: "eye.fill")
+                }
+            }
+            Section(footer: Text("DISABLE_AUTOCORRECTION_SECTION_FOOTER")) {
+                Picker(selection: $autocorrectionType) {
+                    Text("DEFAULT").tag(ObvTextAutocorrectionType.default)
+                    Text("YES").tag(ObvTextAutocorrectionType.yes)
+                    Text("NO").tag(ObvTextAutocorrectionType.no)
+                } label: {
+                    Label(title: { Text("DISABLE_AUTOCORRECTION_LABEL") }, icon: { Image(systemIcon: .keyboard) })
                 }
             }
             Section(footer: Text("discussion-default-settings-view.mention-notification-mode.picker.footer.title")) {
@@ -558,6 +582,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            retainWipedOutboundMessages: .constant(false),
                                            notificationSound: .constant(.none),
                                            performInteractionDonation: .constant(true),
+                                           autocorrectionType: .constant(.default),
                                            changed: .constant(false))
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(true),
                                            alwaysShowNotificationsWhenMentioned: .constant(false),
@@ -574,6 +599,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            retainWipedOutboundMessages: .constant(false),
                                            notificationSound: .constant(.some(.bell)),
                                            performInteractionDonation: .constant(false),
+                                           autocorrectionType: .constant(.yes),
                                            changed: .constant(false))
                 .environment(\.locale, .init(identifier: "fr"))
         }

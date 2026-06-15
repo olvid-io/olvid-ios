@@ -865,7 +865,7 @@ extension GroupV2Protocol {
                                            publishedDetailsAndPhoto: nil,
                                            updateInProgress: false,
                                            serializedSharedSettings: nil,
-                                           lastModificationTimestamp: nil,
+                                           lastModificationTimestamp: startState.lastModificationTimestamp,
                                            serializedGroupType: startState.serverBlob.serializedGroupType)
                     
                     let dialogType = ObvChannelDialogToSendType.freezeGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: startState.inviterIdentity), group: group)
@@ -1263,6 +1263,7 @@ extension GroupV2Protocol {
             let encryptedServerBlob: EncryptedData
             let logEntries: Set<Data>
             let groupAdminPublicKey: PublicKeyForAuthentication
+            let lastModificationTimestamp: Date
             switch receivedMessage.result {
             case .none:
                 assertionFailure("This is not expected as the result is nil only when posting the server query from the protocol manager to the network fetch manager")
@@ -1308,11 +1309,12 @@ extension GroupV2Protocol {
                     
                     return FinalState()
                     
-                case .blobDownloaded(encryptedServerBlob: let _encryptedServerBlob, logEntries: let _logEntries, groupAdminPublicKey: let _groupAdminPublicKey):
+                case .blobDownloaded(encryptedServerBlob: let _encryptedServerBlob, logEntries: let _logEntries, groupAdminPublicKey: let _groupAdminPublicKey, lastModificationTimestamp: let _lastModificationTimestamp):
                     
                     encryptedServerBlob = _encryptedServerBlob
                     logEntries = _logEntries
                     groupAdminPublicKey = _groupAdminPublicKey
+                    lastModificationTimestamp = _lastModificationTimestamp
                     
                 }
             }
@@ -1390,6 +1392,7 @@ extension GroupV2Protocol {
                                                                           newBlobKeys: blobKeys,
                                                                           consolidatedServerBlob: consolidatedServerBlob,
                                                                           groupUpdatedByOwnedIdentity: groupUpdatedByOwnedIdentity,
+                                                                          lastModificationTimestamp: lastModificationTimestamp,
                                                                           within: obvContext)
                 
                 // Send a ping to the identities returned by the identity manager. Doing so allow us to inform them that we agreed to be part of the group.
@@ -1493,7 +1496,7 @@ extension GroupV2Protocol {
                                        publishedDetailsAndPhoto: nil,
                                        updateInProgress: false,
                                        serializedSharedSettings: nil,
-                                       lastModificationTimestamp: nil,
+                                       lastModificationTimestamp: lastModificationTimestamp,
                                        serializedGroupType: consolidatedServerBlob.serializedGroupType)
                 
                 let dialogType = ObvChannelDialogToSendType.acceptGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: inviterIdentity), group: group)
@@ -1512,7 +1515,8 @@ extension GroupV2Protocol {
                                            dialogUuid: dialogUuid,
                                            inviterIdentity: inviterIdentity,
                                            serverBlob: consolidatedServerBlob,
-                                           blobKeys: blobKeys)
+                                           blobKeys: blobKeys,
+                                           lastModificationTimestamp: lastModificationTimestamp)
             
         }
 
@@ -2016,10 +2020,12 @@ extension GroupV2Protocol {
 
             let blobKeys: GroupV2.BlobKeys
             let serverBlob: GroupV2.ServerBlob
+            let lastModificationTimestamp: Date
             switch startState {
             case .invitationReceivedState(let startState):
                 serverBlob = startState.serverBlob
                 blobKeys = startState.blobKeys
+                lastModificationTimestamp = startState.lastModificationTimestamp
             case .downloadingGroupBlobState, .iNeedMoreSeed:
                 return returnedStateWhenDiscardingReceivedMessage
             }
@@ -2036,6 +2042,7 @@ extension GroupV2Protocol {
                                                                            serverBlob: serverBlobWithCheckedIntegrity,
                                                                            blobKeys: blobKeys,
                                                                            createdByMeOnOtherDevice: createdByMeOnOtherDevice,
+                                                                           lastModificationTimestamp: lastModificationTimestamp,
                                                                            within: obvContext)
             
             // At this point, if we have a nil photoURL but have server photo info in the consolidated blob, we can launch a download if the photo is not available already.
@@ -2504,7 +2511,7 @@ extension GroupV2Protocol {
                                            publishedDetailsAndPhoto: nil,
                                            updateInProgress: false,
                                            serializedSharedSettings: nil,
-                                           lastModificationTimestamp: nil,
+                                           lastModificationTimestamp: startState.lastModificationTimestamp,
                                            serializedGroupType: startState.serverBlob.serializedGroupType)
                     
                     let dialogType = ObvChannelDialogToSendType.freezeGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: startState.inviterIdentity), group: group)
@@ -2846,7 +2853,7 @@ extension GroupV2Protocol {
                 case .permanentFailure:
                     try unfreezeTheGroupAndNotifyThatTheGroupUpdateFailed(groupIdentifier: groupIdentifier, within: obvContext)
                     return FinalState()
-                case .lockObtained(let _encryptedServerBlob, let _logEntries, let _groupAdminPublicKey):
+                case .lockObtained(let _encryptedServerBlob, let _logEntries, let _groupAdminPublicKey, lastModificationTimestamp: _):
                     encryptedServerBlob = _encryptedServerBlob
                     logEntries = _logEntries
                     currentGroupAdminServerAuthenticationPublicKey = _groupAdminPublicKey
@@ -3289,6 +3296,7 @@ extension GroupV2Protocol {
                                                        newBlobKeys: newBlobKeys,
                                                        consolidatedServerBlob: uploadedServerBlobWithCheckedIntegrity,
                                                        groupUpdatedByOwnedIdentity: true,
+                                                       lastModificationTimestamp: .now,
                                                        within: obvContext)
             } catch {
                 try notifyThatTheGroupUpdateFailed(groupIdentifier: groupIdentifier, doUnfreezeTheGroup: true, within: obvContext)

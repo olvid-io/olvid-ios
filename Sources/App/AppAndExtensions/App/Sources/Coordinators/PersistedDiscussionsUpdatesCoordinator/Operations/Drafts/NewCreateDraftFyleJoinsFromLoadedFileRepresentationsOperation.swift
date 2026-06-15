@@ -88,7 +88,7 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
             
             // Create a PersistedDraftFyleJoin (if required)
             do {
-                try createDraftFyleJoinIfRequired(draftObjectID: draftObjectID, fileName: filename, fileType: fileType, fyle: fyle, within: obvContext.context)
+                try PersistedDraftFyleJoin.createPersistedDraftFyleJoinIfRequired(draftObjectID: draftObjectID, fileName: filename, fileType: fileType, fyle: fyle, within: obvContext.context)
             } catch {
                 cancelAndContinue(withReason: .couldNotCreateDraftFyleJoin)
                 tempURLsToDelete.append(tempURL)
@@ -145,11 +145,11 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
     }
 
     
-    private func createDraftFyleJoinIfRequired(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fileName: String, fileType: UTType, fyle: Fyle, within context: NSManagedObjectContext) throws {
-        if try PersistedDraftFyleJoin.get(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, within: context) == nil {
-            _ = try PersistedDraftFyleJoin(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, fileName: fileName, uti: fileType.identifier, within: context)
-        }
-    }
+//    private func createDraftFyleJoinIfRequired(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fileName: String, fileType: UTType, fyle: Fyle, within context: NSManagedObjectContext) throws {
+//        if try PersistedDraftFyleJoin.get(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, within: context) == nil {
+//            _ = try PersistedDraftFyleJoin(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, fileName: fileName, uti: fileType.identifier, within: context)
+//        }
+//    }
 
 }
 

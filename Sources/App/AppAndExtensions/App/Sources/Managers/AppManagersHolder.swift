@@ -51,7 +51,6 @@ final actor AppManagersHolder {
     private let webSocketManager: WebSocketManager
     private let localAuthenticationManager: LocalAuthenticationManager
     private let intentManager = IntentManager()
-    private let tipManager: OlvidTipManager
     let continuousSharingLocationManager: ContinuousSharingLocationManager
     
     private let appContinuousSharingLocationManagerDataSource: AppContinuousSharingLocationManagerDataSource
@@ -94,7 +93,6 @@ final actor AppManagersHolder {
         self.keycloakManager = KeycloakManager()
         self.webSocketManager = WebSocketManager(obvEngine: obvEngine)
         self.localAuthenticationManager = LocalAuthenticationManager()
-        self.tipManager = OlvidTipManager(obvEngine: obvEngine)
         self.continuousSharingLocationManager = ContinuousSharingLocationManager()
 
         // Listen to StoreKit transactions
@@ -136,9 +134,6 @@ final actor AppManagersHolder {
         await applicationShortcutItemsManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await userNotificationsBadgesManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await snackBarManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        if #available(iOS 17.0, *) {
-            await tipManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        }
     }
 
     

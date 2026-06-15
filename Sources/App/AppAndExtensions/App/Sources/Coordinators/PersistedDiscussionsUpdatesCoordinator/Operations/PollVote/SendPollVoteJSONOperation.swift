@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,11 +19,12 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvEngine
 import OlvidUtils
 import ObvTypes
 import ObvUICoreData
+import ObvAppTypes
 
 
 final class SendPollVoteJSONOperation: ContextualOperationWithSpecificReasonForCancel<SendPollVoteJSONOperationReasonForCancel>, @unchecked Sendable {
@@ -33,13 +34,15 @@ final class SendPollVoteJSONOperation: ContextualOperationWithSpecificReasonForC
     private let pollVoteCandidateUuid: UUID
     private let voted: Bool
     private let version: Int
+    private let originalServerTimestamp: Date? // Set when re-sending a poll vote to a group v2 member that switch from the pending to the non-pending state
 
-    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, obvEngine: ObvEngine, pollVoteCandidateUuid: UUID, voted: Bool, version: Int) {
+    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, obvEngine: ObvEngine, pollVoteCandidateUuid: UUID, voted: Bool, version: Int, originalServerTimestamp: Date?) {
         self.messageObjectID = messageObjectID
         self.obvEngine = obvEngine
         self.pollVoteCandidateUuid = pollVoteCandidateUuid
         self.voted = voted
         self.version = version
+        self.originalServerTimestamp = originalServerTimestamp
         super.init()
     }
 
@@ -57,7 +60,7 @@ final class SendPollVoteJSONOperation: ContextualOperationWithSpecificReasonForC
         
         let itemJSON: PersistedItemJSON
         do {
-            let pollVoteJSON = try PollVoteJSON(persistedMessageToReact: message, pollCandidateUuid: pollVoteCandidateUuid, voted: voted, version: version)
+            let pollVoteJSON = try PollVoteJSON(persistedMessageToReact: message, pollCandidateUuid: pollVoteCandidateUuid, voted: voted, version: version, originalServerTimestamp: originalServerTimestamp)
             itemJSON = PersistedItemJSON(pollVoteJSON: pollVoteJSON)
         } catch {
             return cancel(withReason: .couldNotConstructPollVoteJSON)

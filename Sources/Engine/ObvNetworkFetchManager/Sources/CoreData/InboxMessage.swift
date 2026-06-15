@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,11 +62,10 @@ final class InboxMessage: NSManagedObject {
     
     var attachments: [InboxAttachment] {
         return dbAttachments ?? []
-        //return values?.map { $0.obvContext = self.obvContext; return $0 } ?? []
     }
     
     var attachmentIds: [ObvAttachmentIdentifier] {
-        return attachments.compactMap { $0.attachmentId }
+        return attachments.compactMap { try? $0.attachmentId }
     }
 
     // MARK: Other variables
@@ -280,13 +279,13 @@ extension InboxMessage {
         if fromCryptoIdentity == ownedCryptoIdentity {
             
             let attachments: [ObvOwnedAttachment] = self.attachments.compactMap { inboxAttachment in
-                return inboxAttachment.getObvOwnedAttachment(messageUploadTimestampFromServer: self.messageUploadTimestampFromServer,
-                                                             inbox: inbox)
+                return try? inboxAttachment.getObvOwnedAttachment(
+                    messageUploadTimestampFromServer: self.messageUploadTimestampFromServer,
+                    inbox: inbox)
             }
 
             let message = ObvOwnedMessage(messageId: messageId,
                                           attachments: attachments,
-                                          expectedAttachmentsCount: self.attachments.count,
                                           messageUploadTimestampFromServer: self.messageUploadTimestampFromServer,
                                           downloadTimestampFromServer: self.downloadTimestampFromServer,
                                           localDownloadTimestamp: self.localDownloadTimestamp,
@@ -301,16 +300,16 @@ extension InboxMessage {
             let fromContactIdentity = ObvContactIdentifier(contactCryptoIdentity: fromCryptoIdentity, ownedCryptoIdentity: messageId.ownedCryptoIdentity)
 
             let attachments: [ObvAttachment] = self.attachments.compactMap { inboxAttachment in
-                return inboxAttachment.getObvAttachment(fromCryptoIdentity: fromContactIdentity,
-                                                        messageUploadTimestampFromServer: self.messageUploadTimestampFromServer,
-                                                        inbox: inbox)
+                return try? inboxAttachment.getObvAttachment(
+                    fromCryptoIdentity: fromContactIdentity,
+                    messageUploadTimestampFromServer: self.messageUploadTimestampFromServer,
+                    inbox: inbox)
             }
 
             let message = ObvMessage(fromContactIdentity: fromContactIdentity,
                                      fromContactDeviceUID: self.fromDeviceUID,
                                      messageId: messageId,
                                      attachments: attachments,
-                                     expectedAttachmentsCount: self.attachments.count,
                                      messageUploadTimestampFromServer: self.messageUploadTimestampFromServer,
                                      downloadTimestampFromServer: self.downloadTimestampFromServer,
                                      localDownloadTimestamp: self.localDownloadTimestamp,

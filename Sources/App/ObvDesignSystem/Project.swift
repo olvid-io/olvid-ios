@@ -16,6 +16,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     ],
     developmentAssets: "DevelopmentResources",
     dependencies: [
+        .package(product: "SwiftUIIntrospect"),
         .Olvid.Engine.obvCrypto,
         .Olvid.Shared.obvTypes,
         .Olvid.App.obvSystemIcon,

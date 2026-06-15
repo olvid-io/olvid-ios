@@ -32,6 +32,48 @@
             "state": "translated",
             "value": "Autentica"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "認証"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인증"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autenticar"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autenticar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Авторизоваться"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Авторизуватися"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身份验证"
+          }
         }
       }
     },
@@ -65,6 +107,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Autenticati come %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@として認証します"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@(으)로 인증"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autenticar como %@"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autenticar como %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Авторизоваться как %@"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Авторизуватися як %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以 %@ 身份进行身份验证"
           }
         }
       }
@@ -100,6 +184,48 @@
             "state": "translated",
             "value": "Autenticazione richiesta"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "認証が必要です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인증 필요"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autenticação Necessária"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autenticação Obrigatória"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требуется аутентификация"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Потрібна автентифікація"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要身份验证"
+          }
         }
       }
     },
@@ -133,6 +259,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Autenticazione richiesta per %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ の認証が必要です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 대한 인증이 필요합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autenticação necessária para %@"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autenticação necessária para %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требуется аутентификация для %@"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Потрібна автентифікація для %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要为 %@ 进行身份验证"
           }
         }
       }
@@ -168,6 +336,48 @@
             "state": "translated",
             "value": "La tua identità Olvid è gestita dal provider di identità della tua azienda. Devi riautenticarti con questo provider di identità per continuare."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お客様のOlvidアカウントは、会社のIDプロバイダーによって管理されています。続行するには、このIDプロバイダーで再度認証する必要があります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "귀하의 Olvid 계정은 회사에서 제공하는 신원 공급자를 통해 관리됩니다. 계속하려면 해당 신원 공급자로 다시 인증해야 합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sua identidade Olvid é gerenciada pelo provedor de identidade da sua empresa. Você precisa se autenticar novamente com este provedor de identidade para continuar."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A sua identidade Olvid é gerida pelo fornecedor de identidade da sua empresa. Tem de autenticar-se novamente neste fornecedor de identidade para continuar."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваша личность в Olvid управляется поставщиком удостоверений вашей компании. Вам необходимо повторно аутентифицироваться с помощью этого поставщика, чтобы продолжить."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваша особистість Olvid управляється постачальником ідентифікації вашої компанії. Вам потрібно повторно автентифікуватися з цим постачальником ідентифікації, щоб продовжити."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您的 Olvid 身份由您的公司身份提供程序管理。您需要使用此身份提供程序重新进行身份验证才能继续。"
+          }
         }
       }
     },
@@ -201,6 +411,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Il tuo Olvid ID è gestito dal provider di identità della tua azienda. Sembra che tu ti sia autenticato con un utente diverso dal solito. Questa operazione non è supportata.\n\nContatta il tuo amministratore o riautenticati con l'utente corretto."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お客様のOlvid IDは、会社のIDプロバイダーによって管理されています。普段とは異なるユーザーとして認証されたようです。この操作はサポートされていません。\n管理者にお問い合わせいただくか、正しいユーザーとして再認証してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "귀사의 ID 공급업체에서 Olvid ID를 관리합니다. 평소와 다른 사용자로 인증하신 것 같습니다. 이 기능은 지원되지 않습니다.\n관리자에게 문의하거나 올바른 사용자로 다시 인증해 주십시오."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seu ID Olvid é gerenciado pelo provedor de identidade da sua empresa. Parece que você fez login como um usuário diferente do habitual. Isso não é suportado.\n\nEntre em contato com seu administrador ou faça login novamente com o usuário correto."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O seu ID Olvid é gerido pelo fornecedor de identidade da sua empresa. Parece que efetuou a autenticação como um utilizador diferente do habitual. Isto não é suportado.\n\nContacte o seu administrador ou volte a autenticar-se como o utilizador correto."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш Olvid ID управляется поставщиком удостоверений вашей компании. Похоже, вы вошли в систему под другим пользователем, чем обычно. Это не поддерживается.\n\nПожалуйста, обратитесь к вашему администратору или повторно аутентифицируйтесь под правильным пользователем."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш Olvid ID керується постачальником ідентифікації вашої компанії. Здається, ви авторизувалися як інший користувач, ніж зазвичай. Це не підтримується.\n\nЗверніться до адміністратора або повторно авторизуйтеся як правильний користувач."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您的 Olvid ID 由您公司的身份提供程序管理。您似乎使用了与平时不同的用户身份进行身份验证。这不受支持。\n\n请联系您的管理员或使用正确的用户身份重新进行身份验证。"
           }
         }
       }
@@ -236,6 +488,48 @@
             "state": "translated",
             "value": "Aggiorna chiave"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーを更新"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "키 업데이트"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atualizar chave"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atualizar chave"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить ключ"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оновити ключ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新密钥"
+          }
         }
       }
     },
@@ -269,6 +563,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Annulla"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャンセル"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "취소"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отмена"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скасувати"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
           }
         }
       }
@@ -304,6 +640,48 @@
             "state": "translated",
             "value": "Sembra che il tuo account sia stato rimosso dal provider di identità della tua azienda. Se hai lasciato l'azienda, è normale e puoi continuare a utilizzare Olvid come utente gratuito.\n\nSe ritieni che si tratti di un errore, contatta il tuo amministratore per ri-registrare questo provider di identità con Olvid."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お客様のアカウントが、会社のIDプロバイダーから削除されたようです。もし会社を離れたのであれば、これは正常な状態であり、引き続きOlvidを無料ユーザーとしてご利用いただけます。\n\nもしこれが誤りであると思われる場合は、管理者にお問い合わせいただき、OlvidにこのIDプロバイダーを再登録してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "귀하의 계정이 회사 ID 공급업체에서 제거된 것으로 보입니다. 회사를 떠나신 경우 이는 정상적인 현상이며, Olvid를 무료 사용자로 계속 사용할 수 있습니다.\n\n만약 이것이 오류라고 생각되시면, 회사 관리자에게 문의하여 Olvid에 ID 공급업체를 다시 등록해 주십시오."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parece que sua conta foi removida do provedor de identidade da sua empresa. Se você deixou sua empresa, isso é normal e você pode continuar usando o Olvid como um usuário gratuito.\n\nSe você acredita que isso é um erro, entre em contato com seu administrador para registrar novamente este provedor de identidade no Olvid."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parece que a sua conta foi removida do provedor de identidade da sua empresa. Se deixou a sua empresa, isto é normal e pode continuar a usar o Olvid como utilizador gratuito.\n\nSe acredita que isto é um erro, contacte o seu administrador para que volte a registar este provedor de identidade no Olvid."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Похоже, что ваша учетная запись была удалена из поставщика удостоверений вашей компании. Если вы покинули компанию, это нормально, и вы можете продолжать использовать Olvid как бесплатный пользователь.\n\nЕсли вы считаете, что это ошибка, обратитесь к своему администратору, чтобы повторно зарегистрировать этого поставщика удостоверений в Olvid."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Схоже, ваш обліковий запис було видалено з провайдера ідентифікації вашої компанії. Якщо ви залишили компанію, це нормально і ви можете продовжувати використовувати Olvid як безкоштовний користувач.\n\nЯкщо ви вважаєте, що це помилка, зверніться до свого адміністратора, щоб повторно зареєструвати цього провайдера ідентифікації з Olvid."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您的账户似乎已从您公司的身份提供程序中删除。如果您已离开公司，这是正常现象，您可以继续将 Olvid 用作免费用户。\n\n如果您认为这是一个错误，请联系您的管理员，以将此身份提供程序重新注册到 Olvid 中。"
+          }
         }
       }
     },
@@ -337,6 +715,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Olvid ha rilevato una modifica nella chiave di firma crittografica del tuo provider di identità. Questo non dovrebbe mai accadere normalmente.\n\nContatta il tuo amministratore e premi \"Aggiorna Chiave\" solo se può confermare che la modifica della chiave è stata intenzionale. In caso di dubbi, premi \"Annulla\"."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidは、お客様のIDプロバイダーの暗号署名キーの変更を検出しました。通常、これは起こるべきではありません。\n\n管理者に連絡し、「キーを更新」ボタンを押す前に、キーの変更が意図的なものであることを確認してください。不明な場合は、「キャンセル」ボタンを押してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid는 ID 공급자의 암호화 서명 키 변경 사항을 감지했습니다. 이는 일반적으로 발생해서는 안 되는 일입니다.\n\n관리자에게 문의하고 관리자가 키 변경이 의도적인 변경 사항인지 확인한 경우에만 \"키 업데이트\"를 누르십시오. 확실하지 않은 경우 \"취소\"를 누르십시오."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid detectou uma alteração na chave de assinatura criptográfica do seu provedor de identidade. Isso não deveria acontecer normalmente.\n\nEntre em contato com o seu administrador e pressione \"Atualizar Chave\" somente se ele puder confirmar que a alteração da chave foi intencional. Se tiver dúvidas, pressione \"Cancelar\"."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid detetou uma alteração na chave de assinatura criptográfica do seu fornecedor de identidade. Isto não deveria acontecer normalmente.\n\nContacte o seu administrador e prima apenas em \"Atualizar Chave\" se ele confirmar que a alteração da chave foi intencional. Se tiver dúvidas, prima em \"Cancelar\"."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid обнаружил изменение в криптографическом ключе подписи вашего провайдера идентификации. Это не должно происходить в нормальных условиях.\n\nПожалуйста, свяжитесь с вашим администратором и нажимайте \"Обновить ключ\" только в том случае, если она подтвердит, что изменение ключа было преднамеренным. Если вы не уверены, нажмите \"Отмена\"."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid виявив зміну в криптографічному ключі підпису вашого провайдера ідентифікації. Це не повинно відбуватися за нормальних обставин.\n\nЗверніться до вашого адміністратора і натисніть кнопку \"Оновити ключ\" лише якщо він підтвердить, що зміна ключа була навмисною. Якщо ви не впевнені, натисніть кнопку \"Скасувати\"."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid 检测到您的身份验证提供商的加密签名密钥发生了更改。这通常不应该发生。\n\n请联系您的管理员，并且仅在管理员确认密钥更改是故意的时，才按下“更新密钥”。如果不确定，请按下“取消”。"
           }
         }
       }
@@ -372,6 +792,48 @@
             "state": "translated",
             "value": "Fornitore di identità rimosso"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IDプロバイダーを削除しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정 제공업체가 제거되었습니다"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provedor de identidade removido"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fornecedor de identidade removido"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поставщик удостоверений удален"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Постачальника ідентифікаційних даних видалено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身份提供程序已移除"
+          }
         }
       }
     },
@@ -405,6 +867,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Modifica della chiave del provider di identità"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID プロバイダーキーの変更"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID 공급업체 키 변경"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alteração da chave do provedor de identidade"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alteração da chave do fornecedor de identidade"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменение ключа поставщика идентификации"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зміна ключа провайдера ідентифікації"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身份验证提供商密钥已更改"
           }
         }
       }
@@ -440,6 +944,48 @@
             "state": "translated",
             "value": "Revoca l'ID Olvid precedente"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以前のOlvid IDを無効にする"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이전 Olvid ID를 취소합니다"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revogar o ID Olvid anterior"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revogar o ID Olvid anterior"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить предыдущий Olvid ID"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скасувати попередній Olvid ID"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销之前的 Olvid ID"
+          }
         }
       }
     },
@@ -473,6 +1019,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Revoca ID precedente"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以前のIDを無効にする"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이전 ID를 취소합니다"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revogar ID anterior"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revogar ID anterior"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить предыдущий ID"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкликати попередній ID"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销之前的 ID"
           }
         }
       }
@@ -508,6 +1096,48 @@
             "state": "translated",
             "value": "Si prega di contattare il tuo amministratore."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理者にお問い合わせください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "관리자에게 문의해 주세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entre em contato com o administrador."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por favor, contacte o seu administrador."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пожалуйста, обратитесь к вашему администратору."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зверніться до адміністратора."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请联系您的管理员。"
+          }
         }
       }
     },
@@ -541,6 +1171,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Non puoi revocare la tua identità"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分の身元情報を取り消すことはできません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "본인 정보를 취소할 수 없습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você não pode revogar sua identidade"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não pode revogar a sua identidade"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы не можете отменить подтверждение своей личности"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ви не можете відкликати свою особистість"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您无法撤销您的身份验证"
           }
         }
       }
@@ -576,6 +1248,48 @@
             "state": "translated",
             "value": "Un altro ID Olvid è associato al tuo account sul provider di identità della tua azienda. Se hai generato un nuovo ID, devi revocare quello precedente."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お客様の会社のIDプロバイダーで、お客様のアカウントに別のOlvid IDが関連付けられています。新しいIDを生成した場合は、以前のIDを無効にする必要があります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "귀하의 회사 ID 공급자에 귀하의 계정과 연결된 다른 Olvid ID가 있습니다. 새 ID를 생성한 경우 이전 ID를 해지해야 합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outro ID Olvid está associado à sua conta no provedor de identidade da sua empresa. Se você gerou um novo ID, precisará revogar o anterior."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Está associado outro ID Olvid à sua conta no fornecedor de identidade da sua empresa. Se tiver gerado um novo ID, tem de revogar o anterior."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "К вашей учетной записи на сервере идентификации вашей компании привязан другой Olvid ID. Если вы сгенерировали новый ID, необходимо отозвать предыдущий."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "До вашого облікового запису на провайдері ідентифікації вашої компанії прив’язано інший Olvid ID. Якщо ви згенерували новий ID, вам потрібно відкликати попередній."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您的公司身份验证服务中已关联了另一个 Olvid ID。如果您已生成新的 ID，则需要撤销之前的 ID。"
+          }
         }
       }
     },
@@ -610,6 +1324,48 @@
             "state": "translated",
             "value": "Ok"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "了解"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알겠습니다"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ok"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ok"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ок"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добре"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "好的"
+          }
         }
       }
     },
@@ -643,6 +1399,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Modifica utente rilevata"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザーの変更を検出しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용자 변경 사항 감지"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alteração de usuário detectada"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alteração de utilizador detetada"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обнаружено изменение пользователя"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зміна користувача виявлено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检测到用户更改"
           }
         }
       }

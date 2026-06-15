@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,12 +24,21 @@ import ObvSettings
 import ObvAppTypes
 
 
+@MainActor
+protocol InterfaceSettingsTableViewControllerActions: AnyObject {
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: InterfaceSettingsTableViewController, value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) async throws
+}
+
+
 final class InterfaceSettingsTableViewController: UITableViewController {
 
     let ownedCryptoId: ObvCryptoId
+    private weak var actions: (any InterfaceSettingsTableViewControllerActions)?
     
-    init(ownedCryptoId: ObvCryptoId) {
+    init(ownedCryptoId: ObvCryptoId,
+         actions: any InterfaceSettingsTableViewControllerActions) {
         self.ownedCryptoId = ownedCryptoId
+        self.actions = actions
         super.init(style: Self.settingsTableStyle)
     }
     
@@ -81,6 +90,7 @@ final class InterfaceSettingsTableViewController: UITableViewController {
         case customizeMessageComposeArea
         case sendMessageShortcut
         case hideLinks
+        case shortenIntroductoryMessage
         static var shown: [Self] {
             return Self.allCases
         }
@@ -92,6 +102,7 @@ final class InterfaceSettingsTableViewController: UITableViewController {
             case .customizeMessageComposeArea: return "customizeMessageComposeArea"
             case .sendMessageShortcut: return "SendMessageShortcutCell"
             case .hideLinks: return "hideLinks"
+            case .shortenIntroductoryMessage: return  "shortenIntroductoryMessage"
             }
         }
     }
@@ -192,6 +203,20 @@ extension InterfaceSettingsTableViewController {
                     }
                 }
                 return cell
+                
+            case .shortenIntroductoryMessage:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) as? ObvTitleAndSwitchTableViewCell ?? ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                var config = cell.defaultContentConfiguration()
+                config.text = String(localized: "SHORTEN_INTRODUCTURY_MESSAGE")
+                cell.contentConfiguration = config
+                cell.switchIsOn = ObvMessengerSettings.Interface.shortenIntroductoryMessage
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.Interface.shortenIntroductoryMessage = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
+                }
+                return cell
 
             }
             
@@ -245,7 +270,7 @@ extension InterfaceSettingsTableViewController {
             switch item {
                 
             case .customizeMessageComposeArea:
-                let vc = ComposeMessageViewSettingsViewController(input: .global)
+                let vc = ComposeMessageViewSettingsViewController(input: .global, actions: self)
                 navigationController?.pushViewController(vc, animated: true)
                 
             case .sendMessageShortcut:
@@ -253,6 +278,9 @@ extension InterfaceSettingsTableViewController {
                 navigationController?.pushViewController(vc, animated: true)
                 
             case .hideLinks:
+                return
+                
+            case .shortenIntroductoryMessage:
                 return
 
             }
@@ -275,6 +303,32 @@ extension InterfaceSettingsTableViewController {
         }
     }
 
+}
+
+
+// MARK: - Implemting ComposeMessageViewSettingsViewControllerActions
+
+extension InterfaceSettingsTableViewController: ComposeMessageViewSettingsViewControllerActions {
+    
+    func userWantsToUpdateDiscussionLocalConfiguration(
+        _ vc: ComposeMessageViewSettingsViewController,
+        value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue,
+        localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws {
+            guard let actions else { assertionFailure(); throw ObvError.actionsDelegateIsNil }
+            try await actions.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+        }
+    
+}
+
+
+// MARK: - Errors
+
+extension InterfaceSettingsTableViewController {
+    
+    enum ObvError: Error {
+        case actionsDelegateIsNil
+    }
+    
 }
 
 

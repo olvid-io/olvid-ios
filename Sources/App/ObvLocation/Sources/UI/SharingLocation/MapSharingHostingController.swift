@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,7 @@ import ObvAppTypes
 @MainActor
 public protocol MapSharingHostingControllerDelegate: AnyObject {
     func userWantsToSendLocation(_ vc: MapSharingHostingController, locationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier)
-    func userWantsToShareLocationContinuously(_ vc: MapSharingHostingController, initialLocationData: ObvLocationData, expirationDate: ObvLocationSharingExpirationDate, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToShareLocationContinuously(_ vc: MapSharingHostingController, initialLocationData: ObvLocationData, expirationMode: SharingLocationExpirationMode, discussionIdentifier: ObvDiscussionIdentifier) async throws
 }
 
 /// This `UIHostingController` is presented when the user taps on the location button in a discussion's composition view (and after performing the necessary checks to make sure we have the appropriate permissions).
@@ -93,7 +93,7 @@ extension MapSharingHostingController: ObvSharingMapViewActionsProtocol {
     
     func userWantsToShareLocationContinuously(initialLocationData: ObvLocationData, expirationMode: SharingLocationExpirationMode, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let internalDelegate else { assertionFailure(); throw ObvError.delegateIsNil }
-        try await internalDelegate.userWantsToShareLocationContinuously(self, initialLocationData: initialLocationData, expirationDate: expirationMode.expirationDate, discussionIdentifier: discussionIdentifier)
+        try await internalDelegate.userWantsToShareLocationContinuously(self, initialLocationData: initialLocationData, expirationMode: expirationMode, discussionIdentifier: discussionIdentifier)
         // Because we start sharing location before dismissing, the location sharing will not stop automatically.
         self.dismiss(animated: true , completion: nil)
     }

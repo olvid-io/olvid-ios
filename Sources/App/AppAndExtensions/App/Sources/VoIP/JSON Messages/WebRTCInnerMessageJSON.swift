@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import ObvUI
-import ObvUICoreData
+import ObvAppTypes
 
 
 protocol WebRTCInnerMessageJSON: Codable {
@@ -70,25 +70,33 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
 
     let sessionDescriptionType: String
     let sessionDescription: String
-    let turnUserName: String
-    let turnPassword: String
-    let turnServers: [String]? /// REMARK Can be optional to be compatible with previous version where the server urls was hardcoded. 2022-03-11: we do not use this info anymore if we are a call participant, we discard it and use hardcoded servers (prevents an attack from caller).
+    private let turnUserName: String
+    private let turnPassword: String
+    private let turnServerURLs: [String]
     let participantCount: Int
     let groupIdentifier: GroupIdentifier?
     private let compressedSessionDescription: Data
     private let rawGatheringPolicy: Int? /// REMARK Can be optional to be compatible with previous version where gathering policy was hardcoded
+    let isBatchIceSupported: Bool
+    
+    var turnCredentialsAndServerURLs: TurnCredentialsAndServerURLs {
+        .init(turnUserName: self.turnUserName,
+              turnPassword: self.turnPassword,
+              turnServerURLs: self.turnServerURLs)
+    }
 
     enum CodingKeys: String, CodingKey {
         case sessionDescriptionType = "sdt"
         case compressedSessionDescription = "sd"
         case turnUserName = "tu"
         case turnPassword = "tp"
-        case turnServers = "ts"
+        case turnServerURLs = "ts"
         case participantCount = "c"
         case groupUid = "gi"
         case groupOwner = "go"
         case rawGatheringPolicy = "gp"
         case groupV2Identifier = "gid2"
+        case isBatchIceSupported = "bi"
     }
 
     func jsonEncode() throws -> Data {
@@ -102,9 +110,10 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         try container.encode(compressedSessionDescription, forKey: .compressedSessionDescription)
         try container.encode(turnUserName, forKey: .turnUserName)
         try container.encode(turnPassword, forKey: .turnPassword)
-        try container.encode(turnServers, forKey: .turnServers)
+        try container.encode(turnServerURLs, forKey: .turnServerURLs)
         try container.encode(participantCount, forKey: .participantCount)
         try container.encode(rawGatheringPolicy, forKey: .rawGatheringPolicy)
+        try container.encode(isBatchIceSupported, forKey: .isBatchIceSupported)
         switch groupIdentifier {
         case .groupV1(groupV1Identifier: let groupV1Identifier):
             try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
@@ -116,17 +125,18 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         }
     }
 
-    init(sessionDescriptionType: String, sessionDescription: String, turnUserName: String, turnPassword: String, turnServers: [String], participantCount: Int, groupIdentifier: GroupIdentifier?, gatheringPolicy: OlvidCallGatheringPolicy) throws {
+    init(sessionDescriptionType: String, sessionDescription: String, turnCredentialsAndServerURLs: TurnCredentialsAndServerURLs, participantCount: Int, groupIdentifier: GroupIdentifier?, gatheringPolicy: OlvidCallGatheringPolicy) throws {
         self.sessionDescriptionType = sessionDescriptionType
         self.sessionDescription = sessionDescription
-        self.turnUserName = turnUserName
-        self.turnPassword = turnPassword
-        self.turnServers = turnServers
+        self.turnUserName = turnCredentialsAndServerURLs.turnUserName
+        self.turnPassword = turnCredentialsAndServerURLs.turnPassword
+        self.turnServerURLs = turnCredentialsAndServerURLs.turnServerURLs
         guard let data = sessionDescription.data(using: .utf8) else { throw Self.makeError(message: "Could not compress session description") }
         self.compressedSessionDescription = try ObvCompressor.compress(data)
         self.participantCount = participantCount
         self.groupIdentifier = groupIdentifier
         self.rawGatheringPolicy = gatheringPolicy.rawValue
+        self.isBatchIceSupported = true
     }
 
     init(from decoder: Decoder) throws {
@@ -135,12 +145,13 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         self.compressedSessionDescription = try values.decode(Data.self, forKey: .compressedSessionDescription)
         self.turnUserName = try values.decode(String.self, forKey: .turnUserName)
         self.turnPassword = try values.decode(String.self, forKey: .turnPassword)
-        self.turnServers = try values.decodeIfPresent([String].self, forKey: .turnServers)
+        self.turnServerURLs = try values.decodeIfPresent([String].self, forKey: .turnServerURLs) ?? []
         self.participantCount = try values.decodeIfPresent(Int.self, forKey: .participantCount) ?? 1
         let data = try ObvCompressor.decompress(self.compressedSessionDescription)
         guard let sessionDescription = String(data: data, encoding: .utf8) else { throw Self.makeError(message: "Could not decompress session description") }
         self.sessionDescription = sessionDescription
         self.rawGatheringPolicy = try values.decodeIfPresent(Int.self, forKey: .rawGatheringPolicy)
+        self.isBatchIceSupported = try values.decodeIfPresent(Bool.self, forKey: .isBatchIceSupported) ?? false
 
         if let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid),
            let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner),
@@ -170,10 +181,12 @@ struct AnswerCallJSON: WebRTCInnerMessageJSON {
     let sessionDescriptionType: String
     let sessionDescription: String
     private let compressedSessionDescription: Data
+    let isBatchIceSupported: Bool
 
     enum CodingKeys: String, CodingKey {
         case sessionDescriptionType = "sdt"
         case compressedSessionDescription = "sd"
+        case isBatchIceSupported = "bi"
     }
 
     init(sessionDescriptionType: String, sessionDescription: String) throws {
@@ -181,6 +194,7 @@ struct AnswerCallJSON: WebRTCInnerMessageJSON {
         self.sessionDescription = sessionDescription
         guard let data = sessionDescription.data(using: .utf8) else { throw Self.makeError(message: "Could not compress session description") }
         self.compressedSessionDescription = try ObvCompressor.compress(data)
+        self.isBatchIceSupported = true
     }
 
     init(from decoder: Decoder) throws {
@@ -190,6 +204,7 @@ struct AnswerCallJSON: WebRTCInnerMessageJSON {
         let data = try ObvCompressor.decompress(self.compressedSessionDescription)
         guard let sessionDescription = String(data: data, encoding: .utf8) else { throw Self.makeError(message: "Could not decompress session description") }
         self.sessionDescription = sessionDescription
+        self.isBatchIceSupported = try values.decodeIfPresent(Bool.self, forKey: .isBatchIceSupported) ?? false
     }
 
 }
@@ -265,11 +280,13 @@ struct NewParticipantOfferMessageJSON: WebRTCInnerMessageJSON {
     let sessionDescription: String
     private let compressedSessionDescription: Data
     private let rawGatheringPolicy: Int? /// REMARK Can be optional to be compatible with previous version where gathering policy was hardcoded
+    let isBatchIceSupported: Bool
 
     enum CodingKeys: String, CodingKey {
         case sessionDescriptionType = "sdt"
         case compressedSessionDescription = "sd"
         case rawGatheringPolicy = "gp"
+        case isBatchIceSupported = "bi"
     }
 
     init(sessionDescriptionType: String, sessionDescription: String, gatheringPolicy: OlvidCallGatheringPolicy) throws {
@@ -278,6 +295,7 @@ struct NewParticipantOfferMessageJSON: WebRTCInnerMessageJSON {
         guard let data = sessionDescription.data(using: .utf8) else { throw Self.makeError(message: "Could not compress session description") }
         self.compressedSessionDescription = try ObvCompressor.compress(data)
         self.rawGatheringPolicy = gatheringPolicy.rawValue
+        self.isBatchIceSupported = true
     }
 
     init(from decoder: Decoder) throws {
@@ -288,6 +306,7 @@ struct NewParticipantOfferMessageJSON: WebRTCInnerMessageJSON {
         guard let sessionDescription = String(data: data, encoding: .utf8) else { throw Self.makeError(message: "Could not decompress session description") }
         self.sessionDescription = sessionDescription
         self.rawGatheringPolicy = try values.decodeIfPresent(Int.self, forKey: .rawGatheringPolicy)
+        self.isBatchIceSupported = try values.decodeIfPresent(Bool.self, forKey: .isBatchIceSupported) ?? false
     }
 
     var gatheringPolicy: OlvidCallGatheringPolicy? {
@@ -303,10 +322,12 @@ struct NewParticipantAnswerMessageJSON: WebRTCInnerMessageJSON {
     let sessionDescriptionType: String
     let sessionDescription: String
     private let compressedSessionDescription: Data
+    let isBatchIceSupported: Bool
 
     enum CodingKeys: String, CodingKey {
         case sessionDescriptionType = "sdt"
         case compressedSessionDescription = "sd"
+        case isBatchIceSupported = "bi"
     }
 
     init(sessionDescriptionType: String, sessionDescription: String) throws {
@@ -314,6 +335,7 @@ struct NewParticipantAnswerMessageJSON: WebRTCInnerMessageJSON {
         self.sessionDescription = sessionDescription
         guard let data = sessionDescription.data(using: .utf8) else { throw Self.makeError(message: "Could not compress session description") }
         self.compressedSessionDescription = try ObvCompressor.compress(data)
+        self.isBatchIceSupported = true
     }
 
     init(from decoder: Decoder) throws {
@@ -323,6 +345,7 @@ struct NewParticipantAnswerMessageJSON: WebRTCInnerMessageJSON {
         let data = try ObvCompressor.decompress(self.compressedSessionDescription)
         guard let sessionDescription = String(data: data, encoding: .utf8) else { throw Self.makeError(message: "Could not decompress session description") }
         self.sessionDescription = sessionDescription
+        self.isBatchIceSupported = try values.decodeIfPresent(Bool.self, forKey: .isBatchIceSupported) ?? false
     }
 
 }
@@ -372,6 +395,19 @@ struct AnsweredOrRejectedOnOtherDeviceMessageJSON: WebRTCInnerMessageJSON {
     
     enum CodingKeys: String, CodingKey {
         case answered = "ans"
+    }
+
+}
+
+
+struct BatchIceCandidatesMessageJSON: WebRTCInnerMessageJSON {
+ 
+    var messageType: WebRTCMessageJSON.MessageType { .batchIceCandidates }
+    
+    var iceCandidates: [IceCandidateJSON]
+
+    enum CodingKeys: String, CodingKey {
+        case iceCandidates = "c"
     }
 
 }

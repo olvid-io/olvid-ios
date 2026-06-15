@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,7 @@ import OlvidUtils
 
 public final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMessengerPersistentContainer>, ObvErrorMaker, @unchecked Sendable {
 
-    private let log = OSLog(subsystem: "io.olvid.messenger", category: "CoreDataStack")
+    private let logger = Logger(subsystem: "io.olvid.messenger", category: "CoreDataStack")
     public static let errorDomain = "DataMigrationManagerForObvMessenger"
 
     enum ObvMessengerModelVersion: String {
@@ -108,9 +108,11 @@ public final class DataMigrationManagerForObvMessenger: DataMigrationManager<Obv
         case version76 = "ObvMessengerModel-v76"
         case version77 = "ObvMessengerModel-v77"
         case version78 = "ObvMessengerModel-v78"
+        case version79 = "ObvMessengerModel-v79"
+        case version80 = "ObvMessengerModel-v80"
 
         static var latest: ObvMessengerModelVersion {
-            return .version78
+            return .version80
         }
 
         var identifier: String {
@@ -184,7 +186,7 @@ public final class DataMigrationManagerForObvMessenger: DataMigrationManager<Obv
 
         let sourceVersion = try ObvMessengerModelVersion(model: sourceModel)
 
-        os_log("Current version of the App's Core Data Stack: %{public}@", log: log, type: .info, sourceVersion.identifier)
+        logger.info("Current version of the App's Core Data Stack: \(sourceVersion.identifier, privacy: .public)")
 
         let destinationVersion: ObvMessengerModelVersion
         let migrationType: MigrationType
@@ -266,12 +268,14 @@ public final class DataMigrationManagerForObvMessenger: DataMigrationManager<Obv
         case .version75: migrationType = .lightweight; destinationVersion = .version76
         case .version76: migrationType = .lightweight; destinationVersion = .version77
         case .version77: migrationType = .heavyweight; destinationVersion = .version78
-        case .version78: migrationType = .heavyweight; destinationVersion = .version78
+        case .version78: migrationType = .heavyweight; destinationVersion = .version79
+        case .version79: migrationType = .lightweight; destinationVersion = .version80
+        case .version80: migrationType = .heavyweight; destinationVersion = .version80
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)
 
-        os_log("Performing a %{public}@ migration of the ObvMessengerModel from version %{public}@ to %{public}@", log: log, type: .info, migrationType.debugDescription, sourceVersion.identifier, destinationVersion.identifier)
+        self.logger.info("Performing a \(migrationType.debugDescription, privacy: .public) migration of the ObvMessengerModel from version \(sourceVersion.identifier, privacy: .public) to \(destinationVersion.identifier, privacy: .public)")
 
         return (destinationModel, migrationType)
 

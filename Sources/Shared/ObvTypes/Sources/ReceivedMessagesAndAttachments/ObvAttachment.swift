@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,12 +24,13 @@ import OlvidUtils
 
 public struct ObvAttachment: Hashable {
     
-    public enum Status: Int, CustomDebugStringConvertible {
-        case paused = 0
-        case resumed = 1
-        case downloaded = 2
-        case cancelledByServer = 3
-        case markedForDeletion = 4
+    public enum Status: Equatable, CustomDebugStringConvertible {
+        case paused(expectedTotalUnitCount: Int64)
+        case resumed(expectedTotalUnitCount: Int64)
+        case downloaded(url: URL)
+        case cancelledByServer
+        case markedForDeletion
+        case receivedInUserNotification
         
         public var debugDescription: String {
             switch self {
@@ -38,14 +39,13 @@ public struct ObvAttachment: Hashable {
             case .downloaded: return "Downloaded"
             case .cancelledByServer: return "Cancelled by server"
             case .markedForDeletion: return "Marked for deletion"
+            case .receivedInUserNotification: return "Received in User Notification"
             }
         }
     }
 
     public let fromContactIdentity: ObvContactIdentifier
     public let metadata: Data
-    public let totalUnitCount: Int64
-    public let url: URL
     public let status: Status
     public let attachmentId: ObvAttachmentIdentifier
     public let messageUploadTimestampFromServer: Date
@@ -57,16 +57,9 @@ public struct ObvAttachment: Hashable {
         return attachmentId.attachmentNumber
     }
 
-    public var downloadPaused: Bool {
-        return self.status == .paused
-    }
-
-    
-    public init(fromContactIdentity: ObvContactIdentifier, metadata: Data, totalUnitCount: Int64, url: URL, status: Status, attachmentId: ObvAttachmentIdentifier, messageUploadTimestampFromServer: Date) {
+    public init(fromContactIdentity: ObvContactIdentifier, metadata: Data, status: Status, attachmentId: ObvAttachmentIdentifier, messageUploadTimestampFromServer: Date) {
         self.fromContactIdentity = fromContactIdentity
         self.metadata = metadata
-        self.totalUnitCount = totalUnitCount
-        self.url = url
         self.status = status
         self.attachmentId = attachmentId
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer

@@ -85,7 +85,9 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     /// Returns `true` iff a new photo needs to be downloaded
     func updateOwnedPublishedDetailsWithOtherDetailsIfNewer(_ ownedIdentity: ObvCryptoIdentity, with otherIdentityDetails: IdentityDetailsElements, within obvContext: ObvContext) throws -> Bool
 
-    func getDeterministicSeedForOwnedIdentity(_: ObvCryptoIdentity, diversifiedUsing: Data, within: ObvContext) throws -> Seed
+    func getDeterministicSeedForOwnedIdentity(_: ObvCryptoIdentity, diversifiedUsing: Data, forProtocol seedProtocol: ObvConstants.SeedProtocol, within context: NSManagedObjectContext) throws -> Seed
+    
+    func getDeterministicSeedForReturnReceiptToSendEncryption(returnReceiptsToSend: [ObvReturnReceiptToSend]) async -> [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)]
     
     func getDeterministicSeed(diversifiedUsing data: Data, secretMACKey: MACKey, forProtocol seedProtocol: ObvConstants.SeedProtocol) throws -> Seed
 
@@ -105,7 +107,13 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
 
     func createContactGroupV2AdministratedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, serializedGroupCoreDetails: Data, photoURL: URL?, serializedGroupType: Data, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, within obvContext: ObvContext) throws -> (groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, serverPhotoInfo: GroupV2.ServerPhotoInfo?, encryptedServerBlob: EncryptedData, photoURL: URL?)
     
-    func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys, createdByMeOnOtherDevice: Bool, within obvContext: ObvContext) throws
+    func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity,
+                                                   groupIdentifier: GroupV2.Identifier,
+                                                   serverBlob: GroupV2.ServerBlob,
+                                                   blobKeys: GroupV2.BlobKeys,
+                                                   createdByMeOnOtherDevice: Bool,
+                                                   lastModificationTimestamp: Date,
+                                                   within obvContext: ObvContext) throws
 
     func removeOtherMembersOrPendingMembersFromGroupV2(withGroupIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, identitiesToRemove: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws
 
@@ -123,7 +131,13 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     
     func deleteGroupV2(withGroupIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 
-    func updateGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, newBlobKeys: GroupV2.BlobKeys, consolidatedServerBlob: GroupV2.ServerBlob, groupUpdatedByOwnedIdentity: Bool, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
+    func updateGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier,
+                       of ownedIdentity: ObvCryptoIdentity,
+                       newBlobKeys: GroupV2.BlobKeys,
+                       consolidatedServerBlob: GroupV2.ServerBlob,
+                       groupUpdatedByOwnedIdentity: Bool,
+                       lastModificationTimestamp: Date,
+                       within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
 
     func getAllOtherMembersOrPendingMembersOfGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, memberOrPendingMemberInvitationNonce nonce: Data, within obvContext: ObvContext) throws -> Set<GroupV2.IdentityAndPermissionsAndDetails>
 
@@ -205,6 +219,10 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     func getCryptoIdentitiesOfManagedOwnedIdentitiesAssociatedWithThePushTopic(_ pushTopic: String, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
     
     func setIsTransferRestricted(to isTransferRestricted: Bool, ownedCryptoId: ObvCryptoId, within obvContext: ObvContext) throws
+    
+    func getOwnedIdentityKeycloakServer(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> URL
+
+    func setOwnedIdentityKeycloakSupportsIdBasedAuth(ownedCryptoId: ObvCryptoId, supportsIdBasedAuth: Bool, within context: NSManagedObjectContext) throws
 
     // MARK: - API related to owned devices
     

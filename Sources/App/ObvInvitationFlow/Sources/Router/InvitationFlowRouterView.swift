@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -86,7 +86,12 @@ public struct InvitationFlowRouterView: View {
             case .listOfContactsAndGroups:
                 break
             case .scanner:
-                router.presentFullScreen(.scanner(currentOwnedCryptoId: currentOwnedCryptoId, scannerMode: .singleScan(ownedURLIdentity: ownedURLIdentity)))
+                Task { @MainActor in
+                    // Small delay to allow the view to complete its initial rendering
+                    try? await Task.sleep(milliseconds: 250) // 0.25 seconds
+                    router.presentFullScreen(.scanner(currentOwnedCryptoId: currentOwnedCryptoId,
+                                                      scannerMode: .mutualScan(ownedURLIdentityToShow: ownedURLIdentity)))
+                }
             }
         }
     }

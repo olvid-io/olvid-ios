@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,7 +35,7 @@ fileprivate extension AudioWaveFormView.Configuration {
         switch self {
         case .uploadableOrUploading, .complete:
             return true
-        case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
+        case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent, .notYetDownloadableAsReceivedByUserNotification, .untransferred:
             return false
         }
     }
@@ -44,7 +44,7 @@ fileprivate extension AudioWaveFormView.Configuration {
         switch self {
         case .completeButReadRequiresUserInteraction:
             return false
-        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete, .downloadableSent, .downloadingSent:
+        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete, .downloadableSent, .downloadingSent, .notYetDownloadableAsReceivedByUserNotification, .untransferred:
             return true
         }
     }
@@ -53,7 +53,7 @@ fileprivate extension AudioWaveFormView.Configuration {
         switch self {
         case .completeButReadRequiresUserInteraction(messageObjectID: let messageObjectID, fileSize: _, uti: _):
             return messageObjectID
-        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete, .downloadableSent, .downloadingSent:
+        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete, .downloadableSent, .downloadingSent, .notYetDownloadableAsReceivedByUserNotification, .untransferred:
             return nil
         }
     }
@@ -65,7 +65,7 @@ fileprivate extension AudioWaveFormView.Configuration {
                     .uploadableOrUploading(hardlink: let hardlink, _, _, _, _, _):
                 guard let url = hardlink?.hardlinkURL else { return nil }
                 return try await ObvAudioPlayer.duration(of: url)
-            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
+            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent, .notYetDownloadableAsReceivedByUserNotification, .untransferred:
                 return nil
             }
         }
@@ -75,7 +75,7 @@ fileprivate extension AudioWaveFormView.Configuration {
         switch self {
         case .complete(_, _, _, _, _, wasOpened: let wasOpened):
             return wasOpened
-        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
+        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent, .notYetDownloadableAsReceivedByUserNotification, .untransferred:
             return nil
         }
     }
@@ -203,6 +203,10 @@ final class AudioWaveFormView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
             fyleProgressView.setConfiguration(.complete)
         case .cancelledByServer:
             fyleProgressView.setConfiguration(.cancelled)
+        case .notYetDownloadableAsReceivedByUserNotification:
+            fyleProgressView.setConfiguration(.notYetDownloadableAsReceivedByUserNotification)
+        case .untransferred:
+            fyleProgressView.setConfiguration(.untransferred)
         }
         
         if let hostingController {
@@ -766,6 +770,18 @@ struct AudioWaveFormContentView: View {
             }
         }
         .foregroundStyle(Color(uiColor: .label))
+    }
+}
+
+class AudioDurationFormatter: Formatter {
+
+    func string(from duration: Double) -> String? {
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .positional
+        formatter.zeroFormattingBehavior = [ .pad ]
+        formatter.allowedUnits = [ .second, .minute ]
+
+        return formatter.string(from: duration)
     }
 }
 

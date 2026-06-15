@@ -77,12 +77,15 @@ public struct ObvConstants {
     public enum SeedProtocol {
         case trustEstablishmentWithSAS
         case ownedIdentityTransfer
+        case encryptReturnReceipt
         public var fixedByte: UInt8 {
             switch self {
             case .trustEstablishmentWithSAS:
                 return 0x55
             case .ownedIdentityTransfer:
                 return 0x56
+            case .encryptReturnReceipt:
+                return 0x57
             }
         }
     }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -175,18 +175,21 @@ public actor ContinuousSharingLocationManager {
                         // We will eventually be called back, thanks to our datasource, and stop the monitoring.
                     } else {
                         let locationData = ObvLocationData(clLocation: clLocation, isStationary: update.isStationary)
-                        let decision = await self.sentContinuousLocationRateLimiter.determineSentContinuousLocationDecision(for: locationData)
+                        let discussionsRequiringHighAccuracy = await delegate.requestUpdatedSetOfDiscussionsRequiringHighAccuracyLocationUpdates(self)
+                        let decision = await self.sentContinuousLocationRateLimiter.determineSentContinuousLocationDecision(for: locationData, discussionsRequiringHighAccuracy: discussionsRequiringHighAccuracy)
                         switch decision {
                         case .doNotSend:
                             Self.logger.debug("Although a new location is available, we don't send it. Data was: longitude: \(locationData.longitude), latitude: \(locationData.latitude), isStationary: \(locationData.isStationary)")
                             continue // We loop and await the next location update
-                        case .send:
+                        case .send(to: let destination):
                             Self.logger.info("Will update continous location shared from the current owned device with the following updated data: longitude: \(locationData.longitude), latitude: \(locationData.latitude), isStationary: \(locationData.isStationary)")
-                            obvLocation = ObvLocation.updateSharing(locationData: locationData)
+                            obvLocation = ObvLocation.updateSharing(locationData: locationData, sendTo: destination)
                         }
                     }
                     
-                    Task { await delegate.newObvLocationToProcessForThisPhysicalDevice(self, location: obvLocation) }
+                    Task {
+                        await delegate.newObvLocationToProcessForThisPhysicalDevice(self, location: obvLocation)
+                    }
                     
                 }
             } catch {
@@ -197,14 +200,29 @@ public actor ContinuousSharingLocationManager {
 
     }
 
-    /// Stop Sharing location.
+    /// Stop Sharing location
     @available(iOS 17.0, *)
     private func stopSharingLocation() async {
+        
         Self.logger.info("Stopping continuous location sharing")
         shouldMonitorCLLocationUpdateLiveUpdates = false
         (self.backgroundActivitySession as? CLBackgroundActivitySession)?.invalidate()
         self.backgroundActivitySession = nil
         await sentContinuousLocationRateLimiter.reset()
+        
+        // Ensures the app is aware that location sharing has stopped, even if the app was force quit or restarted after the sharing duration expired.
+        // This is necessary because:
+        // - If the device was sharing location for X seconds and the app was force quit or restarted after Y > X seconds,
+        //   `startOrContinueSharingLocation` is not called (as expected, since sharing should have ended).
+        // - However, the rest of the app might not be notified that sharing stopped.
+        // To fix this, we send `ObvLocation.endSharing(type: .all)` here, synchronizing the app state.
+        // This is called during startup when the device is not sharing its location, regardless of how the app was previously closed.
+        
+        guard let delegate else { assertionFailure(); return }
+        Task {
+            let obvLocation = ObvLocation.endSharing(type: .all)
+            await delegate.newObvLocationToProcessForThisPhysicalDevice(self, location: obvLocation)
+        }
     }
     
 }
@@ -228,30 +246,44 @@ fileprivate actor SentContinuousLocationRateLimiter {
 
     enum SentContinuousLocationDecision {
         case doNotSend
-        case send
+        case send(to: ObvLocation.SharingDestination)
+        var isSendToAll: Bool {
+            switch self {
+            case .send(to: let destination):
+                switch destination {
+                case .all: return true
+                default: return false
+                }
+            case .doNotSend: return false
+            }
+        }
     }
     
     func reset() {
         lastSentLocationDate = .distantPast
     }
     
-    func determineSentContinuousLocationDecision(for locationData: ObvLocationData) -> SentContinuousLocationDecision {
+    func determineSentContinuousLocationDecision(for locationData: ObvLocationData, discussionsRequiringHighAccuracy: Set<ObvDiscussionIdentifier>) -> SentContinuousLocationDecision {
         
         let decision: SentContinuousLocationDecision
         
         if locationData.isStationary {
-            decision = .send
+            decision = .send(to: .all)
         } else {
             let timeIntervalSinceLastSentLocation = Date.now.timeIntervalSince(lastSentLocationDate)
             assert(timeIntervalSinceLastSentLocation > 0)
             if timeIntervalSinceLastSentLocation < timeIntervalLimit {
-                decision = .doNotSend
+                if discussionsRequiringHighAccuracy.isEmpty {
+                    decision = .doNotSend
+                } else {
+                    decision = .send(to: .discussions(discussionIdentifiers: discussionsRequiringHighAccuracy))
+                }
             } else {
-                decision = .send
+                decision = .send(to: .all)
             }
         }
         
-        if decision == .send {
+        if decision.isSendToAll {
             lastSentLocationDate = Date.now
         }
         
@@ -263,8 +295,9 @@ fileprivate actor SentContinuousLocationRateLimiter {
 
 
 
-public protocol ContinuousSharingLocationManagerDelegate: AnyObject {
+public protocol ContinuousSharingLocationManagerDelegate: AnyObject, Sendable {
     func newObvLocationToProcessForThisPhysicalDevice(_ continuousSharingLocationManager: ContinuousSharingLocationManager, location: ObvLocation) async
+    func requestUpdatedSetOfDiscussionsRequiringHighAccuracyLocationUpdates(_ continuousSharingLocationManager: ContinuousSharingLocationManager) async -> Set<ObvDiscussionIdentifier>
 }
 
 

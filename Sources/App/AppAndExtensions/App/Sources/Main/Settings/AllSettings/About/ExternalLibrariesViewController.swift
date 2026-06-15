@@ -65,6 +65,8 @@ private enum Library: Int, CaseIterable {
     case akxNotificationSounds
     case notificationSoundsDotCom
     case confettiSwiftUI
+    case zipArchive
+    case swiftUIIntrospect
 
     var licence: Licence {
         switch self {
@@ -75,6 +77,8 @@ private enum Library: Int, CaseIterable {
         case .akxNotificationSounds: return .cc0PublicDomain
         case .notificationSoundsDotCom: return .creativeCommonsAttribution4
         case .confettiSwiftUI: return .mit
+        case .zipArchive: return .mit
+        case .swiftUIIntrospect: return .mit
         }
     }
 
@@ -87,6 +91,8 @@ private enum Library: Int, CaseIterable {
         case .akxNotificationSounds: return "akx' notification sounds"
         case .notificationSoundsDotCom: return "Sounds from Notification Sounds"
         case .confettiSwiftUI: return "ConfettiSwiftUI"
+        case .zipArchive: return "ZipArchive"
+        case .swiftUIIntrospect: return "SwiftUI Introspect"
         }
     }
 
@@ -99,6 +105,8 @@ private enum Library: Int, CaseIterable {
         case .akxNotificationSounds: return link?.absoluteString
         case .notificationSoundsDotCom: return link?.absoluteString
         case .confettiSwiftUI: return link?.absoluteString
+        case .zipArchive: return "ZipArchive is a simple utility class for zipping and unzipping files on iOS, macOS, tvOS, watchOS and visionOS."
+        case .swiftUIIntrospect: return "SwiftUI Introspect lets you access the underlying UIKit or AppKit view for a SwiftUI view."
         }
     }
 
@@ -111,6 +119,8 @@ private enum Library: Int, CaseIterable {
         case .akxNotificationSounds: return URL(string: "https://github.com/akx/Notifications")
         case .notificationSoundsDotCom: return URL(string: "https://notificationsounds.com/")
         case .confettiSwiftUI: return URL(string: "https://github.com/simibac/ConfettiSwiftUI")
+        case .zipArchive: return URL(string: "https://github.com/ZipArchive/ZipArchive")
+        case .swiftUIIntrospect: return URL(string: "https://github.com/siteline/swiftui-introspect")
         }
     }
 }

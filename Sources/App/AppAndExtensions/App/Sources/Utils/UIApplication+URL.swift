@@ -22,6 +22,25 @@ import ObvUICoreData
 import UniformTypeIdentifiers
 
 extension UIApplication {
+
+#if targetEnvironment(macCatalyst)
+    private static let baseOpenSettingsURLString: String = "x-apple.systempreferences"
+    private static let baseOpenSettingsSecurityURLString: String = "com.apple.preference.security"
+    
+    public static let openLocationSettingsURLString: String = "\(baseOpenSettingsURLString):\(baseOpenSettingsSecurityURLString)?Privacy_LocationServices"
+    public static let openRecordSettingsURLString: String = "\(baseOpenSettingsURLString):\(baseOpenSettingsSecurityURLString)?Privacy_Microphone"
+    public static let openCameraSettingsURLString: String = "\(baseOpenSettingsURLString):\(baseOpenSettingsSecurityURLString)?Privacy_Camera"
+
+#else
+
+    public static let openLocationSettingsURLString: String = openSettingsURLString
+    public static let openRecordSettingsURLString: String = openSettingsURLString
+    public static let openCameraSettingsURLString: String = openSettingsURLString
+
+#endif
+}
+
+extension UIApplication {
     
     public func userSelectedURL(_ url: URL, within viewController: UIViewController) async {
         await userSelectedURL(url, within: viewController, confirmed: false)

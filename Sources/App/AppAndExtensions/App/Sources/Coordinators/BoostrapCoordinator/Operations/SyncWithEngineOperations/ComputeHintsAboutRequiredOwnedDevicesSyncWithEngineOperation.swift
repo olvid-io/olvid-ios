@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,7 +62,7 @@ final class ComputeHintsAboutRequiredOwnedDevicesSyncWithEngineOperation: AsyncO
             let obvOwnedDevicesWithinEngine: Set<ObvOwnedDevice>
             switch scope {
             case .allOwnedDevices:
-                obvOwnedDevicesWithinEngine = try await obvEngine.getAllOwnedDevices(restrictToActiveOwnedIdentities: true)
+                obvOwnedDevicesWithinEngine = try await obvEngine.getAllOwnedDevices(restrictToActiveOwnedIdentities: false)
             case .ownedDevicesOfOwnedIdentity(ownedCryptoId: let ownedCryptoId):
                 obvOwnedDevicesWithinEngine = try obvEngine.getAllOwnedDevicesOfOwnedIdentity(ownedCryptoId)
             }

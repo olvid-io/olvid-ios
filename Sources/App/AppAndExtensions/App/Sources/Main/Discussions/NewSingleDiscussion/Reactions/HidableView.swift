@@ -25,6 +25,7 @@ final class HidableView: UIView {
 
     public var animateOnHide: Bool = true
     public var onCompletion: (() -> ())?
+    public var executeBeforeAnimation: (() -> ())?
     public var executeOnAnimation: (() -> ())?
     
     override init(frame: CGRect) {
@@ -66,6 +67,7 @@ final class HidableView: UIView {
     
     
     public func hide() {
+        executeBeforeAnimation?()
         UIViewPropertyAnimator.runningPropertyAnimator(withDuration: animateOnHide ? 0.2 : 0.0, delay: 0) { [weak self] in
             self?.executeOnAnimation?()
             self?.alpha = 0.0

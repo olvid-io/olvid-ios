@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -294,13 +294,20 @@ extension GroupV2Protocol {
         let inviterIdentity: ObvCryptoIdentity
         let serverBlob: GroupV2.ServerBlob
         let blobKeys: GroupV2.BlobKeys // With non-nil main seed
+        let lastModificationTimestamp: Date
 
-        init(groupIdentifier: GroupV2.Identifier, dialogUuid: UUID, inviterIdentity: ObvCryptoIdentity, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys) {
+        init(groupIdentifier: GroupV2.Identifier,
+             dialogUuid: UUID,
+             inviterIdentity: ObvCryptoIdentity,
+             serverBlob: GroupV2.ServerBlob,
+             blobKeys: GroupV2.BlobKeys,
+             lastModificationTimestamp: Date) {
             self.groupIdentifier = groupIdentifier
             self.dialogUuid = dialogUuid
             self.inviterIdentity = inviterIdentity
             self.serverBlob = serverBlob
             self.blobKeys = blobKeys
+            self.lastModificationTimestamp = lastModificationTimestamp
         }
 
         
@@ -309,17 +316,31 @@ extension GroupV2Protocol {
                         dialogUuid.obvEncode(),
                         inviterIdentity.obvEncode(),
                         serverBlob.obvEncode(),
-                        blobKeys.obvEncode()].obvEncode()
+                        blobKeys.obvEncode(),
+                        lastModificationTimestamp.obvEncode(),
+            ].obvEncode()
         }
 
         
         init(_ obvEncoded: ObvEncoded) throws {
-            guard let encodedValues = [ObvEncoded](obvEncoded, expectedCount: 5) else { assertionFailure(); throw Self.makeError(message: "Unexpected number of elements in encoded InvitationReceivedState") }
-            self.groupIdentifier = try encodedValues[0].obvDecode()
-            self.dialogUuid = try encodedValues[1].obvDecode()
-            self.inviterIdentity = try encodedValues[2].obvDecode()
-            self.serverBlob = try encodedValues[3].obvDecode()
-            self.blobKeys = try encodedValues[4].obvDecode()
+            if let encodedValues = [ObvEncoded](obvEncoded, expectedCount: 6) {
+                self.groupIdentifier = try encodedValues[0].obvDecode()
+                self.dialogUuid = try encodedValues[1].obvDecode()
+                self.inviterIdentity = try encodedValues[2].obvDecode()
+                self.serverBlob = try encodedValues[3].obvDecode()
+                self.blobKeys = try encodedValues[4].obvDecode()
+                self.lastModificationTimestamp = try encodedValues[5].obvDecode()
+            } else if let encodedValues = [ObvEncoded](obvEncoded, expectedCount: 5) {
+                // Legacy case, implemented for backward compatibility
+                self.groupIdentifier = try encodedValues[0].obvDecode()
+                self.dialogUuid = try encodedValues[1].obvDecode()
+                self.inviterIdentity = try encodedValues[2].obvDecode()
+                self.serverBlob = try encodedValues[3].obvDecode()
+                self.blobKeys = try encodedValues[4].obvDecode()
+                self.lastModificationTimestamp = .now
+            } else {
+                assertionFailure(); throw Self.makeError(message: "Unexpected number of elements in encoded InvitationReceivedState")
+            }
         }
             
         

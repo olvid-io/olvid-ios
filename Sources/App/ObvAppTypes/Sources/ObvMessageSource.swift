@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,6 +26,7 @@ import Foundation
 public enum ObvMessageSource: Int {
     case engine = 0
     case userNotification = 1
+    case historyTransfer = 2
 }
 
 
@@ -35,6 +36,7 @@ extension ObvMessageSource: CustomDebugStringConvertible {
         switch self {
         case .engine: return "ObvMessageSource.engine"
         case .userNotification: return "ObvMessageSource.userNotification"
+        case .historyTransfer: return "ObvMessageSource.historyTransfer"
         }
     }
     

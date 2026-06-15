@@ -182,27 +182,12 @@ private struct CreateProfileButton: View {
     private let title = String(localizedInThisBundle: "ONBOARDING_NAME_CHOOSER_BUTTON_TITLE")
         
     var body: some View {
-        if #available(iOS 26.0, *) {
-            Button(action: action) {
+        OlvidButtonNew(action: action) {
+            HStack {
+                if isInterfaceDisabled { ProgressView().foregroundStyle(.primary) }
                 Text(title)
-                    .padding(.vertical, 12)
             }
-            .buttonStyle(.glassProminent)
-            .buttonSizing(.flexible)
-        } else {
-            Button(action: action) {
-                HStack {
-                    Spacer(minLength: 0)
-                    if isInterfaceDisabled {
-                        ProgressView()
-                    }
-                    Text(title)
-                        .padding(.vertical, 12)
-                    Spacer(minLength: 0)
-                }
-            }
-            .buttonStyle(.borderedProminent)
-        }
+        }        
     }
     
 }

@@ -104,6 +104,7 @@ public struct ObvMessengerSettings {
             case discussionLayoutType = "discussionLayoutType"
             case sendMessageShortcutType = "sendMessageShortcutType"
             case hideTrailingURLInMessagesWhenPreviewIsAvailable = "hideTrailingURLInMessagesWhenPreviewIsAvailable"
+            case shortenIntroductoryMessage = "shortenIntroductoryMessage"
             
             private var kInterface: String { "interface" }
             
@@ -125,6 +126,16 @@ public struct ObvMessengerSettings {
             case commandEnter
         }
         
+        
+        public static var shortenIntroductoryMessage: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Key.shortenIntroductoryMessage.path) ?? false
+            }
+            set {
+                userDefaults.set(newValue, forKey: Key.shortenIntroductoryMessage.path)
+            }
+        }
+
         
         public static var hideTrailingURLInMessagesWhenPreviewIsAvailable: Bool {
             get {
@@ -202,6 +213,7 @@ public struct ObvMessengerSettings {
                 let newRawValues = newValue.map({ $0.rawValue })
                 userDefaults.set(newRawValues, forKey: Key.preferredComposeMessageViewActionsOrder.path)
                 ObvMessengerSettingsNotifications.preferredComposeMessageViewActionsDidChange.postOnDispatchQueue()
+                ObvMessengerSettingsObservableObject.shared.preferredComposeMessageViewActionsOrder = newValue
             }
         }
         
@@ -232,6 +244,11 @@ public struct ObvMessengerSettings {
             }
         }
         
+        fileprivate static func resetDateWhenUserDimissedTip() {
+            userDefaults.set(nil, forKey: Key.dateWhenUserDimissedTip.path)
+            ObvMessengerSettingsObservableObject.shared.dateWhenUserDimissedTip = nil
+        }
+        
         public static var previousTipWasShownLongTimeAgo: Bool {
             guard let dateWhenUserDimissedTip else { return true }
             let timeIntervalSinceNow = abs(dateWhenUserDimissedTip.timeIntervalSinceNow)
@@ -259,6 +276,7 @@ public struct ObvMessengerSettings {
             case notificationSound = "notificationSound"
             case performInteractionDonation = "performInteractionDonation"
             case globalDiscussionNotificationsOptions = "globalNotificationsOptions"
+            case disableAutocorrection = "disableAutocorrection"
 
             private var kDiscussions: String { "discussions" }
             
@@ -509,6 +527,24 @@ public struct ObvMessengerSettings {
                 } else {
                     userDefaults.set(newValue.rawValue, forKey: Key.globalDiscussionNotificationsOptions.path)
                 }
+            }
+        }
+        
+        // MARK: Autocorrection
+        
+        /// Controls whether autocorrection is disabled in the compose text field.
+        ///
+        /// When set to `true`, autocorrection will be explicitly disabled in the compose text field.
+        /// When set to `false` (default), the system's default autocorrection behavior is used,
+        /// which may vary by platform (iOS, iPadOS, macOS).
+        public static var autocorrectionType: ObvTextAutocorrectionType {
+            get {
+                guard let intValue = userDefaults.integerOrNil(forKey: Key.disableAutocorrection.path) else { return .default }
+                return .init(rawValue: intValue) ?? .default
+            }
+            set {
+                userDefaults.set(newValue.rawValue, forKey: Key.disableAutocorrection.path)
+                ObvMessengerSettingsObservableObject.shared.autocorrectionType = newValue
             }
         }
         
@@ -804,6 +840,7 @@ public struct ObvMessengerSettings {
         enum Key: String {
             case receiveCallsOnThisDevice = "receiveCallsOnThisDevice"
             case videoSendResolution = "videoSendResolution"
+            case useAlternativeTurnServers = "useAlternativeTurnServers"
             
             private var kVoIP: String { "voip" }
             
@@ -813,6 +850,15 @@ public struct ObvMessengerSettings {
 
         }
 
+        public static var useAlternativeTurnServers: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Key.useAlternativeTurnServers.path) ?? false
+            }
+            set {
+                guard newValue != useAlternativeTurnServers else { return }
+                userDefaults.set(newValue, forKey: Key.useAlternativeTurnServers.path)
+            }
+        }
         
         public static var receiveCallsOnThisDevice: Bool {
             get {
@@ -890,6 +936,7 @@ public struct ObvMessengerSettings {
         
         public static func resetAllAlerts() {
             removeSecureCallsInBeta()
+            ObvTips.resetDateWhenUserDimissedTip()
         }
         
     }
@@ -1097,6 +1144,8 @@ public final class ObvMessengerSettingsObservableObject: ObservableObject {
     @Published public fileprivate(set) var userDidSetupBackupsAtLeastOnce: Bool
     @Published public fileprivate(set) var dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: Date?
     @Published public fileprivate(set) var dateWhenUserDimissedTip: Date?
+    @Published public fileprivate(set) var preferredComposeMessageViewActionsOrder: [NewComposeMessageViewSortableAction]
+    @Published public fileprivate(set) var autocorrectionType: ObvTextAutocorrectionType
     
     private init() {
         defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton
@@ -1110,6 +1159,8 @@ public final class ObvMessengerSettingsObservableObject: ObservableObject {
         userDidSetupBackupsAtLeastOnce = ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce
         dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = ObvMessengerSettings.Backup.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey
         dateWhenUserDimissedTip = ObvMessengerSettings.ObvTips.dateWhenUserDimissedTip
+        self.preferredComposeMessageViewActionsOrder = ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder
+        self.autocorrectionType = ObvMessengerSettings.Discussions.autocorrectionType
     }
     
 }

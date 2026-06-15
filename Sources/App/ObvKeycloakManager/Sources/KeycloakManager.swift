@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -71,13 +71,15 @@ public final class KeycloakManagerSingleton {
     /// Called when trying to transfer a profile on this target device in the case where the transfer is restricted:
     /// - the profile is keycloak-managed
     /// - the source device requires this target to prove it is able to authenticate on the keycloak server
-    public func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(keycloakConfiguration: ObvKeycloakConfiguration, transferProofElements: ObvKeycloakTransferProofElements) async throws -> ObvKeycloakTransferProofAndAuthState {
-        let (_, configuration) = try await discoverKeycloakServer(for: keycloakConfiguration.keycloakServerURL)
-        let authState = try await authenticate(
-            configuration: configuration,
-            clientId: keycloakConfiguration.clientId,
-            clientSecret: keycloakConfiguration.clientSecret,
-            ownedCryptoId: nil)
+    public func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        transferProofElements: ObvKeycloakTransferProofElements
+    ) async throws -> ObvKeycloakTransferProofAndAuthState {
+        let discoveryResult = try await discoverKeycloakServer(for: keycloakConfiguration.keycloakServerURL)
+        let authState = try await authenticateDuringBinding(
+            keycloakConfiguration: keycloakConfiguration,
+            magicLink: nil,
+            discoveryResult: discoveryResult)
         let proof = try await KeycloakManagerSingleton.shared.getTransferProof(
             keycloakServer: keycloakConfiguration.keycloakServerURL,
             authState: authState,
@@ -90,13 +92,14 @@ public final class KeycloakManagerSingleton {
     /// Called when trying to restore a profile backup on this device in the case where the transfer is restricted:
     /// - the profile is keycloak-managed
     /// - the backup indicates that an authentication is required
-    public func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestrictedDuringBackupRestore(keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data {
-        let (_, configuration) = try await discoverKeycloakServer(for: keycloakConfiguration.keycloakServerURL)
-        let authState = try await authenticate(
-            configuration: configuration,
-            clientId: keycloakConfiguration.clientId,
-            clientSecret: keycloakConfiguration.clientSecret,
-            ownedCryptoId: nil)
+    public func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestrictedDuringBackupRestore(
+        keycloakConfiguration: ObvKeycloakConfiguration
+    ) async throws -> Data {
+        let discoveryResult = try await discoverKeycloakServer(for: keycloakConfiguration.keycloakServerURL)
+        let authState = try await authenticateDuringBinding(
+            keycloakConfiguration: keycloakConfiguration,
+            magicLink: nil,
+            discoveryResult: discoveryResult)
         let rawAuthState = try authState.serialize()
         return rawAuthState
     }
@@ -143,7 +146,7 @@ public final class KeycloakManagerSingleton {
     }
     
 
-    public func discoverKeycloakServer(for serverURL: URL) async throws -> (ObvJWKSet, OIDServiceConfiguration) {
+    public func discoverKeycloakServer(for serverURL: URL) async throws -> KeycloakServerDiscoveryResult {
         guard let manager = manager else {
             assertionFailure()
             throw ObvError.theInternalManagerIsNotSet
@@ -152,12 +155,52 @@ public final class KeycloakManagerSingleton {
     }
 
     
-    public func authenticate(configuration: OIDServiceConfiguration, clientId: String, clientSecret: String?, ownedCryptoId: ObvCryptoId?) async throws -> OIDAuthState {
+    /// Authenticates against the Keycloak server and returns an `OIDAuthState` that the rest of the
+    /// Keycloak flow can use for authorised API calls.
+    ///
+    /// Authentication is attempted in priority order:
+    /// 1. **Magic link** — exchanges a one-time token for a session; only available when `magicLink` is non-nil.
+    /// 2. **OIDC** — interactive browser flow; the universal fallback.
+    ///
+    /// **Note:** ID-based authentication is not supported here because, when binding, the server does not yet know the
+    /// user's ID. In the rare case of a prior binding followed by unbinding (where the ID is known to the server), the
+    /// local device has no record of the profile's `userId`, so ID-based authentication is unavailable anyway.
+    ///
+    /// - Parameters:
+    ///   - magicLink: A one-time token embedded in an OlvidURL. When non-nil the magic-link flow is tried
+    ///     before falling back to OIDC.
+    public func authenticateDuringBinding(
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        magicLink: ObvMagicLink?,
+        discoveryResult: KeycloakServerDiscoveryResult
+    ) async throws -> OIDAuthState {
+        
         guard let manager = manager else {
             assertionFailure()
             throw ObvError.theInternalManagerIsNotSet
         }
-        return try await manager.authenticate(configuration: configuration, clientId: clientId, clientSecret: clientSecret, ownedCryptoId: ownedCryptoId)
+        
+        // If there is a magic link, use it to authenticate
+        
+        if let magicLink {
+            do {
+                return try await manager.authenticateWithMagicLink(
+                    magicLink: magicLink,
+                    keycloakConfiguration: keycloakConfiguration,
+                    discoveryResult: discoveryResult
+                )
+            } catch {
+                KeycloakManager.logger.error("🧥 Failed to authenticate with magic link: \(error)")
+                throw error
+            }
+        }
+        
+        // Fallback on OIDC authentication
+        
+        return try await manager.authenticateWithOIDC(
+            keycloakConfiguration: keycloakConfiguration,
+            discoveryResult: discoveryResult,
+            ownedCryptoId: nil)
     }
     
     
@@ -171,12 +214,24 @@ public final class KeycloakManagerSingleton {
     
     
     /// If the manager is not set, this function throws an `Error`. If any other error occurs, it can be casted to a `GetOwnDetailsError`.
-    public func getOwnDetails(keycloakServer: URL, authState: OIDAuthState, clientSecret: String?, jwks: ObvJWKSet, latestLocalRevocationListTimestamp: Date?) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff) {
+    public func getOwnDetails(
+        keycloakServerURL: URL,
+        authState: OIDAuthState,
+        jwks: ObvJWKSet,
+        latestLocalRevocationListTimestamp: Date?
+    ) async throws -> (
+        keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff,
+        keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff
+    ) {
         guard let manager = manager else {
             assertionFailure()
             throw ObvError.theInternalManagerIsNotSet
         }
-        return try await manager.getOwnDetails(keycloakServer: keycloakServer, authState: authState, clientSecret: clientSecret, jwks: jwks, latestLocalRevocationListTimestamp: latestLocalRevocationListTimestamp)
+        return try await manager.getOwnDetails(
+            keycloakServerURL: keycloakServerURL,
+            authState: authState,
+            jwks: jwks,
+            latestLocalRevocationListTimestamp: latestLocalRevocationListTimestamp)
     }
     
     
@@ -277,7 +332,20 @@ public protocol KeycloakManagerDelegate: AnyObject {
     func getOwnedIdentityKeycloakSelfRevocationTestNonce(ownedCryptoId: ObvCryptoId) async throws -> String?
     func setIsTransferRestricted(to isTransferRestricted: Bool, ownedCryptoId: ObvCryptoId) async throws
     func isOwnedIdentityKeycloakManaged(_ ownedCryptoId: ObvCryptoId) async throws -> Bool
-
+    
+    /// Returns the Keycloak server URL for the given owned identity.
+    func getOwnedIdentityKeycloakServer(_ ownedCryptoId: ObvCryptoId) async throws -> URL
+    
+    /// Persists whether the Keycloak server supports ID-based authentication for the given owned identity.
+    /// Called during each sync after reading the `.well-known/olvid` endpoint.
+    func setOwnedIdentityKeycloakSupportsIdBasedAuth(ownedCryptoId: ObvCryptoId, supportsIdBasedAuth: Bool) async throws
+    
+    /// Generates a fresh random nonce for use in the ID-based authentication challenge request.
+    func getNonceForKeycloakIdBasedAuth() async -> Data
+    
+    /// Cryptographically solves a Keycloak ID-based authentication challenge using the owned identity's key.
+    func solveChallengeForKeycloakIdBasedAuth(ownedCryptoId: ObvCryptoId, challenge: Data) async throws -> Data
+    
     // Expected to be implemented by the app
 
     func userOwnedIdentityWasRevokedByKeycloak(_ ownedCryptoId: ObvCryptoId) async
@@ -319,6 +387,9 @@ public actor KeycloakManager: NSObject {
     private static var revocationTestPath = "olvid-rest/revocationTest"
     private static var groupsPath = "olvid-rest/groups"
     private static var transferProofPath = "olvid-rest/transferProof"
+    private static var requestChallengePath = "olvid-rest/requestChallenge"
+    private static var getSessionPath = "olvid-rest/getSession"
+    private static var magicPath = "olvid-rest/getMagicSession" // Exchanges a magic-link token for an access + refresh token pair
 
     private static let errorDomain = "KeycloakManager"
     fileprivate static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "KeycloakManager")
@@ -726,9 +797,13 @@ public actor KeycloakManager: NSObject {
     }
     
 
-    fileprivate func authenticate(configuration: OIDServiceConfiguration, clientId: String, clientSecret: String?, ownedCryptoId: ObvCryptoId?) async throws -> OIDAuthState {
+    fileprivate func authenticateWithOIDC(
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        discoveryResult: KeycloakServerDiscoveryResult,
+        ownedCryptoId: ObvCryptoId?
+    ) async throws -> OIDAuthState {
 
-        Self.logger.info("🧥 Call to authenticate")
+        Self.logger.info("🧥 Call to authenticateWithOIDC")
 
         guard let delegate else {
             assertionFailure()
@@ -746,9 +821,9 @@ public actor KeycloakManager: NSObject {
         additionalParameters["prompt"] = "login consent"
 
         // Builds authentication request
-        let request = OIDAuthorizationRequest(configuration: configuration,
-                                              clientId: clientId,
-                                              clientSecret: clientSecret,
+        let request = OIDAuthorizationRequest(configuration: discoveryResult.oidServiceConfiguration,
+                                              clientId: keycloakConfiguration.clientId,
+                                              clientSecret: keycloakConfiguration.clientSecret,
                                               scopes: [OIDScopeOpenID],
                                               redirectURL: redirectURI,
                                               responseType: OIDResponseTypeCode,
@@ -823,9 +898,214 @@ public actor KeycloakManager: NSObject {
         return authState
         
     }
+    
+    
+    /// Exchanges a one-time magic-link token for an access + refresh token pair.
+    ///
+    /// The token is POSTed as JSON to `olvid-rest/getMagicSession`. On success the tokens are wrapped
+    /// into a synthetic `OIDAuthState` so the rest of the Keycloak flow is unaffected (see
+    /// `createOIDAuthStateFromTokens`).
+    ///
+    /// - Throws: `ObvError.invalidMagicLink` when the server rejects the token (e.g. already used or expired).
+    fileprivate func authenticateWithMagicLink(
+        magicLink: ObvMagicLink,
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        discoveryResult: KeycloakServerDiscoveryResult
+    ) async throws -> OIDAuthState {
+
+        Self.logger.info("🧥 Call to authenticateWithMagicLink")
+
+        let jsonEncoder = JSONEncoder()
+        let dataToSend = try jsonEncoder.encode(magicLink)
+
+        let result: KeycloakManager.APIResultForMagicLinkAuthRequest
+        do {
+            result = try await keycloakApiRequest(
+                serverURL: keycloakConfiguration.keycloakServerURL,
+                path: KeycloakManager.magicPath,
+                accessToken: nil,
+                dataToSend: dataToSend
+            )
+        } catch {
+            Self.logger.error("🧥 Failed to authenticate with magic link: \(error)")
+            if let error = error as? KeycloakManager.KeycloakApiRequestError {
+                switch error {
+                case .invalidRequest:
+                    // The server returns 400 when the magic link has already been consumed or has expired.
+                    throw ObvError.invalidMagicLink
+                default:
+                    throw error
+                }
+            } else {
+                throw error
+            }
+        }
+        
+        let authState = createOIDAuthStateFromTokens(
+            discoveryResult: discoveryResult,
+            keycloakConfiguration: keycloakConfiguration,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken)
+        
+        authState.stateChangeDelegate = self
+        
+        assert(authState.isAuthorized)
+        
+        return authState
+        
+    }
+    
+    /// Performs a silent, non-interactive authentication against the Keycloak server using
+    /// the owned identity's Olvid cryptographic key (ID-based auth).
+    ///
+    /// The flow is:
+    /// 1. Requests a challenge from the server (`requestChallenge` endpoint), supplying a nonce.
+    /// 2. Cryptographically solves the challenge using the owned identity's private key.
+    /// 3. Sends the response to the server (`getSession` endpoint) and receives an access + refresh token.
+    /// 4. Wraps the tokens into a synthetic `OIDAuthState` so the rest of the Keycloak flow is unaffected.
+    ///
+    /// - Throws: `ObvError.unsupportedIdBasedAuthentication` if the server does not advertise ID-based auth.
+    /// - Throws: `ObvError.nonceMismatch` if the server echoes back a different nonce than what was sent.
+    fileprivate func authenticateWithID(
+        ownedCryptoId: ObvCryptoId,
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        discoveryResult: KeycloakServerDiscoveryResult
+    ) async throws -> OIDAuthState {
+        
+        Self.logger.info("🧥 Call to authenticateWithID")
+        
+        guard let delegate else {
+            assertionFailure()
+            throw ObvError.delegateIsNil
+        }
+
+        guard let keycloakStateAndUserDetails = try await delegate.getOwnedIdentityKeycloakState(with: ownedCryptoId) else {
+            Self.logger.fault("🧥 Could not find keycloak state for owned identity. This happens if the user was unbound from a keycloak server.")
+            throw ObvError.noKeycloakStateForOwnedIdentity
+        }
+        
+        let keycloakState = keycloakStateAndUserDetails.keycloakState
+        
+        guard keycloakState.supportedAuthenticationMethods.idBased != nil else {
+            // The Keycloak server does not support ID-based authentication
+            throw ObvError.unsupportedIdBasedAuthentication
+        }
+        
+        // The server advertises ID-based auth, but it may still be disabled per-user.
+        // A 0x0e (permissionDenied) response from getSession handles that case below.
+
+        guard let signedUserDetails = keycloakStateAndUserDetails.signedUserDetails else {
+            Self.logger.fault("🧥 No signed user details")
+            throw ObvError.noSignedUserDetails
+        }
+        
+        let keycloakUserId = signedUserDetails.id
+        
+        // Request a challenge to the keycloak server
+        
+        let nonce = await delegate.getNonceForKeycloakIdBasedAuth()
+        
+        let query = KeycloakManager.APIQueryForKeycloakIdBasedAuthRequestChallenge(keycloakUserId: keycloakUserId, nonce: nonce)
+        let result: KeycloakManager.APIResultForKeycloakIdBasedAuthRequestChallenge = try await keycloakApiRequest(
+            serverURL: keycloakState.keycloakServer,
+            path: KeycloakManager.requestChallengePath,
+            accessToken: nil,
+            dataToSend: query.dataToSend,
+            isJson: false
+        )
+        
+        guard result.nonce == nonce else {
+            assertionFailure()
+            throw ObvError.nonceMismatch
+        }
+        
+        // Solve the challenge
+        
+        let response = try await delegate.solveChallengeForKeycloakIdBasedAuth(ownedCryptoId: ownedCryptoId, challenge: result.challenge)
+        
+        // Send the response to the keycloak server
+        
+        let querySession = KeycloakManager.APIQueryForKeycloakIdBasedAuthRequestSession(challengeResponse: response, nonce: nonce)
+        let resultSession: KeycloakManager.APIResultForKeycloakIdBasedAuthRequestSession
+        do {
+            resultSession = try await keycloakApiRequest(
+                serverURL: keycloakState.keycloakServer,
+                path: KeycloakManager.getSessionPath,
+                accessToken: nil,
+                dataToSend: querySession.dataToSend,
+                isJson: false
+            )
+        } catch KeycloakManager.APIResultForKeycloakIdBasedAuthRequestSession.ObvError.permissionDenied {
+            // ID-based auth is supported by the server but disabled for this user.
+            throw ObvError.supportedIdBasedAuthenticationButPermissionDenied
+        }
+        
+        // Use the refresh token and accessToken
+        
+        let authState = createOIDAuthStateFromTokens(
+            discoveryResult: discoveryResult,
+            keycloakConfiguration: keycloakConfiguration,
+            accessToken: resultSession.accessToken,
+            refreshToken: resultSession.refreshToken)
+        
+        ownedCryptoIdForOIDAuthState[authState] = ownedCryptoId
+        authState.stateChangeDelegate = self
+        
+        assert(authState.isAuthorized)
+        
+        return authState
+
+    }
+    
+    
+    /// Wraps a raw access + refresh token pair into an `OIDAuthState` without going through the normal
+    /// OIDC browser flow.
+    ///
+    /// AppAuth only supports creating an `OIDAuthState` from a full authorisation response. When tokens are
+    /// obtained out-of-band (magic-link or ID-based auth), we bootstrap a synthetic one by constructing a
+    /// dummy `OIDTokenRequest` / `OIDTokenResponse` that satisfies the `OIDAuthState` initialiser. The
+    /// resulting state is indistinguishable from one produced by a normal OIDC flow and is accepted by all
+    /// downstream Keycloak API calls.
+    private func createOIDAuthStateFromTokens(
+        discoveryResult: KeycloakServerDiscoveryResult,
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        accessToken: String,
+        refreshToken: String
+    ) -> OIDAuthState {
+        
+        let dummyTokenRequest = OIDTokenRequest(
+            configuration: discoveryResult.oidServiceConfiguration,
+            grantType: OIDGrantTypeRefreshToken,
+            authorizationCode: nil,
+            redirectURL: nil,
+            clientID: keycloakConfiguration.clientId,
+            clientSecret: keycloakConfiguration.clientSecret,
+            scope: nil,
+            refreshToken: refreshToken,
+            codeVerifier: nil,
+            additionalParameters: nil
+        )
+        
+        let tokenResponse = OIDTokenResponse(
+            request: dummyTokenRequest,
+            parameters: [
+                "access_token":  accessToken  as NSString,
+                "refresh_token": refreshToken as NSString,
+                "token_type":    "Bearer"     as NSString,
+            ])
+        
+        let authState = OIDAuthState(
+            authorizationResponse: nil,
+            tokenResponse: tokenResponse,
+            registrationResponse: nil
+        )
+
+        return authState
+        
+    }
 
     
-    fileprivate func discoverKeycloakServer(for serverURL: URL) async throws -> (ObvJWKSet, OIDServiceConfiguration) {
+    fileprivate func discoverKeycloakServer(for serverURL: URL) async throws -> KeycloakServerDiscoveryResult {
 
         Self.logger.info("🧥 Call to discoverKeycloakServer")
 
@@ -839,7 +1119,38 @@ public actor KeycloakManager: NSObject {
         
         let jwks = try ObvJWKSet(data: jwksData)
         
-        return (jwks, configuration)
+        // Discover the well-known
+        
+        let olvidWellKnown: OlvidWellKnownJson?
+        do {
+            olvidWellKnown = try await self.discoverKeycloakServerOlvidWellKnown(for: serverURL)
+        } catch {
+            olvidWellKnown = nil
+        }
+        
+        let result = KeycloakServerDiscoveryResult(jwkSet: jwks, oidServiceConfiguration: configuration, olvidWellKnown: olvidWellKnown)
+        
+        return result
+
+    }
+    
+    
+    /// Fetches and decodes the Olvid-specific well-known document from `<serverURL>/.well-known/olvid`.
+    /// Returns `nil` gracefully if the server does not host this document (which happens for legacy versions of the Olvid Keycloak plugin).
+    fileprivate func discoverKeycloakServerOlvidWellKnown(for serverURL: URL) async throws -> OlvidWellKnownJson {
+        
+        let wellKnownURL = serverURL.appendingPathComponent(".well-known/olvid")
+        
+        let (responseData, response) = try await URLSession.shared.data(from: wellKnownURL)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            // This happens on old versions of the keycloak plugin
+            throw ObvError.badHTTPURLResponse(statusCode: (response as? HTTPURLResponse)?.statusCode)
+        }
+        
+        let olvidWellKnown: OlvidWellKnownJson = try OlvidWellKnownJson.decode(responseData)
+        
+        return olvidWellKnown
 
     }
     
@@ -918,7 +1229,15 @@ public actor KeycloakManager: NSObject {
     }
 
     /// Throws a GetOwnDetailsError
-    fileprivate func getOwnDetails(keycloakServer: URL, authState: OIDAuthState, clientSecret: String?, jwks: ObvJWKSet, latestLocalRevocationListTimestamp: Date?) async throws(GetOwnDetailsError) -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff) {
+    fileprivate func getOwnDetails(
+        keycloakServerURL: URL,
+        authState: OIDAuthState,
+        jwks: ObvJWKSet,
+        latestLocalRevocationListTimestamp: Date?
+    ) async throws(GetOwnDetailsError) -> (
+        keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff,
+        keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff
+    ) {
         
         Self.logger.info("🧥 Call to getOwnDetails")
         
@@ -943,7 +1262,7 @@ public actor KeycloakManager: NSObject {
 
         let apiResult: KeycloakManager.ApiResultForMePath
         do {
-            apiResult = try await keycloakApiRequest(serverURL: keycloakServer, path: KeycloakManager.mePath, accessToken: accessToken, dataToSend: dataToSend)
+            apiResult = try await keycloakApiRequest(serverURL: keycloakServerURL, path: KeycloakManager.mePath, accessToken: accessToken, dataToSend: dataToSend)
         } catch let error as KeycloakApiRequestError {
             switch error {
             case .permissionDenied:
@@ -1105,7 +1424,63 @@ public actor KeycloakManager: NSObject {
             Self.logger.info("🧥 The owned identity is not bound to a keycloak server anymore. We cancel the sync process with the server")
             return
         }
+        
+        // Do not synchronize to often
             
+        let lastSynchronizationDate = getLastSynchronizationDate(forOwnedIdentity: ownedCryptoId)
+        
+        assert(Date.now.timeIntervalSince(lastSynchronizationDate) > 0)
+        
+        let timeIntervalSinceLastSynchronizationDate = Date.now.timeIntervalSince(lastSynchronizationDate)
+        guard timeIntervalSinceLastSynchronizationDate > self.synchronizationInterval || ignoreSynchronizationInterval else {
+            Self.logger.info("🧥 No need to sync as the last sync occured \(Int(timeIntervalSinceLastSynchronizationDate)) seconds ago")
+            return
+        }
+
+        // If we reach this point, we should synchronize the owned identity with the keycloak server
+
+        // Start with the well-known
+        
+        let keycloakServerURL: URL
+        do {
+            keycloakServerURL = try await delegate.getOwnedIdentityKeycloakServer(ownedCryptoId)
+        } catch {
+            Self.logger.fault("🧥 Could not deternine the keycloak server URL for the owned identity: \(error)")
+            assertionFailure("Unexpected as we just checked that the profile is keycloak managed")
+            return
+        }
+        
+        let olvidWellKnown: OlvidWellKnownJson?
+        do {
+            olvidWellKnown = try await self.discoverKeycloakServerOlvidWellKnown(for: keycloakServerURL)
+        } catch {
+            Self.logger.error("🧥 Could not obtain OlvidWellKnownJson: \(error)")
+            olvidWellKnown = nil
+        }
+        
+        if let olvidWellKnown {
+            
+            do {
+                try await delegate.setOwnedIdentityKeycloakSupportsIdBasedAuth(
+                    ownedCryptoId: ownedCryptoId,
+                    supportsIdBasedAuth: olvidWellKnown.supportsIdBasedAuth
+                )
+            } catch {
+                Self.logger.fault("🧥 Could not set the keycloak supportsIdBasedAuth: \(error)")
+                assertionFailure()
+            }
+
+            if let minimumBuildVersion = olvidWellKnown.minBuildVersions?.iOS {
+                if ObvAppCoreConstants.bundleVersionAsInt < minimumBuildVersion {
+                    await delegate.installedOlvidAppIsOutdated(presentingViewController: nil)
+                    return
+                }
+            }
+            
+        }
+
+        // Get the internal keycloak state
+        
         let iks: InternalKeycloakState
         do {
             iks = try await getInternalKeycloakState(for: ownedCryptoId)
@@ -1121,17 +1496,7 @@ public actor KeycloakManager: NSObject {
             return
         }
         
-        let lastSynchronizationDate = getLastSynchronizationDate(forOwnedIdentity: ownedCryptoId)
-        
-        assert(Date().timeIntervalSince(lastSynchronizationDate) > 0)
-        
-        let timeIntervalSinceLastSynchronizationDate = Date().timeIntervalSince(lastSynchronizationDate)
-        guard timeIntervalSinceLastSynchronizationDate > self.synchronizationInterval || ignoreSynchronizationInterval else {
-            Self.logger.info("🧥 No need to sync as the last sync occured \(Int(timeIntervalSinceLastSynchronizationDate)) seconds ago")
-            return
-        }
-        
-        // If we reach this point, we should synchronize the owned identity with the keycloak server
+        // Get owned details
         
         let latestLocalRevocationListTimestamp: Date
         if let timestamp = iks.latestRevocationListTimestamp {
@@ -1142,11 +1507,12 @@ public actor KeycloakManager: NSObject {
         
         let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff): (KeycloakUserDetailsAndStuff, KeycloakServerRevocationsAndStuff)
         do {
-            (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff) = try await getOwnDetails(keycloakServer: iks.keycloakServer,
-                                                                                                       authState: iks.authState,
-                                                                                                       clientSecret: iks.clientSecret,
-                                                                                                       jwks: iks.jwks,
-                                                                                                       latestLocalRevocationListTimestamp: latestLocalRevocationListTimestamp)
+            (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff) = try await getOwnDetails(
+                keycloakServerURL: iks.keycloakServer,
+                authState: iks.authState,
+                jwks: iks.jwks,
+                latestLocalRevocationListTimestamp: latestLocalRevocationListTimestamp
+            )
         } catch {
             switch error {
             case .authenticationRequired:
@@ -1666,16 +2032,16 @@ public actor KeycloakManager: NSObject {
                 return try await getInternalKeycloakState(for: ownedCryptoId, failedAttempts: failedAttempts + 1)
             }
             
-            let internalKeycloakState = InternalKeycloakState(keycloakServer: obvKeycloakState.keycloakServer,
-                                                              clientId: obvKeycloakState.clientId,
-                                                              clientSecret: obvKeycloakState.clientSecret,
-                                                              jwks: obvKeycloakState.jwks,
-                                                              authState: authState,
-                                                              signatureVerificationKey: obvKeycloakState.signatureVerificationKey,
-                                                              accessToken: accessToken,
-                                                              latestGroupUpdateTimestamp: obvKeycloakState.latestGroupUpdateTimestamp,
-                                                              latestRevocationListTimestamp: obvKeycloakState.latestLocalRevocationListTimestamp,
-                                                              signedOwnedDetails: signedOwnedDetails)
+            let internalKeycloakState = InternalKeycloakState(
+                keycloakServer: obvKeycloakState.keycloakServer,
+                jwks: obvKeycloakState.jwks,
+                authState: authState,
+                signatureVerificationKey: obvKeycloakState.signatureVerificationKey,
+                accessToken: accessToken,
+                latestGroupUpdateTimestamp: obvKeycloakState.latestGroupUpdateTimestamp,
+                latestRevocationListTimestamp: obvKeycloakState.latestLocalRevocationListTimestamp,
+                signedOwnedDetails: signedOwnedDetails,
+                supportedAuthenticationMethods: obvKeycloakState.supportedAuthenticationMethods)
             
             return internalKeycloakState
             
@@ -1699,7 +2065,7 @@ public actor KeycloakManager: NSObject {
     }
 
 
-    private func discoverKeycloakServerAndSaveJWKSet(for serverURL: URL, ownedCryptoId: ObvCryptoId) async throws -> (ObvJWKSet, OIDServiceConfiguration) {
+    private func discoverKeycloakServerAndSaveJWKSet(for serverURL: URL, ownedCryptoId: ObvCryptoId) async throws -> KeycloakServerDiscoveryResult {
         Self.logger.info("🧥 Call to discoverKeycloakServerAndSaveJWKSet")
         
         guard let delegate else {
@@ -1707,14 +2073,14 @@ public actor KeycloakManager: NSObject {
             throw ObvError.delegateIsNil
         }
         
-        let (jwks, configuration) = try await discoverKeycloakServer(for: serverURL)
+        let keycloakServerDiscoveryResult = try await discoverKeycloakServer(for: serverURL)
         // Save the jwks in DB
         do {
-            try await delegate.saveKeycloakJwks(with: ownedCryptoId, jwks: jwks)
+            try await delegate.saveKeycloakJwks(with: ownedCryptoId, jwks: keycloakServerDiscoveryResult.jwkSet)
         } catch {
             throw Self.makeError(message: "Cannot save JWKSet")
         }
-        return (jwks, configuration)
+        return keycloakServerDiscoveryResult
     }
 
 
@@ -1848,11 +2214,22 @@ public actor KeycloakManager: NSObject {
         case OIDAuthStateDeserializationFailed
         case unexpectedError
         case maxFailedAttempsReached(error: Error)
+        case badHTTPURLResponse(statusCode: Int?)
+        case nonceMismatch
+        case unsupportedIdBasedAuthentication
+        case supportedIdBasedAuthenticationButPermissionDenied
+        case noSignedUserDetails
+        case noKeycloakStateForOwnedIdentity
+        /// The magic link was rejected by the server — it has already been consumed or has expired.
+        case invalidMagicLink
     }
     
 
     // Throws a KeycloakApiRequestError
-    private func keycloakApiRequest<T: KeycloakManagerApiResult>(serverURL: URL, path: String, accessToken: String?, dataToSend: Data?) async throws -> T {
+    /// - Parameter isJson: When `true` (default), sets `Content-Type: application/json`.
+    ///   Set to `false` for ID-based auth endpoints, which use `Content-Type: application/bytes`
+    ///   and expect `ObvEncoded` binary bodies.
+    private func keycloakApiRequest<T: KeycloakManagerApiResult>(serverURL: URL, path: String, accessToken: String?, dataToSend: Data?, isJson: Bool = true) async throws -> T {
 
         Self.logger.info("🧥 Call to keycloakApiRequest for path: \(path)")
 
@@ -1867,7 +2244,11 @@ public actor KeycloakManager: NSObject {
         var urlRequest = URLRequest(url: url, timeoutInterval: 10.5)
         if dataToSend != nil {
             urlRequest.httpMethod = "POST"
-            urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            if isJson {
+                urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            } else {
+                urlRequest.setValue("application/bytes", forHTTPHeaderField: "Content-Type")
+            }
         }
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
@@ -1983,7 +2364,12 @@ extension KeycloakManager {
 
     /// This method is shared by the two methods called when the user needs to authenticate. This happens when the token expires and when the user id changes.
     /// Throws a KeycloakDialogError.
-    private func selfTestAndOpenKeycloakAuthenticationRequired(serverURL: URL, clientId: String, clientSecret: String?, ownedCryptoId: ObvCryptoId, title: String, message: String) async throws {
+    private func selfTestAndOpenKeycloakAuthenticationRequired(
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        ownedCryptoId: ObvCryptoId,
+        title: String,
+        message: String
+    ) async throws {
         Self.logger.info("🧥 Call to selfTestAndOpenKeycloakAuthenticationRequired")
 
         guard let delegate else {
@@ -1997,14 +2383,22 @@ extension KeycloakManager {
             
             // If reach this point, we make sure we can reach the keycloak server. To so, we perform a selfRevocationTest with a empty nonce.
             // If this test throws, the user is not prompted to authenticate.
-            _ = try await selfRevocationTest(serverURL: serverURL, selfRevocationTestNonce: "")
+            _ = try await selfRevocationTest(serverURL: keycloakConfiguration.keycloakServerURL, selfRevocationTestNonce: "")
             
             // If we reach this point, we have no selfRevocationTestNonceFromEngine, we can immediately prompt for authentication
-            try await openKeycloakAuthenticationRequired(serverURL: serverURL, clientId: clientId, clientSecret: clientSecret, ownedCryptoId: ownedCryptoId, title: title, message: message)
+            try await openKeycloakAuthenticationRequired(
+                keycloakConfiguration: keycloakConfiguration,
+                ownedCryptoId: ownedCryptoId,
+                title: title,
+                message: message
+            )
             return
         }
         
-        let isRevoked = try await selfRevocationTest(serverURL: serverURL, selfRevocationTestNonce: selfRevocationTestNonceFromEngine)
+        let isRevoked = try await selfRevocationTest(
+            serverURL: keycloakConfiguration.keycloakServerURL,
+            selfRevocationTestNonce: selfRevocationTestNonceFromEngine
+        )
         
         if isRevoked {
             // The server returned `true`, the identity is no longer managed
@@ -2019,7 +2413,12 @@ extension KeycloakManager {
                 throw KeycloakDialogError.keycloakManagerError(error)
             }
         } else {
-            try await openKeycloakAuthenticationRequired(serverURL: serverURL, clientId: clientId, clientSecret: clientSecret, ownedCryptoId: ownedCryptoId, title: title, message: message)
+            try await openKeycloakAuthenticationRequired(
+                keycloakConfiguration: keycloakConfiguration,
+                ownedCryptoId: ownedCryptoId,
+                title: title,
+                message: message
+            )
         }
         
     }
@@ -2050,63 +2449,101 @@ extension KeycloakManager {
     /// Shall only be called from selfTestAndOpenKeycloakAuthenticationRequired.
     /// Throws a KeycloakDialogError
     @MainActor
-    private func openKeycloakAuthenticationRequired(serverURL: URL, clientId: String, clientSecret: String?, ownedCryptoId: ObvCryptoId, title: String, message: String) async throws {
-
-        Self.logger.info("🧥 Call to openKeycloakAuthenticationRequired")
-        assert(Thread.isMainThread)
-        
-        Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Will request keycloakSceneDelegate")
-        guard let keycloakSceneDelegate = await keycloakSceneDelegate else {
-            Self.logger.error("🧥 In openKeycloakAuthenticationRequired: could not get keycloakSceneDelegate")
-            assertionFailure()
-            throw Self.makeError(message: "The keycloakSceneDelegate is not set")
-        }
-        Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Did obtain keycloakSceneDelegate")
-
-        Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Will request view controller for presenting")
-        let viewController = try await keycloakSceneDelegate.requestViewControllerForPresenting()
-        Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Did obtain view controller for presenting")
-
-        let displayName = await delegate?.getOwnedIdentityDisplayName(ownedCryptoId)
-
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-         
+    private func openKeycloakAuthenticationRequired(
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        ownedCryptoId: ObvCryptoId,
+        title: String,
+        message: String) async throws {
+            
+            Self.logger.info("🧥 Call to openKeycloakAuthenticationRequired")
             assert(Thread.isMainThread)
 
-            let menu = UIAlertController(title: title, message: message, preferredStyle: UIDevice.current.actionSheetIfPhoneAndAlertOtherwise)
-                        
-            let authenticateActionTitle = Strings.authenticateActionTitle(displayName: displayName)
-            let authenticateAction = UIAlertAction(title: authenticateActionTitle, style: .default) { _ in
-                Self.logger.info("🧥 In openKeycloakAuthenticationRequired: Performing alert's authentication action")
-                Task { [weak self] in
-                    guard let _self = self else { return }
-                    do {
-                        let (jwks, configuration) = try await _self.discoverKeycloakServerAndSaveJWKSet(for: serverURL, ownedCryptoId: ownedCryptoId)
-                        let authState = try await _self.authenticate(configuration: configuration, clientId: clientId, clientSecret: clientSecret, ownedCryptoId: ownedCryptoId)
-                        await _self.reAuthenticationSuccessful(ownedCryptoId: ownedCryptoId, jwks: jwks, authState: authState)
-                        continuation.resume()
-                    } catch {
-                        continuation.resume(throwing: KeycloakDialogError.keycloakManagerError(error))
-                        return
-                    }
+            let discoveryResult = try await discoverKeycloakServerAndSaveJWKSet(
+                for: keycloakConfiguration.keycloakServerURL,
+                ownedCryptoId: ownedCryptoId
+            )
+
+            // We first try to authenticate using ID-based authentication
+            
+            do {
+                
+                let authState = try await self.authenticateWithID(
+                    ownedCryptoId: ownedCryptoId,
+                    keycloakConfiguration: keycloakConfiguration,
+                    discoveryResult: discoveryResult
+                )
+                
+                await reAuthenticationSuccessful(ownedCryptoId: ownedCryptoId, jwks: discoveryResult.jwkSet, authState: authState)
+
+                return
+                
+            } catch {
+                switch (error as? KeycloakManager.ObvError) {
+                case .unsupportedIdBasedAuthentication:
+                    KeycloakManager.logger.info("🧥 ID-based authentication is not supported")
+                case .supportedIdBasedAuthenticationButPermissionDenied:
+                    KeycloakManager.logger.info("🧥 ID-based authentication is supported but denied for this user")
+                default:
+                    KeycloakManager.logger.error("🧥 ID-based authentication failed: \(error, privacy: .public)")
                 }
             }
             
-            let cancelAction = UIAlertAction(title: String(localized: "Cancel"), style: .cancel) { _ in
-                Self.logger.info("🧥 In openKeycloakAuthenticationRequired: Performing alert's cancel action")
-                continuation.resume(throwing: KeycloakDialogError.userHasCancelled)
-                return
+            // We fallback on OIDC authentication
+            
+            Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Will request keycloakSceneDelegate")
+            guard let keycloakSceneDelegate = await keycloakSceneDelegate else {
+                Self.logger.error("🧥 In openKeycloakAuthenticationRequired: could not get keycloakSceneDelegate")
+                assertionFailure()
+                throw Self.makeError(message: "The keycloakSceneDelegate is not set")
+            }
+            Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Did obtain keycloakSceneDelegate")
+            
+            Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Will request view controller for presenting")
+            let viewController = try await keycloakSceneDelegate.requestViewControllerForPresenting()
+            Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Did obtain view controller for presenting")
+            
+            let displayName = await delegate?.getOwnedIdentityDisplayName(ownedCryptoId)
+            
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                
+                assert(Thread.isMainThread)
+                
+                let menu = UIAlertController(title: title, message: message, preferredStyle: UIDevice.current.actionSheetIfPhoneAndAlertOtherwise)
+                
+                let authenticateActionTitle = Strings.authenticateActionTitle(displayName: displayName)
+                let authenticateAction = UIAlertAction(title: authenticateActionTitle, style: .default) { _ in
+                    Self.logger.info("🧥 In openKeycloakAuthenticationRequired: Performing alert's authentication action")
+                    Task { [weak self] in
+                        guard let _self = self else { return }
+                        do {
+                            let authState = try await _self.authenticateWithOIDC(
+                                keycloakConfiguration: keycloakConfiguration,
+                                discoveryResult: discoveryResult,
+                                ownedCryptoId: ownedCryptoId)
+                            await _self.reAuthenticationSuccessful(ownedCryptoId: ownedCryptoId, jwks: discoveryResult.jwkSet, authState: authState)
+                            continuation.resume()
+                        } catch {
+                            continuation.resume(throwing: KeycloakDialogError.keycloakManagerError(error))
+                            return
+                        }
+                    }
+                }
+                
+                let cancelAction = UIAlertAction(title: String(localized: "Cancel"), style: .cancel) { _ in
+                    Self.logger.info("🧥 In openKeycloakAuthenticationRequired: Performing alert's cancel action")
+                    continuation.resume(throwing: KeycloakDialogError.userHasCancelled)
+                    return
+                }
+                
+                menu.addAction(authenticateAction)
+                menu.addAction(cancelAction)
+                
+                Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Will present alert")
+                viewController.present(menu, animated: true, completion: nil)
+                
             }
             
-            menu.addAction(authenticateAction)
-            menu.addAction(cancelAction)
-            
-            Self.logger.debug("🧥 In openKeycloakAuthenticationRequired: Will present alert")
-            viewController.present(menu, animated: true, completion: nil)
-
         }
-
-    }
 
 
     @MainActor
@@ -2138,12 +2575,12 @@ extension KeycloakManager {
     private func openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState iks: InternalKeycloakState, ownedCryptoId: ObvCryptoId) async throws {
         Self.logger.info("🧥 Call to openKeycloakAuthenticationRequiredTokenExpired")
         let displayName = await delegate?.getOwnedIdentityDisplayName(ownedCryptoId)
-        try await selfTestAndOpenKeycloakAuthenticationRequired(serverURL: iks.keycloakServer,
-                                                                clientId: iks.clientId,
-                                                                clientSecret: iks.clientSecret,
-                                                                ownedCryptoId: ownedCryptoId,
-                                                                title: Strings.authenticationRequiredTokenExpired(displayName: displayName),
-                                                                message: Strings.AuthenticationRequiredTokenExpiredMessage)
+        try await selfTestAndOpenKeycloakAuthenticationRequired(
+            keycloakConfiguration: iks.keycloakConfiguration,
+            ownedCryptoId: ownedCryptoId,
+            title: Strings.authenticationRequiredTokenExpired(displayName: displayName),
+            message: Strings.AuthenticationRequiredTokenExpiredMessage
+        )
     }
 
 
@@ -2151,24 +2588,24 @@ extension KeycloakManager {
     private func openKeycloakAuthenticationRequiredTokenExpired(obvKeycloakState oks: ObvKeycloakState, ownedCryptoId: ObvCryptoId) async throws {
         Self.logger.info("🧥 Call to openKeycloakAuthenticationRequiredTokenExpired")
         let displayName = await delegate?.getOwnedIdentityDisplayName(ownedCryptoId)
-        try await selfTestAndOpenKeycloakAuthenticationRequired(serverURL: oks.keycloakServer,
-                                                                clientId: oks.clientId,
-                                                                clientSecret: oks.clientSecret,
-                                                                ownedCryptoId: ownedCryptoId,
-                                                                title: Strings.authenticationRequiredTokenExpired(displayName: displayName),
-                                                                message: Strings.AuthenticationRequiredTokenExpiredMessage)
+        try await selfTestAndOpenKeycloakAuthenticationRequired(
+            keycloakConfiguration: oks.keycloakConfiguration,
+            ownedCryptoId: ownedCryptoId,
+            title: Strings.authenticationRequiredTokenExpired(displayName: displayName),
+            message: Strings.AuthenticationRequiredTokenExpiredMessage
+        )
     }
 
 
     /// Throws a KeycloakDialogError
     private func openKeycloakAuthenticationRequiredUserIdChanged(internalKeycloakState iks: InternalKeycloakState, ownedCryptoId: ObvCryptoId) async throws {
         Self.logger.info("🧥 Call to openKeycloakAuthenticationRequiredUserIdChanged")
-        try await selfTestAndOpenKeycloakAuthenticationRequired(serverURL: iks.keycloakServer,
-                                                                clientId: iks.clientId,
-                                                                clientSecret: iks.clientSecret,
-                                                                ownedCryptoId: ownedCryptoId,
-                                                                title: Strings.AuthenticationRequiredUserIdChanged,
-                                                                message: Strings.AuthenticationRequiredUserIdChangedMessage)
+        try await selfTestAndOpenKeycloakAuthenticationRequired(
+            keycloakConfiguration: iks.keycloakConfiguration,
+            ownedCryptoId: ownedCryptoId,
+            title: Strings.AuthenticationRequiredUserIdChanged,
+            message: Strings.AuthenticationRequiredUserIdChangedMessage
+        )
     }
 
 
@@ -2356,8 +2793,6 @@ extension KeycloakManager {
 
 fileprivate struct InternalKeycloakState {
     let keycloakServer: URL
-    let clientId: String
-    let clientSecret: String?
     let jwks: ObvJWKSet
     let authState: OIDAuthState
     let signatureVerificationKey: ObvJWK?
@@ -2365,6 +2800,19 @@ fileprivate struct InternalKeycloakState {
     let latestGroupUpdateTimestamp: Date?
     let latestRevocationListTimestamp: Date?
     let signedOwnedDetails: SignedObvKeycloakUserDetails? // Our owned details, signed by the keycloak server, as we know them locally in the identity manager
+    let supportedAuthenticationMethods: SupportedAuthenticationMethods
+
+    var clientId: String { supportedAuthenticationMethods.openIdConnect.clientId }
+    var clientSecret: String? { supportedAuthenticationMethods.openIdConnect.clientSecret }
+
+    /// Convenience accessor that reconstructs the `ObvKeycloakConfiguration` from the internal state,
+    /// used when calling authentication helpers that require the full configuration.
+    var keycloakConfiguration: ObvKeycloakConfiguration {
+        .init(keycloakServerURL: keycloakServer,
+              clientId: supportedAuthenticationMethods.openIdConnect.clientId,
+              clientSecret: supportedAuthenticationMethods.openIdConnect.clientSecret)
+    }
+
 }
 
 

@@ -28,6 +28,7 @@ import ObvEngine
 import ObvUIObvCircledInitials
 import ObvSettings
 import ObvAppTypes
+import ObvDesignSystem
 
 
 @objc(PersistedGroupV2)
@@ -394,7 +395,9 @@ public final class PersistedGroupV2: NSManagedObject {
     }
     
 
-    private func updateRelationships(obvGroupV2: ObvGroupV2, shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: Bool, isRestoringSyncSnapshotOrBackup: Bool) throws {
+    private func updateRelationships(obvGroupV2: ObvGroupV2,
+                                     shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: Bool,
+                                     isRestoringSyncSnapshotOrBackup: Bool) throws {
         
         guard let context = managedObjectContext else {
             assertionFailure()
@@ -499,7 +502,8 @@ public final class PersistedGroupV2: NSManagedObject {
             _ = try PersistedGroupV2Member(identityAndPermissionsAndDetails: memberToInsert,
                                            groupIdentifier: obvGroupV2.appGroupIdentifier,
                                            ownCryptoId: obvGroupV2.ownIdentity,
-                                           persistedGroupV2: self, 
+                                           persistedGroupV2: self,
+                                           groupLastModificationTimestamp: obvGroupV2.lastModificationTimestamp,
                                            isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
         }
         
@@ -1363,7 +1367,7 @@ public final class PersistedGroupV2: NSManagedObject {
     }
     
     
-    func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: String?) throws {
+    func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: AttributedString?) throws {
         
         guard self.ownedIdentityIdentity == ownedIdentity.identity else {
             throw ObvUICoreDataError.ownedIdentityIsNotPartOfThisGroup
@@ -1724,7 +1728,7 @@ public final class PersistedGroupV2: NSManagedObject {
 @objc(PersistedGroupV2Member)
 public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
     
-    private static let entityName = "PersistedGroupV2Member"
+    fileprivate static let entityName = "PersistedGroupV2Member"
 
     // Attributes
     
@@ -1742,6 +1746,9 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
     @NSManaged private var permissionRemoteDeleteAnything: Bool
     @NSManaged private var permissionSendMessage: Bool
     @NSManaged private var position: String?
+    @NSManaged private var rawDateCreated: Date? // Non-optional in the model
+    @NSManaged private var rawDateUnpended: Date?
+    @NSManaged private var rawNeedsReplayOfPastEvents: Bool
     @NSManaged private var rawOwnedIdentityIdentity: Data // Part of primary key
 
     // Relationships
@@ -1918,6 +1925,17 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
 
     /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
     private var isInsertedWhileRestoringSyncSnapshot = false
+    
+    var dateCreated: Date {
+        get throws {
+            guard let rawDateCreated else { assertionFailure(); throw ObvUICoreDataError.rawDateCreatedIsNil}
+            return rawDateCreated
+        }
+    }
+    
+    var dateUnpended: Date? {
+        rawDateUnpended
+    }
 
     // MARK: - Observers
     
@@ -1929,7 +1947,12 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
 
     // Initializer
     
-    fileprivate convenience init(identityAndPermissionsAndDetails: ObvGroupV2.IdentityAndPermissionsAndDetails, groupIdentifier: Data, ownCryptoId: ObvCryptoId, persistedGroupV2: PersistedGroupV2, isRestoringSyncSnapshotOrBackup: Bool) throws {
+    fileprivate convenience init(identityAndPermissionsAndDetails: ObvGroupV2.IdentityAndPermissionsAndDetails,
+                                 groupIdentifier: Data,
+                                 ownCryptoId: ObvCryptoId,
+                                 persistedGroupV2: PersistedGroupV2,
+                                 groupLastModificationTimestamp: Date,
+                                 isRestoringSyncSnapshotOrBackup: Bool) throws {
         
         guard let context = persistedGroupV2.managedObjectContext else {
             assertionFailure()
@@ -1960,9 +1983,13 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         }
 
         self.groupIdentifier = groupIdentifier
-        try self.updateWith(identityAndPermissionsAndDetails: identityAndPermissionsAndDetails)
+        self.rawDateCreated = groupLastModificationTimestamp
         self.rawOwnedIdentityIdentity = ownCryptoId.getIdentity()
+        self.rawDateUnpended = nil // Updated in updateWith(...)
+        self.rawNeedsReplayOfPastEvents = false // Updated in updateWith(...)
         
+        try self.updateWith(identityAndPermissionsAndDetails: identityAndPermissionsAndDetails)
+
     }
     
 
@@ -1972,6 +1999,19 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         }
         if self.isPending != identityAndPermissionsAndDetails.isPending {
             self.isPending = identityAndPermissionsAndDetails.isPending
+            if !self.isPending {
+                // The member switched from pending to non-pending
+                assert(self.rawDateUnpended == nil, "We don't expect a member to switch from pending to non-pending more than once")
+                assert(self.rawDateCreated != nil, "rawDateCreated should be set before calling this method")
+                assert(!self.rawNeedsReplayOfPastEvents)
+                if let dateCreated = self.rawDateCreated {
+                    let dateUnpended = max(Date.now, dateCreated)
+                    self.rawDateUnpended = dateUnpended
+                    if dateUnpended > dateCreated, !rawNeedsReplayOfPastEvents {
+                        self.rawNeedsReplayOfPastEvents = true
+                    }
+                }
+            }
         }
         if self.permissionAdmin != identityAndPermissionsAndDetails.permissions.contains(.groupAdmin) {
             self.permissionAdmin = identityAndPermissionsAndDetails.permissions.contains(.groupAdmin)
@@ -2111,6 +2151,12 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
     }
 
     
+    private func resetNeedsReplayOfPastEvents() {
+        guard self.rawNeedsReplayOfPastEvents else { return }
+        self.rawNeedsReplayOfPastEvents = false
+    }
+    
+    
     // MARK: Convenience DB getters
 
     @nonobjc class func fetchRequest() -> NSFetchRequest<PersistedGroupV2Member> {
@@ -2133,6 +2179,9 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
             case permissionRemoteDelete = "permissionRemoteDelete"
             case permissionSendMessage = "permissionSendMessage"
             case position = "position"
+            case rawDateCreated = "rawDateCreated"
+            case rawDateUnpended = "rawDateUnpended"
+            case rawNeedsReplayOfPastEvents = "rawNeedsReplayOfPastEvents"
             case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
             // Relationships
             case rawContact = "rawContact"
@@ -2181,8 +2230,78 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         static var notPending: NSPredicate {
             NSPredicate(Key.isPending, is: false)
         }
+        static func needsReplayOfPastEvents(is bool: Bool) -> NSPredicate {
+            NSPredicate(Key.rawNeedsReplayOfPastEvents, is: bool)
+        }
+        static func withObjectIDIn(objectIDs: [TypeSafeManagedObjectID<PersistedGroupV2Member>]) -> NSPredicate {
+            NSPredicate(withObjectIDIn: objectIDs.map({ $0.objectID }))
+        }
     }
 
+    
+    /// Returns a list of all group members such that the `NeedsReplayOfPastEvents` flag is `true`, and that can be "reached" (thanks to a secure channel or a pre-key).
+    ///
+    /// Method called during bootstrap, in case the app what quit before, e.g., we could process a notification that would have lead to the re-sending of past events
+    /// (i.e., own reactions and own poll votes) in a group v2 discussion.
+    public static func getGroupMembersThatNeedReplayOfPastEvents(within context: NSManagedObjectContext) throws -> [(groupIdentifier: ObvGroupV2Identifier, memberCryptoId: ObvCryptoId)] {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.needsReplayOfPastEvents(is: true),
+        ])
+        request.fetchBatchSize = 100
+        let fetchResults = try context.fetch(request)
+        let members: [(groupIdentifier: ObvGroupV2Identifier, memberCryptoId: ObvCryptoId)] = fetchResults.compactMap { member in
+            guard let groupIdentifier = try? member.persistedGroup.obvGroupIdentifier else { assertionFailure(); return nil }
+            guard let memberCryptoId = member.cryptoId else { assertionFailure(); return nil }
+            return (groupIdentifier, memberCryptoId)
+        }
+        return members
+    }
+    
+    
+    /// Determines the list of groups (v2) where a newly reachable contact meets specific criteria.
+    ///
+    /// This method is called when a contact becomes reachable. It identifies all groups (v2) where the contact:
+    /// - Is a **non-pending member**,
+    /// - Has the `NeedsReplayOfPastEvents` flag set to `true`.
+    ///
+    /// The returned list of groups is used by the caller to request a replay of past events for the contact. This replay ensures that the contact receives:
+    /// - Own reactions to messages sent during the time they were pending in the group.
+    /// - Own poll votes related to messages with timestamps within the interval when the contact was pending.
+    public static func getGroupsWhereMembersNeedsReplayOfPastEvents(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> [ObvGroupV2Identifier] {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(contactIdentifier.ownedCryptoId),
+            Predicate.withCryptoId(contactIdentifier.contactCryptoId),
+            Predicate.needsReplayOfPastEvents(is: true),
+        ])
+        request.fetchBatchSize = 100
+        let fetchResults = try context.fetch(request)
+        let groupIdentifiers: [ObvGroupV2Identifier] = fetchResults.compactMap { try? $0.persistedGroup.obvGroupIdentifier }
+        return groupIdentifiers
+    }
+    
+    
+    /// Updates the member's `needsReplayOfPastEvents` flag to `false` to indicate that the replay process is complete.
+    ///
+    /// When a group member's status transitions from pending to non-pending, we ensure they receive:
+    /// - The current user's reactions on messages sent or received in the group during the member's pending period.
+    /// - The current user's poll votes on polls sent or received in the group during the member's pending period.
+    ///
+    /// After sending these missed interactions, we call this method to update the member's `needsReplayOfPastEvents` flag to `false`
+    /// to indicate that the replay process is complete.
+    public static func resetNeedsReplayOfPastEvents(groupIdentifier: ObvGroupV2Identifier, memberCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.fetchLimit = 1
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupV2Identifier(groupV2Identifier: groupIdentifier),
+            Predicate.withCryptoId(memberCryptoId),
+            Predicate.needsReplayOfPastEvents(is: true),
+        ])
+        guard let member = try context.fetch(request).first else { assertionFailure(); return }
+        member.resetNeedsReplayOfPastEvents()
+    }
+    
     
     /// Return `true` iff there exist a group member with the specified `memberCryptoId` in the group specified by `groupId`, such that the member is not pending and has a non-nil relationship
     /// with a `PersistedObvContactIdentity`.
@@ -2200,6 +2319,32 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         return !result.isEmpty
     }
 
+    public struct DateInterval {
+        let startDate: Date
+        let endDate: Date
+    }
+    
+    public enum DatesIntervalToReplayPastEvents {
+        case replayOfPastEventsBetween(dateInterval: DateInterval)
+        case noNeedToReplayPastEvents
+    }
+    
+    
+    public static func getDatesIntervalToReplayPastEvents(groupId: ObvGroupV2Identifier, memberCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> DatesIntervalToReplayPastEvents {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.fetchLimit = 1
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupV2Identifier(groupV2Identifier: groupId),
+            Predicate.withCryptoId(memberCryptoId),
+            Predicate.needsReplayOfPastEvents(is: true),
+        ])
+        guard let member = try context.fetch(request).first else { return .noNeedToReplayPastEvents }
+        let startDate = try member.dateCreated
+        guard let endDate = member.dateUnpended else { return .noNeedToReplayPastEvents }
+        assert(startDate <= endDate)
+        return .replayOfPastEventsBetween(dateInterval: .init(startDate: startDate, endDate: endDate))
+    }
+    
     
     public static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedGroupV2Member? {
         let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
@@ -2386,12 +2531,8 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
             return
         }
         
-        if changedKeys.contains(Predicate.Key.isPending.rawValue), !self.isPending, let contactObjectID = contact?.typedObjectID {
-            ObvMessengerCoreDataNotification.aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: contactObjectID)
-                .postOnDispatchQueue()
-        }
-        
         if !self.isDeleted {
+            
             if let groupIdentifier = try? self.rawGroup?.obvGroupIdentifier, let memberCryptoId = self.cryptoId, (isInserted || !changedKeys.isEmpty) {
                 Task {
                     await PersistedGroupV2Member.observersHolder.aPersistedGroupV2MemberWasInsertedOrChanged(
@@ -2399,6 +2540,19 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
                         memberIdentifier: memberCryptoId)
                 }
             }
+            
+            if changedKeys.contains(Predicate.Key.isPending.rawValue), !self.isPending {
+                if let groupIdentifier = try? self.rawGroup?.obvGroupIdentifier, let memberCryptoId = self.cryptoId {
+                    Task {
+                        await PersistedGroupV2Member.observersHolder.aPersistedGroupV2MemberChangedFromPendingToNonPending(
+                            groupIdentifier: groupIdentifier,
+                            memberCryptoId: memberCryptoId)
+                    }
+                } else {
+                    assertionFailure()
+                }
+            }
+            
         }
         
     }
@@ -2547,69 +2701,91 @@ public final class PersistedGroupV2Details: NSManagedObject {
 // MARK: MentionableIdentity
 
 /// Allows a `PersistedGroupV2Member` to be displayed in the views showing mentions.
-extension PersistedGroupV2Member: MentionableIdentity {
-    
-    public var mentionnedCryptoId: ObvCryptoId? {
-        return self.cryptoId
-    }
-    
-    public var mentionSearchMatcher: String {
-        return normalizedSortKey
-    }
-
-    public var mentionPickerTitle: String {
-        if let displayedCustomDisplayName {
-            return displayedCustomDisplayName
-        }
-
-        return mentionPersistedName
-    }
-
-    public var mentionPickerSubtitle: String? {
-        if displayedCustomDisplayName == nil {
-            return nil
-        }
-
-        return mentionPersistedName
-    }
-
-    public var circledInitialsConfiguration: CircledInitialsConfiguration {
-        if let contact {
-            return contact.circledInitialsConfiguration
-        }
-
-        guard let cryptoId else {
-            return .icon(.lockFill)
-        }
-
-        return .contact(initial: mentionPersistedName, //ignore the nickname, the user hasn't been synced yet
-                        photo: nil,
-                        showGreenShield: false,
-                        showRedShield: false,
-                        cryptoId: cryptoId,
-                        tintAdjustementMode: .disabled)
-    }
-
-    public var mentionPersistedName: String {
-        
-        if let contact, !contact.mentionPersistedName.isEmpty {
-            return contact.mentionPersistedName
-        } else {
-            let components = PersonNameComponents()..{
-                $0.givenName = firstName
-                $0.familyName = lastName
-            }
-
-            return PersonNameComponentsFormatter.localizedString(from: components,
-                                                                 style: .default)
-        }
-        
-    }
-
-    public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
-        return .groupV2Member(typedObjectID)
-    }
-}
+//extension PersistedGroupV2Member: MentionableIdentity {
+//    
+//    public var mentionnedCryptoId: ObvCryptoId? {
+//        return self.cryptoId
+//    }
+//    
+//    public var mentionSearchMatcher: String {
+//        return normalizedSortKey
+//    }
+//
+//    public var mentionPickerTitle: String {
+//        if let displayedCustomDisplayName {
+//            return displayedCustomDisplayName
+//        }
+//
+//        return mentionPersistedName
+//    }
+//
+//    public var mentionPickerSubtitle: String? {
+//        if displayedCustomDisplayName == nil {
+//            return nil
+//        }
+//
+//        return mentionPersistedName
+//    }
+//
+//    public var circledInitialsConfiguration: CircledInitialsConfiguration {
+//        if let contact {
+//            return contact.circledInitialsConfiguration
+//        }
+//
+//        guard let cryptoId else {
+//            return .icon(.lockFill)
+//        }
+//
+//        return .contact(initial: mentionPersistedName, //ignore the nickname, the user hasn't been synced yet
+//                        photo: nil,
+//                        showGreenShield: false,
+//                        showRedShield: false,
+//                        cryptoId: cryptoId,
+//                        tintAdjustementMode: .disabled)
+//    }
+//    
+//    public var avatar: ObvAvatarViewModel {
+//        if let contact {
+//            return contact.avatar
+//        }
+//        
+//        let character = mentionPersistedName.first
+//        let characterOrIcon: ObvAvatarViewModel.CharacterOrIcon
+//        if let character {
+//            characterOrIcon = .character(character)
+//        } else {
+//            characterOrIcon = .icon(.person)
+//        }
+//        
+//        let backgroundColor = circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared)
+//        let foregroundColor = circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared)
+//        let colors = ObvDesignSystem.ObvAvatarViewModel.Colors(foreground: foregroundColor, background: backgroundColor)
+//        
+//        return .init(characterOrIcon: characterOrIcon,
+//                     colors: colors,
+//                     photoURL: nil)
+//    }
+//    
+//    public var mentionPersistedName: String {
+//        
+//        if let contact, !contact.mentionPersistedName.isEmpty {
+//            return contact.mentionPersistedName
+//        } else {
+//            let components = PersonNameComponents()..{
+//                $0.givenName = firstName
+//                $0.familyName = lastName
+//            }
+//
+//            return PersonNameComponentsFormatter.localizedString(from: components,
+//                                                                 style: .default)
+//        }
+//        
+//    }
+//
+//    public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
+//        return .groupV2Member(typedObjectID)
+//    }
+//}
 
 
 
@@ -2731,6 +2907,7 @@ private actor ObserversHolder: PersistedGroupV2Observer {
 
 public protocol PersistedGroupV2MemberObserver: AnyObject, Sendable {
     func aPersistedGroupV2MemberWasInsertedOrChanged(groupIdentifier: ObvGroupV2Identifier, memberIdentifier: ObvCryptoId) async
+    func aPersistedGroupV2MemberChangedFromPendingToNonPending(groupIdentifier: ObvGroupV2Identifier, memberCryptoId: ObvCryptoId) async
 }
 
 private actor MemberObserversHolder: PersistedGroupV2MemberObserver {
@@ -2756,6 +2933,58 @@ private actor MemberObserversHolder: PersistedGroupV2MemberObserver {
                 taskGroup.addTask { await observer.aPersistedGroupV2MemberWasInsertedOrChanged(groupIdentifier: groupIdentifier, memberIdentifier: memberIdentifier) }
             }
         }
+    }
+    
+    func aPersistedGroupV2MemberChangedFromPendingToNonPending(groupIdentifier: ObvGroupV2Identifier, memberCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedGroupV2MemberChangedFromPendingToNonPending(groupIdentifier: groupIdentifier, memberCryptoId: memberCryptoId) }
+            }
+        }
+    }
+    
+}
+
+
+// MARK: - Helper for searching group members
+
+extension [PersistedGroupV2Member] {
+    
+    /// Given a list of `PersistedGroupV2Member`, returns a sublist matching the query. This is used when filtering suggested mentions in the compose view.
+    public func filterAll(searchText: String?) throws -> Self {
+        
+        guard !self.isEmpty else { return self }
+        
+        guard let context = self.first?.managedObjectContext, self.allSatisfy({ $0.managedObjectContext == context }) else {
+            assertionFailure()
+            return self
+        }
+    
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let sanitizedSearchText, !sanitizedSearchText.isEmpty else {
+            return self
+        }
+
+        // We will use the input objects in an SQL "IN" statement. Since the maximum size of an "IN" statement is limited,
+        // we split the received set of objectIDs in small slices.
+
+        var outputMembers = [PersistedGroupV2Member]()
+        
+        let inputMembersSlices = self.toSlices(ofMaxSize: 50)
+        
+        for inputMembersSlice in inputMembersSlices {
+            let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                PersistedGroupV2Member.Predicate.withObjectIDIn(objectIDs: inputMembersSlice.map(\.typedObjectID)),
+                PersistedGroupV2Member.Predicate.searchPredicate(sanitizedSearchText),
+            ])
+            request.sortDescriptors = [NSSortDescriptor(key: PersistedGroupV2Member.Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
+            let result = try context.fetch(request)
+            assert(inputMembersSlice.contains(result))
+            outputMembers.append(contentsOf: result)
+        }
+        
+        return outputMembers
     }
     
 }

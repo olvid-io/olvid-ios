@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,14 +28,14 @@ import ObvAppCoreConstants
 
 final class ConfigureAudioSessionOperation: OperationWithSpecificReasonForCancel<ConfigureAudioSessionOperation.ReasonForCancel>, @unchecked Sendable {
 
-    private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "ConfigureAudioSessionOperation")
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "ConfigureAudioSessionOperation")
 
     private static var dateOfLastConfiguration: Date?
     
     override func main() {
         
-        os_log("☎️🎵 [WebRTCOperation][ConfigureAudioSessionOperation] Start", log: Self.log, type: .info)
-        defer { os_log("☎️🎵 [WebRTCOperation][ConfigureAudioSessionOperation] Finish", log: Self.log, type: .info) }
+        Self.logger.info("☎️🎵 [WebRTCOperation][ConfigureAudioSessionOperation] Start")
+        defer { Self.logger.info("☎️🎵 [WebRTCOperation][ConfigureAudioSessionOperation] Finish") }
 
         do {
 

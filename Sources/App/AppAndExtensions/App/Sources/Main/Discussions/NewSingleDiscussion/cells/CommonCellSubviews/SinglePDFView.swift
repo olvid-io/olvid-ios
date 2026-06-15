@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -118,6 +118,20 @@ final class SinglePDFView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
             imageView.reset()
             setTitleOnSubtitleView(titleLabel, filename: filename)
             setSubtitleOnSubtitleView(subtitleLabel, fileSize: fileSize, uti: uti)
+        case .notYetDownloadableAsReceivedByUserNotification:
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.notYetDownloadableAsReceivedByUserNotification)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(titleLabel, filename: nil)
+            hideSubtitleOnSubtitleView(subtitleLabel)
+        case .untransferred(fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.untransferred)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(titleLabel, filename: filename)
+            setSubtitleOnSubtitleView(subtitleLabel, fileSize: fileSize, uti: uti)
         }
 
     }
@@ -166,6 +180,11 @@ final class SinglePDFView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
         if subtitleView.text != subtitleText {
             subtitleView.text = subtitleText
         }
+    }
+    
+    
+    private func hideSubtitleOnSubtitleView(_ subtitleView: UILabel) {
+        subtitleView.text = nil
     }
 
     

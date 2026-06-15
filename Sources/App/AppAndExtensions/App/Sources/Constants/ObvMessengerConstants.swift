@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -116,45 +116,6 @@ enum ObvMessengerConstants {
         static let cachedURLMetadata: TimeInterval = .init(days: 2)
     }
         
-    // WebRTC
-    
-    struct ICEServerURLs {
-        private static let global = [
-            "turn:turn-scaled.olvid.io:5349?transport=udp",
-            "turn:turn-scaled.olvid.io:443?transport=tcp",
-            "turns:turn-scaled.olvid.io:443?transport=tcp",
-        ]
-        private struct regional {
-            static let eu = [
-                "turn:eu.turn-scaled.olvid.io:5349?transport=udp",
-                "turn:eu.turn-scaled.olvid.io:443?transport=tcp",
-                "turns:eu.turn-scaled.olvid.io:443?transport=tcp",
-            ]
-            static let us = [
-                "turn:us.turn-scaled.olvid.io:5349?transport=udp",
-                "turn:us.turn-scaled.olvid.io:443?transport=tcp",
-                "turns:us.turn-scaled.olvid.io:443?transport=tcp",
-            ]
-            static let ap = [
-                "turn:ap.turn-scaled.olvid.io:5349?transport=udp",
-                "turn:ap.turn-scaled.olvid.io:443?transport=tcp",
-                "turns:ap.turn-scaled.olvid.io:443?transport=tcp",
-            ]
-        }
-        static var preferred: [String] {
-            // At some point, a setting should allow to choose between global or regional settings
-            return global
-        }
-    }
-
-    // Version
-    
-    // Now found in ObvAppCoreConstants
-//    static let shortVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"]! as! String // Such as 0.3
-//    static let bundleVersion = Bundle.main.infoDictionary!["CFBundleVersion"]! as! String // Aka build number
-//    static let bundleVersionAsInt = Int(bundleVersion)!
-//    static let fullVersion = "\(shortVersion) (\(bundleVersion))"
-    
     static let localIOSVersion = Double(UIDevice.current.systemVersion) ?? floor(NSFoundationVersionNumber)
     static let supportedIOSVersion = 15.5
     static let recommendedMinimumIOSVersion = 18.0
@@ -188,6 +149,7 @@ enum ObvMessengerConstants {
             "fxtwitter.com",
             "vxtwitter.com",
             "mastodon.social",
+            "bsky.app",
         ])
 
         
@@ -215,6 +177,8 @@ enum ObvMessengerConstants {
         case dateOfCreationOfFirstProfile = "io.olvid.date.of.creation.of.first.profile"
         case dateOfLastOlvidPlusTipDisplay = "io.olvid.date.of.last.olvid.plus.tip.display"
         case olvidPlusSubscriptionConfirmationTipToDisplay = "io.olvid.plus.subscription.confirmation.tip.to.display" // Stores the raw value of a ObvOwnershipType
+        case dateOfLastOSUpgradeTipDisplay = "io.olvid.snackBarCoordinator.lastDisplayDate.upgradeIOS"
+        case dateOfLastOwnedDeviceExpiringTipDisplay = "io.olvid.date.of.last.owned.device.expiring.tip.display"
     }
 
 }

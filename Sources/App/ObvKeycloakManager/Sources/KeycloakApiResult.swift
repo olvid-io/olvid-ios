@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,8 @@
 
 import Foundation
 import ObvTypes
+import ObvAppTypes
+import ObvEncoder
 
 
 protocol KeycloakManagerApiResult {
@@ -37,6 +39,194 @@ extension KeycloakManagerApiResult {
 }
 
 extension KeycloakManager {
+    
+    /// Part of the Id-based authentication process: used to request a challenge to the keycloak server
+    struct APIQueryForKeycloakIdBasedAuthRequestChallenge {
+        
+        let keycloakUserId: String
+        let nonce: Data
+
+        var dataToSend: Data {
+            [keycloakUserId.obvEncode(), nonce.obvEncode()].obvEncode().rawData
+        }
+        
+    }
+    
+    /// Part of the Id-based authentication process
+    struct APIResultForKeycloakIdBasedAuthRequestChallenge: Decodable, KeycloakManagerApiResult {
+        
+        let nonce: Data
+        let challenge: Data
+        
+        
+        private init (nonce: Data, challenge: Data) {
+            self.nonce = nonce
+            self.challenge = challenge
+        }
+        
+        
+        init(from decoder: Decoder) throws {
+            assertionFailure("Since this particular response is not a JSON, this is not expected to be called")
+            throw ObvError.malformedServerResponse
+        }
+        
+        
+        public enum PossibleReturnStatus: UInt8 {
+            case ok = 0x00
+            case parsingError = 0xfe
+        }
+
+        
+        /// Override of the `KeycloakManagerApiResult` default implementation of
+        /// `static func decode<T>(_ data: Data) throws -> T where T : Decodable`
+        /// as, for this particular API result, the server does not return a JSON encoded value, but an ObvEncoded value.
+        static func decode(_ data: Data) throws -> Self {
+            guard let encodedOfList = ObvEncoded(withRawData: data) else { assertionFailure(); throw ObvError.decodingError }
+            guard var listOfReturnedData = [ObvEncoded](encodedOfList) else { assertionFailure(); throw ObvError.decodingError }
+            guard !listOfReturnedData.isEmpty else { assertionFailure(); throw ObvError.decodingError }
+            let encodedServerReturnedStatus = listOfReturnedData.removeFirst()
+            guard let decodedServerReturnedStatus = Data(encodedServerReturnedStatus),
+                decodedServerReturnedStatus.count == 1 else {
+                assertionFailure()
+                throw ObvError.decodingError
+            }
+            let rawServerReturnedStatus: UInt8 = decodedServerReturnedStatus[decodedServerReturnedStatus.startIndex]
+            guard let status = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else { assertionFailure(); throw ObvError.decodingError }
+            switch status {
+            case .parsingError:
+                assertionFailure()
+                throw ObvError.parsingError
+            case .ok:
+                guard listOfReturnedData.count == 2 else {
+                    assertionFailure()
+                    throw ObvError.malformedServerResponse
+                }
+                guard let challenge = Data(listOfReturnedData[0]) else {
+                    assertionFailure()
+                    throw ObvError.malformedServerResponse
+                }
+                guard let nonce = Data(listOfReturnedData[1]) else {
+                    assertionFailure()
+                    throw ObvError.malformedServerResponse
+                }
+                return Self.init(nonce: nonce, challenge: challenge)
+            }
+        }
+        
+        enum ObvError: Error {
+            case decodingError
+            case parsingError
+            case malformedServerResponse
+        }
+        
+    }
+    
+    
+    /// Part of the ID-based authentication process: carries the solved challenge response
+    /// back to the Keycloak server in exchange for a session (access + refresh tokens).
+    struct APIQueryForKeycloakIdBasedAuthRequestSession {
+        
+        let challengeResponse: Data
+        let nonce: Data
+
+        var dataToSend: Data {
+            [challengeResponse.obvEncode(), nonce.obvEncode()].obvEncode().rawData
+        }
+        
+    }
+
+    
+    /// Server response to the `getSession` request in the ID-based authentication flow.
+    /// Contains the `access_token` and `refresh_token` that will be wrapped into an `OIDAuthState`.
+    struct APIResultForKeycloakIdBasedAuthRequestSession: Decodable, KeycloakManagerApiResult {
+        
+        let accessToken: String
+        let refreshToken: String
+
+        /// When querying the `getSession` API during ID-based authentication, we can receive `permissionDenied`
+        /// if ID-based authentication is not enabled for the user.
+        enum PossibleReturnStatus: UInt8 {
+            case ok = 0x00
+            case permissionDenied = 0x0e
+            case parsingError = 0xfe
+            case generalError = 0xff
+        }
+        
+        enum CodingKeys: String, CodingKey {
+            case accessToken = "access_token"
+            case refreshToken = "refresh_token"
+        }
+
+        /// Overrides the default `KeycloakManagerApiResult` implementation of `decode(_:)`.
+        ///
+        /// For this particular API result, the server does not return a raw JSON payload. Instead, it returns
+        /// data encoded using the `ObvEncoded` format — a binary encoding specific to the Olvid protocol layer.
+        ///
+        /// The decoding process works as follows:
+        /// 1. The raw `Data` is parsed as an `ObvEncoded` value, which wraps a list of encoded items.
+        /// 2. The first item in the list is the server return status (a single `UInt8` byte): `0x00` for success,
+        ///    `0xfe` for a parsing error, and `0xff` for a general error.
+        /// 3. On success, the second (and only remaining) item is itself an `ObvEncoded` `Data`, which contains
+        ///    the actual payload serialized as JSON.
+        /// 4. That JSON `Data` is then decoded using a standard `JSONDecoder` into `Self`.
+        static func decode(_ data: Data) throws -> Self {
+            guard let encodedOfList = ObvEncoded(withRawData: data) else { assertionFailure(); throw ObvError.decodingError }
+            guard var listOfReturnedData = [ObvEncoded](encodedOfList) else { assertionFailure(); throw ObvError.decodingError }
+            guard !listOfReturnedData.isEmpty else { assertionFailure(); throw ObvError.decodingError }
+            let encodedServerReturnedStatus = listOfReturnedData.removeFirst()
+            guard let decodedServerReturnedStatus = Data(encodedServerReturnedStatus),
+                decodedServerReturnedStatus.count == 1 else {
+                assertionFailure()
+                throw ObvError.decodingError
+            }
+            let rawServerReturnedStatus: UInt8 = decodedServerReturnedStatus[decodedServerReturnedStatus.startIndex]
+            guard let status = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else { assertionFailure(); throw ObvError.decodingError }
+            switch status {
+            case .parsingError:
+                assertionFailure()
+                throw ObvError.parsingError
+            case .generalError:
+                assertionFailure()
+                throw ObvError.generalError
+            case .permissionDenied:
+                throw ObvError.permissionDenied
+            case .ok:
+                guard listOfReturnedData.count == 1 else {
+                    assertionFailure()
+                    throw ObvError.malformedServerResponse
+                }
+                guard let serializedAuthSession = Data(listOfReturnedData[0]) else { assertionFailure(); throw ObvError.decodingError }
+                
+                let jsonDecoder = JSONDecoder()
+                let session = try jsonDecoder.decode(Self.self, from: serializedAuthSession)
+                                
+                return session
+                
+            }
+        }
+        
+        enum ObvError: Error {
+            case decodingError
+            case parsingError
+            case generalError
+            case malformedServerResponse
+            case permissionDenied
+        }
+        
+    }
+    
+    
+    /// The token pair returned by the `olvid-rest/getMagicSession` endpoint when a valid magic link is exchanged.
+    struct APIResultForMagicLinkAuthRequest: Decodable, KeycloakManagerApiResult {
+        let accessToken: String
+        let refreshToken: String
+
+        enum CodingKeys: String, CodingKey {
+            case accessToken = "access_token"
+            case refreshToken = "refresh_token"
+        }
+
+    }
     
     
     struct APIQueryForGroupsPath: Encodable {
@@ -251,4 +441,7 @@ extension KeycloakManager {
         }
 
     }
+    
 }
+
+extension OlvidWellKnownJson: KeycloakManagerApiResult {}

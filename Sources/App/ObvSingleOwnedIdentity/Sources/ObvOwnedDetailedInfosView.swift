@@ -63,7 +63,7 @@ public struct ObvOwnedDetailedInfosView: View {
         
         public enum IsKeycloakManaged: Sendable, Equatable {
             case no
-            case yes(signedDetails: SignedObvKeycloakUserDetails?, ownedIdentityKeycloakApiKey: UUID?, isTransferRestricted: Bool?)
+            case yes(signedDetails: SignedObvKeycloakUserDetails?, ownedIdentityKeycloakApiKey: UUID?, isTransferRestricted: Bool?, supportsIdBasedAuth: Bool)
         }
         
         public struct Device: Identifiable, Sendable, Equatable {
@@ -247,11 +247,15 @@ extension ObvOwnedDetailedInfosView {
                 switch model.isKeycloakManaged {
                 case .no:
                     EmptyView()
-                case .yes(signedDetails: let signedDetails, ownedIdentityKeycloakApiKey: let ownedIdentityKeycloakApiKey, isTransferRestricted: let isTransferRestricted):
+                case .yes(signedDetails: let signedDetails,
+                          ownedIdentityKeycloakApiKey: let ownedIdentityKeycloakApiKey,
+                          isTransferRestricted: let isTransferRestricted,
+                          supportsIdBasedAuth: let supportsIdBasedAuth):
                     KeycloakRelatedInfosSections(
                         signedDetails: signedDetails,
                         ownedIdentityKeycloakApiKey: ownedIdentityKeycloakApiKey,
-                        isTransferRestricted: isTransferRestricted)
+                        isTransferRestricted: isTransferRestricted,
+                        supportsIdBasedAuth: supportsIdBasedAuth)
                 }
             }
         }
@@ -410,6 +414,7 @@ extension ObvOwnedDetailedInfosView {
         let signedDetails: SignedObvKeycloakUserDetails?
         let ownedIdentityKeycloakApiKey: UUID?
         let isTransferRestricted: Bool?
+        let supportsIdBasedAuth: Bool
         
         var body: some View {
             Section {
@@ -427,7 +432,7 @@ extension ObvOwnedDetailedInfosView {
             }
             
             
-            Section("OTHER_INFORMATIONS_ABOUT_MANAGED_PROFILE") {
+            Section(String(localizedInThisBundle: "OTHER_INFORMATIONS_ABOUT_MANAGED_PROFILE")) {
                 if let isTransferRestricted {
                     ObvSimpleListItemView(
                         title: Text("IS_TRANSFER_RESTRICTED"),
@@ -437,6 +442,10 @@ extension ObvOwnedDetailedInfosView {
                         title: Text("IS_TRANSFER_RESTRICTED"),
                         value: nil)
                 }
+                ObvSimpleListItemView(
+                    title: Text("SUPPORTS_ID_BASED_AUTH"),
+                    value: supportsIdBasedAuth ? String(localizedInThisBundle: "YES") : String(localizedInThisBundle: "NO"))
+
             }
         }
         

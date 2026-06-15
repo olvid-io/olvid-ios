@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,6 +51,7 @@ import ObvInvitationFlow
 import ObvCells
 import ObvUIGroupSharedBetweenV1AndV2
 import ObvSingleOwnedIdentity
+import ObvHistoryTransfer
 
 
 // MARK: - MetaFlowControllerDelegate
@@ -58,11 +59,11 @@ import ObvSingleOwnedIdentity
 @MainActor
 protocol MetaFlowControllerDelegate: AnyObject {
     func userRequestedAppDatabaseSyncWithEngine(metaFlowController: MetaFlowController) async throws
-    func userWantsToSendDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToSendDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws
     func userWantsToAddAttachmentsToDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
     func userWantsToAddAttachmentsToDraftFromURLs(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
-    func userWantsToUpdateDraftBodyAndMentions(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToDeleteAttachmentsFromDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
+    func userWantsToUpdateDraftBodyAndMentions(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws
+    func userWantsToDeleteDraftAttachment(_ metaFlowController: MetaFlowController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws
     func userWantsToReplyToMessage(_ metaFlowController: MetaFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
     func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ metaFlowController: MetaFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
     func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ metaFlowController: MetaFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
@@ -106,6 +107,13 @@ protocol MetaFlowControllerDelegate: AnyObject {
     func userWantsToUnhideOwnedIdentity(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId) async throws
 
     func userWantsToUpdateOwnedCustomDisplayName(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvTypes.ObvCryptoId, newCustomDisplayName: String?) async throws
+
+    func userRequiresMessageHistoryTransferService(_ metaFlowController: MetaFlowController) async throws -> TransferService
+    func historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(_ metaFlowController: MetaFlowController, transferId: String, otherOwnedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier) async throws -> ObvHistoryTransfer.DestinationOwnedDeviceDecision
+
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: MetaFlowController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws
+
+    func userWantsToForwardMessage(_ vc: MetaFlowController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
 
 }
 
@@ -156,6 +164,15 @@ final class MetaFlowController: UIViewController {
     private var viewDidAppearWasCalledAtLeastOnce = false
     private var completionHandlersToCallOnViewDidAppear = [() -> Void]()
 
+    
+    private var metaFlowControllerViewDidAppearNotificationWasSent = false
+    private var applicationDidBecomeActive = false
+    private var childViewControllersWereSetupAndShown = false
+    private var shouldSendMetaFlowControllerViewDidAppearNotification: Bool {
+        if metaFlowControllerViewDidAppearNotificationWasSent { return false } // Do not send the notification twice
+        return viewDidAppearWasCalledAtLeastOnce && applicationDidBecomeActive && childViewControllersWereSetupAndShown
+    }
+    
     /// Used when presenting the navigation stack allowing to configure the backup seed of new backups
     private var router: ObvAppBackupSetupRouter?
 
@@ -165,7 +182,7 @@ final class MetaFlowController: UIViewController {
     private var automaticallyNavigateToCreatedDisplayedContactGroup = false
     
     private let obvEngine: ObvEngine
-    
+        
     /// This is used during the onboarding flow, when the user wants to see the subscription to Olvid+
     private var continuationAndOwnedCryptoIdentity: (continuation: CheckedContinuation<ObvAppBackup.ObvDeviceDeactivationConsequence, any Error>, ownedCryptoIdentity: ObvOwnedCryptoIdentity)?
     
@@ -214,6 +231,7 @@ final class MetaFlowController: UIViewController {
                                  editGroupNameAndPictureViewAppDataSourceDelegate: localEditGroupNameAndPictureViewAppDataSourceDelegate,
                                  chooseDeviceToReactivateViewAppDataSourceDelegate: localChooseDeviceToReactivateViewAppDataSourceDelegate,
                                  ownedDetailedInfosViewAppDataSourceDelegate: localOwnedDetailedInfosViewAppDataSourceDelegate,
+                                 discussionCacheDelegate: DiscussionCacheManager(previewFetcherDelegate: MissingReceivedLinkPreviewFetcher()),
                                  obvEngine: obvEngine,
                                  backgroundContext: ObvStack.shared.newBackgroundContext(),
                                  viewContext: ObvStack.shared.viewContext)
@@ -439,15 +457,11 @@ final class MetaFlowController: UIViewController {
         let alert = UIAlertController(title: nil,
                                       message: message,
                                       preferredStyle: .alert)
-        if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
-            alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default, handler: nil))
-        } else {
-            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel, handler: nil))
-            if let appSettings = URL(string: UIApplication.openSettingsURLString) {
-                alert.addAction(UIAlertAction(title: Strings.goToSettingsButtonTitle, style: .default, handler: { (_) in
-                    UIApplication.shared.open(appSettings, options: [:])
-                }))
-            }
+        alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel, handler: nil))
+        if let appSettings = URL(string: UIApplication.openRecordSettingsURLString) {
+            alert.addAction(UIAlertAction(title: Strings.goToSettingsButtonTitle, style: .default, handler: { (_) in
+                UIApplication.shared.open(appSettings, options: [:])
+            }))
         }
         if let presentedViewController = presentedViewController {
             presentedViewController.present(alert, animated: true)
@@ -511,6 +525,7 @@ extension MetaFlowController {
         viewOnTopOfCallBannerView.isHidden = true
         
         Task {
+            
             do {
                 try await setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: nil)
             } catch {
@@ -519,26 +534,47 @@ extension MetaFlowController {
                 return
             }
             
+            self.childViewControllersWereSetupAndShown = true
+            self.sendMetaFlowControllerViewDidAppearIfAppropriate()
+
             // See the comment in the initializer
             if shouldShowCallBannerOnViewDidLoad {
                 await setupAndShowAppropriateCallBanner(shouldShowCallBanner: true, animate: false)
             }
+            
         }
         
+    }
+    
+    
+    /// Posts the `ObvMessengerInternalNotification.metaFlowControllerViewDidAppear` notification
+    /// once all three required launch events have occurred.
+    ///
+    /// Call this method whenever one of the following events happens:
+    /// - The meta flow controller’s `viewDidAppear(_:)` is called.
+    /// - The app enters the active state.
+    /// - The child view controllers are fully set up.
+    ///
+    /// The notification is sent **only after all three events have been reported** to this method.
+    /// Many app features, such as processing an `INStartCallIntent` (e.g., when a user starts a call
+    /// from the iOS Phone app by tapping a previous call), depend on this notification to proceed.
+    ///
+    /// - Important:
+    ///   This method must be called for each of the three events.
+    ///   The notification is posted automatically once all events are reported.
+    private func sendMetaFlowControllerViewDidAppearIfAppropriate() {
+        guard self.shouldSendMetaFlowControllerViewDidAppearNotification else { return }
+        defer { self.metaFlowControllerViewDidAppearNotificationWasSent = true }
+        ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
+            .postOnDispatchQueue()
     }
     
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
-        if !viewDidAppearWasCalledAtLeastOnce {
-            ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
-                .postOnDispatchQueue()
-        } else {
-            // The notification is sent from the observeDidBecomeActiveNotifications()method
-        }
-        
         viewDidAppearWasCalledAtLeastOnce = true
+        sendMetaFlowControllerViewDidAppearIfAppropriate()
         
         while let completion = completionHandlersToCallOnViewDidAppear.popLast() {
             completion()
@@ -547,7 +583,7 @@ extension MetaFlowController {
     }
     
     
-    // We send the metaFlowControllerViewDidAppear notification when the application becomes active, but only of viewDidAppearWasCalled is true.
+    // We send the metaFlowControllerViewDidAppear notification when the application becomes active, but only if viewDidAppearWasCalled is true.
     //
     // When the app is launched after a cold boot, the metaFlowControllerViewDidAppear notification is not called here, but in the viewDidAppear method.
     // When the app is re-launched from the background, the viewDidAppear is not called, and the metaFlowControllerViewDidAppear notification is sent anyway, thanks to this method.
@@ -555,14 +591,17 @@ extension MetaFlowController {
         observationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: nil) { [weak self] _ in
             Task { [weak self] in await self?.processDidBecomeActiveNotification() }
         })
+        // We might have missed the notification
+        if UIApplication.shared.applicationState == .active {
+            processDidBecomeActiveNotification()
+        }
     }
     
     
     @MainActor
     private func processDidBecomeActiveNotification() {
-        guard self.viewDidAppearWasCalledAtLeastOnce == true else { return }
-        ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
-            .postOnDispatchQueue()
+        self.applicationDidBecomeActive = true
+        sendMetaFlowControllerViewDidAppearIfAppropriate()
     }
     
     
@@ -1039,6 +1078,10 @@ extension MetaFlowController: LocalObvSingleContactViewAppDataSourceDelegateImpl
 
 extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
     
+    func userWantsToDismissOnboardingFlow(_ onboardingFlow: NewOnboardingFlowViewController) {
+        onboardingFlow.dismiss(animated: true)
+    }
+    
     func userWantsToBeRemindedToWriteDownBackupKey(_ onboardingFlow: ObvOnboarding.NewOnboardingFlowViewController) async {
         await userWantsToBeRemindedToWriteDownBackupKey()
     }
@@ -1228,29 +1271,44 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
 
     
     func onboardingRequiresKeycloakAuthentication(
-        onboardingFlow: NewOnboardingFlowViewController,
+        _ onboardingFlow: NewOnboardingFlowViewController,
         keycloakConfiguration: ObvKeycloakConfiguration,
-        keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)
-    ) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState) {
-        let authState = try await KeycloakManagerSingleton.shared.authenticate(configuration: keycloakServerKeyAndConfig.serviceConfig,
-                                                                               clientId: keycloakConfiguration.clientId,
-                                                                               clientSecret: keycloakConfiguration.clientSecret,
-                                                                               ownedCryptoId: nil)
-        return try await getOwnedDetailsAfterSucessfullAuthentication(keycloakConfiguration: keycloakConfiguration,
-                                                                      keycloakServerKeyAndConfig: keycloakServerKeyAndConfig,
-                                                                      authState: authState)
+        magicLink: ObvMagicLink?,
+        discoveryResult: KeycloakServerDiscoveryResult
+    ) async throws -> (
+        keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff,
+        keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff,
+        keycloakState: ObvKeycloakState
+    ) {
+        let authState = try await KeycloakManagerSingleton.shared.authenticateDuringBinding(
+            keycloakConfiguration: keycloakConfiguration,
+            magicLink: magicLink,
+            discoveryResult: discoveryResult)
+        return try await getOwnedDetailsAfterSucessfullAuthentication(
+            keycloakConfiguration: keycloakConfiguration,
+            discoveryResult: discoveryResult,
+            authState: authState
+        )
     }
     
     
     @MainActor
-    private func getOwnedDetailsAfterSucessfullAuthentication(keycloakConfiguration: ObvKeycloakConfiguration, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration), authState: OIDAuthState) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState) {
+    private func getOwnedDetailsAfterSucessfullAuthentication(
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        discoveryResult: KeycloakServerDiscoveryResult,
+        authState: OIDAuthState
+    ) async throws -> (
+        keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff,
+        keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff,
+        keycloakState: ObvKeycloakState
+    ) {
         
         let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff) = try await KeycloakManagerSingleton.shared.getOwnDetails(
-            keycloakServer: keycloakConfiguration.keycloakServerURL,
+            keycloakServerURL: keycloakConfiguration.keycloakServerURL,
             authState: authState,
-            clientSecret: keycloakConfiguration.clientSecret,
-            jwks: keycloakServerKeyAndConfig.jwks,
-            latestLocalRevocationListTimestamp: nil)
+            jwks: discoveryResult.jwkSet,
+            latestLocalRevocationListTimestamp: nil
+        )
         
         if let minimumBuildVersion = keycloakServerRevocationsAndStuff.minimumIOSBuildVersion {
             guard ObvAppCoreConstants.bundleVersionAsInt >= minimumBuildVersion else {
@@ -1260,23 +1318,30 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
 
         let rawAuthState = try authState.serialize()
         
+        let supportedAuthenticationMethods = SupportedAuthenticationMethods(
+            openIdConnect: .init(clientId: keycloakConfiguration.clientId, clientSecret: keycloakConfiguration.clientSecret),
+            idBased: discoveryResult.supportsIdBasedAuth ? .init() : nil)
+        
         let keycloakState = ObvKeycloakState(
             keycloakServer: keycloakConfiguration.keycloakServerURL,
-            clientId: keycloakConfiguration.clientId,
-            clientSecret: keycloakConfiguration.clientSecret,
-            jwks: keycloakServerKeyAndConfig.jwks,
+            supportedAuthenticationMethods: supportedAuthenticationMethods,
+            jwks: discoveryResult.jwkSet,
             rawAuthState: rawAuthState,
             signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
             latestLocalRevocationListTimestamp: nil,
             latestGroupUpdateTimestamp: nil,
-            isTransferRestricted: keycloakUserDetailsAndStuff.isTransferRestricted)
-        
+            isTransferRestricted: keycloakUserDetailsAndStuff.isTransferRestricted
+        )
+
         return (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff, keycloakState)
         
     }
 
     
-    func onboardingRequiresToDiscoverKeycloakServer(onboardingFlow: NewOnboardingFlowViewController, keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration) {
+    func onboardingRequiresToDiscoverKeycloakServer(
+        _ onboardingFlow: NewOnboardingFlowViewController,
+        keycloakServerURL: URL
+    ) async throws -> KeycloakServerDiscoveryResult {
         return try await KeycloakManagerSingleton.shared.discoverKeycloakServer(for: keycloakServerURL)
     }
     
@@ -1742,6 +1807,32 @@ extension MetaFlowController {
 
 extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
     
+    func historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(_ mainFlowViewController: MainFlowViewController, transferId: String, otherOwnedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier) async throws -> ObvHistoryTransfer.DestinationOwnedDeviceDecision {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        return try await metaFlowControllerDelegate.historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(self, transferId: transferId, otherOwnedDeviceIdentifier: otherOwnedDeviceIdentifier)
+    }
+    
+    
+    func userRequiresMessageHistoryTransferService(_ mainFlowViewController: MainFlowViewController) async throws -> TransferService {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        return try await metaFlowControllerDelegate.userRequiresMessageHistoryTransferService(self)
+    }
+    
+
+    func userWantsToForwardMessage(_ mainFlowViewController: MainFlowViewController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToForwardMessage(self, identifierOfMessageToForwad: identifierOfMessageToForwad, identifiersOfDiscussionsWhereMessageShouldBeForwarded: identifiersOfDiscussionsWhereMessageShouldBeForwarded)
+    }
+    
+    func userWantsToUpdateDiscussionLocalConfiguration(
+        _ vc: MainFlowViewController,
+        value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue,
+        localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws {
+            guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+            try await metaFlowControllerDelegate.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+    }
+    
+    
     func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ mainFlowViewController: MainFlowViewController) {
         userDefaults?.set(nil, forKey: ObvMessengerConstants.UserDefaultsKeys.olvidPlusSubscriptionConfirmationTipToDisplay.rawValue)
         (dataSources.tipCellViewAppDataSource as? TipCellViewAppDataSource)?.refreshTip()
@@ -1974,8 +2065,11 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
     
     func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws {
         if #available(iOS 17.0, *) {
-            let dataSource = ObvMapViewControllerAppDataSource(ownedCryptoId: ownedCryptoId, viewContext: ObvStack.shared.viewContext)
-            let mapViewController = ObvMapViewController(dataSource: dataSource, avatarViewDataSource: self.dataSources.avatarViewDataSource, actions: self)
+            let mapViewController = ObvMapViewController(
+                kind: .forGivenOwnedCryptoId(ownedCryptoId: ownedCryptoId),
+                dataSource: self.dataSources.mapViewDataSource,
+                avatarViewDataSource: self.dataSources.avatarViewDataSource,
+                actions: self)
             mapViewController.modalPresentationStyle = .overFullScreen
             presentingViewController.presentOnTop(mapViewController, animated: true)
         } else {
@@ -1987,8 +2081,12 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
     func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws {
         if #available(iOS 17.0, *) {
             let initialDeviceIdentifierToSelect = try await determineObvDeviceIdentifierAssociatedToMessageObjectID(messageObjectID)
-            let dataSource = try ObvMapViewControllerAppDataSource(messageObjectID: messageObjectID, viewContext: ObvStack.shared.viewContext)
-            let mapViewController = ObvMapViewController(dataSource: dataSource, avatarViewDataSource: self.dataSources.avatarViewDataSource, actions: self, initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
+            let mapViewController = ObvMapViewController(
+                kind: .forGivenMessage(persistedMessageObjectID: messageObjectID.objectID),
+                dataSource: self.dataSources.mapViewDataSource,
+                avatarViewDataSource: self.dataSources.avatarViewDataSource,
+                actions: self,
+                initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
             mapViewController.modalPresentationStyle = .overFullScreen
             presentingViewController.presentOnTop(mapViewController, animated: true)
         } else {
@@ -2120,14 +2218,14 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
     }
     
     
-    func userWantsToDeleteAttachmentsFromDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async {
+    func userWantsToDeleteDraftAttachment(_ mainFlowViewController: MainFlowViewController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); return }
-        await metaFlowControllerDelegate.userWantsToDeleteAttachmentsFromDraft(self, draftObjectID: draftObjectID, draftTypeToDelete: draftTypeToDelete)
+        try await metaFlowControllerDelegate.userWantsToDeleteDraftAttachment(self, draftFyleJoinObjectID: draftFyleJoinObjectID)
     }
     
-    func userWantsToUpdateDraftBodyAndMentions(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToUpdateDraftBodyAndMentions(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
-        try await metaFlowControllerDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body, mentions: mentions)
+        try await metaFlowControllerDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body)
     }
     
     
@@ -2143,9 +2241,9 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
     }
     
     
-    func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
-        try await metaFlowControllerDelegate.userWantsToSendDraft(self, draftObjectID: draftObjectID, textBody: textBody, mentions: mentions)
+        try await metaFlowControllerDelegate.userWantsToSendDraft(self, draftObjectID: draftObjectID, textBody: textBody)
     }
     
     
@@ -2661,7 +2759,7 @@ extension MetaFlowController {
     @MainActor
     private func processUserTriedToAccessCameraButAccessIsDenied() {
         let alert = UIAlertController(title: Strings.authorizationRequired, message: Strings.cameraAccessDeniedExplanation, preferredStyle: .alert)
-        if let appSettings = URL(string: UIApplication.openSettingsURLString) {
+        if let appSettings = URL(string: UIApplication.openCameraSettingsURLString) {
             alert.addAction(UIAlertAction(title: Strings.goToSettingsButtonTitle, style: .default, handler: { (_) in
                 UIApplication.shared.open(appSettings, options: [:])
             }))
@@ -3039,19 +3137,19 @@ extension MetaFlowController {
                         Task { await self?.localOwnedIdentityChooserViewControllerDelegate.userDismissedTheOwnedIdentityChooserViewController() }
                     }
                     
-                    let ownedIdentityChooserVC = OwnedIdentityChooserViewController(
+                    let ownedIdentityChooserVC = OwnedIdentityChooserNavigationStackHostingView(
                         currentOwnedCryptoId: currentOrFirstOwnedCryptoId,
                         actions: localOwnedIdentityChooserViewControllerDelegate,
                         dataSource: self.dataSources.ownedIdentityChooserViewDataSource,
                         avatarViewDataSource: self.dataSources.avatarViewDataSource,
                         configuration: .init(mode: .selectProfile,
                                              explanation: String(localized: "PLEASE_SELECT_A_PROFILE_BEFORE_CONTINUING"),
-                                             title: "MY_PROFILES",
+                                             title: String(localized: "MY_PROFILES"),
                                              isEmbeddedInHostingController: true),
                         callbackOnViewDidDisappear: callbackOnViewDidDisappear,
                         toggleToDismiss: .init(get: { false }, set: { [weak self] value in
                             guard value else { return }
-                            (self?.presentedViewController as? OwnedIdentityChooserViewController)?.dismiss(animated: true)
+                            (self?.presentedViewController as? OwnedIdentityChooserNavigationStackHostingView)?.dismiss(animated: true)
                         }))
                     
                     // Under iPhone, we use a popover presentation style. Since we have no source view, we cannot do the same under iPad or mac.
@@ -3712,6 +3810,10 @@ extension MetaFlowController: PersistedObvContactIdentityObserver {
         }
     }
     
+    func contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: ObvContactIdentifier) async {
+        // We do nothing
+    }
+    
 }
 
 
@@ -3815,7 +3917,7 @@ extension MetaFlowController: PersistedDiscussionObserver {
 /// This private helper class is used to allow the MetaFlowController to offer a simple API allowing the user to choose one of her profiles when processing
 /// an OlvidURL.
 @MainActor
-private final class LocalOwnedIdentityChooserViewControllerDelegate: OwnedIdentityChooserViewActionsProtocol {
+private final class LocalOwnedIdentityChooserViewControllerDelegate: OwnedIdentityChooserNavigationStackActions {
         
     private var continuation: CheckedContinuation<ObvCryptoId?, any Error>?
     
@@ -3838,17 +3940,17 @@ private final class LocalOwnedIdentityChooserViewControllerDelegate: OwnedIdenti
 
     // Implementing OwnedIdentityChooserViewActionsProtocol
     
-    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
+    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
         guard let continuation = self.continuation else { return }
         self.continuation = nil
         continuation.resume(returning: chosenOwnedCryptoId)
     }
     
-    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
+    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
         assertionFailure("Unexpected as the OwnedIdentityChooserViewController is in selectProfile mode")
     }
     
-    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView) async {
+    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack) async {
         assertionFailure("Unexpected as the OwnedIdentityChooserViewController is in selectProfile mode")
     }
 

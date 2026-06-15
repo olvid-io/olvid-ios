@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,8 +25,6 @@ import OlvidUtils
 public struct ObvOwnedAttachment: Hashable {
     
     public let metadata: Data
-    public let totalUnitCount: Int64
-    public let url: URL
     public let status: ObvAttachment.Status
     public let attachmentId: ObvAttachmentIdentifier
     public let messageUploadTimestampFromServer: Date
@@ -43,14 +41,15 @@ public struct ObvOwnedAttachment: Hashable {
     }
 
     public var downloadPaused: Bool {
-        return self.status == .paused
+        switch self.status {
+        case .paused: return true
+        default: return false
+        }
     }
 
     
-    public init(metadata: Data, totalUnitCount: Int64, url: URL, status: ObvAttachment.Status, attachmentId: ObvAttachmentIdentifier, messageUploadTimestampFromServer: Date) {
+    public init(metadata: Data, status: ObvAttachment.Status, attachmentId: ObvAttachmentIdentifier, messageUploadTimestampFromServer: Date) {
         self.metadata = metadata
-        self.totalUnitCount = totalUnitCount
-        self.url = url
         self.status = status
         self.attachmentId = attachmentId
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,15 +32,22 @@ enum ComposeMessageViewSettingsViewControllerInput {
 }
 
 
+@MainActor
+protocol ComposeMessageViewSettingsViewControllerActions: AnyObject {
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: ComposeMessageViewSettingsViewController, value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) async throws
+}
+
 
 final class ComposeMessageViewSettingsViewController: KeyboardTableViewController {
 
     private var notificationTokens = [NSObjectProtocol]()
     private var cancellables = Set<AnyCancellable>()
     let input: ComposeMessageViewSettingsViewControllerInput
+    private weak var actions: (any ComposeMessageViewSettingsViewControllerActions)?
 
-    init(input: ComposeMessageViewSettingsViewControllerInput) {
+    init(input: ComposeMessageViewSettingsViewControllerInput, actions: any ComposeMessageViewSettingsViewControllerActions) {
         self.input = input
+        self.actions = actions
         super.init(style: .insetGrouped)
 
         observePreferredComposeMessageViewActionsDidChangeNotifications()
@@ -613,10 +620,19 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
             switch item {
                 
             case .changeDefaultEmojiAtDiscussionLevel:
-                let model = EmojiPickerViewModel(selectedEmoji: discussionConfiguration.defaultEmoji) { emoji in
+                let model = EmojiPickerViewModel(selectedEmoji: discussionConfiguration.defaultEmoji) { [weak self] emoji in
+                    guard let self, let actions = self.actions else { assertionFailure(); return }
                     let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(emoji)
-                    ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: discussionConfiguration.typedObjectID)
-                        .postOnDispatchQueue()
+                    let localConfigurationObjectID = discussionConfiguration.typedObjectID
+                    let indexPathToReload = DefaultEmojiAtDiscussionLevelItem.resetButton.indexPath(forInput: input)
+                    Task {
+                        do {
+                            try await actions.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+                            await MainActor.run { self.tableView.reloadRows(at: [indexPath, indexPathToReload].compactMap({ $0 }), with: .none) }
+                        } catch {
+                            assertionFailure()
+                        }
+                    }
                 }
                 let vc = EmojiPickerHostingViewController(model: model)
                 
@@ -641,10 +657,18 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
                 }
                 
             case .resetButton:
+                guard let actions = self.actions else { assertionFailure(); return }
                 let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(nil)
-                ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: discussionConfiguration.typedObjectID)
-                    .postOnDispatchQueue()
-
+                let localConfigurationObjectID = discussionConfiguration.typedObjectID
+                let indexPathToReload = DefaultEmojiAtDiscussionLevelItem.changeDefaultEmojiAtDiscussionLevel.indexPath(forInput: input)
+                Task {
+                    do {
+                        try await actions.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+                        await MainActor.run { self.tableView.reloadRows(at: [indexPath, indexPathToReload].compactMap({ $0 }), with: .none) }
+                    } catch {
+                        assertionFailure()
+                    }
+                }
             }
 
         }

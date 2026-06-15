@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -43,6 +43,23 @@ public extension TimeInterval {
     
     init(milliseconds: Int) {
         self.init(Double(milliseconds) / 1000.0)
+    }
+
+}
+
+
+public extension TimeInterval {
+    
+    static func days(_ numberOfDays: Int) -> Self {
+        return .init(days: numberOfDays)
+    }
+
+    static func hours(_ numberOfHours: Int) -> Self {
+        return .init(hours: numberOfHours)
+    }
+
+    static func minutes(_ numberOfMinutes: Int) -> Self {
+        return .init(minutes: numberOfMinutes)
     }
 
 }

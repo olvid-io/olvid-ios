@@ -283,7 +283,7 @@ extension BootstrapWorker {
                 } else {
                     
                     for attachment in inboxMessage.attachments {
-                        guard let attachmentId = attachment.attachmentId else { assertionFailure(); continue }
+                        guard let attachmentId = try? attachment.attachmentId else { assertionFailure(); continue }
                         switch attachment.status {
                         case .paused:
                             break

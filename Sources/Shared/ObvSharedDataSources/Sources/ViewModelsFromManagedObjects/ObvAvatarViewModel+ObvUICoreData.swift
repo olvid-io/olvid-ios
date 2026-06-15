@@ -81,6 +81,34 @@ extension ObvDesignSystem.ObvAvatarViewModel {
     }
     
     
+    public init(groupV2Member: PersistedGroupV2Member) {
+        
+        if let contact = groupV2Member.contact {
+            
+            self.init(contact: contact)
+            
+        } else {
+            
+            let character = (groupV2Member.firstName ?? groupV2Member.lastName)?.first
+            let characterOrIcon: ObvAvatarViewModel.CharacterOrIcon
+            if let character {
+                characterOrIcon = .character(character)
+            } else {
+                characterOrIcon = .icon(.person)
+            }
+            
+            let backgroundColor = groupV2Member.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared)
+            let foregroundColor = groupV2Member.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared)
+            let colors = ObvDesignSystem.ObvAvatarViewModel.Colors(foreground: foregroundColor, background: backgroundColor)
+            
+            self.init(characterOrIcon: characterOrIcon,
+                      colors: colors,
+                      photoURL: nil)
+       }
+        
+    }
+    
+    
     public init(contactDevice: PersistedObvContactDevice) throws {
         guard let contact = contactDevice.identity else {
             assertionFailure()

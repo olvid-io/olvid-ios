@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -159,6 +159,8 @@ public extension UIDevice {
             return "iPhone 17"
         case "iPhone18,4":
             return "iPhone Air"
+        case "iPhone18,5":
+            return "iPhone 17e"
 
         //
         // iPads

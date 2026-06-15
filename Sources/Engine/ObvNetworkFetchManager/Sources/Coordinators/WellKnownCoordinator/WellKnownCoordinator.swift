@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,7 +30,7 @@ protocol WellKnownCacheDelegate: AnyObject {
     func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws
     func initializateCache(flowId: FlowIdentifier) async throws
     func downloadAndUpdateCache(flowId: FlowIdentifier) async throws
-    func getTurnURLs(for server: URL, flowId: FlowIdentifier) async throws -> Result<[String], WellKnownCacheError>
+    func getTurnURLs(for server: URL, flowId: FlowIdentifier) async throws -> Result<(turnServerURLs: [String], turnServerAlternativeURLs: [String]), WellKnownCacheError>
     func getWebSocketURL(for server: URL, flowId: FlowIdentifier) async throws -> URL
     func queryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) async throws
 
@@ -107,13 +107,6 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
             }
         }
         
-//        for server in servers {
-//            let (wellKnown, isUpdated) = await downloadAndCacheWellKnownFromServer(serverURL: server, delegateManager: delegateManager, flowId: flowId)
-//            Task {
-//                notifyDelegateAboutCachedWellKnown(server: server, wellKnown: wellKnown, isUpdated: isUpdated, delegateManager: delegateManager, flowId: flowId)
-//            }
-//        }
-        
     }
     
     
@@ -149,7 +142,7 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
     }
 
     
-    func getTurnURLs(for server: URL, flowId: FlowIdentifier) async throws -> Result<[String], WellKnownCacheError> {
+    func getTurnURLs(for server: URL, flowId: FlowIdentifier) async throws -> Result<(turnServerURLs: [String], turnServerAlternativeURLs: [String]), WellKnownCacheError> {
         
         guard let delegateManager = delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
@@ -160,13 +153,13 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
         try await initializateCache(flowId: flowId)
         
         if let wellKnown = wellKnownCache[server] {
-            return .success(wellKnown.serverConfig.turnServerURLs)
+            return .success((wellKnown.serverConfig.turnServerURLs, wellKnown.serverConfig.turnServerAlternativeURLs))
         } else {
             let (wellKnown, isUpdated) = await downloadAndCacheWellKnownFromServer(serverURL: server, delegateManager: delegateManager, flowId: flowId)
             Task {
                 notifyDelegateAboutCachedWellKnown(server: server, wellKnown: wellKnown, isUpdated: isUpdated, delegateManager: delegateManager, flowId: flowId)
             }
-            return .success(wellKnown.serverConfig.turnServerURLs)
+            return .success((wellKnown.serverConfig.turnServerURLs, wellKnown.serverConfig.turnServerAlternativeURLs))
         }
 
     }

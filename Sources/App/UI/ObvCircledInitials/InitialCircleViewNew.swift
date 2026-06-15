@@ -23,7 +23,6 @@ import ObvDesignSystem
 import ObvSystemIcon
 
 
-@MainActor
 public protocol InitialCircleViewNewModelProtocol: ObservableObject {
     var circledInitialsConfiguration: CircledInitialsConfiguration { get }
 }

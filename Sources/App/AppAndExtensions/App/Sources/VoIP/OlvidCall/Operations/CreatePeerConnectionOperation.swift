@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,7 @@ final class CreatePeerConnectionOperation: AsyncOperationWithSpecificReasonForCa
 
     static let labelForDataChannel = "data0"
     
-    private let turnCredentials: TurnCredentials
+    private let turnCredentials: TurnCredentialsAndServerURLs // These credentials will be presented to the TURN server
     private let gatheringPolicy: OlvidCallGatheringPolicy
     private let obvPeerConnectionDelegate: ObvPeerConnectionDelegate
     private let obvDataChannelDelegate: ObvDataChannelDelegate
@@ -41,7 +41,12 @@ final class CreatePeerConnectionOperation: AsyncOperationWithSpecificReasonForCa
     // If this operation finishes without cancelling, this is set
     private(set) var peerConnection: ObvPeerConnection?
 
-    init(turnCredentials: TurnCredentials, gatheringPolicy: OlvidCallGatheringPolicy, isAudioTrackEnabled: Bool, factory: ObvPeerConnectionFactory, obvPeerConnectionDelegate: ObvPeerConnectionDelegate, obvDataChannelDelegate: ObvDataChannelDelegate) {
+    init(turnCredentials: TurnCredentialsAndServerURLs,
+         gatheringPolicy: OlvidCallGatheringPolicy,
+         isAudioTrackEnabled: Bool,
+         factory: ObvPeerConnectionFactory,
+         obvPeerConnectionDelegate: ObvPeerConnectionDelegate,
+         obvDataChannelDelegate: ObvDataChannelDelegate) {
         self.turnCredentials = turnCredentials
         self.gatheringPolicy = gatheringPolicy
         self.obvPeerConnectionDelegate = obvPeerConnectionDelegate
@@ -86,11 +91,9 @@ final class CreatePeerConnectionOperation: AsyncOperationWithSpecificReasonForCa
     }
     
     
-    private static func createRTCConfiguration(turnCredentials: TurnCredentials, gatheringPolicy: OlvidCallGatheringPolicy) -> RTCConfiguration {
+    private static func createRTCConfiguration(turnCredentials: TurnCredentialsAndServerURLs, gatheringPolicy: OlvidCallGatheringPolicy) -> RTCConfiguration {
     
-        // 2022-03-11, we used to use the servers indicated in the turn credentials.
-        // We do not do that anymore and use the (user) preferred servers.
-        let iceServer = WebRTC.RTCIceServer(urlStrings: ObvMessengerConstants.ICEServerURLs.preferred,
+        let iceServer = WebRTC.RTCIceServer(urlStrings: turnCredentials.turnServerURLs,
                                             username: turnCredentials.turnUserName,
                                             credential: turnCredentials.turnPassword,
                                             tlsCertPolicy: .insecureNoCheck)

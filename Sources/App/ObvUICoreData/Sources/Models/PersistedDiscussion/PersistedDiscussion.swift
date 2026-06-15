@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -418,7 +418,8 @@ public class PersistedDiscussion: NSManagedObject {
         
     func deletePersistedDiscussionFromDatabase() throws {
         guard let context = managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
-        self.discussionIdentifierOnDeletion = try self.discussionIdentifier
+        self.discussionIdentifierOnDeletion = try? self.discussionIdentifier
+        self.discussionPermanentIDOnDeletion = self.discussionPermanentID
         context.delete(self)
     }
     
@@ -892,6 +893,9 @@ public class PersistedDiscussion: NSManagedObject {
                 guard Date.now.timeIntervalSince(obvMessage.messageUploadTimestampFromServer) < existenceDuration else {
                     throw ObvUICoreDataError.cannotCreateReceivedMessageThatAlreadyExpired
                 }
+            case .historyTransfer:
+                assertionFailure()
+                throw ObvUICoreDataError.unexpectedObvMessageSource
             }
         }
 
@@ -948,12 +952,6 @@ public class PersistedDiscussion: NSManagedObject {
                 return (self.discussionPermanentID, try? messageReceived.objectPermanentID)
             }
             
-            // We make sure that message has a body (for now, this message comes from the notification extension, and there is no point in creating a `PersistedMessageReceived` if there is no body.
-
-            guard messageJSON.body?.isEmpty == false else {
-                throw ObvUICoreDataError.messageHasNoBody
-            }
-
             // Create the PersistedMessageReceived
 
             Self.logger.debug("Creating or updating a persisted message (source: \(source.debugDescription))")
@@ -966,6 +964,11 @@ public class PersistedDiscussion: NSManagedObject {
                 receivedLocation: receivedLocation,
                 from: contact,
                 in: self)
+            
+        case .historyTransfer:
+            
+            assertionFailure()
+            throw ObvUICoreDataError.unexpectedObvMessageSource
 
         }
 
@@ -1071,8 +1074,7 @@ public class PersistedDiscussion: NSManagedObject {
                 }
                 
                 try message.processUpdateReceivedMessageRequest(
-                    newTextBody: updateMessageJSON.newTextBody,
-                    newUserMentions: updateMessageJSON.userMentions,
+                    newBodyAndMentions: updateMessageJSON.newBodyAndMentions,
                     newLocation: updateMessageJSON.locationJSON,
                     messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                     requester: contactCryptoId)
@@ -1129,8 +1131,7 @@ public class PersistedDiscussion: NSManagedObject {
                 }
                 
                 try message.processUpdateSentMessageRequest(
-                    newTextBody: updateMessageJSON.newTextBody,
-                    newUserMentions: updateMessageJSON.userMentions,
+                    newBodyAndMentions: updateMessageJSON.newBodyAndMentions,
                     newLocation: updateMessageJSON.locationJSON,
                     messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                     requester: ownedCryptoId)
@@ -1153,7 +1154,8 @@ public class PersistedDiscussion: NSManagedObject {
 
     }
     
-    func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: String?) throws {
+    
+    func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: AttributedString?) throws {
         
         guard self.ownedIdentity == ownedIdentity else {
             throw ObvUICoreDataError.unexpectedOwnedIdentity
@@ -1175,7 +1177,7 @@ public class PersistedDiscussion: NSManagedObject {
 
         case .active:
 
-            try messageSent.replaceContentWith(newBody: newTextBody, newMentions: Set<MessageJSON.UserMention>())
+            try messageSent.replaceBodyAndMentions(with: newTextBody)
 
         }
 
@@ -1234,7 +1236,10 @@ public class PersistedDiscussion: NSManagedObject {
                                                               contactIdentity: messageToEdit.senderIdentifier,
                                                               discussion: self) {
                 
-                try message.setReactionFromContact(contact, withEmoji: reactionJSON.emoji, reactionTimestamp: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+                try message.setReactionFromContact(contact,
+                                                   withEmoji: reactionJSON.emoji,
+                                                   reactionTimestamp: reactionJSON.originalServerTimestamp ?? messageUploadTimestampFromServer,
+                                                   overrideExistingReaction: overrideExistingReaction)
                 
                 return message
                 
@@ -1243,7 +1248,10 @@ public class PersistedDiscussion: NSManagedObject {
                                                                  ownedIdentity: messageToEdit.senderIdentifier,
                                                                  discussion: self) {
                 
-                try message.setReactionFromContact(contact, withEmoji: reactionJSON.emoji, reactionTimestamp: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+                try message.setReactionFromContact(contact,
+                                                   withEmoji: reactionJSON.emoji,
+                                                   reactionTimestamp: reactionJSON.originalServerTimestamp ?? messageUploadTimestampFromServer,
+                                                   overrideExistingReaction: overrideExistingReaction)
                 
                 return message
 
@@ -1366,7 +1374,7 @@ public class PersistedDiscussion: NSManagedObject {
                                                    for: pollVoteJSON.pollCandidateUuid,
                                                    voted: pollVoteJSON.voted,
                                                    version: pollVoteJSON.version,
-                                                   messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                                                   messageUploadTimestampFromServer: pollVoteJSON.originalServerTimestamp ?? messageUploadTimestampFromServer)
                 
                 return message
                 
@@ -1379,7 +1387,7 @@ public class PersistedDiscussion: NSManagedObject {
                                                    for: pollVoteJSON.pollCandidateUuid,
                                                    voted: pollVoteJSON.voted,
                                                    version: pollVoteJSON.version,
-                                                   messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                                                   messageUploadTimestampFromServer: pollVoteJSON.originalServerTimestamp ?? messageUploadTimestampFromServer)
                 
                 return message
                 
@@ -1863,6 +1871,27 @@ extension PersistedDiscussion {
         }
         insertUpdatedDiscussionSharedSettingsSystemMessageIfRequired(markAsRead: markAsRead)
     }
+    
+    
+    /// Returns `true` iff we had to modify the timestamp, sortIndex, and section identifier of an existing "end-to-end encrypted" system message. This tells the caller that it should
+    /// include pending changes when computing the sort identifier of new messages.
+    func insertOrAdjustSystemMessagesIfDiscussionDuringHistoryTransfer(messageTimestamp: Date) throws -> Bool {
+        // If there exist a "end-to-end encrypted" system message, we want to ensure its timestamp is smaller
+        // than the one of the message received during history transfer
+        if let existingIsDiscussionIsEndToEndEncryptedSystemMessage = try PersistedMessageSystem.getDiscussionIsEndToEndEncryptedSystemMessage(in: self) {
+            if existingIsDiscussionIsEndToEndEncryptedSystemMessage.timestamp > messageTimestamp.addingTimeInterval(-1/100.0) {
+                try existingIsDiscussionIsEndToEndEncryptedSystemMessage.resetTimestampAndSortIndexOfDiscussionIsEndToEndEncryptedSystemMessage(messageTimestamp: messageTimestamp, discussion: self)
+                return true
+            } else {
+                return false
+            }
+        } else {
+            let systemMessage = try PersistedMessageSystem(.discussionIsEndToEndEncrypted, optionalContactIdentity: nil, optionalOwnedCryptoId: nil, optionalCallLogItem: nil, discussion: self, timestamp: messageTimestamp)
+            systemMessage.markAsRead()
+            return false
+        }
+    }
+
 
     /// If the discussion has some ephemeral setting set (read once, limited visibility or limited existence), the method inserts a system message allowing the user to see what kind of ephemerality is set.
     public func insertUpdatedDiscussionSharedSettingsSystemMessageIfRequired(markAsRead: Bool) {
@@ -2146,8 +2175,8 @@ extension PersistedDiscussion {
 
             let ownedCryptoId = self.ownedIdentity?.cryptoId
             
-            let messageMentionsContainOwnedIdentity = receivedMessage.mentions.compactMap { try? $0.mentionnedCryptoId }.contains(ownedCryptoId)
-            let messageDoesReplyToMessageThatMentionsOwnedIdentity = (try? receivedMessage.messageRepliedTo?.mentions.map({ try $0.mentionnedCryptoId }).contains(ownedCryptoId)) ?? false
+            let messageMentionsContainOwnedIdentity = receivedMessage.mentions.compactMap { try? $0.mentionedCryptoId }.contains(ownedCryptoId)
+            let messageDoesReplyToMessageThatMentionsOwnedIdentity = (try? receivedMessage.messageRepliedTo?.mentions.map({ try $0.mentionedCryptoId }).contains(ownedCryptoId)) ?? false
             let messageDoesReplyToSentMessage = (receivedMessage.messageRepliedTo is PersistedMessageSent)
 
             let doesMentionOwnedIdentityValue = messageMentionsContainOwnedIdentity || messageDoesReplyToMessageThatMentionsOwnedIdentity || messageDoesReplyToSentMessage
@@ -2553,6 +2582,23 @@ extension PersistedDiscussion {
         return NSFetchRequest<NSDictionary>(entityName: Self.entityName)
     }
 
+    
+    public static func getIdentifiersOfActiveAndLockedDiscussions(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [ObvDiscussionIdentifier] {
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                Predicate.withStatus(.active),
+                Predicate.withStatus(.locked),
+            ])
+        ])
+        request.fetchBatchSize = 100
+        let items = try context.fetch(request)
+        let discussionIdentifiers = items.compactMap({ try? $0.discussionIdentifier})
+        assert(items.count == discussionIdentifiers.count)
+        return discussionIdentifiers
+    }
+    
     
     /// Identifies discussions affected by a rare bug in early versions of v3.10.
     /// In these versions, some `PersistedDiscussion` instances incorrectly have a `nil` `sortDate`
@@ -3094,7 +3140,6 @@ extension PersistedDiscussion {
         }
         if isDeleted {
             assert(self.managedObjectContext?.concurrencyType != .mainQueueConcurrencyType)
-            self.discussionPermanentIDOnDeletion = self.discussionPermanentID
         } else {
             // If the illustrative message is not part of the messages anymore (which happens when we wipe all messages of a discussion), we remove it.
             // Note that setting the illustrativeMessage to nil ensures we don't enter an infinite loop as the test won't trigger twice.

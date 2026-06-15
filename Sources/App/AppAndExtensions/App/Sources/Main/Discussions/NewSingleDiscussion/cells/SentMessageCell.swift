@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,6 @@
 
 import UIKit
 import UniformTypeIdentifiers
-import LinkPresentation
 import CoreData
 import OSLog
 import ObvUI
@@ -203,6 +202,16 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             } else {
                 isSharingLocationExpired = message.locationContinuousSent?.isSharingLocationExpired ?? true // If nil, we know the sharing expired
             }
+            
+            // The user can only stop sharing location if it's being shared from the current device
+            let userCanStopSharingLocation: Bool
+            if let locationContinuousSent = message.locationContinuousSent {
+                userCanStopSharingLocation = locationContinuousSent.ownedDevice?.isCurrentDevice ?? false
+            } else {
+                // For one-shot locations, there's nothing to stop
+                userCanStopSharingLocation = false
+            }
+            
             let locationViewConfiguration = LocationView.Configuration(latitude: location?.latitude,
                                                                        longitude: location?.longitude,
                                                                        address: location?.address,
@@ -210,7 +219,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                                                                        expirationDate: location?.sharingExpiration?.timeIntervalSince1970,
                                                                        isSharingLocationExpired: isSharingLocationExpired,
                                                                        userCircledInitialsConfiguration: circledInitialsConfiguration,
-                                                                       userCanStopSharingLocation: true,
+                                                                       userCanStopSharingLocation: userCanStopSharingLocation,
                                                                        sentFromAnotherDevice: message.status == .sentFromAnotherOwnedDevice,
                                                                        messageObjectID: message.typedObjectID.downcast)
             content.locationViewConfiguration = locationViewConfiguration
@@ -476,6 +485,8 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             }
         case .cancelledByServer:
             config = .cancelledByServer
+        case .untransferred:
+            config = .untransferred
         }
         return config
     }
@@ -533,6 +544,10 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             
             config = .cancelledByServer(fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
             
+        case .untransferred:
+
+            config = .untransferred(fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+            
         case .downloadable:
             
             config = .downloadableSent(sentJoinObjectID: attachment.typedObjectID, progress: attachment.progressObject, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
@@ -571,6 +586,8 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         case .downloadable:
             config = .downloadable
         case .cancelledByServer:
+            config = nil
+        case .untransferred:
             config = nil
         case .complete, .uploadable, .uploading:
             switch CachedObvLinkMetadataManager.shared.getCachedMetadata(for: fyleURL) {
@@ -1054,7 +1071,9 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             guard let messageObjectID = self.messageObjectID, let draftObjectID = self.draftObjectID else { assertionFailure(); return }
             guard let replyToDelegate = self.replyToDelegate else { assertionFailure(); return }
             Task {
-                try? await replyToDelegate.userWantsToReplyToMessage(messageObjectID: messageObjectID.downcast, draftObjectID: draftObjectID)
+                if let cell = self.superview as? SentMessageCell {
+                    try? await replyToDelegate.userWantsToReplyToMessage(cell: cell, messageObjectID: messageObjectID.downcast, draftObjectID: draftObjectID)
+                }
             }
         }
     }

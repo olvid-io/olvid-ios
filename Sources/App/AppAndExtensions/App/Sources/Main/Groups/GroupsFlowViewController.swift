@@ -44,7 +44,10 @@ final class GroupsFlowViewController: ObvFlowController {
 
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, dataSources: ObvDataSources) {
 
-        super.init(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, dataSources: dataSources, doAddFloatingButton: false)
+        super.init(ownedCryptoId: ownedCryptoId,
+                   obvEngine: obvEngine,
+                   dataSources: dataSources,
+                   doAddFloatingButton: false)
         
         let groupsListViewController = ObvGroupsListViewController(
             currentOwnedCryptoId: ownedCryptoId,

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,11 +19,12 @@
   
 
 import Foundation
+import CoreData
 import OlvidUtils
 import ObvEngine
 import ObvTypes
 import ObvUICoreData
-import CoreData
+import ObvAppTypes
 
 
 /// When the `ScreenCaptureDetector` detects that messages with limited visibility were screenshoted or captured (e.g. with a video capture of the screen), this operation gets called.

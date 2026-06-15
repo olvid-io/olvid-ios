@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,8 +28,7 @@ public struct ObvKeycloakState: ObvErrorMaker {
 
     
     public let keycloakServer: URL
-    public let clientId: String
-    public let clientSecret: String?
+    public let supportedAuthenticationMethods: SupportedAuthenticationMethods
     public let jwks: ObvJWKSet
     public let rawAuthState: Data?
     public let signatureVerificationKey: ObvJWK?
@@ -37,10 +36,16 @@ public struct ObvKeycloakState: ObvErrorMaker {
     public let latestGroupUpdateTimestamp: Date? // Server timestamp, only set at the engine level when informing the app of latest known (locally stored) group update timestamp
     public let isTransferRestricted: Bool
 
-    public init(keycloakServer: URL, clientId: String, clientSecret: String?, jwks: ObvJWKSet, rawAuthState: Data?, signatureVerificationKey: ObvJWK?, latestLocalRevocationListTimestamp: Date?, latestGroupUpdateTimestamp: Date?, isTransferRestricted: Bool) {
+    public init(keycloakServer: URL,
+                supportedAuthenticationMethods: SupportedAuthenticationMethods,
+                jwks: ObvJWKSet,
+                rawAuthState: Data?,
+                signatureVerificationKey: ObvJWK?,
+                latestLocalRevocationListTimestamp: Date?,
+                latestGroupUpdateTimestamp: Date?,
+                isTransferRestricted: Bool) {
         self.keycloakServer = keycloakServer
-        self.clientId = clientId
-        self.clientSecret = clientSecret
+        self.supportedAuthenticationMethods = supportedAuthenticationMethods
         self.jwks = jwks
         self.rawAuthState = rawAuthState
         self.signatureVerificationKey = signatureVerificationKey
@@ -49,6 +54,15 @@ public struct ObvKeycloakState: ObvErrorMaker {
         self.isTransferRestricted = isTransferRestricted
     }
     
+    /// Convenience accessor for the OIDC client ID. Preserved for backward compatibility.
+    public var clientId: String {
+        supportedAuthenticationMethods.openIdConnect.clientId
+    }
+    
+    /// Convenience accessor for the OIDC client secret. Preserved for backward compatibility.
+    public var clientSecret: String? {
+        supportedAuthenticationMethods.openIdConnect.clientSecret
+    }
     
     public var keycloakConfiguration: ObvKeycloakConfiguration {
         .init(keycloakServerURL: keycloakServer,
@@ -66,6 +80,7 @@ extension ObvKeycloakState: ObvFailableCodable {
     private enum ObvCodingKeys: String, CaseIterable, CodingKey {
         
         case keycloakServer = "ks"
+        case idBased = "ida"
         case clientId = "ci"
         case clientSecret = "cs"
         case jwks = "jwks"
@@ -83,10 +98,14 @@ extension ObvKeycloakState: ObvFailableCodable {
             switch codingKey {
             case .keycloakServer:
                 try obvDict.obvEncode(keycloakServer, forKey: codingKey)
+            case .idBased:
+                if self.supportedAuthenticationMethods.idBased != nil {
+                    try obvDict.obvEncode(true, forKey: codingKey)
+                }
             case .clientId:
-                try obvDict.obvEncode(clientId, forKey: codingKey)
+                try obvDict.obvEncode(self.supportedAuthenticationMethods.openIdConnect.clientId, forKey: codingKey)
             case .clientSecret:
-                try obvDict.obvEncodeIfPresent(clientSecret, forKey: codingKey)
+                try obvDict.obvEncodeIfPresent(self.supportedAuthenticationMethods.openIdConnect.clientSecret, forKey: codingKey)
             case .jwks:
                 try obvDict.obvEncode(jwks, forKey: codingKey)
             case .rawAuthState:
@@ -105,16 +124,27 @@ extension ObvKeycloakState: ObvFailableCodable {
         guard let obvDict = ObvDictionary(obvEncoded) else { assertionFailure(); return nil }
         do {
             let keycloakServer = try obvDict.obvDecode(URL.self, forKey: ObvCodingKeys.keycloakServer)
+            
             let clientId = try obvDict.obvDecode(String.self, forKey: ObvCodingKeys.clientId)
             let clientSecret = try obvDict.obvDecodeIfPresent(String.self, forKey: ObvCodingKeys.clientSecret)
+            let openIdConnect = ObvKeycloakAuthOIDC(clientId: clientId, clientSecret: clientSecret)
+
+            let idBased: ObvKeycloakAuthIdBased?
+            if try obvDict.obvDecodeIfPresent(Bool.self, forKey: ObvCodingKeys.idBased) == true {
+                idBased = .init()
+            } else {
+                idBased = nil
+            }
+            
+            let supportedAuthenticationMethods = SupportedAuthenticationMethods(openIdConnect: openIdConnect, idBased: idBased)
+            
             let jwks = try obvDict.obvDecode(ObvJWKSet.self, forKey: ObvCodingKeys.jwks)
             let rawAuthState = try obvDict.obvDecodeIfPresent(Data.self, forKey: ObvCodingKeys.rawAuthState)
             let signatureVerificationKey = try obvDict.obvDecodeIfPresent(ObvJWK.self, forKey: ObvCodingKeys.signatureVerificationKey)
             let isTransferRestricted = try obvDict.obvDecodeIfPresent(Bool.self, forKey: ObvCodingKeys.isTransferRestricted) ?? false
             self.init(
                 keycloakServer: keycloakServer,
-                clientId: clientId,
-                clientSecret: clientSecret,
+                supportedAuthenticationMethods: supportedAuthenticationMethods,
                 jwks: jwks,
                 rawAuthState: rawAuthState,
                 signatureVerificationKey: signatureVerificationKey,

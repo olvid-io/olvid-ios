@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,27 +49,7 @@ final class InboxAttachment: NSManagedObject {
             case .cancelledByServer: return "Cancelled by server"
             case .markedForDeletion: return "Marked for deletion"
             }
-        }
-        
-        var toObvNetworkFetchReceivedAttachmentStatus: ObvNetworkFetchReceivedAttachment.Status {
-            switch self {
-            case .paused: return .paused
-            case .resumeRequested: return .resumed
-            case .downloaded: return .downloaded
-            case .cancelledByServer: return .cancelledByServer
-            case .markedForDeletion: return .markedForDeletion
-            }
-        }
-        
-        var toObvAttachmentStatus: ObvAttachment.Status {
-            switch self {
-            case .paused: return .paused
-            case .resumeRequested: return .resumed
-            case .downloaded: return .downloaded
-            case .cancelledByServer: return .cancelledByServer
-            case .markedForDeletion: return .markedForDeletion
-            }
-        }
+        }        
     }
 
     // MARK: Attributes
@@ -178,9 +158,11 @@ final class InboxAttachment: NSManagedObject {
     }
 
     /// This identifier is expected to be non nil, unless the associated `InboxMessage` was deleted on another thread.
-    var attachmentId: ObvAttachmentIdentifier? {
-        guard let messageId else { return nil }
-        return ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+    var attachmentId: ObvAttachmentIdentifier {
+        get throws {
+            guard let messageId else { throw ObvError.couldNotDetermineMessageId }
+            return ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+        }
     }
 
     func getURL(withinInbox inbox: URL) -> URL? {
@@ -441,7 +423,12 @@ extension InboxAttachment {
     var plaintextLength: Int64? {
         let cleartextChunksLengths = chunks.compactMap({ $0.cleartextChunkLength })
         // The following test fails if the decryption key has not been set yet
-        guard cleartextChunksLengths.count == chunks.count else { return nil }
+        guard cleartextChunksLengths.count == chunks.count else {
+            let cleartextChunksLengthsCount = cleartextChunksLengths.count
+            let chunksCount = chunks.count
+            Self.logger.fault("We have cleartextChunksLengths.count (\(cleartextChunksLengthsCount) != chunks.count (\(chunksCount), which happens wen the decryption key has not yet been set")
+            return nil
+        }
         let length = cleartextChunksLengths.reduce(0, +)
         return Int64(length)
     }
@@ -475,69 +462,111 @@ extension InboxAttachment {
 
 extension InboxAttachment {
     
-    func getObvAttachment(fromCryptoIdentity: ObvContactIdentifier, messageUploadTimestampFromServer: Date, inbox: URL) -> ObvAttachment? {
+    func getObvAttachment(fromCryptoIdentity: ObvContactIdentifier, messageUploadTimestampFromServer: Date, inbox: URL) throws -> ObvAttachment {
         
-        guard let attachmentId = self.attachmentId else { assertionFailure(); return nil }
-        guard let metadata = self.metadata else { assertionFailure(); return nil }
+        let attachmentId = try self.attachmentId
+        guard let metadata = self.metadata else { assertionFailure(); throw ObvError.metadataIsNil }
 
-        let totalUnitCount: Int64
-        if self.status == .cancelledByServer {
-            totalUnitCount = 0
-        } else {
-            guard let _totalUnitCount = self.plaintextLength else {
-                Self.logger.fault("Could not find cleartext attachment size. The file might not exist yet (which is the case if the decryption key has not been set).")
-                assertionFailure()
-                return nil
-            }
-            totalUnitCount = _totalUnitCount
+        let status: ObvAttachment.Status
+        switch self.status {
+        case .paused:
+            guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            status = .paused(expectedTotalUnitCount: plaintextLength)
+        case .resumeRequested:
+            guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            status = .resumed(expectedTotalUnitCount: plaintextLength)
+        case .downloaded:
+            //guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            guard let url = self.getURL(withinInbox: inbox) else { assertionFailure(); throw ObvError.cannotGetAttachmentURL }
+            status = .downloaded(url: url)
+        case .cancelledByServer:
+            status = .cancelledByServer
+        case .markedForDeletion:
+            status = .markedForDeletion
         }
-
-        guard let inboxAttachmentUrl = self.getURL(withinInbox: inbox) else {
-            Self.logger.fault("Cannot determine the inbox attachment URL")
-            return nil
-        }
-
+        
         return ObvAttachment(fromContactIdentity: fromCryptoIdentity,
                              metadata: metadata,
-                             totalUnitCount: totalUnitCount,
-                             url: inboxAttachmentUrl,
-                             status: self.status.toObvAttachmentStatus,
+                             status: status,
                              attachmentId: attachmentId,
                              messageUploadTimestampFromServer: messageUploadTimestampFromServer)
         
     }
     
     
-    func getObvOwnedAttachment(messageUploadTimestampFromServer: Date, inbox: URL) -> ObvOwnedAttachment? {
+    func getObvOwnedAttachment(messageUploadTimestampFromServer: Date, inbox: URL) throws -> ObvOwnedAttachment {
         
-        guard let attachmentId = self.attachmentId else { assertionFailure(); return nil }
-        guard let metadata = self.metadata else { assertionFailure(); return nil }
+        let attachmentId = try self.attachmentId
+        guard let metadata = self.metadata else { assertionFailure(); throw ObvError.metadataIsNil }
 
-        let totalUnitCount: Int64
-        if self.status == .cancelledByServer {
-            totalUnitCount = 0
-        } else {
-            guard let _totalUnitCount = self.plaintextLength else {
-                Self.logger.fault("Could not find cleartext attachment size. The file might not exist yet (which is the case if the decryption key has not been set).")
-                assertionFailure()
-                return nil
-            }
-            totalUnitCount = _totalUnitCount
-        }
-
-        guard let inboxAttachmentUrl = self.getURL(withinInbox: inbox) else {
-            Self.logger.fault("Cannot determine the inbox attachment URL")
-            return nil
+        let status: ObvAttachment.Status
+        switch self.status {
+        case .paused:
+            guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            status = .paused(expectedTotalUnitCount: plaintextLength)
+        case .resumeRequested:
+            guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            status = .resumed(expectedTotalUnitCount: plaintextLength)
+        case .downloaded:
+            //guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            guard let url = self.getURL(withinInbox: inbox) else { assertionFailure(); throw ObvError.cannotGetAttachmentURL }
+            status = .downloaded(url: url)
+        case .cancelledByServer:
+            status = .cancelledByServer
+        case .markedForDeletion:
+            status = .markedForDeletion
         }
 
         return ObvOwnedAttachment(metadata: metadata,
-                                  totalUnitCount: totalUnitCount,
-                                  url: inboxAttachmentUrl,
-                                  status: self.status.toObvAttachmentStatus,
+                                  status: status,
                                   attachmentId: attachmentId,
                                   messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+    }
+}
+
+
+// MARK: - Getting an ObvNetworkFetchReceivedAttachment
+
+extension InboxAttachment {
+    
+    func getObvNetworkFetchReceivedAttachment(inbox: URL) throws -> ObvNetworkFetchReceivedAttachment {
+        
+        let attachmentId = try self.attachmentId
+        guard let metadata = self.metadata else { assertionFailure(); throw ObvError.metadataIsNil }
+        guard let fromCryptoIdentity else { assertionFailure(); throw ObvError.fromCryptoIdentityIsNil }
+        guard let message = self.message else { assertionFailure(); throw ObvError.messageIsNil }
+        let messageUploadTimestampFromServer = message.messageUploadTimestampFromServer
+        let downloadTimestampFromServer = message.downloadTimestampFromServer
+
+        let status: ObvNetworkFetchReceivedAttachment.Status
+        switch self.status {
+        case .paused:
+            guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            status = .paused(expectedTotalUnitCount: plaintextLength)
+        case .resumeRequested:
+            guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            status = .resumed(expectedTotalUnitCount: plaintextLength)
+        case .downloaded:
+            guard let plaintextLength else { assertionFailure(); throw ObvError.couldNotDeterminePlaintextLength }
+            guard let url = self.getURL(withinInbox: inbox) else { assertionFailure(); throw ObvError.cannotGetAttachmentURL }
+            status = .downloaded(url: url, totalUnitCount: plaintextLength)
+        case .cancelledByServer:
+            status = .cancelledByServer
+        case .markedForDeletion:
+            status = .markedForDeletion
+        }
+
+        return ObvNetworkFetchReceivedAttachment(
+            fromCryptoIdentity: fromCryptoIdentity,
+            attachmentId: attachmentId,
+            messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+            downloadTimestampFromServer: downloadTimestampFromServer,
+            metadata: metadata,
+            status: status)
         
     }
+    
 }
 
 
@@ -560,6 +589,10 @@ extension InboxAttachment {
         case unexpectedNumberOfSignedURLsWrtTheNumberOfChunks
         case couldNotGetFileHandle
         case tryingToChangeTheStatusToDownloadedButAtLeastOneChunkIsNotDownloadedYet
+        case metadataIsNil
+        case couldNotDeterminePlaintextLength
+        case fromCryptoIdentityIsNil
+        case messageIsNil
     }
 
 }
@@ -695,7 +728,7 @@ extension InboxAttachment {
             }
 
         return items.compactMap { attachment in
-            guard let attachmentId = attachment.attachmentId else { return nil }
+            guard let attachmentId = try? attachment.attachmentId else { return nil }
             let expectedChunkCount = attachment.chunks.count
             return (attachmentId, expectedChunkCount)
         }

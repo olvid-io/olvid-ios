@@ -668,21 +668,58 @@ extension ObvLocationsCellViewModel {
     
     @MainActor
     static let sampleData: [ObvLocationsCellViewModel] = [
-        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0],
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //0
               numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 0,
-              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false),
-        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0],
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 0),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //1
               numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 1,
-              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false),
-        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0],
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 0),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //2
               numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 2,
-              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false),
-        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0],
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 0),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //3
               numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 0,
-              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: true),
-        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0],
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: true,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 0),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //4
               numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 3,
-              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: true),
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: true,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 0),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //5
+              numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 0,
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 1),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //6
+              numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 0,
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 3),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //7
+              numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 1,
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 1),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //8
+              numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 3,
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: false,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 3),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //9
+              numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 0,
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: true,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 1),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //10
+              numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 0,
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: true,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 3),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //11
+              numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 1,
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: true,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 1),
+        .init(ownedCryptoId: ObvCryptoId.sampleDatasForOwnedCryptoId[0], //12
+              numberOfLocationsReceivedForTheCurrentOwnedCryptoId: 2,
+              someOwnedIdentityIsSharingTheLocationOfTheCurrentPhysicalDevice: true,
+              numberOfOtherPhysicalDevicesSharingLocationOfTheCurrentOwnedIdentity: 3)
     ]
     
 }

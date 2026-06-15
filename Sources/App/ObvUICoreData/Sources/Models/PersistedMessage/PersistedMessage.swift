@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -76,6 +76,8 @@ public class PersistedMessage: NSManagedObject {
 
     // MARK: - Other variables
     
+    private var isInsertedDuringHistoryTransfer = false
+
     /// 2023-07-17: This is the most appropriate identifier to use in, e.g., notifications
     public var identifier: MessageIdentifier {
         get throws {
@@ -235,42 +237,22 @@ public class PersistedMessage: NSManagedObject {
     
     public var isPoll: Bool { self.poll != nil }
     
+    
     /// Shall only be called from methods in `PersistedMessage`, `PersistedMessageReceived`, or `PersistedMessageSent`. It shall thus not be made public.
-    func processUpdateMessageRequest(newTextBody: String?, newUserMentions: [MessageJSON.UserMention]) throws {
-        
-        defer {
-            self.resetDoesMentionOwnedIdentityValue()
-        }
-        
-        guard let newTextBody else {
-            if self.body != nil {
-                self.body = nil
-            }
-            deleteAllAssociatedMentions()
-            return
-        }
-
-        let (trimmedBody, mentionsInTrimmedBody) = newTextBody.trimmingWhitespacesAndNewlines(updating: Array(newUserMentions))
-
-        if self.body != trimmedBody {
-            self.body = trimmedBody
-        }
-        
-        deleteAllAssociatedMentions()
-        mentionsInTrimmedBody.forEach { mention in
-            _ = try? PersistedUserMentionInMessage(mention: mention, message: self)
-        }
-
+    func replaceBodyAndMentions(with newBody: AttributedString?) throws {
+        let newBodyAndMentions = newBody?.trimmingWhitespacesAndNewlines().messageBodyWithUserMentions
+        try self.replaceBodyAndMentions(with: newBodyAndMentions)
     }
+
     
     /// Shall only be called from methods in `PersistedMessageSent`.
-    func replaceContentWith(newBody: String?, newMentions: Set<MessageJSON.UserMention>) throws {
+    func replaceBodyAndMentions(with newBodyAndMentions: StringAndUserMentions?) throws {
 
         defer {
             self.resetDoesMentionOwnedIdentityValue()
         }
 
-        guard let newBody else {
+        guard let newBodyAndMentions else {
             if self.body != nil {
                 self.body = nil
             }
@@ -278,15 +260,17 @@ public class PersistedMessage: NSManagedObject {
             return
         }
 
-        let (trimmedBody, mentionsInTrimmedBody) = newBody.trimmingWhitespacesAndNewlines(updating: Array(newMentions))
-
-        if self.body != trimmedBody {
-            self.body = trimmedBody
+        if self.body != newBodyAndMentions.body {
+            self.body = newBodyAndMentions.body.replacingOccurrences(of: "\0", with: " ")
         }
 
         deleteAllAssociatedMentions()
-        mentionsInTrimmedBody.forEach { mention in
-            _ = try? PersistedUserMentionInMessage(mention: mention, message: self)
+        newBodyAndMentions.mentions.forEach { mention in
+            do {
+                try PersistedUserMentionInMessage.createPersistedUserMentionInMessage(mention: mention, message: self)
+            } catch {
+                assertionFailure() // In production, continue with the next mention
+            }
         }
 
     }
@@ -319,7 +303,7 @@ public class PersistedMessage: NSManagedObject {
                                                              UTType.heic.identifier,
                                                              UTType.webP.identifier ]))
 
-    func toMessageReferenceJSON() -> MessageReferenceJSON? {
+    public func toMessageReferenceJSON() -> MessageReferenceJSON? {
         assertionFailure("We do not expect this function to be called on anything else than a PersistedMessageSent or a PersistedMessageReceived where this function is overriden")
         return nil
     }
@@ -415,74 +399,41 @@ extension PersistedMessage {
     }
     
     
-    public func getDisplayableAttributedBody(removingTrailingURL urlToRemove: URL?) -> AttributedString? {
+    public var attributedBodyForMessageEdition: AttributedString? {
+        stringAndUserMentions?.attributedString
+    }
+    
+    
+    var stringAndUserMentions: StringAndUserMentions? {
         
-        guard var trimmedMarkdownString = textBody?.trimWhitespacesAndNewlinesAndDropTrailingURL(urlToRemove) else { return nil }
+        guard let body = self.body, !body.isEmpty else { return nil }
         
-        // Introduce custom MarkDown attributes for user mentions.
-        // The style attributes will be set by the discussion cell.
-        
-        let sortedMentionnedCryptoIdAndRange = self.mentions
-            .compactMap { mention in
-                do {
-                    let cryptoId = try mention.mentionnedCryptoId
-                    let mentionRange = try mention.mentionRange
-                    return (cryptoId: cryptoId, mentionRange: mentionRange)
-                } catch {
-                    assertionFailure("We failed to extract a mention")
-                    // In production, ignore the mention
-                    return nil
-                }
-            }
-            .sorted {
-                $0.mentionRange.lowerBound < $1.mentionRange.lowerBound
-            }
-        
-        for (mentionnedCryptoId, range) in sortedMentionnedCryptoIdAndRange.reversed() {
-            
-            guard let discussion else { assertionFailure(); continue }
-            guard let ownedIdentity = discussion.ownedIdentity else { assertionFailure(); continue }
-            let ownedCryptoId = ownedIdentity.cryptoId
-                        
+        var mentions = [StringAndUserMentions.UserMention]()
+        for mention in self.mentions {
             do {
-                
-                let mentionAttribute: ObvMentionableIdentityAttribute.Value
-
-                if mentionnedCryptoId == ownedCryptoId {
-            
-                    mentionAttribute = ObvMentionableIdentityAttribute.Value.ownedIdentity(ownedCryptoId: ownedCryptoId)
-                    
-                } else if let contact = try PersistedObvContactIdentity.get(cryptoId: mentionnedCryptoId, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .any) {
-                    
-                    let contactIdentifier = try contact.obvContactIdentifier
-                    mentionAttribute = ObvMentionableIdentityAttribute.Value.contact(contactIdentifier: contactIdentifier)
-                    
-                } else if let groupV2 = (discussion as? PersistedGroupV2Discussion)?.group {
-                    
-                    guard groupV2.otherMembers.map(\.cryptoId).contains(mentionnedCryptoId) else { continue }
-                    guard try ownedCryptoId == groupV2.ownCryptoId else { continue }
-                    guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2.groupIdentifier) else { assertionFailure(); continue }
-                    let groupIdentifier = ObvGroupV2Identifier(ownedCryptoId: ownedCryptoId, identifier: identifier)
-                    mentionAttribute = ObvMentionableIdentityAttribute.Value.groupV2Member(groupIdentifier: groupIdentifier, memberId: mentionnedCryptoId)
-                    
-                } else {
-                    
-                    assertionFailure()
-                    continue
-                    
-                }
-                
-                let encodedMentionAttribute = try mentionAttribute.jsonEncode()
-                trimmedMarkdownString.replaceSubrange(range, with: "^[\(trimmedMarkdownString[range])](mention: \(encodedMentionAttribute))")
-
+                let userMention = try mention.userMention
+                mentions.append(userMention)
             } catch {
-                assertionFailure("We failed to encode a mention")
-                // In production, ignore the mention
-                continue
+                assertionFailure() // In production, continue with the next mention
             }
-            
         }
 
+        let stringAndUserMentions = StringAndUserMentions(body: body, mentions: mentions)
+
+        return stringAndUserMentions
+
+    }
+    
+    
+    public func getDisplayableAttributedBody(removingTrailingURL urlToRemove: URL?) -> AttributedString? {
+        
+        guard let stringAndUserMentions else { return nil }
+
+        // Start constructing a Markdown string. The first step is the obtain a Markdown string
+        // with (custom) mention attributes (like ^[@Alice](mentionedCryptoId: ...))
+        
+        let markdownString = stringAndUserMentions.markdownStringWithMentionAttributes
+                
         do {
             
             // Under iOS16+, we will respect the number of new lines of the input string by splitting the string, styling each split,
@@ -490,7 +441,7 @@ extension PersistedMessage {
             
             var attributedString: AttributedString
             
-            if #available(iOS 16.0, *) {
+            do {
                 
                 // Split the markdownString using a separator made of two (or more) newline characters (possibly containing white spaces)
                 // Account for Windows' new line character, which is \n\r.
@@ -499,13 +450,13 @@ extension PersistedMessage {
 
                 // Find the exact matches for the separator
                 
-                let separators = trimmedMarkdownString
+                let separators = markdownString
                     .ranges(of: multipleNewLines)
-                    .map { trimmedMarkdownString[$0] }
+                    .map { markdownString[$0] }
                 
                 // Split and apply the markdown style to all the strings in-between the separators
                 
-                let attributedSplits = try trimmedMarkdownString
+                let attributedSplits = try markdownString
                     .split(separator: multipleNewLines)
                     .map({ try AttributedString(markdown: $0.replacingOccurrences(of: "\n", with: "\n\n"), including: \.olvidApp, options: .init(allowsExtendedAttributes: true)) })
 
@@ -525,11 +476,7 @@ extension PersistedMessage {
                     finalAttributedString += attributedSplit
                 }
 
-                attributedString = finalAttributedString
-                
-            } else {
-                
-                attributedString = try AttributedString(markdown: trimmedMarkdownString.replacingOccurrences(of: "\n", with: "\n\n"))
+                attributedString = finalAttributedString.trimmingWhitespacesAndNewlines()
                 
             }
             
@@ -569,11 +516,11 @@ extension PersistedMessage {
                 
             }
             
-            return attributedString
+            return attributedString.trimWhitespacesAndNewlinesAndDropTrailingURL(urlToRemove)
             
         } catch {
             assertionFailure()
-            return AttributedString(trimmedMarkdownString)
+            return AttributedString(markdownString).trimWhitespacesAndNewlinesAndDropTrailingURL(urlToRemove)
         }
     }
     
@@ -589,17 +536,31 @@ extension PersistedMessage {
         case message(messageRepliedTo: PersistedMessage)
     }
 
-    convenience init(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, replyTo: ReplyToType?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forwarded: Bool, mentions: [MessageJSON.UserMention], isLocation: Bool, poll: PersistedPoll?, thisMessageTimestampCanResetDiscussionSortDate: Bool = true, forEntityName entityName: String) throws {
+    convenience init(timestamp: Date,
+                     bodyAndUserMentions: StringAndUserMentions?,
+                     rawStatus: Int,
+                     senderSequenceNumber: Int,
+                     sortIndex: Double,
+                     replyTo: ReplyToType?,
+                     discussion: PersistedDiscussion,
+                     readOnce: Bool,
+                     visibilityDuration: TimeInterval?,
+                     forwarded: Bool,
+                     isLocation: Bool,
+                     poll: PersistedPoll?,
+                     thisMessageTimestampCanResetDiscussionSortDate: Bool = true,
+                     includesPendingChangesWhenComputingSectionIdentifier: Bool,
+                     forEntityName entityName: String) throws {
         guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
         // We remove the \0 character from the source string, as Core Data discards any content following this character.
-        self.body = body?.replacingOccurrences(of: "\0", with: " ")
+        self.body = bodyAndUserMentions?.body.replacingOccurrences(of: "\0", with: " ")
         self.permanentUUID = UUID()
         self.rawStatus = rawStatus
-        self.sectionIdentifier = try PersistedMessage.computeSectionIdentifier(fromTimestamp: timestamp, sortIndex: sortIndex, discussion: discussion)
+        self.sectionIdentifier = try PersistedMessage.computeSectionIdentifier(fromTimestamp: timestamp, sortIndex: sortIndex, discussion: discussion, includesPendingChanges: includesPendingChangesWhenComputingSectionIdentifier)
         self.senderSequenceNumber = senderSequenceNumber
         self.discussion = discussion
         self.sortIndex = sortIndex
@@ -610,8 +571,12 @@ extension PersistedMessage {
         self.doesMentionOwnedIdentity = false // Set later
         self.poll = poll
 
-        mentions.forEach { mention in
-            _ = try? PersistedUserMentionInMessage(mention: mention, message: self)
+        bodyAndUserMentions?.mentions.forEach { mention in
+            do {
+                try PersistedUserMentionInMessage.createPersistedUserMentionInMessage(mention: mention, message: self)
+            } catch {
+                assertionFailure() // In production continue with the next mention
+            }
         }
         
         self.isLocation = isLocation
@@ -715,14 +680,18 @@ extension PersistedMessage {
 
     
     /// This `update()` method shall *only* be called from the similar `update()` from the subclass `PersistedMessageReceived`.
-    func update(body: String?, newMentions: Set<MessageJSON.UserMention>, senderSequenceNumber: Int, replyTo: PersistedMessage?, discussion: PersistedDiscussion) throws {
+    func update(bodyAndMentions: StringAndUserMentions?,
+                senderSequenceNumber: Int,
+                replyTo: PersistedMessage?,
+                discussion: PersistedDiscussion) throws {
         guard let localDiscussion = self.discussion else { assertionFailure(); throw ObvUICoreDataError.couldNotFindDiscussion }
         guard localDiscussion.objectID == discussion.objectID else { assertionFailure(); throw ObvUICoreDataError.inconsistentDiscussion }
         guard self.senderSequenceNumber == senderSequenceNumber else { assertionFailure(); throw ObvUICoreDataError.invalidSenderSequenceNumber }
-        try self.replaceContentWith(newBody: body, newMentions: newMentions)
+        try self.replaceBodyAndMentions(with: bodyAndMentions)
         self.rawMessageRepliedTo = replyTo
         self.resetDoesMentionOwnedIdentityValue()
     }
+    
     
     func setHasUpdate() {
         onChangeFlag += 1
@@ -760,6 +729,18 @@ extension PersistedMessage {
         
     }
 
+    
+    /// For now, this is only used during history transfer, to ensure the "end-to-end encrypted" system message has a proper sortIndex and timestamp compared to a message inserted on this destination device.
+    ///
+    /// The `messageTimestamp` is expected to be the timestamp of the message received during history transfer
+    func resetTimestampAndSortIndexOfDiscussionIsEndToEndEncryptedSystemMessage(messageTimestamp: Date, discussion: PersistedDiscussion) throws {
+        guard let selfAsSytemMessage = self as? PersistedMessageSystem else { assertionFailure(); throw ObvUICoreDataError.unexpectedMessageKind }
+        guard selfAsSytemMessage.category == .discussionIsEndToEndEncrypted else { assertionFailure(); throw ObvUICoreDataError.unexpectedMessageKind }
+        self.timestamp = messageTimestamp.addingTimeInterval(-1/100.0) // We remove 10 milliseconds
+        self.sortIndex = 0.0
+        self.sectionIdentifier = try PersistedMessage.computeSectionIdentifier(fromTimestamp: timestamp, sortIndex: sortIndex, discussion: discussion, includesPendingChanges: true)
+    }
+    
 }
 
 
@@ -791,7 +772,7 @@ extension PersistedMessage {
         
         if let receivedMessage = self as? PersistedMessageReceived, context.concurrencyType != .mainQueueConcurrencyType {
             switch receivedMessage.source {
-            case .engine:
+            case .engine, .historyTransfer:
                 break
             case .userNotification:
                 let messageReference = MessageReferenceJSON(
@@ -893,6 +874,76 @@ extension PersistedMessage {
 }
 
 
+// MARK: - History transfer
+
+extension PersistedMessage {
+    
+    /// Entry point of the operation that creates a `PersistedMessage` during a history transfer to this destination device.
+    public static func createDuringHistoryTransfer(
+        _ message: ObvAppTypes.ObvHistoryReceivedMessage,
+        within context: NSManagedObjectContext
+    ) throws -> (
+        sha256ToRequestToSource: [Data : UInt64],
+        sha256NotToBeRequestedToSource: Set<Data>
+    ) {
+        
+        let persistedMessage: PersistedMessage
+        switch message.kind {
+        case .received:
+            persistedMessage = try PersistedMessageReceived.createReceivedDuringHistoryTransfer(message, within: context)
+        case .sent:
+            persistedMessage = try PersistedMessageSent.createSentDuringHistoryTransfer(message, within: context)
+        }
+        
+        persistedMessage.isInsertedDuringHistoryTransfer = true
+        
+        // Process the reactions
+        
+        for reaction in message.reactions {
+            try PersistedMessageReaction.createDuringHistoryTransfer(reaction: reaction, on: persistedMessage)
+        }
+        
+        // Process the poll
+        
+        if let poll = message.poll {
+            try PersistedPoll.createDuringHistoryTransfer(poll: poll, message: persistedMessage)
+        }
+        
+        // Process the poll votes
+        
+        assert(persistedMessage.isPoll == (persistedMessage.poll != nil))
+        if let poll = persistedMessage.poll {
+            try poll.setPollVotesDuringHistoryTransfer(pollVotes: message.pollVotes)
+        }
+        
+        // Determine the sha256 to request to the source, and those that don't need to be
+        
+        var sha256ToRequestToSource = [Data : UInt64]()
+        var sha256NotToBeRequestedToSource = Set<Data>()
+        
+        for join in persistedMessage.fyleMessageJoinWithStatus ?? [] {
+            guard let fyle = join.fyle else { assertionFailure("The fyle should have been created"); continue}
+            let sha256 = fyle.sha256
+            if fyle.fileExistsOnDisk {
+                sha256NotToBeRequestedToSource.insert(sha256)
+            } else {
+                let expectedFileSize = join.totalByteCount
+                if expectedFileSize > 0 {
+                    sha256ToRequestToSource[sha256] = UInt64(expectedFileSize)
+                } else {
+                    assertionFailure()
+                    sha256NotToBeRequestedToSource.insert(sha256)
+                }
+            }
+        }
+        
+        return (sha256ToRequestToSource, sha256NotToBeRequestedToSource)
+        
+    }
+
+}
+
+
 // MARK: - Reply-to
 
 public extension PersistedMessage {
@@ -938,7 +989,7 @@ extension PersistedMessage {
     }
     
     
-    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date?) throws {
+    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date) throws {
         
         // We only want user to vote to sent or received message.
         switch self.kind {
@@ -1075,7 +1126,7 @@ extension PersistedMessage {
 
 extension PersistedMessage {
 
-    private static func computeSectionIdentifier(fromTimestamp timestamp: Date, sortIndex: Double, discussion: PersistedDiscussion) throws -> String {
+    private static func computeSectionIdentifier(fromTimestamp timestamp: Date, sortIndex: Double, discussion: PersistedDiscussion, includesPendingChanges: Bool) throws -> String {
         let calendar = Calendar.current
         let dateComponents = Set<Calendar.Component>([.year, .month, .day])
         let components = calendar.dateComponents(dateComponents, from: timestamp)
@@ -1090,12 +1141,10 @@ extension PersistedMessage {
          */
 
         let appropriateSectionIdentifier: String
-        if let previousMessageValues = try PersistedMessage.getMessageValues(beforeSortIndex: sortIndex, in: discussion, propertiesToFetch: [Predicate.Key.sectionIdentifier.rawValue]),
-           let sectionIdentifier = previousMessageValues[Predicate.Key.sectionIdentifier.rawValue] as? String,
+        if let sectionIdentifier = try PersistedMessage.getSectionIdentifier(beforeSortIndex: sortIndex, in: discussion, propertiesToFetch: [Predicate.Key.sectionIdentifier.rawValue], includesPendingChanges: includesPendingChanges),
            sectionIdentifier > computedSectionIdentifier {
             appropriateSectionIdentifier = sectionIdentifier
-        } else if let nextMessageValues = try PersistedMessage.getMessageValues(afterSortIndex: sortIndex, in: discussion, propertiesToFetch: [Predicate.Key.sectionIdentifier.rawValue]),
-                  let sectionIdentifier = nextMessageValues[Predicate.Key.sectionIdentifier.rawValue] as? String,
+        } else if let sectionIdentifier = try PersistedMessage.getSectionIdentifier(afterSortIndex: sortIndex, in: discussion, propertiesToFetch: [Predicate.Key.sectionIdentifier.rawValue], includesPendingChanges: includesPendingChanges),
                   sectionIdentifier < computedSectionIdentifier {
             appropriateSectionIdentifier = sectionIdentifier
         } else {
@@ -1133,6 +1182,7 @@ extension PersistedMessage {
 extension PersistedMessage {
     
     private func resetDoesMentionOwnedIdentityValue() {
+        
         guard let discussion else {
             assertionFailure("The discussion is nil")
             return
@@ -1146,8 +1196,8 @@ extension PersistedMessage {
             return
         }
         
-        let mentionsContainOwnedIdentity = self.mentions.compactMap({ try? $0.mentionnedCryptoId }).contains(ownedCryptoId)
-        let doesReplyToMessageThatMentionsOwnedIdentity = self.rawMessageRepliedTo?.mentions.compactMap({ try? $0.mentionnedCryptoId }).contains(ownedCryptoId) ?? false
+        let mentionsContainOwnedIdentity = self.mentions.compactMap({ try? $0.mentionedCryptoId }).contains(ownedCryptoId)
+        let doesReplyToMessageThatMentionsOwnedIdentity = self.rawMessageRepliedTo?.mentions.compactMap({ try? $0.mentionedCryptoId }).contains(ownedCryptoId) ?? false
         let doesReplyToSentMessage = self.rawMessageRepliedTo is PersistedMessageSent
                 
         let newDoesMentionOwnedIdentity = PersistedMessageAbstractStructure.computeDoesMentionOwnedIdentityValue(
@@ -1159,6 +1209,7 @@ extension PersistedMessage {
             self.doesMentionOwnedIdentity = newDoesMentionOwnedIdentity
             discussion.resetNewReceivedMessageDoesMentionOwnedIdentityValue()
         }
+        
     }
     
 }
@@ -1397,31 +1448,86 @@ extension PersistedMessage {
     }
 
     
-    static func getMessageValues(beforeSortIndex sortIndex: Double, in discussion: PersistedDiscussion, propertiesToFetch: [String]) throws -> NSDictionary? {
-        guard let context = discussion.managedObjectContext else { return nil }
-        let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+    static func getSectionIdentifier(beforeSortIndex sortIndex: Double, in discussion: PersistedDiscussion, propertiesToFetch: [String], includesPendingChanges: Bool) throws -> String? {
+        
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
+        
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withinDiscussion(discussion),
             Predicate.withSortIndexSmallerThan(sortIndex),
         ])
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortIndex.rawValue, ascending: false)]
-        request.resultType = .dictionaryResultType
-        request.fetchLimit = 1
-        return try context.fetch(request).first
+        
+        let sortDescriptor = [NSSortDescriptor(key: Predicate.Key.sortIndex.rawValue, ascending: false)]
+        
+        let propertiesToFetch = [Predicate.Key.sectionIdentifier.rawValue]
+        
+        if includesPendingChanges {
+            
+            let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+            request.includesPendingChanges = true
+            
+            request.predicate = predicate
+            request.sortDescriptors = sortDescriptor
+            request.fetchLimit = 1
+            request.propertiesToFetch = propertiesToFetch
+            let item = try context.fetch(request).first
+            return item?.sectionIdentifier
+            
+        } else {
+            
+            let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
+            request.resultType = .dictionaryResultType
+            
+            request.predicate = predicate
+            request.sortDescriptors = sortDescriptor
+            request.fetchLimit = 1
+            request.propertiesToFetch = propertiesToFetch
+            guard let dict = try context.fetch(request).first else { return nil }
+            return dict[Predicate.Key.sectionIdentifier.rawValue] as? String
+            
+        }
+        
     }
 
     
-    static func getMessageValues(afterSortIndex sortIndex: Double, in discussion: PersistedDiscussion, propertiesToFetch: [String]) throws -> NSDictionary? {
+    static func getSectionIdentifier(afterSortIndex sortIndex: Double, in discussion: PersistedDiscussion, propertiesToFetch: [String], includesPendingChanges: Bool) throws -> String? {
+        
         guard let context = discussion.managedObjectContext else { return nil }
-        let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+        
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withinDiscussion(discussion),
             Predicate.withSortIndexLargerThan(sortIndex),
         ])
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortIndex.rawValue, ascending: true)]
-        request.resultType = .dictionaryResultType
-        request.fetchLimit = 1
-        return try context.fetch(request).first
+        
+        let sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortIndex.rawValue, ascending: true)]
+        
+        let propertiesToFetch = [Predicate.Key.sectionIdentifier.rawValue]
+        
+        if includesPendingChanges {
+            
+            let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+            request.includesPendingChanges = true
+            
+            request.predicate = predicate
+            request.sortDescriptors = sortDescriptors
+            request.fetchLimit = 1
+            request.propertiesToFetch = propertiesToFetch
+            let item = try context.fetch(request).first
+            return item?.sectionIdentifier
+            
+        } else {
+            
+            let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
+            request.resultType = .dictionaryResultType
+
+            request.predicate = predicate
+            request.sortDescriptors = sortDescriptors
+            request.fetchLimit = 1
+            request.propertiesToFetch = propertiesToFetch
+            guard let dict = try context.fetch(request).first else { return nil }
+            return dict[Predicate.Key.sectionIdentifier.rawValue] as? String
+        }
+        
     }
 
     
@@ -1606,7 +1712,10 @@ extension PersistedMessage {
         
         defer {
             self.messageAppIdentifierOnDeletionOrWipe = nil
+            self.isInsertedDuringHistoryTransfer = false
         }
+        
+        guard !isInsertedDuringHistoryTransfer else { return }
         
         if let messageAppIdentifierOnDeletionOrWipe {
             Task { await PersistedMessage.observersHolder.aPersistedMessageWasWipedOrDeleted(messageIdentifier: messageAppIdentifierOnDeletionOrWipe) }
@@ -1941,7 +2050,7 @@ fileprivate final class PendingRepliedTo: NSManagedObject {
 
 
 
-// MARK: - Privste helpers
+// MARK: - Private helpers
 
 fileprivate extension String {
 

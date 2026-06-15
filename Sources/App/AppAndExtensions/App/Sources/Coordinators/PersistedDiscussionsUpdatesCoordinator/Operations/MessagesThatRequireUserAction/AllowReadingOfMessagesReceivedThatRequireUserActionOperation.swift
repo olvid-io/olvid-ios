@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -57,7 +57,7 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Contex
         }
     }
     
-    private(set) var limitedVisibilityMessageOpenedJSONsToSend = [ObvUICoreData.LimitedVisibilityMessageOpenedJSON]()
+    private(set) var limitedVisibilityMessageOpenedJSONsToSend = [ObvAppTypes.LimitedVisibilityMessageOpenedJSON]()
 
     
     enum Result {

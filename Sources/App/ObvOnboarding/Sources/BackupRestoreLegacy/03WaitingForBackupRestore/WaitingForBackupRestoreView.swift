@@ -189,7 +189,7 @@ struct WaitingForBackupRestoreView: View {
                             }
                         }
                     }
-                    ValidateButton(title: "Back", systemIcon: .arrowshapeTurnUpBackwardFill, action: backupRestorationFailed)
+                    ValidateButton(title: "BACK", systemIcon: .arrowshapeTurnUpBackwardFill, action: backupRestorationFailed)
                         .padding()
                 }
 

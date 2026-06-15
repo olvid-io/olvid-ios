@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import SwiftUI
-import os.log
+import OSLog
 import WebRTC
 import ObvTypes
 import ObvAppTypes
@@ -38,7 +38,7 @@ protocol OlvidCallParticipantDelegate: AnyObject {
 
     func dataChannelIsOpened(for callParticipant: OlvidCallParticipant) async
 
-    func updateParticipants(with allCallParticipants: [ContactBytesAndNameJSON]) async throws
+    func updateParticipantsDuringIncomingCall(with allCallParticipants: [ContactBytesAndNameJSON]) async throws
     func relay(from: ObvCryptoId, to: ObvCryptoId, messageType: WebRTCMessageJSON.MessageType, messagePayload: String) async
     func receivedRelayedMessage(from: ObvCryptoId, messageType: WebRTCMessageJSON.MessageType, messagePayload: String) async
     func receivedHangedUpMessage(from callParticipant: OlvidCallParticipant, messagePayload: String) async
@@ -46,7 +46,7 @@ protocol OlvidCallParticipantDelegate: AnyObject {
     func localVideoTrackWasAdded(for callParticipant: OlvidCallParticipant, videoTrack: RTCVideoTrack) async
     func reevalutateScreenDimming() async
 
-    func sendStartCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription, turnCredentials: TurnCredentials) async throws
+    func sendStartCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription) async throws
     func sendAnswerCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription) async throws
     func sendNewParticipantOfferMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription) async throws
     func sendNewParticipantAnswerMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription) async throws
@@ -69,10 +69,10 @@ final class OlvidCallParticipant: ObservableObject {
     let isOneToOne: Bool
     @Published private(set) var state = State.initial
     private static let connectingTimeoutInterval: TimeInterval = 15.0 // 15 seconds
-    private var turnCredentials: TurnCredentials?
     let shouldISendTheOfferToCallParticipant: Bool
     @Published private(set) var contactIsMuted = false
     private var callParticipantDestinationDeviceStatusManager = CallParticipantDestinationDeviceStatusManager()
+    private(set) var supportsIceBatch = false
 
     private(set) var supportsVideo = false // Set to true if we receive a VideoSupportedJSON from this participant on the data channel
     @Published private(set) var remoteCameraVideoTrackIsEnabled = false
@@ -126,6 +126,7 @@ final class OlvidCallParticipant: ObservableObject {
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
         assert(caller.kind.contactDeviceUID != nil)
         await caller.callParticipantDestinationDeviceStatusManager.destinationDeviceIsKnownOrWillNotBeKnown() // The device the caller is known
+        caller.supportsIceBatch = startCallMessage.isBatchIceSupported
         return caller
     }
     
@@ -210,7 +211,7 @@ final class OlvidCallParticipant: ObservableObject {
             do {
                 guard let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .oneToOne, within: context),
                       let oneToOneDiscussion = contact.oneToOneDiscussion else { return }
-                guard let discussionIdentifier = oneToOneDiscussion.discussionIdentifier else { assertionFailure(); return }
+                guard let discussionIdentifier = try? oneToOneDiscussion.discussionIdentifier else { assertionFailure(); return }
                 let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
                 ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                     .postOnDispatchQueue()
@@ -418,7 +419,7 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
             assertionFailure()
             return
         }
-        try await delegate?.updateParticipants(with: message.callParticipants)
+        try await delegate?.updateParticipantsDuringIncomingCall(with: message.callParticipants)
     }
     
     
@@ -546,8 +547,7 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
             switch self.state {
             case .initial:
                 if isCallOutgoing {
-                    guard let turnCredentials else { assertionFailure(); throw ObvError.turnCredentialsRequired }
-                    try await delegate.sendStartCallMessage(to: self, sessionDescription: sessionDescription, turnCredentials: turnCredentials)
+                    try await delegate.sendStartCallMessage(to: self, sessionDescription: sessionDescription)
                     setPeerState(to: .startCallMessageSent)
                 } else {
                     if self.isCallerOfIncomingCall {
@@ -612,10 +612,9 @@ extension OlvidCallParticipant {
     /// This method is two situations:
     /// - During an outgoing call, when setting the turn credential of a call participant.
     /// - During a multi-users incoming call, when we are in charge of sending the offer to another recipient (who isn't the caller).
-    func setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: TurnCredentials) async throws {
+    func setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: TurnCredentialsAndServerURLs) async throws {
         assert(self.isOtherParticipantOfIncomingCall || self.isCalleeOfOutgoingCall)
-        self.turnCredentials = turnCredentials
-        try await self.peerConnectionHolder.setTurnCredentialsAndCreateUnderlyingPeerConnectionIfRequired(turnCredentials)
+        try await self.peerConnectionHolder.setTurnCredentialsAndCreateUnderlyingPeerConnectionIfRequired(turnCredentials: turnCredentials)
     }
     
 }
@@ -809,8 +808,9 @@ extension OlvidCallParticipant {
     }
 
     
-    func setRemoteDescription(sessionDescription: RTCSessionDescription) async throws {
+    func setRemoteDescription(sessionDescription: RTCSessionDescription, isBatchIceSupported: Bool) async throws {
         os_log("☎️ Will call setRemoteDescription on the peerConnectionHolder", log: Self.log, type: .info)
+        self.supportsIceBatch = isBatchIceSupported
         try await peerConnectionHolder.setRemoteDescription(sessionDescription)
     }
     
@@ -826,8 +826,9 @@ extension OlvidCallParticipant {
 
     
     /// Called when we receive a `NewParticipantAnswerMessageJSON` from this participant and when we determined that we must set a remote description
-    func processNewParticipantAnswerMessageJSON(sessionDescription: RTCSessionDescription) async throws {
+    func processNewParticipantAnswerMessageJSON(sessionDescription: RTCSessionDescription, isBatchIceSupported: Bool) async throws {
         guard self.isCalleeOfOutgoingCall || self.isOtherParticipantOfIncomingCall else { assertionFailure(); return }
+        self.supportsIceBatch = isBatchIceSupported
         os_log("☎️ Will call setRemoteDescription on the peerConnectionHolder", log: Self.log, type: .info)
         try await peerConnectionHolder.setRemoteDescription(sessionDescription)
     }
@@ -941,10 +942,10 @@ extension OlvidCallParticipant {
 extension OlvidCallParticipant {
     
     /// Update a recipient in a multi-user incoming call where we also are a recipient (not the caller), and not in charge of the offer.
-    func updateRecipient(newParticipantOfferMessage: NewParticipantOfferMessageJSON, turnCredentials: TurnCredentials) async throws {
+    func updateRecipient(newParticipantOfferMessage: NewParticipantOfferMessageJSON, turnCredentialsReceivedFromCaller: TurnCredentialsAndServerURLs) async throws {
         assert(!self.isCallerOfIncomingCall)
-        self.turnCredentials = turnCredentials
-        try await self.peerConnectionHolder.setRemoteDescriptionAndTurnCredentialsThenCreateTheUnderlyingPeerConnectionIfRequired(newParticipantOfferMessage: newParticipantOfferMessage, turnCredentials: turnCredentials)
+        self.supportsIceBatch = newParticipantOfferMessage.isBatchIceSupported
+        try await self.peerConnectionHolder.setRemoteDescriptionAndTurnCredentialsThenCreateTheUnderlyingPeerConnectionIfRequired(newParticipantOfferMessage: newParticipantOfferMessage, turnCredentials: turnCredentialsReceivedFromCaller)
     }
     
 }

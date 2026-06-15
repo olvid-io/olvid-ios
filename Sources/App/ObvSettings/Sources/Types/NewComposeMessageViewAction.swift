@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,8 @@
 import Foundation
 
 
-public enum NewComposeMessageViewSortableAction: Int {
+public enum NewComposeMessageViewSortableAction: Int, Identifiable {
+    
     case oneTimeEphemeralMessage = 0
     case scanDocument = 1
     case shootPhotoOrMovie = 2
@@ -29,10 +30,15 @@ public enum NewComposeMessageViewSortableAction: Int {
     case introduceThisContact = 5
     case shareLocation = 6
     case createPoll = 7
+    case pasteContent = 8
+    
+    public var id: Int { self.rawValue }
+    
 }
 
-public enum NewComposeMessageViewUnsortableAction: Int {
+public enum NewComposeMessageViewUnsortableAction: Int, Identifiable, CaseIterable {
     case composeMessageSettings = 0
+    public var id: Int { self.rawValue }
 }
 
 public extension NewComposeMessageViewSortableAction {
@@ -45,7 +51,8 @@ public extension NewComposeMessageViewSortableAction {
         .choseFile,
         .scanDocument,
         .introduceThisContact,
-        .createPoll
+        .createPoll,
+        .pasteContent
     ]
 
     var title: String {
@@ -66,6 +73,8 @@ public extension NewComposeMessageViewSortableAction {
             return String(localizedInThisBundle: "SHARE_LOCATION")
         case .createPoll:
             return String(localizedInThisBundle: "CREATE_POLL")
+        case .pasteContent:
+            return String(localizedInThisBundle: "PASTE_CONTENT")
         }
     }
     

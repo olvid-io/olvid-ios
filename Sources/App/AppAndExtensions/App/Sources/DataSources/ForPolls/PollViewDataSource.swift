@@ -61,7 +61,7 @@ extension PollViewDataSource: PollViewDataSourceProtocol {
     
     func getAsyncStreamOfPollViewModel(_ view: PollView, pollIdentifier: PollIdentifier, candidatesSortOrder: PollViewModel.CandidatesSortOrder) async throws -> (streamUUID: UUID, stream: AsyncStream<PollViewModel>) {
         let pollObjectID = try getPollObjectID(from: pollIdentifier)
-        let manager = try PollViewModelStreamManager(pollObjectID: pollObjectID, candidatesSortOrder: candidatesSortOrder, context: backgroundContext)
+        let manager = try PollViewModelStreamManager(pollObjectID: pollObjectID, candidatesSortOrder: candidatesSortOrder, context: backgroundContext, viewContext: viewContext)
         pollViewModelStreamManagerForStreamUUID[manager.streamUUID] = manager
         return try await manager.startStream()
     }
@@ -270,9 +270,10 @@ extension PollViewDataSource {
         
         private var candidatesSortOrder: PollViewModel.CandidatesSortOrder
         
-        init(pollObjectID: TypeSafeManagedObjectID<PersistedPoll>, candidatesSortOrder: PollViewModel.CandidatesSortOrder, context: NSManagedObjectContext) throws {
+        @MainActor
+        init(pollObjectID: TypeSafeManagedObjectID<PersistedPoll>, candidatesSortOrder: PollViewModel.CandidatesSortOrder, context: NSManagedObjectContext, viewContext: NSManagedObjectContext) throws {
             self.candidatesSortOrder = candidatesSortOrder
-            guard let persistedPoll = try PersistedPoll.get(with: pollObjectID, within: context) else {
+            guard let persistedPoll = try PersistedPoll.get(with: pollObjectID, within: viewContext) else {
                 throw ObvError.pollDoesNotExist
             }
             guard let messageObjectID = persistedPoll.message?.typedObjectID else {

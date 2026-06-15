@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -214,7 +214,7 @@ extension ObvProfilePictureBarButtonItemView: MainInternalViewActionsProtocol {
     
     // OwnedIdentityChooserViewActionsProtocol
     
-    public func userChoseProfile(_ view: OwnedIdentityChooserView, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
+    public func userChoseProfile(_ view: OwnedIdentityChooserNavigationStack, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
         if self.currentOwnedCryptoId == chosenOwnedCryptoId {
             Task { await actions.userWantsToEditOwnedIdentity(self, ownedCryptoId: chosenOwnedCryptoId) }
         } else {
@@ -224,11 +224,11 @@ extension ObvProfilePictureBarButtonItemView: MainInternalViewActionsProtocol {
         }
     }
     
-    public func userWantsToEditCurrentOwnedIdentity(_ view: OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
+    public func userWantsToEditCurrentOwnedIdentity(_ view: OwnedIdentityChooserNavigationStack, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
         await actions.userWantsToEditOwnedIdentity(self, ownedCryptoId: currentOwnedCryptoId)
     }
     
-    public func userWantsToAddNewProfile(_ view: OwnedIdentityChooserView) async {
+    public func userWantsToAddNewProfile(_ view: OwnedIdentityChooserNavigationStack) async {
         await actions.userWantsToAddNewProfile(self)
     }
     
@@ -246,7 +246,7 @@ extension ObvProfilePictureBarButtonItemView: MainInternalViewActionsProtocol {
 
 
 @MainActor
-private protocol MainInternalViewActionsProtocol: OwnedIdentityChooserViewActionsProtocol {
+private protocol MainInternalViewActionsProtocol: OwnedIdentityChooserNavigationStackActions {
     func userDidLongPressOnProfilePicture(_ view: MainInternalView)
     func onSwipeDown(_ view: MainInternalView)
 }
@@ -268,7 +268,7 @@ private struct MainInternalView: View {
         internalActions.onSwipeDown(self)
     }
 
-    private let ownedIdentityChooserViewConfiguration = OwnedIdentityChooserViewConfiguration(
+    private let ownedIdentityChooserViewConfiguration = OwnedIdentityChooserInnerViewConfiguration(
         mode: .changeCurrentProfile,
         explanation: nil,
         title: String(localizedInThisBundle: "MY_OWN_IDS"))
@@ -315,7 +315,7 @@ private struct MainInternalView: View {
             onSwipeDown()
         }))
         .popoverOrSheetOnCatalyst(isPresented: $showOwnedIdentityChooserView, arrowEdge: .top) {
-            OwnedIdentityChooserView(currentOwnedCryptoId: currentOwnedCryptoId,
+            OwnedIdentityChooserNavigationStack(currentOwnedCryptoId: currentOwnedCryptoId,
                                      actions: internalActions,
                                      dataSource: ownedIdentityChooserDataSource,
                                      avatarViewDataSource: avatarViewDataSource,
@@ -461,7 +461,7 @@ private final class DataSourceAndActionsForPreviews: ObvProfilePictureBarButtonI
     }
     
     
-    func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserView, currentOwnedCryptoId: ObvCryptoId) throws -> (streamUUID: UUID, stream: AsyncStream<OwnedIdentityChooserViewModel>) {
+    func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserInnerView, currentOwnedCryptoId: ObvCryptoId) throws -> (streamUUID: UUID, stream: AsyncStream<OwnedIdentityChooserViewModel>) {
         let stream = AsyncStream(OwnedIdentityChooserViewModel.self) { (continuation: AsyncStream<OwnedIdentityChooserViewModel>.Continuation) in
             self.continuationForOwnedIdentityChooserViewModel = continuation
             let model = OwnedIdentityChooserViewModel.sampleDatas[0]
@@ -471,7 +471,7 @@ private final class DataSourceAndActionsForPreviews: ObvProfilePictureBarButtonI
     }
     
     
-    func finishAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserView, streamUUID: UUID) {
+    func finishAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserInnerView, streamUUID: UUID) {
         continuationForOwnedIdentityChooserViewModel?.finish()
     }
     

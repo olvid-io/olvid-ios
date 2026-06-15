@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,19 +25,40 @@ public struct ObvKeycloakConfigurationAndServer: Sendable, Decodable {
     
     public let distributionServerURL: URL // Distribution server
     public let keycloakConfiguration: ObvKeycloakConfiguration
+    /// A one-time authentication token optionally embedded alongside the Keycloak configuration in an
+    /// OlvidURL. When present it allows the user to authenticate without an interactive browser flow.
+    public let magicLink: ObvMagicLink?
     
     enum CodingKeys: String, CodingKey {
         case distributionServerURL = "server"
         case keycloakConfiguration = "keycloak"
+        case magicLink = "magic"
     }
 
-    public init(distributionServerURL: URL, keycloakConfiguration: ObvKeycloakConfiguration) {
+    public init(distributionServerURL: URL, keycloakConfiguration: ObvKeycloakConfiguration, magicLink: ObvMagicLink?) {
         self.distributionServerURL = distributionServerURL
         self.keycloakConfiguration = keycloakConfiguration
+        self.magicLink = magicLink
     }
     
 }
 
+
+// MARK: - ObvMagicLink
+
+/// An opaque magic-link token decoded from an OlvidURL and forwarded as-is to the Keycloak server.
+/// Properties are intentionally `internal` so external modules cannot read or construct the token
+/// directly — the value flows through the system as an opaque blob and is only serialised by
+/// `KeycloakManager` (in the same module via `Codable`). If a public factory or accessor is ever
+/// needed (e.g. for unit testing), add it explicitly rather than widening property visibility.
+public struct ObvMagicLink: Sendable {
+    let username: String
+    let token: String
+}
+
+extension ObvMagicLink: Codable {}
+
+// MARK: - ObvKeycloakConfiguration
 
 public struct ObvKeycloakConfiguration: Codable, Equatable, Sendable {
     
@@ -62,7 +83,7 @@ public struct ObvKeycloakConfiguration: Codable, Equatable, Sendable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(keycloakServerURL, forKey: .keycloakServerURL)
-        try container.encode(clientId, forKey: .clientId)
+        try container.encodeIfPresent(clientId, forKey: .clientId)
         try container.encodeIfPresent(clientSecret, forKey: .clientSecret)
     }
     

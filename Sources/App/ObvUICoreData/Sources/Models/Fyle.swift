@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 import OlvidUtils
 import ObvCrypto
@@ -32,10 +32,11 @@ public final class Fyle: NSManagedObject {
     
     private static let entityName = "Fyle"
     private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "Fyle")
+    private static let logger = Logger(subsystem: ObvUICoreDataConstants.logSubsystem, category: "Fyle")
 
     // MARK: - Properties
 
-    @NSManaged var intrinsicFilename: String?
+    @NSManaged private var intrinsicFilename: String?
     @NSManaged public private(set) var sha256: Data
     
     // MARK: - Relationship
@@ -69,54 +70,122 @@ public final class Fyle: NSManagedObject {
     
     
     func updateFyle(with obvAttachment: ObvAttachment) throws {
-        try updateFyle(obvAttachmentStatus: obvAttachment.status,
-                       obvAttachmentURL: obvAttachment.url)
+        try updateFyle(obvAttachmentStatus: obvAttachment.status)
     }
 
     
     func updateFyle(with obvOwnedAttachment: ObvOwnedAttachment) throws {
-        try updateFyle(obvAttachmentStatus: obvOwnedAttachment.status,
-                       obvAttachmentURL: obvOwnedAttachment.url)
+        try updateFyle(obvAttachmentStatus: obvOwnedAttachment.status)
     }
 
     
-    private func updateFyle(obvAttachmentStatus: ObvAttachment.Status, obvAttachmentURL: URL) throws {
+    public func storeHistoryTransferredAttachment(sha256: Data, temporaryURLOfAttachment: URL) throws {
         
-        // Make sure the file was downloaded and that we do not already have a local (app) version of this file
-        
-        guard obvAttachmentStatus == .downloaded && self.getFileSize() == nil else {
-            os_log("Although the engine indicates that the attachment is downloaded, we could not find the file on disk", log: Self.log, type: .error)
-            return
+        guard self.sha256 == sha256 else {
+            assertionFailure()
+            throw ObvUICoreDataError.unexpectedSha256
         }
         
+        // Make sure we do not already have a local (app) version of this file
+        guard self.getFileSize() == nil else {
+            Self.logger.error("We already have a local version of this file")
+            assertionFailure()
+            return
+        }
+
         // Make sure the file is indeed available at the obvAttachmentURL.
         // If this is not the case, we throw. The exception will eventually be processed by the operation (at the app level) and a new download will be requested to the engine.
-        guard FileManager.default.fileExists(atPath: obvAttachmentURL.path) else {
+        guard FileManager.default.fileExists(atPath: temporaryURLOfAttachment.path) else {
+            Self.logger.error("Could not find a file at the indicated URL")
             throw ObvUICoreDataError.couldNotFindSourceFile
         }
 
         // Compute the sha256 of the (complete) file indicated within the obvAttachment and compare it to what was expected
-
         let realHash: Data
         do {
             let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
-            realHash = try sha256.hash(fileAtUrl: obvAttachmentURL)
+            realHash = try sha256.hash(fileAtUrl: temporaryURLOfAttachment)
         } catch {
             throw ObvUICoreDataError.couldNotComputeSHA256
         }
-        
+
         guard realHash == self.sha256 else {
-            os_log("OMG, the sha256 of the received file does not match the one we expected. Expecting %{public}@ but the hash of the received file is %{public}@", log: Self.log, type: .error, self.sha256.hexString(), realHash.hexString())
+            Self.logger.error("OMG, the sha256 of the received file does not match the one we expected. Expecting \(self.sha256.hexString(), privacy: .public) but the hash of the received file is \(realHash.hexString(), privacy: .public)")
             assertionFailure()
             throw ObvUICoreDataError.sha256OfReceivedFileReferenceByObvAttachmentDoesNotMatchWhatWeExpect
         }
 
-        // If we reach this point, the sha256 is correct. We move the received file to a permanent location
+        try self.moveFileToPermanentURL(from: temporaryURLOfAttachment, logTo: Self.log)
+        
+        Self.logger.debug("We moved a file received during history transfer to a permanent location")
+        
+        guard let fileSize = self.getFileSize() else {
+            assertionFailure()
+            Self.logger.fault("Could not get the file size of the copied file")
+            throw ObvUICoreDataError.couldNotComputeFileSize
+        }
+        
+        // Update the status of all joins
+        
+        for join in self.allFyleMessageJoinWithStatus {
+            if let receivedJoin = join as? ReceivedFyleMessageJoinWithStatus {
+                receivedJoin.setStatusToDownloadedDuringHistoryTransfer(fileSize: fileSize)
+            } else if let sentJoin = join as? SentFyleMessageJoinWithStatus {
+                sentJoin.setStatusToDownloadedDuringHistoryTransfer(fileSize: fileSize)
+            }
+        }
+        
+    }
+    
+    
+    private func updateFyle(obvAttachmentStatus: ObvAttachment.Status) throws {
+        
+        // Make sure the file was downloaded and that we do not already have a local (app) version of this file
+        
+        switch obvAttachmentStatus {
+        case .downloaded(url: let obvAttachmentURL):
+            
+            // Make sure we do not already have a local (app) version of this file
+            guard self.getFileSize() == nil else {
+                Self.logger.error("We already have a local version of this file")
+                assertionFailure()
+                return
+            }
+            
+            // Make sure the file is indeed available at the obvAttachmentURL.
+            // If this is not the case, we throw. The exception will eventually be processed by the operation (at the app level) and a new download will be requested to the engine.
+            guard FileManager.default.fileExists(atPath: obvAttachmentURL.path) else {
+                Self.logger.error("Could not find a file at the URL indicated by the engine, although it supposed to be complete")
+                throw ObvUICoreDataError.couldNotFindSourceFile
+            }
 
-        try self.moveFileToPermanentURL(from: obvAttachmentURL, logTo: Self.log)
+            // Compute the sha256 of the (complete) file indicated within the obvAttachment and compare it to what was expected
+            let realHash: Data
+            do {
+                let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
+                realHash = try sha256.hash(fileAtUrl: obvAttachmentURL)
+            } catch {
+                throw ObvUICoreDataError.couldNotComputeSHA256
+            }
 
-        os_log("We moved a downloaded file to a permanent location", log: Self.log, type: .debug)
+            guard realHash == self.sha256 else {
+                let sha256HexString = self.sha256.hexString()
+                Self.logger.error("OMG, the sha256 of the received file does not match the one we expected. Expecting \(sha256HexString, privacy: .public) but the hash of the received file is \(realHash.hexString(), privacy: .public)")
+                assertionFailure()
+                throw ObvUICoreDataError.sha256OfReceivedFileReferenceByObvAttachmentDoesNotMatchWhatWeExpect
+            }
 
+            // If we reach this point, the sha256 is correct. We move the received file to a permanent location
+
+            try self.moveFileToPermanentURL(from: obvAttachmentURL, logTo: Self.log)
+
+            Self.logger.debug("We moved a downloaded file to a permanent location")
+            
+        default:
+            return
+            
+        }
+        
     }
 
 }
@@ -162,7 +231,10 @@ extension Fyle {
     }
     
     
-
+    public var fileExistsOnDisk: Bool {
+        self.getFileSize() != nil
+    }
+    
 }
 
 

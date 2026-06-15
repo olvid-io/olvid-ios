@@ -11,9 +11,13 @@ private let obvUserNotificationsTypes = Target.makeFrameworkTarget(
 private let obvUserNotificationsDatabase = Target.makeFrameworkTarget(
     name: "ObvUserNotificationsDatabase",
     sourcesDirectoryName: "Database",
+    resources: [
+        "**/*.xcmappingmodel",
+    ],
     dependencies: [
         .target(name: "ObvUserNotificationsTypes"),
         .Olvid.Engine.obvCrypto,
+        .Olvid.Engine.obvEncoder,
         .Olvid.Shared.obvTypes,
         .Olvid.Shared.obvCoreDataStack,
         .Olvid.App.obvAppTypes,

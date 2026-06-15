@@ -539,6 +539,14 @@ final class NotificationService: UNNotificationServiceExtension {
                     let composedOp = createCompositionOfOneContextualOperation(op1: op1)
                     await Self.coordinatorsQueue.addAndAwaitOperation(composedOp)
                 }
+                
+            case .historyTransferRequestFromAnotherOwnedDevice(content: _):
+                
+                let newBadgeValue = await Self.currentNumberOfPendingAndDeliveredUserNotifications()
+                                
+                notificationToShow = notificationToShow.withUpdatedBadgeCount(newBadgeValue+1)
+
+                await self.notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
 
             }
             

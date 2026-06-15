@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,11 +31,13 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
         case downloadable(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress)
         case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress)
         case cancelled
+        case notYetDownloadableAsReceivedByUserNotification
         // For received attachments sent from other owned device
         case downloadableSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress)
         case downloadingSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress)
         // For both
         case complete
+        case untransferred
         var debugDescription: String {
             switch self {
             case .uploadableOrUploading(progress: let progress):
@@ -52,6 +54,10 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
                 return "FyleProgressViewConfiguration.cancelled"
             case .complete:
                 return "FyleProgressViewConfiguration.complete"
+            case .notYetDownloadableAsReceivedByUserNotification:
+                return "FyleProgressViewConfiguration.notYetDownloadableAsReceivedByUserNotification"
+            case .untransferred:
+                return "FyleProgressViewConfiguration.untransferred"
             }
         }
     }
@@ -71,39 +77,67 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
         case .uploadableOrUploading(progress: let progress):
             imageViewWhenPaused.isHidden = true
             imageViewWhenDownloading.isHidden = true
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.isHidden = true
             imageViewWhenCancelled.isHidden = true
             imageViewWhenUploading.isHidden = false
+            imageViewWhenUntransferred.isHidden = true
             progressView.isHidden = false
             progressView.observedProgress = progress
             isUserInteractionEnabled = false
         case .downloadable(_, progress: let progress), .downloadableSent(_, progress: let progress):
             imageViewWhenPaused.isHidden = false
             imageViewWhenDownloading.isHidden = true
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.isHidden = true
             imageViewWhenCancelled.isHidden = true
             imageViewWhenUploading.isHidden = true
+            imageViewWhenUntransferred.isHidden = true
             progressView.isHidden = (progress.completedUnitCount == 0)
             progressView.observedProgress = progress
             isUserInteractionEnabled = true
         case .downloading(_, progress: let progress), .downloadingSent(_, progress: let progress):
             imageViewWhenPaused.isHidden = true
             imageViewWhenDownloading.isHidden = false
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.isHidden = true
             imageViewWhenCancelled.isHidden = true
             imageViewWhenUploading.isHidden = true
+            imageViewWhenUntransferred.isHidden = true
             progressView.isHidden = false
             progressView.observedProgress = progress
             isUserInteractionEnabled = true
         case .cancelled:
             imageViewWhenPaused.isHidden = true
             imageViewWhenDownloading.isHidden = true
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.isHidden = true
             imageViewWhenCancelled.isHidden = false
             imageViewWhenUploading.isHidden = true
+            imageViewWhenUntransferred.isHidden = true
             progressView.isHidden = true
             isUserInteractionEnabled = false
         case .complete:
             imageViewWhenPaused.isHidden = true
             imageViewWhenDownloading.isHidden = true
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.isHidden = true
             imageViewWhenCancelled.isHidden = true
             imageViewWhenUploading.isHidden = true
+            imageViewWhenUntransferred.isHidden = true
+            progressView.isHidden = true
+            isUserInteractionEnabled = false
+        case .notYetDownloadableAsReceivedByUserNotification:
+            imageViewWhenPaused.isHidden = true
+            imageViewWhenDownloading.isHidden = true
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.isHidden = false
+            imageViewWhenCancelled.isHidden = true
+            imageViewWhenUploading.isHidden = true
+            imageViewWhenUntransferred.isHidden = true
+            progressView.isHidden = true
+            isUserInteractionEnabled = false
+        case .untransferred:
+            imageViewWhenPaused.isHidden = true
+            imageViewWhenDownloading.isHidden = true
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.isHidden = true
+            imageViewWhenCancelled.isHidden = true
+            imageViewWhenUploading.isHidden = true
+            imageViewWhenUntransferred.isHidden = false
             progressView.isHidden = true
             isUserInteractionEnabled = false
         case .none:
@@ -124,7 +158,7 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
             return .sentFyleMessageJoinWithStatusReceivedFromOtherOwnedDeviceToPauseDownload(sentJoinObjectID: sentJoinObjectID)
         case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: _):
             return .sentFyleMessageJoinWithStatusReceivedFromOtherOwnedDeviceToResumeDownload(sentJoinObjectID: sentJoinObjectID)
-        case .uploadableOrUploading, .cancelled, .complete, .none:
+        case .uploadableOrUploading, .cancelled, .complete, .none, .notYetDownloadableAsReceivedByUserNotification, .untransferred:
             return nil
         }
     }
@@ -134,6 +168,8 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
     private let imageViewWhenDownloading = UIImageView()
     private let imageViewWhenUploading = UIImageView()
     private let imageViewWhenCancelled = UIImageView()
+    private let imageViewWhenNotYetDownloadableAsReceivedByUserNotification = UIImageView()
+    private let imageViewWhenUntransferred = UIImageView()
     private let progressView = UIProgressView()
 
     
@@ -151,6 +187,7 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
         backgroundColor = .clear
         
         let symbolConfig = UIImage.SymbolConfiguration(pointSize: 33, weight: .bold)
+        let lightSymbolConfig = UIImage.SymbolConfiguration(pointSize: 28, weight: .medium)
 
         addSubview(imageViewWhenPaused)
         imageViewWhenPaused.translatesAutoresizingMaskIntoConstraints = false
@@ -166,10 +203,22 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
         imageViewWhenUploading.image = UIImage(systemIcon: .arrowUpCircle, withConfiguration: symbolConfig)!
         imageViewWhenUploading.isHidden = true
 
+        addSubview(imageViewWhenNotYetDownloadableAsReceivedByUserNotification)
+        imageViewWhenNotYetDownloadableAsReceivedByUserNotification.translatesAutoresizingMaskIntoConstraints = false
+        imageViewWhenNotYetDownloadableAsReceivedByUserNotification.image = UIImage(systemIcon: .networkSlash, withConfiguration: symbolConfig)!
+        imageViewWhenNotYetDownloadableAsReceivedByUserNotification.isHidden = true
+        imageViewWhenNotYetDownloadableAsReceivedByUserNotification.tintColor = .secondaryLabel
+
         addSubview(imageViewWhenCancelled)
         imageViewWhenCancelled.translatesAutoresizingMaskIntoConstraints = false
         imageViewWhenCancelled.image = UIImage(systemIcon: .exclamationmarkCircle, withConfiguration: symbolConfig)!
         imageViewWhenCancelled.isHidden = true
+        
+        addSubview(imageViewWhenUntransferred)
+        imageViewWhenUntransferred.translatesAutoresizingMaskIntoConstraints = false
+        imageViewWhenUntransferred.image = UIImage(systemIcon: .repeatCircle, withConfiguration: lightSymbolConfig)!
+        imageViewWhenUntransferred.isHidden = true
+        imageViewWhenUntransferred.tintColor = .tertiaryLabel
 
         addSubview(progressView)
         progressView.translatesAutoresizingMaskIntoConstraints = false
@@ -190,8 +239,14 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
             imageViewWhenUploading.centerXAnchor.constraint(equalTo: self.centerXAnchor),
             imageViewWhenUploading.centerYAnchor.constraint(equalTo: self.centerYAnchor),
 
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.centerXAnchor.constraint(equalTo: self.centerXAnchor),
+            imageViewWhenNotYetDownloadableAsReceivedByUserNotification.centerYAnchor.constraint(equalTo: self.centerYAnchor),
+            
             imageViewWhenCancelled.centerXAnchor.constraint(equalTo: self.centerXAnchor),
             imageViewWhenCancelled.centerYAnchor.constraint(equalTo: self.centerYAnchor),
+
+            imageViewWhenUntransferred.centerXAnchor.constraint(equalTo: self.centerXAnchor),
+            imageViewWhenUntransferred.centerYAnchor.constraint(equalTo: self.centerYAnchor),
 
             progressView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
             progressView.bottomAnchor.constraint(equalTo: self.bottomAnchor),

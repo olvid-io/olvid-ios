@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,6 +28,8 @@ import ObvSettings
 import OlvidUtils
 import ObvAppCoreConstants
 import ObvAppInboxService
+import ObvHistoryTransfer
+import ObvAppTypes
 
 final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
     
@@ -40,8 +42,20 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
     let contactGroupCoordinator: ContactGroupCoordinator
     private let appSyncSnapshotableCoordinator: AppSyncSnapshotableCoordinator
     let userNotificationsCoordinator: UserNotificationsCoordinator
+    let recipientInfosCoordinator: RecipientInfosCoordinator
+    let historyTransferCoordinator: HistoryTransferCoordinator
 
     private var cancellables = Set<AnyCancellable>()
+    
+    /// Data sources used by the source and destination device during a message history transfer
+    private let transferServiceDataSources = TransferService.DataSources(
+        sourceTransferStepsDataSource: SourceTransferStepsAppDataSource(backgroundContext: ObvStack.shared.newBackgroundContext()),
+        destinationTransferStepsDataSource: DestinationTransferStepsAppDataSource(backgroundContext: ObvStack.shared.newBackgroundContext()),
+        zipTransferTransportDelegateDataSource: ZipTransferTransportDelegateAppDataSource(backgroundContext: ObvStack.shared.newBackgroundContext()))
+    
+    /// History transfer service. There is only one instance, passed to the appropriate view when requested by the user (see `RootViewController`)
+    let transferService: TransferService
+    private let transferServiceDelegate: any TransferServiceDelegate
     
     init(obvEngine: ObvEngine, userNotificationsCoordinator: UserNotificationsCoordinator) {
 
@@ -108,9 +122,28 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
             coordinatorsQueue: queueSharedAmongCoordinators,
             queueForComposedOperations: queueForComposedOperations,
             queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
+        self.recipientInfosCoordinator = RecipientInfosCoordinator(
+            obvEngine: obvEngine,
+            appInboxService: appInboxService,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations,
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
         self.userNotificationsCoordinator = userNotificationsCoordinator
         self.userNotificationsCoordinator.setObvEngine(to: obvEngine)
+        self.historyTransferCoordinator = HistoryTransferCoordinator(
+            obvEngine: obvEngine,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations,
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
         
+        self.transferServiceDelegate = LocalTransferServiceDelegate(
+            obvEngine: obvEngine,
+            persistedDiscussionsUpdatesCoordinator: persistedDiscussionsUpdatesCoordinator)
+        self.transferService = .init(temporaryDirectory: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
+                                     delegate: transferServiceDelegate,
+                                     dataSources: transferServiceDataSources,
+                                     actionsOnDestination: historyTransferCoordinator)
+
         self.persistedDiscussionsUpdatesCoordinator.syncAtomRequestDelegate = self
         self.obvOwnedIdentityCoordinator.syncAtomRequestDelegate = self
         self.contactIdentityCoordinator.syncAtomRequestDelegate = self
@@ -120,6 +153,7 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
         // No syncAtomRequestDelegate for the UserNotificationsCoordinator
         
         self.bootstrapCoordinator.delegate = self
+        self.persistedDiscussionsUpdatesCoordinator.delegate = self
         
     }
     
@@ -140,12 +174,25 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
             observeSettingsChangeToSyncThemWithOtherOwnedDevices()
         }
         await self.persistedDiscussionsUpdatesCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
+        await self.recipientInfosCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.bootstrapCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.obvOwnedIdentityCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.contactIdentityCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.userNotificationsCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
     }
 
+}
+
+
+// MARK: - Errors
+
+extension AppCoordinatorsHolder {
+    
+    enum ObvError: Error {
+        case unexpectedRawSdpType
+        case invalidWebRTCHistoryTransferMessageJSON
+    }
+    
 }
 
 // MARK: - Implementing BootstrapCoordinatorDelegate
@@ -156,6 +203,31 @@ extension AppCoordinatorsHolder: BootstrapCoordinatorDelegate {
         await self.persistedDiscussionsUpdatesCoordinator.reprocessEngineMessagesForLater(messageIdentifiersForLater: messageIdentifiersForLater)
     }
     
+}
+
+// MARK: - Implementing PersistedDiscussionsUpdatesCoordinatorDelegate
+
+extension AppCoordinatorsHolder: PersistedDiscussionsUpdatesCoordinatorDelegate {
+    
+    func decryptAndProcessReceiptsStoredForLater(_ coordinator: PersistedDiscussionsUpdatesCoordinator, ownedCryptoId: ObvTypes.ObvCryptoId, elements: ObvTypes.ObvReturnReceiptElements) async {
+        await self.recipientInfosCoordinator.decryptAndProcessReceiptsStoredForLater(
+            ownedCryptoId: ownedCryptoId,
+            elements: elements)
+    }
+    
+    func newReceivedWebrtcHistoryTransferMessageJSON(
+        _ coordinator: PersistedDiscussionsUpdatesCoordinator,
+        webrtcHistoryTransferMessageJSON: WebRTCHistoryTransferMessageJSON,
+        otherOwnedDeviceIdentifier: ObvOwnedDeviceIdentifier) async throws {
+        let receivedMessage: WebrtcHistoryTransferMessage = try .init(webrtcHistoryTransferMessageJSON)
+        try await transferService.handleReceivedWebrtcHistoryTransferMessage(receivedMessage, otherOwnedDeviceIdentifier: otherOwnedDeviceIdentifier)
+    }
+    
+    /// Called when receiving the user request the interruption of an ongoing transfer, from the other device.
+    func newWebrtcHistoryTransferInterruptionRequest(_ coordinator: PersistedDiscussionsUpdatesCoordinator, transferId: String) async throws {
+        try await transferService.handleInterruptionRequestSentByOtherDeviceWithWebRTC(transferId: transferId)
+    }
+        
 }
 
 // MARK: - Receiving a stream of `ObvMessage` and `ObvOwnedMessage` from the engine
@@ -597,6 +669,137 @@ final class AppCoordinatorsQueueMonitor {
             hasher.combine(uuid)
         }
         
+    }
+    
+}
+
+
+// MARK: Local implementation of TransferServiceDelegate
+
+private actor LocalTransferServiceDelegate: TransferServiceDelegate {
+    
+    private let obvEngine: ObvEngine
+    private weak var persistedDiscussionsUpdatesCoordinator: PersistedDiscussionsUpdatesCoordinator?
+    
+    init(obvEngine: ObvEngine, persistedDiscussionsUpdatesCoordinator: PersistedDiscussionsUpdatesCoordinator) {
+        self.obvEngine = obvEngine
+        self.persistedDiscussionsUpdatesCoordinator = persistedDiscussionsUpdatesCoordinator
+    }
+    
+    enum ObvError: Error {
+        case requiredCoordinatorIsNil
+    }
+    
+    func getWellKnownTurnCredentials(_ actor: ObvHistoryTransfer.TransferService, ownedCryptoId: ObvCryptoId) async throws -> ObvTypes.ObvWellKnownTurnCredentials? {
+        do {
+            let turnCredentials = try await obvEngine.getWellKnownTurnCredentials(ownedCryptoId: ownedCryptoId)
+            return turnCredentials
+        } catch {
+            assertionFailure("Check the error and return nil in certain cases")
+            throw error
+        }
+    }
+    
+    
+    func sendSignalingMessage(_ actor: TransferService,
+                              signalingMessage: WebrtcHistoryTransferMessage,
+                              toOtherOwnedDevice otherOwnedDevice: ObvOwnedDeviceIdentifier) async throws {
+        do {
+            let jsonMessage = WebRTCHistoryTransferMessageJSON(signalingMessage: signalingMessage)
+            let itemJSON = PersistedItemJSON(webrtcHistoryTransferMessageJSON: jsonMessage)
+            let payload = try itemJSON.jsonEncode()
+            try await obvEngine.post(messagePayload: payload, toOtherOwnedDevice: otherOwnedDevice)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            throw error
+        }
+    }
+    
+    
+    func sendInterruptMessage(_ actor: TransferService, transferId: String, toOtherOwnedDevice otherOwnedDevice: ObvOwnedDeviceIdentifier) async throws {
+        do {
+            let jsonMessage = WebRTCHistoryTransferControlJSON(transferId: transferId, kind: .rejectOrAbortTransfer)
+            let itemJSON = PersistedItemJSON(webRTCHistoryTransferControlJSON: jsonMessage)
+            let payload = try itemJSON.jsonEncode()
+            try await obvEngine.post(messagePayload: payload, toOtherOwnedDevice: otherOwnedDevice)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            throw error
+        }
+    }
+    
+    
+    func userWantsToAcceptHistoryTransfer(_ actor: TransferService, sourceDeviceIdentifier: ObvOwnedDeviceIdentifier, transferIdFromSource: String) async throws {
+        guard let persistedDiscussionsUpdatesCoordinator else { assertionFailure(); throw ObvError.requiredCoordinatorIsNil }
+        try await persistedDiscussionsUpdatesCoordinator.userWantsToAcceptHistoryTransfer(sourceDeviceIdentifier: sourceDeviceIdentifier, requestIdFromSource: transferIdFromSource)
+    }
+    
+    
+    func userWantsToCancelHistoryTransfer(_ actor: TransferService, sourceDeviceIdentifier: ObvOwnedDeviceIdentifier, transferIdFromSource: String) async throws {
+        guard let persistedDiscussionsUpdatesCoordinator else { assertionFailure(); throw ObvError.requiredCoordinatorIsNil }
+        try await persistedDiscussionsUpdatesCoordinator.userWantsToCancelHistoryTransfer(sourceDeviceIdentifier: sourceDeviceIdentifier, requestIdFromSource: transferIdFromSource)
+    }
+    
+}
+
+
+// MARK: - Helpers for message history transfer messages
+
+fileprivate extension WebRTCHistoryTransferMessageJSON {
+    
+    init(signalingMessage: WebrtcHistoryTransferMessage) {
+        switch signalingMessage {
+        case .iceCandidates(transferId: let transferId, iceCandidates: let array):
+            self.init(transferId: transferId, iceCandidates: array.map { .init(candidate: $0) })
+        case .sdp(transferId: let transferId, sdp: let sdp):
+            self.init(transferId: transferId, sdp: .init(type: sdp.type.rawValue, sdp: sdp.sdp))
+        }
+    }
+    
+}
+
+
+fileprivate extension WebRTCHistoryTransferMessageJSON.IceCandidate {
+    
+    init(candidate: WebrtcHistoryTransferMessage.ICECandidate) {
+        self.init(sdp: candidate.sdp, sdpMLineIndex: candidate.sdpMLineIndex, sdpMid: candidate.sdpMid)
+    }
+    
+}
+
+
+fileprivate extension WebrtcHistoryTransferMessage {
+    
+    init(_ message: WebRTCHistoryTransferMessageJSON) throws {
+        if let sdp = message.sdp {
+            self = .sdp(transferId: message.transferId, sdp: try .init(sdp))
+        } else if let iceCandidates = message.iceCandidates {
+            self = .iceCandidates(transferId: message.transferId, iceCandidates: iceCandidates.map { .init(iceCandidate: $0) })
+        } else {
+            assertionFailure()
+            throw AppCoordinatorsHolder.ObvError.invalidWebRTCHistoryTransferMessageJSON
+        }
+    }
+    
+}
+
+fileprivate extension WebrtcHistoryTransferMessage.Sdp {
+    
+    init(_ sdp: WebRTCHistoryTransferMessageJSON.Sdp) throws {
+        guard let type: WebrtcHistoryTransferMessage.Sdp.SdpType = .init(rawValue: sdp.type) else {
+            assertionFailure()
+            throw AppCoordinatorsHolder.ObvError.unexpectedRawSdpType
+        }
+        self.init(type: type, sdp: sdp.sdp)
+    }
+    
+}
+
+
+fileprivate extension WebrtcHistoryTransferMessage.ICECandidate {
+    
+    init(iceCandidate: WebRTCHistoryTransferMessageJSON.IceCandidate) {
+        self.init(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid)
     }
     
 }

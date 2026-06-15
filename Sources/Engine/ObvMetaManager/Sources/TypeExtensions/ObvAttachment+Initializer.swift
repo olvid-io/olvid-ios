@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,21 +25,20 @@ import OlvidUtils
 
 public extension ObvAttachment {
     
-    init(attachmentId: ObvAttachmentIdentifier, fromContactIdentity: ObvContactIdentifier, networkFetchDelegate: ObvNetworkFetchDelegate, within context: NSManagedObjectContext) throws {
+    init(attachmentId: ObvAttachmentIdentifier,
+         fromContactIdentity: ObvContactIdentifier,
+         networkFetchDelegate: ObvNetworkFetchDelegate,
+         within context: NSManagedObjectContext) throws {
         guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: context) else {
             throw ObvError.couldNotGetAttachment
         }
         let fromContactIdentity = fromContactIdentity
         let attachmentId = networkReceivedAttachment.attachmentId
         let metadata = networkReceivedAttachment.metadata
-        let url = networkReceivedAttachment.url
         let status = networkReceivedAttachment.status.toObvAttachmentStatus
         let messageUploadTimestampFromServer = networkReceivedAttachment.messageUploadTimestampFromServer
-        let totalUnitCount = networkReceivedAttachment.totalUnitCount
         self.init(fromContactIdentity: fromContactIdentity,
                   metadata: metadata,
-                  totalUnitCount: totalUnitCount,
-                  url: url,
                   status: status,
                   attachmentId: attachmentId,
                   messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -50,14 +49,10 @@ public extension ObvAttachment {
         let fromContactIdentity = ObvContactIdentifier(contactCryptoIdentity: networkReceivedAttachment.fromCryptoIdentity, ownedCryptoIdentity: networkReceivedAttachment.attachmentId.messageId.ownedCryptoIdentity)
         let attachmentId = networkReceivedAttachment.attachmentId
         let metadata = networkReceivedAttachment.metadata
-        let url = networkReceivedAttachment.url
         let status = networkReceivedAttachment.status.toObvAttachmentStatus
         let messageUploadTimestampFromServer = networkReceivedAttachment.messageUploadTimestampFromServer
-        let totalUnitCount = networkReceivedAttachment.totalUnitCount
         self.init(fromContactIdentity: fromContactIdentity,
                   metadata: metadata,
-                  totalUnitCount: totalUnitCount,
-                  url: url,
                   status: status,
                   attachmentId: attachmentId,
                   messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -70,11 +65,16 @@ extension ObvNetworkFetchReceivedAttachment.Status {
     
     var toObvAttachmentStatus: ObvAttachment.Status {
         switch self {
-        case .paused: return .paused
-        case .resumed: return .resumed
-        case .downloaded: return .downloaded
-        case .cancelledByServer: return .cancelledByServer
-        case .markedForDeletion: return .markedForDeletion
+        case .paused(expectedTotalUnitCount: let expectedTotalUnitCount):
+            return .paused(expectedTotalUnitCount: expectedTotalUnitCount)
+        case .resumed(expectedTotalUnitCount: let expectedTotalUnitCount):
+            return .resumed(expectedTotalUnitCount: expectedTotalUnitCount)
+        case .downloaded(url: let url, totalUnitCount: _):
+            return .downloaded(url: url)
+        case .cancelledByServer:
+            return .cancelledByServer
+        case .markedForDeletion:
+            return .markedForDeletion
         }
     }
     

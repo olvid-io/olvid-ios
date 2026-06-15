@@ -128,6 +128,7 @@ final class VoIPSettingsTableViewController: UITableViewController {
     private enum ExperimentalItem: CaseIterable {
         
         case maxaveragebitrate
+        case useAlternativeTurnServers
         
         static var shown: [ExperimentalItem] {
             return ExperimentalItem.allCases
@@ -141,10 +142,20 @@ final class VoIPSettingsTableViewController: UITableViewController {
         var cellIdentifier: String {
             switch self {
             case .maxaveragebitrate: return "MaxAverageBitrateCell"
+            case .useAlternativeTurnServers: return "UseAlternativeTurnServers"
             }
         }
         
     }
+    
+    private let footerForAlternativeTurnServers: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.preferredFont(forTextStyle: .footnote)
+        label.textColor = .secondaryLabel
+        label.text = String(localized: "USE_ALTERNATIVE_TURN_SERVERS_FOOTER_EXPLANATION")
+        label.numberOfLines = 0
+        return label
+    }()
     
 }
 
@@ -238,6 +249,18 @@ extension VoIPSettingsTableViewController {
                 }
                 cell.accessoryType = .disclosureIndicator
                 return cell
+                
+            case .useAlternativeTurnServers:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) as? ObvTitleAndSwitchTableViewCell ?? ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.title = String(localized: "USE_ALTERNATIVE_TURN_SERVERS")
+                cell.switchIsOn = ObvMessengerSettings.VoIP.useAlternativeTurnServers
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.VoIP.useAlternativeTurnServers = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
+                }
+                return cell
 
             }
             
@@ -245,6 +268,24 @@ extension VoIPSettingsTableViewController {
         }
 
     }
+    
+    
+    override func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+        
+        guard let section = Section.shownSectionAt(section: section) else { assertionFailure(); return nil }
+
+        switch section {
+        case .normal:
+            return nil
+        case .video:
+            return nil
+        case .experimental:
+            return footerForAlternativeTurnServers
+        }
+        
+    }
+    
+    
  
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -270,6 +311,8 @@ extension VoIPSettingsTableViewController {
             case .maxaveragebitrate:
                 let vc = MaxAverageBitrateChooserTableViewController()
                 self.navigationController?.pushViewController(vc, animated: true)
+            case .useAlternativeTurnServers:
+                return
             }
             
         }

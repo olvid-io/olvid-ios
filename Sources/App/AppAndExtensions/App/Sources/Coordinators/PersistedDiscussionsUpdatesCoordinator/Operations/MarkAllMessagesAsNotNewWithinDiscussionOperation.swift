@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -57,14 +57,17 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
         
         do {
             
-            let ownedCryptoId: ObvCryptoId
-            let discussionId: DiscussionIdentifier
+            let discussionId: ObvDiscussionIdentifier
             let dateWhenMessageTurnedNotNew: Date
             let serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?
             let requestReceivedFromAnotherOwnedDevice: Bool
             switch input {
             case .persistedDiscussionObjectID(persistedDiscussionObjectID: let persistedDiscussionObjectID):
-                (ownedCryptoId, discussionId) = try PersistedObvOwnedIdentity.getDiscussionIdentifiers(from: persistedDiscussionObjectID, within: obvContext.context)
+                guard let _discussionId = try PersistedDiscussion.getObvDiscussionIdentifier(discussionObjectID: persistedDiscussionObjectID, within: obvContext.context) else {
+                    assertionFailure()
+                    return cancel(withReason: .couldNotDetermineDiscussionIdentifier)
+                }
+                discussionId = _discussionId
                 dateWhenMessageTurnedNotNew = .now
                 serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = nil
                 requestReceivedFromAnotherOwnedDevice = false
@@ -73,41 +76,35 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
                     assertionFailure()
                     return cancel(withReason: .couldNotFindDraft)
                 }
-                discussionId = try draft.discussion.identifier
-                guard let _ownedCryptoId = draft.discussion.ownedIdentity?.cryptoId else {
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindOwnedIdentity)
-                }
-                ownedCryptoId = _ownedCryptoId
+                discussionId = try draft.discussion.discussionIdentifier
                 dateWhenMessageTurnedNotNew = .now
                 serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = nil
                 requestReceivedFromAnotherOwnedDevice = false
             case .discussionReadJSON(ownedCryptoId: let _ownedCryptoId, discussionRead: let discussionRead):
-                ownedCryptoId = _ownedCryptoId
                 dateWhenMessageTurnedNotNew = discussionRead.lastReadMessageServerTimestamp
                 serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = discussionRead.lastReadMessageServerTimestamp
-                discussionId = try discussionRead.getDiscussionId(ownedCryptoId: ownedCryptoId)
+                discussionId = try discussionRead.getObvDiscussionId(ownedCryptoId: _ownedCryptoId)
                 requestReceivedFromAnotherOwnedDevice = true
             }
             
-            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
+            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: discussionId.ownedCryptoId, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindOwnedIdentity)
             }
             
-            self.ownedCryptoId = ownedIdentity.cryptoId
+            self.ownedCryptoId = discussionId.ownedCryptoId
             self.ownedIdentityHasAnotherReachableDevice = ownedIdentity.hasAnotherDeviceWhichIsReachable
             
-            let markAllMessagesAsNotNewResult = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId,
+            let markAllMessagesAsNotNewResult = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId.toDiscussionIdentifier(),
                                                                                           serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
                                                                                           dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
             
             let lastReadMessageServerTimestamp = markAllMessagesAsNotNewResult?.maxTimestampOfModifiedMessages
             
             do {
-                let isDiscussionActive = try ownedIdentity.isDiscussionActive(discussionId: discussionId)
+                let isDiscussionActive = try ownedIdentity.isDiscussionActive(discussionId: discussionId.toDiscussionIdentifier())
                 let shouldSendDiscussionReadJSON = isDiscussionActive && !requestReceivedFromAnotherOwnedDevice
                 if let lastReadMessageServerTimestamp, shouldSendDiscussionReadJSON {
-                    discussionReadJSONToSend = try ownedIdentity.getDiscussionReadJSON(discussionId: discussionId, lastReadMessageServerTimestamp: lastReadMessageServerTimestamp)
+                    discussionReadJSONToSend = try ownedIdentity.getDiscussionReadJSON(discussionId: discussionId.toDiscussionIdentifier(), lastReadMessageServerTimestamp: lastReadMessageServerTimestamp)
                 }
             } catch {
                 assertionFailure(error.localizedDescription) // Continue anyway
@@ -190,6 +187,7 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
         case couldNotFindDiscussion
         case contextIsNil
         case couldNotFindOwnedIdentity
+        case couldNotDetermineDiscussionIdentifier
         case couldNotFindDraft
 
         var logType: OSLogType {
@@ -197,6 +195,7 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
             case .coreDataError,
                     .contextIsNil,
                     .couldNotFindOwnedIdentity,
+                    .couldNotDetermineDiscussionIdentifier,
                     .couldNotFindDraft:
                 return .fault
             case .couldNotFindDiscussion:
@@ -216,6 +215,8 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
                 return "Could not find owned identity"
             case .couldNotFindDraft:
                 return "Could not find draft"
+            case .couldNotDetermineDiscussionIdentifier:
+                return "Could not determine discussion identifier"
             }
         }
 

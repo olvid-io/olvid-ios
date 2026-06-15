@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -75,6 +75,19 @@ extension PersistedPollCandidate {
     }
     
 }
+
+
+// MARK: - History transfer
+
+extension PersistedPollCandidate {
+    
+    func setPollVoteDuringHistoryTransfer(pollVote: ObvHistoryReceivedMessage.PollVote) throws {
+        assert(self.uuid == pollVote.candidate)
+        try PersistedPollVote.createDuringHistoryTransfer(pollVote: pollVote, candidate: self)
+    }
+    
+}
+
 
 extension PersistedPollCandidate {
     func toPollCandidateJSON() throws -> PollCandidateJSON {

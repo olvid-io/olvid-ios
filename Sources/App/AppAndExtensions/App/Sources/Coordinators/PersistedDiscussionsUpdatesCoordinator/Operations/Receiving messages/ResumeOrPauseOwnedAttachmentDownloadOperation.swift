@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvEngine
@@ -67,6 +67,9 @@ final class ResumeOrPauseOwnedAttachmentDownloadOperation: ContextualOperationWi
             assertionFailure("This should never happen for an attachment sent from another owned device")
             return
         case .uploading:
+            assertionFailure("This should never happen for an attachment sent from another owned device")
+            return
+        case .untransferred:
             assertionFailure("This should never happen for an attachment sent from another owned device")
             return
         }

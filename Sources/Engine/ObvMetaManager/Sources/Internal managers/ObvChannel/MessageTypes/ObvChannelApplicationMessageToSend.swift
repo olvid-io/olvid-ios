@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,7 +34,16 @@ public struct ObvChannelApplicationMessageToSend: ObvChannelMessageToSend {
         channelType.withUserContent
     }
     
-    public init(toContactIdentities: Set<ObvCryptoIdentity>, fromIdentity: ObvCryptoIdentity, contactDeviceIdentifiersToExclude: Set<ObvContactDeviceIdentifier>, messagePayload: Data, extendedMessagePayload: Data?, withUserContent: Bool, isVoipMessageForStartingCall: Bool, attachments: [Attachment], alsoPostToOtherOwnedDevices: Bool) {
+    public init(toContactIdentities: Set<ObvCryptoIdentity>,
+                fromIdentity: ObvCryptoIdentity,
+                contactDeviceIdentifiersToExclude: Set<ObvContactDeviceIdentifier>,
+                messagePayload: Data,
+                extendedMessagePayload: Data?,
+                withUserContent: Bool,
+                isVoipMessageForStartingCall: Bool,
+                attachments: [Attachment],
+                alsoPostToOtherOwnedDevices: Bool
+    ) {
         if alsoPostToOtherOwnedDevices {
             self.channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices(
                 contactIdentities: toContactIdentities,
@@ -63,7 +72,17 @@ public struct ObvChannelApplicationMessageToSend: ObvChannelMessageToSend {
         self.isVoipMessageForStartingCall = false
     }
     
-    
+    public init(toOtherOwnedDevice otherOwnedDevice: ObvOwnedDeviceIdentifier, messagePayload: Data, withUserContent: Bool) {
+        self.channelType = ObvChannelSendChannelType.confirmedObliviousChannelOrPreKeyChannelWithOtherOwnedDevice(
+            otherOwnedDevice: otherOwnedDevice,
+            withUserContent: withUserContent
+        )
+        self.messagePayload = messagePayload
+        self.extendedMessagePayload = nil
+        self.attachments = []
+        self.isVoipMessageForStartingCall = false
+    }
+
     public struct Attachment {
         public let fileURL: URL
         public let deleteAfterSend: Bool

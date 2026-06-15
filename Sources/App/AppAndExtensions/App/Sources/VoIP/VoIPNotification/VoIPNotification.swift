@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvEngine
 import OlvidUtils
 import ObvCrypto
 import ObvUICoreData
+import ObvAppTypes
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?

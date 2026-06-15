@@ -232,8 +232,8 @@ extension UserNotificationsCoordinator {
             switch message {
             case .obvMessage(let obvMessage):
                 await processNewMessageReceivedNotification(obvMessage: obvMessage)
-            case .obvOwnedMessage:
-                return
+            case .obvOwnedMessage(let ownedMessage):
+                await processNewMessageReceivedNotification(ownedMessage: ownedMessage)
             }
         }
     }
@@ -886,6 +886,73 @@ extension UserNotificationsCoordinator {
         
     }
     
+    
+    private func processNewMessageReceivedNotification(ownedMessage: ObvOwnedMessage) async {
+        
+        // Don't publish a user notification of "old" messages
+        
+        guard ownedMessage.downloadTimestampFromServer.timeIntervalSince(ownedMessage.messageUploadTimestampFromServer) < .init(minutes: 5) else {
+            return
+        }
+
+        do {
+            
+            let requestIdentifier = UUID().uuidString
+            
+            let content: UNNotificationContent
+            
+            do {
+                
+                // Determine the kind of notification to show
+                
+                let notificationToShow = try await ObvUserNotificationContentCreator.determineNotificationToShow(obvOwnedMessage: ownedMessage, obvStackShared: ObvStack.shared)
+                
+                switch notificationToShow {
+                    
+                case .silent,
+                        .silentWithUpdatedBadgeCount,
+                        .removePreviousNotificationsBasedOnObvDiscussionIdentifier,
+                        .removePreviousNotificationsBasedOnObvMessageAppIdentifiers:
+                    return
+                    
+                case .historyTransferRequestFromAnotherOwnedDevice(content: let _content):
+                    
+                    // Since we are here, the app is active. Be do not show the notification is in the foreground since
+                    // we will present a history transfer request. The notification we show here is only useful in cases where
+                    // we just put the app in the background. In that case, the notification extension might not receive the
+                    // notification.
+                    
+                    if await UIApplication.shared.applicationState == .active {
+                        // The app is running in the foreground and currently receiving events. We do not show a user notification.
+                        return
+                    } else {
+                        content = _content
+                    }
+                    
+                }
+                
+            }
+            
+            // If we reach this point, we are in charge of posting the notification
+
+            let notification = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: nil)
+
+            do {
+                // Note that if the user disallowed notifications (e.g., from the Settings app), the following method call does nothing.
+                try await UNUserNotificationCenter.current().add(notification)
+            } catch {
+                Self.logger.fault("Failed to add a local user notification for a received message: \(error.localizedDescription)")
+            }
+
+        } catch {
+            
+            Self.logger.fault("Could not schedule local user notification: \(error.localizedDescription)")
+            assertionFailure()
+            
+        }
+
+    }
+    
 }
 
 
@@ -1033,7 +1100,9 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
             
             Self.logger.info("🥏 Call to userNotificationCenter didReceive withCompletionHandler")
             
-            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
+            // We only wait until the app is initialized, not until the meta flow controller appears as, most of the time,
+            // the app is launched in the background in reaction to the user action with the User Notification
+            _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
             
             // Process the response depending on the notification category
             
@@ -1563,7 +1632,9 @@ extension UserNotificationsCoordinator {
                 // This action only concerns user notification with the `.newMessage` category. See `static ObvUserNotificationCategory.setAllNotificationCategories(on:)`.
                 
                 do {
+                    Self.logger.info("🥏 The user request to mark a message as read from the user notification")
                     try await coordinator.processUserWantsToMarkAsReadMessageShownInUserNotification(messageAppIdentifier: messageAppIdentifier)
+                    Self.logger.info("🥏 We processed the user request to mark the message as read from the user notification")
                 } catch {
                     Self.logger.error("Failed to process the user request to mark a message from a user notification: \(error.localizedDescription)")
                     return
@@ -1594,7 +1665,7 @@ extension UserNotificationsCoordinator {
             assertionFailure()
             return nil
         }
-        guard let discussionIdentifier = persistedContact.oneToOneDiscussion?.discussionIdentifier else {
+        guard let discussionIdentifier = try? persistedContact.oneToOneDiscussion?.discussionIdentifier else {
             assertionFailure()
             return nil
         }

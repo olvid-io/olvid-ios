@@ -132,17 +132,36 @@ extension InfoPlist {
             ]),
         ])
         
+        let wiFiAwareServices: Plist.Value = .dictionary([
+            "_obv-chat-tran._tcp" : .dictionary([
+                "Publishable" : .dictionary([:]),
+                "Subscribable" : .dictionary([:]),
+            ])
+        ])
+        
         let nsAppTransportSecurity: Plist.Value = .dictionary([
             "NSAllowsArbitraryLoads": .boolean(false),
         ])
         
+        // Defining the identifiers of both:
+        // - background tasks
+        // - continued processing tasks, that must start with the bundleID (these only exist on iOS 26.0+ and iPadOS 26.0+)
         
-        let bgTaskSchedulerPermittedIdentifiers: ProjectDescription.Plist.Value = .array([
-            .string("io.olvid.background.tasks"), // The app refresh background task (there can be only one)
-            .string("io.olvid.background.processing.database.sync"), // A processing background task for syncing the app database with the engine database (there can be at most 10 processing tasks)
-            .string("io.olvid.background.processing.perform.new.backup"), // A processing background task for performing a (new) backup of all the profiles
-            .string("io.olvid.background.processing.app.inbox.sync.message.ids.kept.for.later"), // A processing background task for making sure all message identifiers (from engine) are properly replayed
-        ])
+        var bgTaskSchedulerPermittedIdentifiersStrings = [
+            "io.olvid.background.tasks", // The app refresh background task (there can be only one)
+            "io.olvid.background.processing.database.sync", // A processing background task for syncing the app database with the engine database (there can be at most 10 processing tasks)
+            "io.olvid.background.processing.perform.new.backup", // A processing background task for performing a (new) backup of all the profiles
+            "io.olvid.background.processing.app.inbox.sync.message.ids.kept.for.later", // A processing background task for making sure all message identifiers (from engine) are properly replayed
+        ]
+        
+        switch appType {
+        case .development:
+            bgTaskSchedulerPermittedIdentifiersStrings.append("io.olvid.messenger-debug.bgContinuedProcessingTask.historyTransfer.*") // A BGContinuedProcessingTask used during history transfer, both on the source and destination (on iOS 26.0+ and iPadOS 26.0+ only)
+        case .production:
+            bgTaskSchedulerPermittedIdentifiersStrings.append("io.olvid.messenger.bgContinuedProcessingTask.historyTransfer.*") // A BGContinuedProcessingTask used during history transfer, both on the source and destination (on iOS 26.0+ and iPadOS 26.0+ only)
+        }
+
+        let bgTaskSchedulerPermittedIdentifiers: ProjectDescription.Plist.Value = .array(bgTaskSchedulerPermittedIdentifiersStrings.map({ .string($0) }))
         
         // Custom Browser User-Agent for AppAuth
         // AppAuth for iOS includes a few extra user-agent we can use. One of them, OIDExternalUserAgentIOSCustomBrowser makes it possible to use a different browser for authentication, like Chrome for iOS or Firefox for iOS.
@@ -188,6 +207,7 @@ extension InfoPlist {
             "NSAppTransportSecurity": nsAppTransportSecurity,
             "UTImportedTypeDeclarations": Helpers.utImportedTypeDeclarations,
             "LSApplicationQueriesSchemes": lsApplicationQueriesSchemes,
+            "WiFiAwareServices": wiFiAwareServices,
         ]
                 
         let customPlistValuesForExtendingDefault = Helpers.customPlistValuesForExtendingDefault(appType: appType)

@@ -62,7 +62,9 @@ final actor AppMainManager: ObvErrorMaker {
     }
 
     private func changeAppStateTo(_ newAppState: NewAppState) {
-        os_log("Will change state from <%{public}@> to <%{public}@>", log: Self.log, type: .info, currentAppState.debugDescription, newAppState.debugDescription)
+        let currentAppStateDebugDescription = currentAppState.debugDescription
+        let newAppStateDebugDescription = newAppState.debugDescription
+        Self.logger.info("Will change state from <\(currentAppStateDebugDescription, privacy: .public)> to <\(newAppStateDebugDescription, privacy: .public)>")
         guard newAppState.level != currentAppState.level else { return }
         switch (currentAppState, newAppState) {
         case (.initializationRequired, .initializing):
@@ -148,7 +150,7 @@ final actor AppMainManager: ObvErrorMaker {
         if let appManagersHolder, let appCoordinatorsHolder {
             await appManagersHolder.setManagersDelegates(
                 backgroundTasksManagerDelegate: appCoordinatorsHolder.bootstrapCoordinator,
-                expirationMessagesManager: appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator,
+                expirationMessagesManager: appCoordinatorsHolder.recipientInfosCoordinator,
                 signalingDelegate: appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator,
                 continuousSharingLocationManagerDelegate: appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator)
         }
@@ -411,6 +413,7 @@ final actor AppMainManager: ObvErrorMaker {
                 var isDirectory: ObjCBool = false
                 guard FileManager.default.fileExists(atPath: urlForTempFiles.path, isDirectory: &isDirectory) else {
                     os_log("The temp directory %{public}@ does not exist", log: Self.log, type: .fault, urlForTempFiles.path)
+                    try? FileManager.default.createDirectory(at: urlForTempFiles, withIntermediateDirectories: true)
                     assertionFailure()
                     return
                 }

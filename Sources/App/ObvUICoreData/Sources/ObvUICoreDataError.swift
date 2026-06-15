@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -212,9 +212,18 @@ public enum ObvUICoreDataError: Error, Sendable {
     case uuidIsNil
     case messageIsNotPollMessage
     case cannotEditPollMessage
+    case rawDateCreatedIsNil
+    case shouldNotBeCalledOnMessageSentFromAnotherOwnedDevice
+    case couldNotComputeDeterministicUID
+    case unexpectedSha256
+    case couldNotComputeFileSize
 
     public var errorDescription: String? {
         switch self {
+        case .shouldNotBeCalledOnMessageSentFromAnotherOwnedDevice:
+            return "Should not be called on message sent from another owned device"
+        case .rawDateCreatedIsNil:
+            return "Raw date created is nil"
         case .cannotEditPollMessage:
             return "Cannot edit poll message"
         case .cannotCreateEmptyPersistedMessageReceived:
@@ -591,6 +600,12 @@ public enum ObvUICoreDataError: Error, Sendable {
             return "message is not associated to this location"
         case .messageIsNotPollMessage:
             return "message is not poll message"
+        case .couldNotComputeDeterministicUID:
+            return "Could not compute deterministic UID"
+        case .unexpectedSha256:
+            return "Unexpected sha256"
+        case .couldNotComputeFileSize:
+            return "Could not compute file size"
         }
     }
 

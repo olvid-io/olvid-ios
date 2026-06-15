@@ -183,6 +183,9 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                             // received from the notification center only knows about the number of expected attachments, but not about the attachments themselves, resulting
                             // in an ObvMessage that is not appropriate for creating a PersistedMessageReceived.
                             return result = .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived
+                        case .historyTransfer:
+                            assertionFailure("Unexpected source")
+                            return cancel(withReason: .unexpectedMessageSource)
                         }
 
                     case .cannotCreateReceivedMessageThatAlreadyExpired:
@@ -219,12 +222,13 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
         case obvUICoreDataError(error: ObvUICoreDataError)
         case coreDataError(error: Error)
         case couldNotDetermineDiscussionIdentifier
+        case unexpectedMessageSource
 
         var logType: OSLogType {
             switch self {
             case .couldNotFindOwnedIdentityInDatabase:
                 return .error
-            case .obvUICoreDataError, .coreDataError, .couldNotDetermineDiscussionIdentifier:
+            case .obvUICoreDataError, .coreDataError, .couldNotDetermineDiscussionIdentifier, .unexpectedMessageSource:
                 return .fault
             }
         }
@@ -239,6 +243,8 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 return "Core Data error: \(error.localizedDescription)"
             case .couldNotDetermineDiscussionIdentifier:
                 return "Could not determine discussion identifier"
+            case .unexpectedMessageSource:
+                return "Unexpected message source"
             }
         }
         

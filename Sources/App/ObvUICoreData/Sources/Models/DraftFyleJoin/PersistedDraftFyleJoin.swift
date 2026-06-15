@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,8 @@ import Foundation
 import CoreData
 import OlvidUtils
 import UniformTypeIdentifiers
+import ObvEncoder
+import ObvAppTypes
 
 @objc(PersistedDraftFyleJoin)
 public final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvIdentifiableManagedObject {
@@ -54,6 +56,15 @@ public final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvIdentif
         return UTType(uti) ?? .data
     }
     
+    // MARK: - Other variables
+    public var isPreviewType: Bool {
+        return contentType.conforms(to: .olvidLinkPreview)
+    }
+    
+    // MARK: - Other variables
+    public var isAudioType: Bool {
+        return contentType.conforms(to: .audio)
+    }
 }
 
 
@@ -61,7 +72,7 @@ public final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvIdentif
 
 extension PersistedDraftFyleJoin {
     
-    public convenience init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fyleObjectID: NSManagedObjectID, fileName: String, uti: String, within context: NSManagedObjectContext) throws {
+    private convenience init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fyleObjectID: NSManagedObjectID, fileName: String, uti: String, within context: NSManagedObjectContext) throws {
 
         guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: context) else {
             assertionFailure()
@@ -85,6 +96,51 @@ extension PersistedDraftFyleJoin {
         self.fyle = fyle
         
     }
+    
+    // MARK: detect attachment type
+    
+    fileprivate static let imageUTTypes: [UTType] = [.jpeg, .gif, .png, .image, .tiff, .rawImage, .svg, .heic, .heif]
+    fileprivate static let imageUTIs: [String] = imageUTTypes.map(\.description)
+    
+    fileprivate static let videoUTTypes: [UTType] = [.movie, .quickTimeMovie, .mpeg4Movie, .mpeg, .avi]
+    fileprivate static let videoUTIs: [String] = videoUTTypes.map(\.description)
+
+    fileprivate static let audioUTTypes: [UTType] = [.m4a]
+    fileprivate static let audioUTIs: [String] = audioUTTypes.map(\.description)
+
+    fileprivate static let mediaUTIs: [String] = videoUTIs + audioUTIs
+    
+    public var attachmentType: FyleMessageJoinType {
+        if Self.videoUTIs.contains(uti) {
+            return .video
+        }
+        
+        if Self.audioUTIs.contains(uti) {
+            return .audio
+        }
+        
+        if !(Self.mediaUTIs + Self.imageUTIs).contains(uti) {
+            return .other
+        }
+        
+        return .photo
+    }
+    
+    public enum FyleMessageJoinType {
+        case photo
+        case video
+        case audio
+        case other
+    }
+    
+    
+    /// Method to call to add an attachment to a draft
+    public static func createPersistedDraftFyleJoinIfRequired(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fileName: String, fileType: UTType, fyle: Fyle, within context: NSManagedObjectContext) throws {
+        if try PersistedDraftFyleJoin.get(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, within: context) == nil {
+            _ = try PersistedDraftFyleJoin(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, fileName: fileName, uti: fileType.identifier, within: context)
+        }
+    }
+    
 }
 
 
@@ -197,6 +253,33 @@ extension PersistedDraftFyleJoin {
     }
     
     
+    /// Returns the `ObvLinkMetadata` of a draft. This assumes there is a maximum of one `ObvLinkMetadata` per draft.
+    public static func getLinkMetadaAsObvLinkMetadata(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, within context: NSManagedObjectContext) throws -> ObvLinkMetadata? {
+        guard let join = try Self.getLinkMetadaAsPersistedDraftFyleJoin(draftObjectID: draftObjectID, within: context) else { return nil }
+        guard let fallbackURL = URL(string: join.fileName),
+              let fyleURL = join.fyle?.url,
+              FileManager.default.fileExists(atPath: fyleURL.path) else {
+            return nil
+        }
+        let data = try Data(contentsOf: fyleURL)
+        guard let obvEncoded = ObvEncoded(withRawData: data) else { return nil }
+        return ObvLinkMetadata.decode(obvEncoded, fallbackURL: fallbackURL)
+    }
+    
+    
+    public static func getLinkMetadaAsPersistedDraftFyleJoin(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
+        let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withDraft(draftObjectID),
+            NSPredicate(Predicate.Key.uti, EqualToString: UTType.olvidPreviewUti),
+        ])
+        request.fetchLimit = 1
+        let join = try context.fetch(request).first
+        return join
+    }
+    
+    
+    
     public static func get(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
         let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
         request.predicate = Predicate.persistedDraftFyleJoin(withObjectID: objectID)
@@ -221,13 +304,26 @@ extension PersistedDraftFyleJoin {
         }
     }
     
-    public static func getFetchRequestForPreviewAttachments(withObjectID draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSFetchRequest<PersistedDraftFyleJoin> {
-        let fetchRequest: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.index.rawValue, ascending: false)]
-        fetchRequest.fetchBatchSize = 50
-        fetchRequest.predicate = Predicate.withPersistedDraftOnlyPreviews(withObjectID: draftObjectID)
-        return fetchRequest
+    public static func getFetchedResultsController(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDraftFyleJoin> {
+        let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
+        request.predicate = Predicate.persistedDraftFyleJoin(withObjectID: objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.index.rawValue, ascending: false)]
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: request,
+                                                                  managedObjectContext: context,
+                                                                  sectionNameKeyPath: nil,
+                                                                  cacheName: nil)
+        return fetchedResultsController
     }
+
+    
+//    public static func getFetchRequestForPreviewAttachments(withObjectID draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSFetchRequest<PersistedDraftFyleJoin> {
+//        let fetchRequest: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
+//        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.index.rawValue, ascending: false)]
+//        fetchRequest.fetchBatchSize = 50
+//        fetchRequest.predicate = Predicate.withPersistedDraftOnlyPreviews(withObjectID: draftObjectID)
+//        return fetchRequest
+//    }
     
     public static func getFetchedResultsControllerForAllDraftFyleJoinsOfDraft(withObjectID draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDraftFyleJoin> {
         let fetchRequest: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()

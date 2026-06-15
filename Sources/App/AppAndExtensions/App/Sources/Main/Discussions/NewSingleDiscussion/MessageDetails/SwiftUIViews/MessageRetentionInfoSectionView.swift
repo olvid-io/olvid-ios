@@ -42,7 +42,7 @@ struct MessageRetentionInfoSectionView: View {
                     HStack(alignment: .firstTextBaseline) {
                         Label("NUMBER_OF_MESSAGES_BEFORE_DELETION", systemImage: "number")
                         Spacer()
-                        Text("\(number)")
+                        Text(verbatim: "\(number)")
                             .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
                     }
                 } else {

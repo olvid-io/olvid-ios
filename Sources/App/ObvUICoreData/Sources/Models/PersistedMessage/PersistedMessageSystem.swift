@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,11 +20,12 @@
 import Foundation
 import CoreData
 import ObvEngine
-import os.log
+import OSLog
 import OlvidUtils
 import ObvTypes
 import ObvSettings
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 @objc(PersistedMessageSystem)
@@ -302,7 +303,7 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
         case .numberOfNewMessages:
             return Strings.numberOfNewMessages(self.numberOfUnreadReceivedMessages)
         case .discussionIsEndToEndEncrypted:
-            return Strings.discussionIsEndToEndEncrypted
+            return Strings.discussionIsEndToEndEncrypted(shortVersion: ObvMessengerSettings.Interface.shortenIntroductoryMessage)
         case .contactWasDeleted:
             return Strings.contactWasDeleted
         case .updatedDiscussionSharedSettings:
@@ -432,7 +433,7 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
         case .numberOfNewMessages:
             return Strings.numberOfNewMessages(self.numberOfUnreadReceivedMessages)
         case .discussionIsEndToEndEncrypted:
-            return Strings.discussionIsEndToEndEncrypted
+            return Strings.discussionIsEndToEndEncrypted(shortVersion: ObvMessengerSettings.Interface.shortenIntroductoryMessage)
         case .contactWasDeleted:
             return Strings.contactWasDeleted
         case .updatedDiscussionSharedSettings:
@@ -553,7 +554,7 @@ extension PersistedMessageSystem {
             messageStatus = MessageStatus.new.rawValue
         }
         try self.init(timestamp: timestamp,
-                      body: nil,
+                      bodyAndUserMentions: nil,
                       rawStatus: messageStatus,
                       senderSequenceNumber: senderSequenceNumber,
                       sortIndex: sortIndex,
@@ -562,10 +563,10 @@ extension PersistedMessageSystem {
                       readOnce: false,
                       visibilityDuration: nil,
                       forwarded: false,
-                      mentions: [], // For now, we have no mentions in system messages
                       isLocation: false,
                       poll: nil,
                       thisMessageTimestampCanResetDiscussionSortDate: thisMessageTimestampCanResetDiscussionSortDate,
+                      includesPendingChangesWhenComputingSectionIdentifier: false,
                       forEntityName: PersistedMessageSystem.entityName)
      
         self.rawCategory = category.rawValue
@@ -595,7 +596,7 @@ extension PersistedMessageSystem {
         }
         
         try self.init(timestamp: timestamp,
-                      body: nil,
+                      bodyAndUserMentions: nil,
                       rawStatus: MessageStatus.read.rawValue,
                       senderSequenceNumber: 0,
                       sortIndex: sortIndexForFirstNewMessageLimit,
@@ -604,9 +605,9 @@ extension PersistedMessageSystem {
                       readOnce: false,
                       visibilityDuration: nil,
                       forwarded: false,
-                      mentions: [], // For now, we have no mentions in system messages,
                       isLocation: false,
                       poll: nil,
+                      includesPendingChangesWhenComputingSectionIdentifier: false,
                       forEntityName: PersistedMessageSystem.entityName)
         
         self.rawCategory = Category.numberOfNewMessages.rawValue
@@ -946,6 +947,21 @@ extension PersistedMessageSystem {
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageSystem> {
         return NSFetchRequest<PersistedMessageSystem>(entityName: PersistedMessageSystem.entityName)
+    }
+
+
+    /// Delete the "Discussion is end-to-end encrypted" `PersistedMessageSystem` in the given discussion, if it exists. This is used during history transfer.
+    static func getDiscussionIsEndToEndEncryptedSystemMessage(in discussion: PersistedDiscussion) throws -> PersistedMessageSystem? {
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
+        let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withinDiscussion(discussion),
+            Predicate.isDiscussionIsEndToEndEncrypted,
+        ])
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item
     }
 
     

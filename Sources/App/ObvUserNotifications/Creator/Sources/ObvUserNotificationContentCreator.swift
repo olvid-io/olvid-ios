@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -219,6 +219,13 @@ public struct ObvUserNotificationContentCreator {
             
             return .removePreviousNotificationsBasedOnObvMessageAppIdentifiers(content: UNNotificationContent(), messageAppIdentifiers: messageAppIdentifiers)
             
+        case .historyTransferRequestFromAnotherOwnedDevice:
+            
+            let content = Self.createMinimalNotificationContent(badge: .unchanged).mutableContent
+            content.title = String(localized: "HISTORY_TRANSFER_REQUEST_NOTIFICATION_TITLE")
+            content.body = String(localized: "HISTORY_TRANSFER_REQUEST_NOTIFICATION_BODY")
+            return .historyTransferRequestFromAnotherOwnedDevice(content: content)
+
         case .minimal, .message, .reaction, .messageEdition, .pollAnswer:
             
             Self.logger.fault("Unexpected infos for an ObvOwnedMessage")
@@ -279,7 +286,7 @@ public struct ObvUserNotificationContentCreator {
             
             let content = await ObvUserNotificationContentCreator.createNotificationContentForReceivedMessage(
                 message: messageJSON,
-                expectedAttachmentsCount: obvMessage.expectedAttachmentsCount,
+                attachments: obvMessage.attachments,
                 contact: contact,
                 discussionKind: discussionKind,
                 messageRepliedTo: messageRepliedTo,
@@ -291,7 +298,7 @@ public struct ObvUserNotificationContentCreator {
             
             let content = try await ObvUserNotificationContentCreator.createNotificationContentForReceivedMessageEdition(
                 updateMessageJSON: updateMessageJSON,
-                expectedAttachmentsCount: obvMessage.expectedAttachmentsCount,
+                expectedAttachmentsCount: obvMessage.attachments.count,
                 contact: contact,
                 discussionKind: discussionKind,
                 messageRepliedTo: messageRepliedTo)
@@ -327,6 +334,15 @@ public struct ObvUserNotificationContentCreator {
             assert(lastReadMessageServerTimestamp == nil)
             
             return .removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: UNNotificationContent(), obvDiscussionIdentifier: discussionIdentifier)
+            
+        case .historyTransferRequestFromAnotherOwnedDevice:
+
+            // Not expected for an ObvMessage.
+            
+            assertionFailure()
+            
+            return .silent
+
 
         }
         
@@ -579,7 +595,12 @@ extension ObvUserNotificationContentCreator {
 
     }
     
-    private static func createNotificationContentForReceivedMessage(message: MessageJSON, expectedAttachmentsCount: Int, contact: PersistedObvContactIdentityStructure, discussionKind: PersistedDiscussionAbstractStructure.StructureKind, messageRepliedTo: RepliedToMessageStructure?, uploadTimestampFromServer: Date) async -> ObvUserNotificationContentTypeForObvMessage {
+    private static func createNotificationContentForReceivedMessage(message: MessageJSON,
+                                                                    attachments: [ObvAttachment],
+                                                                    contact: PersistedObvContactIdentityStructure,
+                                                                    discussionKind: PersistedDiscussionAbstractStructure.StructureKind,
+                                                                    messageRepliedTo: RepliedToMessageStructure?,
+                                                                    uploadTimestampFromServer: Date) async -> ObvUserNotificationContentTypeForObvMessage {
         
         let isEphemeralMessageWithUserAction: Bool
         if let expiration = message.expiration, expiration.visibilityDuration != nil || expiration.readOnce {
@@ -605,15 +626,15 @@ extension ObvUserNotificationContentCreator {
         
         let receivedMessage = ReceivedMessage(
             messageAppIdentifier: messageAppIdentifier,
-            mentionedCryptoIds: message.userMentions.map(\.mentionedCryptoId),
+            mentionedCryptoIds: message.bodyAndMentions?.mentions.map(\.mentionedCryptoId) ?? [],
             isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction,
-            body: message.body,
+            body: message.bodyAndMentions?.body,
             badgeCount: discussionKind.ownedIdentity.badgeCount,
             locationInfo: locationInfo)
 
         let userNotificationContentType = await Self.createNotificationContentForReceivedMessage(
             receivedMessage: receivedMessage,
-            expectedAttachmentsCount: expectedAttachmentsCount,
+            expectedAttachmentsCount: attachments.count,
             contact: contact,
             discussionKind: discussionKind,
             messageRepliedTo: messageRepliedTo,
@@ -643,7 +664,7 @@ extension ObvUserNotificationContentCreator {
         
         let receivedMessageEdition = ReceivedMessageEdition(
             messageAppIdentifier: messageAppIdentifier,
-            newBody: updateMessageJSON.newTextBody,
+            newBody: updateMessageJSON.newBodyAndMentions?.body,
             locationInfo: locationInfo)
                 
         let userNotificationContentType = try await Self.createNotificationContentForReceivedMessageEdition(receivedMessageEdition: receivedMessageEdition)
@@ -741,20 +762,31 @@ extension ObvUserNotificationContentCreator {
                     
                     // Determine the appropriate discussion
                                         
-                    let discussionId: DiscussionIdentifier
+                    let discussionId: ObvDiscussionIdentifier
                     
                     if let discussionReadJSON = persistedItemJSON.discussionRead {
-                        discussionId = try discussionReadJSON.getDiscussionId(ownedCryptoId: obvOwnedMessage.ownedCryptoId)
+                        discussionId = try discussionReadJSON.getObvDiscussionId(ownedCryptoId: obvOwnedMessage.ownedCryptoId)
                     } else if let deleteMessagesJSON = persistedItemJSON.deleteMessagesJSON {
-                        discussionId = try deleteMessagesJSON.getDiscussionId(ownedCryptoId: obvOwnedMessage.ownedCryptoId)
+                        discussionId = try deleteMessagesJSON.getObvDiscussionId(ownedCryptoId: obvOwnedMessage.ownedCryptoId)
                     } else if let deleteDiscussionJSON = persistedItemJSON.deleteDiscussionJSON {
-                        discussionId = try deleteDiscussionJSON.getDiscussionId(ownedCryptoId: obvOwnedMessage.ownedCryptoId)
+                        discussionId = try deleteDiscussionJSON.getObvDiscussionId(ownedCryptoId: obvOwnedMessage.ownedCryptoId)
                     } else {
+                        // We could not determine the appropriate discussion. For now, when this is the case, we only deal with transfer request sent from a source device
+                        // to this destination device
+                        if let webRTCHistoryTransferControlJSON = persistedItemJSON.webRTCHistoryTransferControlJSON {
+                            switch webRTCHistoryTransferControlJSON.kind {
+                            case .requestTransfer:
+                                return continuation.resume(returning: .historyTransferRequestFromAnotherOwnedDevice)
+                            case .acceptTransfer, .rejectOrAbortTransfer:
+                                break // We want a silent notification in this case
+                            }
+                        }
+                        // If we reach this point, it mans we do not deal with the received kind of JSON item
                         Self.logger.error("For now, we dont deal with that kind of JSON item.")
                         return continuation.resume(returning: .silent)
                     }
                     
-                    guard let persistedDiscussion = try PersistedDiscussion.getPersistedDiscussion(ownedCryptoId: obvOwnedMessage.ownedCryptoId, discussionId: discussionId, within: context) else {
+                    guard let persistedDiscussion = try PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: discussionId, within: context) else {
                         Self.logger.fault("Could not find discussion in database")
                         assertionFailure()
                         return continuation.resume(returning: .silent)
@@ -811,6 +843,8 @@ extension ObvUserNotificationContentCreator {
 
 
     private static func determineInfosForCreatingContent(obvMessage: ObvMessage, obvStackShared: CoreDataStack<ObvMessengerPersistentContainer>) async throws -> InfosForCreatingContent {
+        
+        Self.logger.info("Will determine the information required to create the content of the notification")
         
         let persistedItemJSON = try PersistedItemJSON.jsonDecode(obvMessage.messagePayload)
 
@@ -919,16 +953,18 @@ extension ObvUserNotificationContentCreator {
                                 source: .engine)
                             contactIsAllowedToPostMessage = true
                         } catch {
+                            Self.logger.fault("The creation simulation of a PersistedMessageReceived did fail: \(error.localizedDescription, privacy: .public). We consider that the contact is not allowed to post message.")
                             contactIsAllowedToPostMessage = false
                         }
                         
                         guard contactIsAllowedToPostMessage else {
+                            Self.logger.fault("Contact is not allowed to post message (or the notification would be empty). We silence the notification.")
                             return continuation.resume(returning: .silent)
                         }
 
                         context.rollback()
 
-                        Self.logger.info("We received a notification for a message")
+                        Self.logger.info("We received a notification for a message, the contact is allowed to post a message, and the message has content to be shown in a notification")
                         
                         // Try to determine the repliedToMessage
                         
@@ -1818,6 +1854,8 @@ extension ObvUserNotificationContentCreator {
         case removeReceivedMessages(messageAppIdentifiers: [ObvMessageAppIdentifier])
 
         case removeAllNotificationsOfDiscussion(discussionIdentifier: ObvDiscussionIdentifier, lastReadMessageServerTimestamp: Date?)
+     
+        case historyTransferRequestFromAnotherOwnedDevice // When receiving a transfer history confirmation request on this destination device, from a source (owned) device.
         
     }
     

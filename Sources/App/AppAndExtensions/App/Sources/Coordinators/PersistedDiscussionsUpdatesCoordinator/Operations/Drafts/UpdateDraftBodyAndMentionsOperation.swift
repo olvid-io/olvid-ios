@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import os.log
 import OlvidUtils
 import ObvUICoreData
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 final class UpdateDraftBodyAndMentionsOperation: ContextualOperationWithSpecificReasonForCancel<UpdateDraftBodyAndMentionsOperation.ReasonForCancel>, @unchecked Sendable {
@@ -30,13 +31,11 @@ final class UpdateDraftBodyAndMentionsOperation: ContextualOperationWithSpecific
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: UpdateDraftBodyAndMentionsOperation.self))
 
     let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
-    let draftBody: String
-    let mentions: Set<MessageJSON.UserMention>
+    let draftBody: AttributedString
 
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftBody: String, mentions: Set<MessageJSON.UserMention>) {
+    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftBody: AttributedString) {
         self.draftObjectID = draftObjectID
         self.draftBody = draftBody
-        self.mentions = mentions
         super.init()
     }
 
@@ -48,7 +47,7 @@ final class UpdateDraftBodyAndMentionsOperation: ContextualOperationWithSpecific
                 return cancel(withReason: .couldNotFindDraft)
             }
             
-            draft.replaceContentWith(newBody: draftBody, newMentions: mentions)
+            draft.replaceContentWith(newBody: draftBody)
             
         } catch {
             return cancel(withReason: .coreDataError(error: error))

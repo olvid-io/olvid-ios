@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import Intents
 import CallKit
 import PushKit
@@ -29,6 +29,7 @@ import ObvCrypto
 import ObvSettings
 import ObvUICoreData
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 /// Main class of Olvid's VoIP implementation.
@@ -40,6 +41,7 @@ import ObvAppCoreConstants
 final class CallProviderDelegate: NSObject {
     
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: CallProviderDelegate.self))
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: CallProviderDelegate.self))
 
     /// Allows to let the system know about any out-of-band notifications that have happened (i.e., *not* local user actions).
     /// When using CallKit, this holds the CXProvider.
@@ -437,6 +439,13 @@ extension CallProviderDelegate {
                 os_log("☎️❄️ We received new ICE Candidate message: %{public}@", log: Self.log, type: .info, messageType.description)
                 let iceCandidate = try IceCandidateJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await callManager.processICECandidateForCall(uuidForWebRTC: uuidForWebRTC, iceCandidate: iceCandidate, contact: contact)
+                
+            case .batchIceCandidates:
+                guard !fromOlvidUser.isOwnedIdentity else { assertionFailure(); return }
+                let contact = fromOlvidUser
+                Self.logger.info("☎️❄️ We received a new batch of ICE candidates in message: \(messageType.description, privacy: .public)")
+                let batchIceCandidatesMessage = try BatchIceCandidatesMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
+                try await callManager.processBatchICECandidatesMessage(uuidForWebRTC: uuidForWebRTC, iceCandidates: batchIceCandidatesMessage, contact: contact)
 
             case .removeIceCandidates:
                 guard !fromOlvidUser.isOwnedIdentity else { assertionFailure(); return }
@@ -657,12 +666,12 @@ extension CallProviderDelegate: OlvidCallDelegate {
     }
     
     
-    func requestTurnCredentialsForCall(call: OlvidCall, ownedIdentityForRequestingTurnCredentials: ObvCryptoId) async throws -> ObvTurnCredentials {
-        return try await obvEngine.getTurnCredentials(ownedCryptoId: ownedIdentityForRequestingTurnCredentials)
+    func requestWellKnownTurnCredentialsForCall(call: OlvidCall, ownedIdentityForRequestingTurnCredentials: ObvCryptoId) async throws -> ObvWellKnownTurnCredentials {
+        return try await obvEngine.getWellKnownTurnCredentials(ownedCryptoId: ownedIdentityForRequestingTurnCredentials)
     }
     
     
-    func newWebRTCMessageToSendToAllContactDevices(webrtcMessage: ObvUICoreData.WebRTCMessageJSON, contactIdentifier: ObvContactIdentifier, forStartingCall: Bool) async {
+    func newWebRTCMessageToSendToAllContactDevices(webrtcMessage: ObvAppTypes.WebRTCMessageJSON, contactIdentifier: ObvContactIdentifier, forStartingCall: Bool) async {
         os_log("☎️ Posting a newWebRTCMessageToSend", log: Self.log, type: .info)
         guard let signalingDelegate else { assertionFailure(); return }
         Task {
@@ -954,6 +963,7 @@ extension CallProviderDelegate {
             rtcPeerConnectionQueue.addOperation {
                 os_log("☎️🔚 Deactivating audio on end call", log: Self.log, type: .info)
                 RTCAudioSession.sharedInstance().isAudioEnabled = false
+                try? RTCAudioSession.sharedInstance().setMode(.default)
                 try? RTCAudioSession.sharedInstance().setActive(false)
                 os_log("☎️🔚 Deactivated audio on end call", log: Self.log, type: .info)
             }

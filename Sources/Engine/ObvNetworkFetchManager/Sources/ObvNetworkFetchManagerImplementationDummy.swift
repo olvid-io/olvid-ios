@@ -100,9 +100,9 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         throw Self.makeError(message: "queryAPIKeyStatus does nothing in this dummy implementation")
     }
 
-    public func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvTurnCredentials {
-        os_log("getTurnCredentials does nothing in this dummy implementation", log: log, type: .error)
-        throw Self.makeError(message: "getTurnCredentials does nothing in this dummy implementation")
+    public func getWellKnownTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvWellKnownTurnCredentials {
+        os_log("getWellKnownTurnCredentials does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getWellKnownTurnCredentials does nothing in this dummy implementation")
     }
     
     public func getWebSocketState(ownedIdentity: ObvCryptoIdentity, handler: @escaping (Result<(URLSessionTask.State, TimeInterval?), any Error>) -> Void) async {

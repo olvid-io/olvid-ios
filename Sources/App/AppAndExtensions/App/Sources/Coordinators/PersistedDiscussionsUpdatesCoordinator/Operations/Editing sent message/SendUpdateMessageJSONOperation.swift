@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import OlvidUtils
 import ObvTypes
 import ObvUICoreData
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 /// This operation is typically used when the user decides to update the text body of one of here sent messages or the location.

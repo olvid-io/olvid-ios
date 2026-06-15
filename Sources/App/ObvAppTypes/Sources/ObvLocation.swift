@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,12 +20,12 @@
 import Foundation
 
 
-public enum ObvLocation: Equatable {
+public enum ObvLocation: Sendable, Equatable {
     
     case send(locationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier)
     case startSharing(locationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier, expirationDate: ObvLocationSharingExpirationDate)
-    case updateSharing(locationData: ObvLocationData)
-    case endSharing(type: EndSharingDestination)
+    case updateSharing(locationData: ObvLocationData, sendTo: SharingDestination)
+    case endSharing(type: SharingDestination)
     
     public var isEndSharingType: Bool {
         switch self {
@@ -34,16 +34,20 @@ public enum ObvLocation: Equatable {
         }
     }
     
-    public enum EndSharingDestination: Equatable {
+    public enum SharingDestination:Sendable, Equatable {
         
-        case all // This ends location sharing for all profiles
+        case all // When used within `endSharing`, this ends location sharing for all profiles
         case discussion(discussionIdentifier: ObvDiscussionIdentifier)
+        case discussions(discussionIdentifiers: Set<ObvDiscussionIdentifier>)
         
-        public var discussionIdentifier: ObvDiscussionIdentifier? {
+        public var discussionIdentifiers: Set<ObvDiscussionIdentifier> {
             switch self {
             case .discussion(discussionIdentifier: let discussionIdentifier):
-                return discussionIdentifier
-            default: return nil
+                return Set([discussionIdentifier])
+            case .discussions(discussionIdentifiers: let discussionIdentifiers):
+                return discussionIdentifiers
+            default:
+                return Set()
             }
             
         }

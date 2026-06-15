@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,12 +22,6 @@ import SwiftUI
 import ObvDesignSystem
 import ObvTypes
 
-@available(iOS 17.0, *)
-@MainActor
-public protocol ObvMapViewControllerDataSource: AnyObject {
-    func getAsyncStreamOfObvMapViewModel(_ vc: ObvMapViewController) throws -> AsyncStream<ObvMapViewModel>
-}
-
 
 @available(iOS 17.0, *)
 @MainActor
@@ -43,17 +37,21 @@ public protocol ObvMapViewControllerActionsProtocol: AnyObject {
 @available(iOS 17.0, *)
 public final class ObvMapViewController: UIHostingController<ObvMapView> {
     
-    fileprivate let dataSource: ObvMapViewControllerDataSource
     fileprivate weak var actions: ObvMapViewControllerActionsProtocol?
-    private let dataSourceForView = DataSourceForView()
     private let actionsForView = ActionsForView()
     
-    public init(dataSource: ObvMapViewControllerDataSource, avatarViewDataSource: ObvAvatarViewDataSource, actions: ObvMapViewControllerActionsProtocol, initialDeviceIdentifierToSelect: ObvDeviceIdentifier? = nil) {
-        self.dataSource = dataSource
+    public init(kind: ObvMapViewKind,
+                dataSource: ObvMapViewDataSource,
+                avatarViewDataSource: ObvAvatarViewDataSource,
+                actions: ObvMapViewControllerActionsProtocol,
+                initialDeviceIdentifierToSelect: ObvDeviceIdentifier? = nil) {
         self.actions = actions
-        let rootView = ObvMapView(dataSource: dataSourceForView, avatarViewDataSource: avatarViewDataSource, actions: actionsForView, initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
+        let rootView = ObvMapView(kind: kind,
+                                  dataSource: dataSource,
+                                  avatarViewDataSource: avatarViewDataSource,
+                                  actions: actionsForView,
+                                  initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
         super.init(rootView: rootView)
-        self.dataSourceForView.viewController = self
         self.actionsForView.viewController = self
     }
     
@@ -66,25 +64,6 @@ public final class ObvMapViewController: UIHostingController<ObvMapView> {
 
 @available(iOS 17, *)
 extension ObvMapViewController: UISheetPresentationControllerDelegate { }
-
-
-@available(iOS 17.0, *)
-private final class DataSourceForView: ObvMapViewDataSource {
-    
-    weak var viewController: ObvMapViewController?
-    
-    func getAsyncStreamOfObvMapViewModel() throws -> AsyncStream<ObvMapViewModel> {
-        guard let viewController else { assertionFailure(); throw ObvError.viewControllerNotSet }
-        let dataSource = viewController.dataSource
-        return try dataSource.getAsyncStreamOfObvMapViewModel(viewController)
-    }
-    
-    enum ObvError: Error {
-        case viewControllerNotSet
-        case dataSourceNotSet
-    }
-    
-}
 
 
 @available(iOS 17.0, *)

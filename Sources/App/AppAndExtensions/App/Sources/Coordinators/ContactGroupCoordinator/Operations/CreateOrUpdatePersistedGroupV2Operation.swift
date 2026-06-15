@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,12 +19,13 @@
   
 
 import Foundation
-import os.log
+import OSLog
 import OlvidUtils
 import ObvTypes
 import ObvEngine
 import ObvUICoreData
 import CoreData
+import ObvAppTypes
 
 
 final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpecificReasonForCancel<CreateOrUpdatePersistedGroupV2Operation.ReasonForCancel>, @unchecked Sendable {

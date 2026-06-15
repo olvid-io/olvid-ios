@@ -20,6 +20,7 @@
 import Foundation
 import LinkPresentation
 import AVFoundation
+import ObvAppTypes
 
 /// Makes it possible to create an ``ObvLinkMetadata`` from a standard ``LPLinkMetadata``
 extension ObvLinkMetadata {

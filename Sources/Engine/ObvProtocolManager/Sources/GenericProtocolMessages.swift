@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -154,6 +154,7 @@ struct GenericProtocolMessageToSend {
              .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts,
              .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices,
              .confirmedObliviousChannelOrPreKeyChannelWithContactDevice,
+             .confirmedObliviousChannelOrPreKeyChannelWithOtherOwnedDevice,
              .asymmetricChannel,
              .asymmetricChannelBroadcast,
              .local,

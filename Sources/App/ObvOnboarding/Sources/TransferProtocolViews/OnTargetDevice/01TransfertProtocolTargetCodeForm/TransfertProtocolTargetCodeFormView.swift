@@ -159,9 +159,11 @@ struct TransfertProtocolTargetCodeFormView: View, SessionNumberTextFieldActionsP
                 
             }
             
-            InternalButton("OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_OTHER_DEVICE_BUTTON_TITLE", action: userTappedConfirmButton)
-                .disabled(enteredTransferSessionNumber == nil || engineIsProcessingEnteredSessionNumber || sasAvailable)
-                .padding(.bottom)
+            OlvidButtonNew(action: userTappedConfirmButton) {
+                Text("OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_OTHER_DEVICE_BUTTON_TITLE")
+            }
+            .disabled(enteredTransferSessionNumber == nil || engineIsProcessingEnteredSessionNumber || sasAvailable)
+            .padding(.bottom)
             
         }
         .padding(.horizontal)
@@ -293,35 +295,6 @@ struct SessionNumberTextField: View, SingleDigitTextFielddActions {
                 }.padding(.top, 4)
             }
         }
-    }
-    
-}
-
-
-// MARK: - Button used in this view only
-
-private struct InternalButton: View {
-    
-    private let key: LocalizedStringKey
-    private let action: () -> Void
-    @Environment(\.isEnabled) var isEnabled
-    
-    init(_ key: LocalizedStringKey, action: @escaping () -> Void) {
-        self.key = key
-        self.action = action
-    }
-        
-    var body: some View {
-        Button(action: action) {
-            Text(key)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 26)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity)
-        }
-        .background(Color.blue01)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
     }
     
 }

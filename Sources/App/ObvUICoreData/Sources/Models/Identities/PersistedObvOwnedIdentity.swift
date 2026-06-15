@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import Foundation
 import CoreData
 import ObvTypes
 import ObvEngine
-import os.log
+import OSLog
 import OlvidUtils
 import ObvCrypto
 import ObvUIObvCircledInitials
@@ -30,6 +30,7 @@ import ObvEncoder
 import Contacts
 import ObvAppTypes
 import ObvUICoreDataStructs
+import ObvDesignSystem
 import ObvAppCoreConstants
 
 
@@ -119,20 +120,18 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     }
     
     public var shortOriginalName: String {
-        guard let personNameComponents else { assertionFailure(); return fullDisplayName }
         let formatter = PersonNameComponentsFormatter()
         formatter.style = .short
         return formatter.string(from: personNameComponents)
     }
 
     var mediumOriginalName: String {
-        guard let personNameComponents else { assertionFailure(); return fullDisplayName }
         let formatter = PersonNameComponentsFormatter()
         formatter.style = .medium
         return formatter.string(from: personNameComponents)
     }
     
-    public var personNameComponents: PersonNameComponents? {
+    public var personNameComponents: PersonNameComponents {
         var pnc = identityCoreDetails.personNameComponents
         pnc.nickname = customDisplayName
         return pnc
@@ -1386,7 +1385,7 @@ extension PersistedObvOwnedIdentity {
         
     }
     
-    public func processLocalUpdateMessageRequestFromThisOwnedIdentity(persistedSentMessageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, newTextBody: String?) throws -> PersistedMessageSent? {
+    public func processLocalUpdateMessageRequestFromThisOwnedIdentity(persistedSentMessageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, newTextBody: AttributedString?) throws -> PersistedMessageSent? {
         
         guard let context = self.managedObjectContext else {
             throw ObvUICoreDataError.noContext
@@ -1864,6 +1863,11 @@ extension PersistedObvOwnedIdentity {
     }
     
     
+    
+    /// Returns a set of `PersistedMessageSent` after removing the associated `PersistedLocationContinuousSent`.
+    ///
+    /// - Important: If called during startup and the device is not sharing its location (as managed by `ContinuousSharingLocationManager`),
+    ///   the returned set will be empty. This prevents unnecessary JSON data from being sent to contact devices.
     public func endPersistedLocationContinuousSentInAllDiscussions() throws -> Set<PersistedMessageSent> {
         
         guard let currentDevice = self.currentDevice else {
@@ -2910,33 +2914,53 @@ typealias OwnedIdentityPermanentID = ObvManagedObjectPermanentID<PersistedObvOwn
 // MARK: - MentionableIdentity
 
 /// Allows a `PersistedObvOwnedIdentity` to be displayed in the views showing mentions.
-extension PersistedObvOwnedIdentity: MentionableIdentity {
-    
-    public var mentionnedCryptoId: ObvCryptoId? {
-        return self.cryptoId
-    }
-    
-    public var mentionSearchMatcher: String {
-        return mentionPersistedName
-    }
-
-    public var mentionPickerTitle: String {
-        return mentionPersistedName
-    }
-
-    public var mentionPickerSubtitle: String? {
-        return nil
-    }
-
-    public var mentionPersistedName: String {
-        return PersonNameComponentsFormatter.localizedString(from: identityCoreDetails.personNameComponents,
-                                                             style: .default)
-    }
-
-    public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
-        return .owned(typedObjectID)
-    }
-}
+//extension PersistedObvOwnedIdentity: MentionableIdentity {
+//    
+//    public var mentionnedCryptoId: ObvCryptoId? {
+//        return self.cryptoId
+//    }
+//    
+//    public var mentionSearchMatcher: String {
+//        return mentionPersistedName
+//    }
+//
+//    public var mentionPickerTitle: String {
+//        return mentionPersistedName
+//    }
+//
+//    public var mentionPickerSubtitle: String? {
+//        return nil
+//    }
+//
+//    public var mentionPersistedName: String {
+//        return PersonNameComponentsFormatter.localizedString(from: identityCoreDetails.personNameComponents,
+//                                                             style: .default)
+//    }
+//
+//    public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
+//        return .owned(typedObjectID)
+//    }
+//    
+//    public var avatar: ObvAvatarViewModel {
+//        let character = customOrFullDisplayName.first
+//        let characterOrIcon: ObvAvatarViewModel.CharacterOrIcon
+//        if let character {
+//            characterOrIcon = .character(character)
+//        } else {
+//            characterOrIcon = .icon(.person)
+//        }
+//        
+//        let backgroundColor = circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared)
+//        let foregroundColor = circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared)
+//        let colors = ObvDesignSystem.ObvAvatarViewModel.Colors(foreground: foregroundColor, background: backgroundColor)
+//        
+//        let photoURL = photoURL
+//        
+//        return .init(characterOrIcon: characterOrIcon,
+//                     colors: colors,
+//                     photoURL: photoURL)
+//    }
+//}
 
 
 // MARK: - For snapshot purposes

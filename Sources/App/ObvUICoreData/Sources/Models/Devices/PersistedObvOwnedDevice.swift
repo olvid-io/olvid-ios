@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -146,6 +146,10 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
                 self = .created(preKeyAvailable: preKeyAvailable)
             }
         }
+    }
+    
+    public var isCurrentDevice: Bool {
+        self.secureChannelStatus == .currentDevice
     }
 
     // Expected to be non-nil
@@ -322,6 +326,7 @@ extension PersistedObvOwnedDevice {
     struct Predicate {
         enum Key: String {
             // Properties
+            case expirationDate = "expirationDate"
             case identifier = "identifier"
             case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
             case specifiedName = "specifiedName"
@@ -342,13 +347,22 @@ extension PersistedObvOwnedDevice {
         static func withSecureChannelStatus(_ secureChannelStatus: SecureChannelStatus) -> NSPredicate {
             NSPredicate(Key.rawSecureChannelStatus, EqualToInt: secureChannelStatus.rawValue)
         }
+        static func withSecureChannelStatusDistinctFrom(_ secureChannelStatus: SecureChannelStatus) -> NSPredicate {
+            NSPredicate(Key.rawSecureChannelStatus, DistinctFromInt: secureChannelStatus.rawValue)
+        }
         static func withObvOwnedDeviceIdentifier(_ obvOwnedDeviceIdentifier: ObvOwnedDeviceIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 withIdentifier(obvOwnedDeviceIdentifier.deviceUID.raw),
                 withOwnedCryptoId(obvOwnedDeviceIdentifier.ownedCryptoId),
             ])
         }
-        
+        static func isExpiring(laterThan date: Date) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.expirationDate),
+                NSPredicate(Key.expirationDate, laterThan: date),
+            ])
+        }
+
     }
     
 
@@ -356,6 +370,45 @@ extension PersistedObvOwnedDevice {
         return NSFetchRequest<PersistedObvOwnedDevice>(entityName: self.entityName)
     }
 
+    
+    /// Returns an expiring `PersistedObvOwnedDevice` of the `ownedCryptoId`, or nil if there is no expiring device. The expiration must be in the future.
+    ///
+    /// If the current device is expiring, this method returns this device. Otherwise, it returns the device that has the smallest expiration date.
+    public static func getOwnedDeviceExpiringSoon(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedObvOwnedDevice? {
+        
+        do {
+            let request = self.fetchRequest()
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withOwnedCryptoId(ownedCryptoId),
+                Predicate.withSecureChannelStatus(.currentDevice),
+                Predicate.isExpiring(laterThan: .now),
+            ])
+            request.fetchLimit = 1
+            if let device = try context.fetch(request).first {
+                return device
+            }
+        }
+        
+        do {
+            let request = self.fetchRequest()
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withOwnedCryptoId(ownedCryptoId),
+                Predicate.withSecureChannelStatusDistinctFrom(.currentDevice),
+                Predicate.isExpiring(laterThan: .now),
+            ])
+            request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.expirationDate.rawValue, ascending: true)]
+            request.fetchLimit = 1
+            if let device = try context.fetch(request).first {
+                return device
+            }
+        }
+        
+        // If we reach this point, the user has no expiring device
+        
+        return nil
+        
+    }
+    
     
     public static func delete(identifier: Data, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
         guard let ownedDevice = try Self.fetchPersistedObvOwnedDevice(identifier: identifier, ownedCryptoId: ownedCryptoId, within: context) else { return }
@@ -477,6 +530,28 @@ extension PersistedObvOwnedDevice {
                                           sectionNameKeyPath: nil,
                                           cacheName: nil)
     }
+
+    
+    public static func getFetchedResultsController(within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvOwnedDevice> {
+        let fetchRequest: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()
+        fetchRequest.fetchBatchSize = 100
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.specifiedName.rawValue, ascending: true)]
+        return NSFetchedResultsController(fetchRequest: fetchRequest,
+                                          managedObjectContext: context,
+                                          sectionNameKeyPath: nil,
+                                          cacheName: nil)
+    }
+
+    
+    public static func getNameOfPersistedObvOwnedDevice(ownedDeviceIdentifier: ObvOwnedDeviceIdentifier, within context: NSManagedObjectContext) throws -> String? {
+        let request: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()
+        request.predicate = Predicate.withObvOwnedDeviceIdentifier(ownedDeviceIdentifier)
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.specifiedName.rawValue]
+        let item = try context.fetch(request).first
+        return item?.name
+    }
+    
 }
 
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -86,7 +86,7 @@ final class InboxAttachmentChunk: NSManagedObject {
 
     convenience init?(attachment: InboxAttachment, chunkNumber: Int, ciphertextChunkLength: Int) {
         guard let context = attachment.managedObjectContext else { assertionFailure(); return nil }
-        guard let attachmentId = attachment.attachmentId else { assertionFailure(); return nil }
+        guard let attachmentId = try? attachment.attachmentId else { assertionFailure(); return nil }
         let entityDescription = NSEntityDescription.entity(forEntityName: InboxAttachmentChunk.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         self.attachmentId = attachmentId

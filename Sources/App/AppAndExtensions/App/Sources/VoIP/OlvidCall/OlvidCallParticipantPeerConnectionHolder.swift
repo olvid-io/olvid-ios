@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,14 +42,18 @@ protocol OlvidCallParticipantPeerConnectionHolderDelegate: AnyObject {
 
 actor OlvidCallParticipantPeerConnectionHolder {
     
-    private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "OlvidCallParticipantPeerConnectionHolder")
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "OlvidCallParticipantPeerConnectionHolder")
 
     /// Serial queue shared among all `OlvidCallParticipantPeerConnectionHolder`, among all calls.
     private let rtcPeerConnectionQueue: OperationQueue
     
     private let factory: ObvPeerConnectionFactory
     
-    private(set) var turnCredentials: TurnCredentials?
+    /// TURN credentials (and server URLs) to use when connecting to the TURN server.
+    ///
+    /// For an incoming call, these are sent by the caller, in a `StartCallMessageJSON`.
+    /// For an outgoing call, these credentials are fetched from the Well-known.
+    private(set) var turnCredentials: TurnCredentialsAndServerURLs?
     private(set) var gatheringPolicy: OlvidCallGatheringPolicy
 
     weak var delegate: OlvidCallParticipantPeerConnectionHolderDelegate?
@@ -97,8 +101,11 @@ actor OlvidCallParticipantPeerConnectionHolder {
 
 
     /// Used when receiving an incoming call (the delegate shall be set immediately)
-    init(startCallMessage: StartCallMessageJSON, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory) {
-        self.turnCredentials = startCallMessage.turnCredentials
+    init(startCallMessage: StartCallMessageJSON,
+         shouldISendTheOfferToCallParticipant: Bool,
+         rtcPeerConnectionQueue: OperationQueue,
+         factory: ObvPeerConnectionFactory) {
+        self.turnCredentials = startCallMessage.turnCredentialsAndServerURLs
         self.shouldISendTheOfferToCallParticipant = shouldISendTheOfferToCallParticipant
         self.remoteSessionDescription = RTCSessionDescription(type: startCallMessage.sessionDescriptionType,
                                                               sdp: startCallMessage.sessionDescription)
@@ -121,7 +128,7 @@ actor OlvidCallParticipantPeerConnectionHolder {
     
     
     deinit {
-        os_log("☎️ OlvidCallParticipantPeerConnectionHolder deinit", log: Self.log, type: .debug)
+        Self.logger.debug("☎️ OlvidCallParticipantPeerConnectionHolder deinit")
     }
     
     
@@ -152,9 +159,9 @@ extension OlvidCallParticipantPeerConnectionHolder {
 
     
     /// Used for an incoming call that was already accepted, when the caller adds a participant to the call
-    func setRemoteDescriptionAndTurnCredentialsThenCreateTheUnderlyingPeerConnectionIfRequired(newParticipantOfferMessage: NewParticipantOfferMessageJSON, turnCredentials: TurnCredentials) async throws {
+    func setRemoteDescriptionAndTurnCredentialsThenCreateTheUnderlyingPeerConnectionIfRequired(newParticipantOfferMessage: NewParticipantOfferMessageJSON, turnCredentials: TurnCredentialsAndServerURLs) async throws {
 
-        os_log("☎️ Setting remote description and turn credentials, then creating peer connection", log: Self.log, type: .info)
+        Self.logger.info("☎️ Setting remote description and turn credentials, then creating peer connection")
         
         assert(self.delegate != nil)
 
@@ -183,7 +190,7 @@ extension OlvidCallParticipantPeerConnectionHolder {
     /// This method is two situations:
     /// - During an outgoing call, when setting the turn credential of a call participant.
     /// - During a multi-users incoming call, when we are in charge of sending the offer to another recipient (who isn't the caller).
-    func setTurnCredentialsAndCreateUnderlyingPeerConnectionIfRequired(_ turnCredentials: TurnCredentials) async throws {
+    func setTurnCredentialsAndCreateUnderlyingPeerConnectionIfRequired(turnCredentials: TurnCredentialsAndServerURLs) async throws {
         assert(self.delegate != nil)
         guard self.turnCredentials == nil else {
             assertionFailure()
@@ -196,11 +203,12 @@ extension OlvidCallParticipantPeerConnectionHolder {
 
     func close() async {
         guard let peerConnection else {
-            os_log("☎️🛑 Execute signaling state closed completion handler: peer connection is nil", log: Self.log, type: .info)
+            Self.logger.info("☎️🛑 Execute signaling state closed completion handler: peer connection is nil")
             return
         }
         let op = ClosePeerConnectionOperation(peerConnection: peerConnection)
-        os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+        let rtcPeerConnectionQueueOperationsDebugDescription = rtcPeerConnectionQueue.operations.debugDescription
+        Self.logger.info("☎️ Operations in the queue: \(rtcPeerConnectionQueueOperationsDebugDescription, privacy: .public) before adding \(op.debugDescription, privacy: .public)")
         await rtcPeerConnectionQueue.addAndAwaitOperation(op)
     }
 
@@ -213,29 +221,29 @@ extension OlvidCallParticipantPeerConnectionHolder {
     ///   It is called as soon as the user accepts the incoming call.
     private func createPeerConnectionIfRequired() async throws {
 
-        os_log("☎️ Call to createPeerConnection", log: Self.log, type: .info)
+        Self.logger.info("☎️ Call to createPeerConnection")
 
         guard peerConnection == nil else {
-            os_log("☎️ No need to create the peer connection, it already exists", log: Self.log, type: .info)
+            Self.logger.info("☎️ No need to create the peer connection, it already exists")
             assert(delegate != nil)
             return
         }
         
         guard delegate != nil else {
-            os_log("☎️ The delegate is nil, which not expected", log: Self.log, type: .fault)
+            Self.logger.fault("☎️ The delegate is nil, which not expected")
             assertionFailure()
             throw ObvError.delegateIsNil
         }
         
         guard let turnCredentials else {
-            os_log("☎️ No turn credentials availabe", log: Self.log, type: .fault)
+            Self.logger.fault("☎️ No turn credentials availabe")
             assertionFailure()
             throw ObvError.noTurnCredentialsAvailable
         }
 
         // Create the peer connection and store it
         
-        os_log("☎️ Creating the RTC peer connection", log: Self.log, type: .info)
+        Self.logger.info("☎️ Creating the RTC peer connection")
 
         var operationsToQueue = [Operation]()
         
@@ -264,7 +272,8 @@ extension OlvidCallParticipantPeerConnectionHolder {
             shouldSetReadyToProcessPeerIceCandidates = false
         }
         
-        os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, operationsToQueue.debugDescription)
+        let rtcPeerConnectionQueueOperationsDebugDescription = rtcPeerConnectionQueue.operations.debugDescription
+        Self.logger.info("☎️ Operations in the queue: \(rtcPeerConnectionQueueOperationsDebugDescription, privacy: .public) before adding \(operationsToQueue.debugDescription, privacy: .public)")
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
         await rtcPeerConnectionQueue.addAndAwaitOperations(operationsToQueue)
         
@@ -275,7 +284,7 @@ extension OlvidCallParticipantPeerConnectionHolder {
         
         setRTCPeerConnectionIfRequired(peerConnection)
         
-        os_log("☎️ The RTC peer connection was created", log: Self.log, type: .info)
+        Self.logger.info("☎️ The RTC peer connection was created")
         
         if shouldSetReadyToProcessPeerIceCandidates {
             self.readyToProcessPeerIceCandidates = true
@@ -284,24 +293,24 @@ extension OlvidCallParticipantPeerConnectionHolder {
     }
 
     
-    private func createRTCConfiguration(turnCredentials: TurnCredentials) -> RTCConfiguration {
-    
-        // 2022-03-11, we used to use the servers indicated in the turn credentials.
-        // We do not do that anymore and use the (user) preferred servers.
-        let iceServer = WebRTC.RTCIceServer(urlStrings: ObvMessengerConstants.ICEServerURLs.preferred,
-                                            username: turnCredentials.turnUserName,
-                                            credential: turnCredentials.turnPassword,
-                                            tlsCertPolicy: .insecureNoCheck)
-
-        let rtcConfiguration = RTCConfiguration()
-        rtcConfiguration.iceServers = [iceServer]
-        rtcConfiguration.iceTransportPolicy = .relay
-        rtcConfiguration.sdpSemantics = .unifiedPlan
-        rtcConfiguration.continualGatheringPolicy = gatheringPolicy.rtcPolicy
-        
-        return rtcConfiguration
-        
-    }
+//    private func createRTCConfiguration(turnCredentials: TurnCredentials) -> RTCConfiguration {
+//    
+//        // 2022-03-11, we used to use the servers indicated in the turn credentials.
+//        // We do not do that anymore and use the (user) preferred servers.
+//        let iceServer = WebRTC.RTCIceServer(urlStrings: ObvMessengerConstants.ICEServerURLs.preferred,
+//                                            username: turnCredentials.turnUserName,
+//                                            credential: turnCredentials.turnPassword,
+//                                            tlsCertPolicy: .insecureNoCheck)
+//
+//        let rtcConfiguration = RTCConfiguration()
+//        rtcConfiguration.iceServers = [iceServer]
+//        rtcConfiguration.iceTransportPolicy = .relay
+//        rtcConfiguration.sdpSemantics = .unifiedPlan
+//        rtcConfiguration.continualGatheringPolicy = gatheringPolicy.rtcPolicy
+//        
+//        return rtcConfiguration
+//        
+//    }
     
     
 }
@@ -315,14 +324,15 @@ extension OlvidCallParticipantPeerConnectionHolder {
         guard case .gatherContinually = gatheringPolicy else { return }
         guard readyToProcessPeerIceCandidates else { assertionFailure(); return }
         guard !pendingRemoteIceCandidates.isEmpty else { return }
-        os_log("☎️❄️ Drain remote %{public}@ ICE candidate(s)", log: Self.log, type: .info, String(pendingRemoteIceCandidates.count))
+        let pendingRemoteIceCandidatesCount = pendingRemoteIceCandidates.count
+        Self.logger.info("☎️❄️ Drain remote \(pendingRemoteIceCandidatesCount) ICE candidate(s)")
         let pendingRemoteIceCandidates = self.pendingRemoteIceCandidates
         self.pendingRemoteIceCandidates.removeAll()
         for iceCandidate in pendingRemoteIceCandidates {
             do {
                 try await addIceCandidate(iceCandidate: iceCandidate)
             } catch {
-                os_log("☎️ Could not drain one of the ice candidates: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                Self.logger.fault("☎️ Could not drain one of the ice candidates: \(error.localizedDescription, privacy: .public)")
                 assertionFailure() // Continue anyway
             }
         }
@@ -330,34 +340,38 @@ extension OlvidCallParticipantPeerConnectionHolder {
 
     
     func addIceCandidate(iceCandidate: RTCIceCandidate) async throws {
-        os_log("☎️❄️ addIceCandidate called", log: Self.log, type: .info)
+        Self.logger.info("☎️❄️ addIceCandidate called")
         guard gatheringPolicy == .gatherContinually else { assertionFailure(); return }
         if readyToProcessPeerIceCandidates {
-            os_log("☎️❄️ As we are ready to process ICE candidates, we will queue an AddIceCandidateOperation", log: Self.log, type: .info)
+            Self.logger.info("☎️❄️ As we are ready to process ICE candidates, we will queue an AddIceCandidateOperation")
             guard let peerConnection else { assertionFailure("We expect rtcPeerConnection to exist when readyToProcessPeerIceCandidates is true"); return }
             let op = AddIceCandidateOperation(input: .peerConnection(peerConnection: peerConnection), iceCandidate: iceCandidate)
-            os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+            let rtcPeerConnectionQueueOperationsDebugDescription = rtcPeerConnectionQueue.operations.debugDescription
+            Self.logger.info("☎️ Operations in the queue: \(rtcPeerConnectionQueueOperationsDebugDescription, privacy: .public) before adding \(op.debugDescription, privacy: .public)")
             await rtcPeerConnectionQueue.addAndAwaitOperation(op)
             guard !op.isCancelled else {
                 assertionFailure()
                 throw ObvError.addIceCandidateFailed(error: op.reasonForCancel)
             }
         } else {
-            os_log("☎️❄️ Not ready to forward remote ICE candidates, add candidate to pending list (count %{public}@)", log: Self.log, type: .info, String(pendingRemoteIceCandidates.count))
+            let pendingRemoteIceCandidatesCount = pendingRemoteIceCandidates.count
+            Self.logger.info("☎️❄️ Not ready to forward remote ICE candidates, add candidate to pending list (count \(pendingRemoteIceCandidatesCount)")
             pendingRemoteIceCandidates.append(iceCandidate)
         }
     }
 
 
     func removeIceCandidates(iceCandidates: [RTCIceCandidate]) async {
-        os_log("☎️❄️ removeIceCandidates called", log: Self.log, type: .info)
+        Self.logger.info("☎️❄️ removeIceCandidates called")
         if readyToProcessPeerIceCandidates {
             guard let peerConnection else { assertionFailure("We expect rtcPeerConnection to exist when readyToProcessPeerIceCandidates is true"); return }
             let op = RemoveIceCandidatesOperation(peerConnection: peerConnection, iceCandidates: iceCandidates)
-            os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+            let rtcPeerConnectionQueueOperationsDebugDescription = rtcPeerConnectionQueue.operations.debugDescription
+            Self.logger.info("☎️ Operations in the queue: \(rtcPeerConnectionQueueOperationsDebugDescription, privacy: .public) before adding \(op.debugDescription, privacy: .public)")
             await rtcPeerConnectionQueue.addAndAwaitOperation(op)
         } else {
-            os_log("☎️❄️ Not ready to forward remote ICE candidates, remove candidates from pending list (count %{public}@)", log: Self.log, type: .info, String(pendingRemoteIceCandidates.count))
+            let pendingRemoteIceCandidatesCount = pendingRemoteIceCandidates.count
+            Self.logger.info("☎️❄️ Not ready to forward remote ICE candidates, remove candidates from pending list (count \(pendingRemoteIceCandidatesCount)")
             pendingRemoteIceCandidates.removeAll { iceCandidates.contains($0) }
         }
     }
@@ -378,7 +392,7 @@ extension OlvidCallParticipantPeerConnectionHolder {
         guard !iceGatheringCompletedWasCalled else { return }
         iceGatheringCompletedWasCalled = true
 
-        os_log("☎️ ICE gathering is completed", log: Self.log, type: .info)
+        Self.logger.info("☎️ ICE gathering is completed")
 
         guard let localDescription = await peerConnection?.localDescription else { assertionFailure(); return }
         guard let delegate = delegate else { assertionFailure(); return }
@@ -404,19 +418,19 @@ extension OlvidCallParticipantPeerConnectionHolder {
 extension OlvidCallParticipantPeerConnectionHolder: ObvDataChannelDelegate {
     
     func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) async {
-        os_log("☎️ Data Channel %{public}@ has a new state: %{public}@", log: Self.log, type: .info, dataChannel.debugDescription, dataChannel.readyState.description)
+        Self.logger.info("☎️ Data Channel \(dataChannel.debugDescription, privacy: .public) has a new state: \(dataChannel.readyState.description,privacy: .public)")
         await delegate?.dataChannel(of: self, didChangeState: dataChannel.readyState)
     }
     
     
     func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) async {
-        os_log("☎️ Data Channel %{public}@ did receive message with buffer", log: Self.log, type: .info, dataChannel.debugDescription)
+        Self.logger.info("☎️ Data Channel \(dataChannel.debugDescription, privacy: .public) did receive message with buffer")
         assert(!buffer.isBinary)
         let webRTCDataChannelMessageJSON: WebRTCDataChannelMessageJSON
         do {
             webRTCDataChannelMessageJSON = try WebRTCDataChannelMessageJSON.jsonDecode(data: buffer.data)
         } catch {
-            os_log("☎️ Could not decode message received on the RTC data channel as a WebRTCMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ Could not decode message received on the RTC data channel as a WebRTCMessageJSON: \(error.localizedDescription, privacy: .public)")
             return
         }
         assert(delegate != nil)
@@ -430,7 +444,8 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvDataChannelDelegate {
         }
         let op = SendDataThroughPeerConnectionOperation(peerConnection: peerConnection, message: message)
         // Do not await the end of this operation, as it might take a long time
-        os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+        let rtcPeerConnectionQueueOperationsDebugDescription = rtcPeerConnectionQueue.operations.debugDescription
+        Self.logger.info("☎️ Operations in the queue: \(rtcPeerConnectionQueueOperationsDebugDescription, privacy: .public) before adding \(op.debugDescription, privacy: .public)")
         rtcPeerConnectionQueue.addOperation(op)
     }
 
@@ -445,7 +460,7 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
     /// This is the best place to get and set a local description and send it using the signaling channel to the remote peer.
     func peerConnectionShouldNegotiate(_ peerConnection: ObvPeerConnection) async {
         
-        os_log("☎️ Peer Connection should negociate was called", log: Self.log, type: .info)
+        Self.logger.info("☎️ Peer Connection should negociate was called")
         setRTCPeerConnectionIfRequired(peerConnection)
         
         do {
@@ -468,7 +483,8 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
             maxaveragebitrate: ObvMessengerSettings.VoIP.maxaveragebitrate,
             delegate: self)
 
-        os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+        let rtcPeerConnectionQueueOperationsDebugDescription = rtcPeerConnectionQueue.operations.debugDescription
+        Self.logger.info("☎️ Operations in the queue: \(rtcPeerConnectionQueueOperationsDebugDescription, privacy: .public) before adding \(op.debugDescription, privacy: .public)")
 
         await rtcPeerConnectionQueue.addAndAwaitOperation(op)
 
@@ -483,7 +499,7 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
         
         if let toSend = op.toSend {
             guard let delegate else { return }
-            os_log("☎️ Sending the local description (%{public}@) we just created and set", log: Self.log, type: .info, toSend.filteredSessionDescription.type.debugDescription)
+            Self.logger.info("☎️ Sending the local description (\(toSend.filteredSessionDescription.type.debugDescription, privacy: .public) we just created and set")
             await delegate.sendLocalDescription(sessionDescription: toSend.filteredSessionDescription, reconnectCounter: toSend.reconnectCounter, peerReconnectCounterToOverride: toSend.peerReconnectCounterToOverride)
         }
         
@@ -491,43 +507,43 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
 
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didChange newState: RTCPeerConnectionState) async {
-        os_log("☎️ RTCPeerConnection didChange RTCPeerConnectionState: %{public}@", log: Self.log, type: .info, newState.debugDescription)
+        Self.logger.info("☎️ RTCPeerConnection didChange RTCPeerConnectionState: \(newState.debugDescription, privacy: .public)")
     }
 
 
     func peerConnection(_ peerConnection: ObvPeerConnection, didChange stateChanged: RTCSignalingState) async {
-        os_log("☎️ RTCPeerConnection didChange RTCSignalingState: %{public}@. Current ICE connection state is %{public}@", log: Self.log, type: .info, stateChanged.debugDescription, peerConnection.iceConnectionState.debugDescription)
+        Self.logger.info("☎️ RTCPeerConnection didChange RTCSignalingState: \(stateChanged.debugDescription, privacy: .public). Current ICE connection state is \(peerConnection.iceConnectionState.debugDescription, privacy: .public)")
         self.setRTCPeerConnectionIfRequired(peerConnection)
         if stateChanged == .stable && peerConnection.iceConnectionState == .connected {
             await delegate?.peerConnectionStateDidChange(newState: .connected)
         }
         if stateChanged == .closed {
-            os_log("☎️🛑 Signaling state is closed", log: Self.log, type: .info)
+            Self.logger.info("☎️🛑 Signaling state is closed")
         }
     }
     
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didAdd stream: RTCMediaStream) async {
-        os_log("☎️ RTCPeerConnection didAdd RTCMediaStream", log: Self.log, type: .info)
+        Self.logger.info("☎️ RTCPeerConnection didAdd RTCMediaStream")
         setRTCPeerConnectionIfRequired(peerConnection)
     }
     
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didRemove stream: RTCMediaStream) async {
-        os_log("☎️ RTCPeerConnection didRemove RTCMediaStream", log: Self.log, type: .info)
+        Self.logger.info("☎️ RTCPeerConnection didRemove RTCMediaStream")
         setRTCPeerConnectionIfRequired(peerConnection)
     }
     
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didChange newState: RTCIceConnectionState) async {
-        os_log("☎️ RTCPeerConnection didChange RTCIceConnectionState: %{public}@", log: Self.log, type: .info, newState.debugDescription)
+        Self.logger.info("☎️ RTCPeerConnection didChange RTCIceConnectionState: \(newState.debugDescription, privacy: .public)")
         setRTCPeerConnectionIfRequired(peerConnection)
         await delegate?.peerConnectionStateDidChange(newState: newState)
     }
     
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didChange newState: RTCIceGatheringState) async {
-        os_log("☎️❄️ Peer Connection Ice Gathering State changed to: %{public}@", log: Self.log, type: .info, newState.debugDescription)
+        Self.logger.info("☎️❄️ Peer Connection Ice Gathering State changed to: \(newState.debugDescription, privacy: .public)")
         setRTCPeerConnectionIfRequired(peerConnection)
         guard case .gatherOnce = gatheringPolicy else { return }
         switch newState {
@@ -540,10 +556,11 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
             switch gatheringPolicy {
             case .gatherOnce:
                 if iceCandidatesGeneratedLocally.isEmpty {
-                    os_log("☎️❄️ No ICE candidates found", log: Self.log, type: .info)
+                    Self.logger.info("☎️❄️ No ICE candidates found")
                 } else {
                     // We have all we need to send the local description to the caller.
-                    os_log("☎️❄️ Calls completed ICE Gathering with %{public}@ candidates", log: Self.log, type: .info, String(self.iceCandidatesGeneratedLocally.count))
+                    let iceCandidatesGeneratedLocallyCount = self.iceCandidatesGeneratedLocally.count
+                    Self.logger.info("☎️❄️ Calls completed ICE Gathering with \(iceCandidatesGeneratedLocallyCount) candidates")
                     Task {
                         try? await iceGatheringCompleted()
                     }
@@ -558,7 +575,7 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
     
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didGenerate candidate: RTCIceCandidate) async {
-        os_log("☎️❄️ Peer Connection didGenerate RTCIceCandidate", log: Self.log, type: .info)
+        Self.logger.info("☎️❄️ Peer Connection didGenerate RTCIceCandidate")
         setRTCPeerConnectionIfRequired(peerConnection)
         switch gatheringPolicy {
         case .gatherOnce:
@@ -576,7 +593,7 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
     
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didRemove candidates: [RTCIceCandidate]) async {
-        os_log("☎️❄️ Peer Connection didRemove RTCIceCandidate", log: Self.log, type: .info)
+        Self.logger.info("☎️❄️ Peer Connection didRemove RTCIceCandidate")
         assert(delegate != nil)
         setRTCPeerConnectionIfRequired(peerConnection)
         switch gatheringPolicy {
@@ -589,7 +606,7 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
 
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didOpen dataChannel: RTCDataChannel) async {
-        os_log("☎️ Peer Connection didOpen RTCDataChannel", log: Self.log, type: .info)
+        Self.logger.info("☎️ Peer Connection didOpen RTCDataChannel")
         setRTCPeerConnectionIfRequired(peerConnection)
     }
     
@@ -614,7 +631,7 @@ extension OlvidCallParticipantPeerConnectionHolder {
         
     func setRemoteDescription(_ sessionDescription: RTCSessionDescription) async throws {
         
-        os_log("☎️ Setting a session description of type %{public}@", log: Self.log, type: .info, sessionDescription.type.debugDescription)
+        Self.logger.info("☎️ Setting a session description of type \(sessionDescription.type.debugDescription, privacy: .public)")
         
         guard let peerConnection else {
             assertionFailure()
@@ -625,7 +642,8 @@ extension OlvidCallParticipantPeerConnectionHolder {
         // We do not test this though, as the following call will throw if we are not in one of these states.
 
         let op = SetRemoteDescriptionOperation(input: .peerConnection(peerConnection: peerConnection), remoteSessionDescription: sessionDescription)
-        os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+        let rtcPeerConnectionQueueOperationsDebugDescription = rtcPeerConnectionQueue.operations.debugDescription
+        Self.logger.info("☎️ Operations in the queue: \(rtcPeerConnectionQueueOperationsDebugDescription, privacy: .public) before adding \(op.debugDescription, privacy: .public)")
         await rtcPeerConnectionQueue.addAndAwaitOperation(op)
         guard !op.isCancelled else {
             throw ObvError.setRemoteDescriptionFailed(error: op.reasonForCancel)
@@ -650,7 +668,8 @@ extension OlvidCallParticipantPeerConnectionHolder {
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant,
             delegate: self)
         
-        os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+        let rtcPeerConnectionQueueOperationsDebugDescription = rtcPeerConnectionQueue.operations.debugDescription
+        Self.logger.info("☎️ Operations in the queue: \(rtcPeerConnectionQueueOperationsDebugDescription, privacy: .public) before adding \(op.debugDescription, privacy: .public)")
 
         await rtcPeerConnectionQueue.addAndAwaitOperation(op)
         
@@ -676,7 +695,7 @@ extension OlvidCallParticipantPeerConnectionHolder: HandleReceivedRestartSdpOper
     
     /// This gets called during the execution of a ``HandleReceivedRestartSdpOperation``
     func setReconnectAnswerCounter(op: HandleReceivedRestartSdpOperation, newReconnectAnswerCounter: Int) async {
-        os_log("☎️ Setting the reconnectAnswerCounter to %d", log: Self.log, type: .info, newReconnectAnswerCounter)
+        Self.logger.info("☎️ Setting the reconnectAnswerCounter to \(newReconnectAnswerCounter)")
         self.reconnectAnswerCounter = newReconnectAnswerCounter
     }
  

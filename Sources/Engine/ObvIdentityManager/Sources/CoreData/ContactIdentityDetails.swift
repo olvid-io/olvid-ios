@@ -55,6 +55,8 @@ class ContactIdentityDetails: NSManagedObject {
     
     // MARK: - Other variables
     
+    private var isInsertedWhileRestoringSyncSnapshot = false
+
     private var changedKeys = Set<String>()
     
     private var photoURLsToDeleteOnDidSave = Set<URL>()
@@ -155,12 +157,16 @@ extension ContactIdentityDetails {
  
     /// Used *exclusively* during a backup restore for creating an instance, relationships are recreated in a second step
     convenience init(serializedIdentityCoreDetails: Data, version: Int, photoServerKeyAndLabel: PhotoServerKeyAndLabel?, entityName: String, within context: NSManagedObjectContext) {
+        
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         self.photoFilename = nil // This is ok
         self.photoServerKeyAndLabel = photoServerKeyAndLabel
         self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
         self.version = version
+        
+        self.isInsertedWhileRestoringSyncSnapshot = true
+        
     }
 
     private func freshPath(in directory: URL) -> URL? {
@@ -353,6 +359,13 @@ extension ContactIdentityDetails {
         defer {
             photoURLsToDeleteOnDidSave.removeAll()
             changedKeys.removeAll()
+            isInsertedWhileRestoringSyncSnapshot = false
+        }
+
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            Self.logger.info("Insertion during a snapshot restore --> we don't send any notification")
+            return
         }
 
         guard let delegateManager = Self.delegateManager else {

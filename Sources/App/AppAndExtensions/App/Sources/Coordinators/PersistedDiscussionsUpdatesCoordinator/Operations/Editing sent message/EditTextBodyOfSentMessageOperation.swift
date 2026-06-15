@@ -31,15 +31,15 @@ final class EditTextBodyOfSentMessageOperation: ContextualOperationWithSpecificR
 
     private let ownedCryptoId: ObvCryptoId
     private let persistedSentMessageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
-    private let newTextBody: String?
+    private let newTextBody: AttributedString?
     
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: EditTextBodyOfSentMessageOperation.self))
 
-    init(ownedCryptoId: ObvCryptoId, persistedSentMessageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, newTextBody: String?) {
+    init(ownedCryptoId: ObvCryptoId, persistedSentMessageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, newTextBody: AttributedString?) {
         self.ownedCryptoId = ownedCryptoId
         self.persistedSentMessageObjectID = persistedSentMessageObjectID
         if let newTextBody {
-            self.newTextBody = newTextBody.isEmpty ? nil : newTextBody
+            self.newTextBody = newTextBody.characters.isEmpty ? nil : newTextBody
         } else {
             self.newTextBody = nil
         }

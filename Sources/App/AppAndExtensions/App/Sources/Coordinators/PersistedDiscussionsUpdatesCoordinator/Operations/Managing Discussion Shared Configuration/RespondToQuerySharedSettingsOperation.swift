@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,12 +19,13 @@
   
 
 import Foundation
+import CoreData
+import OSLog
 import OlvidUtils
 import ObvEngine
 import ObvUICoreData
-import os.log
 import ObvTypes
-import CoreData
+import ObvAppTypes
 
 
 /// The operation processes received QuerySharedSettingsJSON requests by a contact or another device of the owned identity.

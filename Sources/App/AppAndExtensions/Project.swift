@@ -35,9 +35,8 @@ let appForDevelopment: Target = .makeMainAppTarget(appType: .development,
 
 let project = Project.createProjectForApp(name: "ObvMessenger",
                                           packages: [
-                                            //.remote(url: "https://github.com/olvid-io/AppAuth-iOS-for-Olvid", requirement: .branch("targetfix")),
-                                            //.remote(url: "https://github.com/openid/AppAuth-iOS", requirement: .exact(.init(1, 7, 5))),
                                             .remote(url: "https://github.com/openid/AppAuth-iOS", requirement: .exact(.init(2, 0, 0))),
+                                            .remote(url: "https://github.com/siteline/swiftui-introspect", requirement: .exact(.init(26, 0, 1))),
                                           ],
                                           targets: [
                                             shareExtensionForProduction,

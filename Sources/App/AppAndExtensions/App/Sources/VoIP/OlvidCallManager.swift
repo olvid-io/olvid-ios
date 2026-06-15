@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,11 +20,11 @@
 import Foundation
 import CallKit
 import AVFoundation
-import os.log
+import OSLog
 import ObvTypes
-import ObvUICoreData
 import Intents
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 protocol OlvidCallManagerDelegate: AnyObject {
@@ -36,6 +36,7 @@ protocol OlvidCallManagerDelegate: AnyObject {
 actor OlvidCallManager {
     
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "OlvidCallManager")
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "OlvidCallManager")
 
     /// Allows to let the system know about any local user actions (i.e., *not* out-of-band notifications that have happened).
     /// When using CallKit, this holds the ``CXCallController``.
@@ -164,6 +165,14 @@ extension OlvidCallManager {
         } else {
             os_log("☎️❄️ Received new remote ICE Candidates for a call %{public}@ that does not exists yet: we save it for later.", log: Self.log, type: .info, uuidForWebRTC.uuidString)
             saveICECandidateForLater(uuidForWebRTC: uuidForWebRTC, iceCandidate: iceCandidate, contact: contact)
+        }
+    }
+
+    
+    func processBatchICECandidatesMessage(uuidForWebRTC: UUID, iceCandidates: BatchIceCandidatesMessageJSON, contact: OlvidUserId) async throws {
+        Self.logger.info("☎️❄️ Process batch of \(iceCandidates.iceCandidates.count) ICE candidates for call \(uuidForWebRTC.uuidString, privacy: .public)")
+        for iceCandidate in iceCandidates.iceCandidates {
+            try await self.processICECandidateForCall(uuidForWebRTC: uuidForWebRTC, iceCandidate: iceCandidate, contact: contact)
         }
     }
     
@@ -591,7 +600,13 @@ extension OlvidCallManager {
     
     /// This is called when the local user wants to start a new outgoing call. This method creates a ``CXStartCallAction`` so as to let the system know about the user action.
     /// Eventually, this manager will be called back from the ``provider(_:perform:CXStartCallAction)`` delegate method of the ``CallProviderDelegate``.
-    func localUserWantsToStartOutgoingCall(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?, rtcPeerConnectionQueue: OperationQueue, olvidCallDelegate: OlvidCallDelegate, startCallIntent: INStartCallIntent?) async throws {
+    func localUserWantsToStartOutgoingCall(ownedCryptoId: ObvCryptoId,
+                                           contactCryptoIds: Set<ObvCryptoId>,
+                                           ownedIdentityForRequestingTurnCredentials: ObvCryptoId,
+                                           groupId: GroupIdentifier?,
+                                           rtcPeerConnectionQueue: OperationQueue,
+                                           olvidCallDelegate: OlvidCallDelegate,
+                                           startCallIntent: INStartCallIntent?) async throws {
         
         guard !contactCryptoIds.isEmpty else {
             assertionFailure()
@@ -650,7 +665,7 @@ extension OlvidCallManager {
             // Create a CXStartCallAction and pass it to the CallControllerHolder to inform it about the local user action
             // Eventually, this manager will be called back in localUserWantsToPerform(_:)
 
-            os_log("☎️ Creating CXStartCallAction for call with uuidForCallKit %{public}@", log: Self.log, type: .info, outgoingCall.uuidForCallKit.uuidString)
+            Self.logger.info("☎️ Creating CXStartCallAction for call with uuidForCallKit \(outgoingCall.uuidForCallKit.uuidString, privacy: .public)")
             
             let handle = CXHandle(type: .generic, value: outgoingCall.uuidForCallKit.uuidString)
             let startCallAction = CXStartCallAction(call: outgoingCall.uuidForCallKit, handle: handle)

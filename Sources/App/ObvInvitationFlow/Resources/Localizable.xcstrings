@@ -1,2085 +1,4605 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "" : {
-      "shouldTranslate" : false
+  "sourceLanguage": "en",
+  "strings": {
+    "": {
+      "shouldTranslate": false
     },
-    "%@ invites you to discuss on Olvid" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ möchte mit Ihnen auf Olvid diskutieren"
+    "%@ invites you to discuss on Olvid": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ möchte mit Ihnen auf Olvid diskutieren"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ would like to discuss with you on Olvid"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ would like to discuss with you on Olvid"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ quisiera conversar contigo en Olvid"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ quisiera conversar contigo en Olvid"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ aimerait discuter avec vous sur Olvid"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ aimerait discuter avec vous sur Olvid"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ vorrebbe discutere con te su Olvid"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ vorrebbe discutere con te su Olvid"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ さんが Olvid であなたと話したいと思っています"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 님이 Olvid에서 대화를 나누고 싶어합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ gostaria de conversar com você no Olvid"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ gostaria de conversar consigo no Olvid"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ хотел(а) бы обсудить с вами в Olvid"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ хотів би/хотіла би обговорити з вами на Olvid"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 想要在 Olvid 上与您讨论"
           }
         }
       }
     },
-    "%@ invites you to discuss on Olvid. To accept, please click the link" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ lädt Sie ein, auf Olvid zu diskutieren. Um die Einladung anzunehmen, klicken Sie bitte auf den beigefügten Link."
+    "%@ invites you to discuss on Olvid. To accept, please click the link": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ lädt Sie ein, auf Olvid zu diskutieren. Um die Einladung anzunehmen, klicken Sie bitte auf den beigefügten Link."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ invites you to discuss on Olvid. To accept, please click the link attached."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ invites you to discuss on Olvid. To accept, please click the link attached."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ te invita a conversar en Olvid. Para aceptar, por favor, haz clic en el enlace adjunto."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ te invita a conversar en Olvid. Para aceptar, por favor, haz clic en el enlace adjunto."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ aimerait discuter avec vous sur Olvid. Pour accepter, utilisez le lien ci-joint."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ aimerait discuter avec vous sur Olvid. Pour accepter, utilisez le lien ci-joint."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ ti invita a discutere su Olvid. Per accettare, clicca sul link allegato."
-          }
-        }
-      }
-    },
-    "%lld_KEYCLOAK_MISSING_RESULTS" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld zusätzliche Suchergebnisse sind verfügbar. Bitte verfeinern Sie Ihre Suche."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ti invita a discutere su Olvid. Per accettare, clicca sul link allegato."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld additional search results are available. Please refine your search."
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@がOlvidでのディスカッションにあなたを招待しました。参加するには、添付のリンクをクリックしてください。"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hay %lld resultados de búsqueda adicionales disponibles. Por favor, refine tu búsqueda."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@님이 Olvid에서 대화에 참여하도록 초대합니다. 참여하려면 첨부된 링크를 클릭하세요."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld résultats supplémentaires sont disponibles. Veuillez affiner votre recherche."
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ está te convidando para participar de uma discussão no Olvid. Para aceitar, clique no link anexado."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sono disponibili %lld ulteriori risultati di ricerca. Si prega di affinare la ricerca."
-          }
-        }
-      }
-    },
-    "ADD_A_CONTACT_BUTTON_TITLE" : {
-      "comment" : "A button title that allows a user to add a contact.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verbinde dich mit einem anderen Nutzer"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ convida-o(a) a participar numa conversa no Olvid. Para aceitar, clique no link em anexo."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connect with another user"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ приглашает вас обсудить на Olvid. Чтобы принять, пожалуйста, нажмите на прикрепленную ссылку."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conéctate con otro usuario"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ запрошує вас обговорити це на Olvid. Щоб прийняти запрошення, натисніть на посилання нижче."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrer en contact avec un autre utilisateur"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connettiti con un altro utente"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 邀请您在 Olvid 上进行讨论。如需接受，请点击附件中的链接。"
           }
         }
       }
     },
-    "BUTTON_ACTION_INVITE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Einladen"
+    "%lld_KEYCLOAK_MISSING_RESULTS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld zusätzliche Suchergebnisse sind verfügbar. Bitte verfeinern Sie Ihre Suche."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invite"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld additional search results are available. Please refine your search."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invitar"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay %lld resultados de búsqueda adicionales disponibles. Por favor, refine tu búsqueda."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inviter"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld résultats supplémentaires sont disponibles. Veuillez affiner votre recherche."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invita"
-          }
-        }
-      }
-    },
-    "BUTTON_ACTION_INVITE_GO_TO_DISCUSSION" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Diskutieren"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sono disponibili %lld ulteriori risultati di ricerca. Si prega di affinare la ricerca."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Discuss"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件の追加検索結果があります。検索条件を絞り込んでください。"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conversar"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld개의 추가 검색 결과가 있습니다. 검색어를 구체적으로 입력해 주세요."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Discuter"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld resultados de pesquisa adicionais estão disponíveis. Por favor, refine sua pesquisa."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Discuti"
-          }
-        }
-      }
-    },
-    "BUTTON_ACTION_INVITE_REMOVE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Einladung entfernen"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Existem %lld resultados de pesquisa adicionais. Refine a sua pesquisa."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove invite"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступно %lld дополнительных результатов поиска. Пожалуйста, уточните ваш запрос."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eliminar invitación"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступно %lld додаткових результатів пошуку. Будь ласка, уточніть свій запит."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retirer l’invitation"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rimuovi invito"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还有 %lld 个额外的搜索结果。请优化您的搜索。"
           }
         }
       }
     },
-    "CANNOT_INVITE_YOURSELF_MESSAGE" : {
-      "comment" : "The message displayed in an alert when the user tries to invite themselves to a group.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dies ist dein persönlicher Einladungslink. Du kannst ihn mit anderen Olvid-Nutzern teilen, damit sie dich per Fernzugriff einladen können."
+    "ADD_A_CONTACT_BUTTON_TITLE": {
+      "comment": "A button title that allows a user to add a contact.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde dich mit einem anderen Nutzer"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This is your own invitation link. You can share it with other Olvid users so they can invite you remotely."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect with another user"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Este es tu enlace de invitación personal. Puedes compartirlo con otros usuarios de Olvid para que te inviten de forma remota."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conéctate con otro usuario"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ce lien est le vôtre. Partagez-le avec d’autres utilisateurs d’Olvid pour qu’ils puissent vous inviter à distance."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrer en contact avec un autre utilisateur"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questo è il tuo link di invito personale. Puoi condividerlo con altri utenti Olvid in modo che possano invitarti da remoto."
-          }
-        }
-      }
-    },
-    "CANNOT_INVITE_YOURSELF_TITLE" : {
-      "comment" : "Title of an alert that appears when the user tries to invite themselves to a group.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Du kannst dich nicht selbst einladen"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connettiti con un altro utente"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cannot invite yourself"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "他のユーザーと接続"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No puedes invitarte a ti mismo"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 사용자와 연결"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossible de s’inviter soi-même"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conecte-se com outro usuário"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Non puoi invitare te stesso"
-          }
-        }
-      }
-    },
-    "CONTACT_VIEW_NEW_CONTACT" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neuer Kontakt"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligar-se a outro utilizador"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New contact"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключитесь к другому пользователю"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuevo contacto"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Підключіться до іншого користувача"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouveau contact"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuovo contatto"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "与另一用户连接"
           }
         }
       }
     },
-    "CONTACT_VIEW_NEW_GROUP" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neue Gruppe"
+    "BUTTON_ACTION_INVITE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladen"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New group"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuevo grupo"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitar"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouveau groupe"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviter"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuovo gruppo"
-          }
-        }
-      }
-    },
-    "CONTACT_VIEW_PICKER_CONTACTS" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Benutzer"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invita"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Users"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usuarios"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "초대"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utilisateurs"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convidar"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utenti"
-          }
-        }
-      }
-    },
-    "CONTACT_VIEW_PICKER_DIRECTORY" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pro-Verzeichnis"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convidar"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pro directory"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пригласить"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Directorio Pro"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запросити"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annuaire pro"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rubrica Pro"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "邀请"
           }
         }
       }
     },
-    "CONTACT_VIEW_PICKER_GROUPS" : {
-      "comment" : "A title for a picker option that filters contacts by group.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gruppen"
+    "BUTTON_ACTION_INVITE_GO_TO_DISCUSSION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diskutieren"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Groups"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discuss"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Grupos"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversar"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Groupes"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discuter"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gruppi"
-          }
-        }
-      }
-    },
-    "CONTACT_VIEW_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neue Nachricht von…"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discuti"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New message to…"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "議論する"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuevo mensaje de…"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "토론하기"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouveau message à…"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discutir"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuovo messaggio da…"
-          }
-        }
-      }
-    },
-    "CONTENT_UNAVAILABLE_VIEW_DESCRIPTION_CONTACTS_LIST" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kein Kontakt verfügbar"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discutir"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No contact available"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обсудить"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No hay contactos disponibles"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обговорити"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pas de contacts disponibles"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nessun contatto disponibile"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "讨论"
           }
         }
       }
     },
-    "CONTENT_UNAVAILABLE_YET_VIEW_DESCRIPTION_CONTACTS_LIST" : {
-      "comment" : "Description text for a view that indicates that the content is not available yet. This view is displayed when there are no contacts in the contacts list.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Noch keine Kontakte"
+    "BUTTON_ACTION_INVITE_REMOVE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladung entfernen"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No contacts yet"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove invite"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No hay contactos aún"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar invitación"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun contact pour l’instant"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer l’invitation"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nessun contatto ancora"
-          }
-        }
-      }
-    },
-    "CONTENT_UNAVAILABLE_YET_VIEW_DESCRIPTION_CONTACTS_LIST_DESCRIPTION" : {
-      "comment" : "A description displayed below the title of a view that indicates that there is no content to display yet.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid fügt niemanden ohne Ihre Zustimmung hinzu. Sie entscheiden, wen Sie einladen – persönlich oder aus der Ferne. Tippen Sie auf „Neuer Kontakt“, um zu beginnen."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rimuovi invito"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid doesn’t add anyone without your choice. You decide who to invite—either in person or remotely. Tap ‘New contact’ to start."
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待を削除"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid no agregará a nadie sin tu elección. Tú decides a quién invitar, ya sea en persona o de forma remota. Toca ‘Nuevo contacto’ para comenzar."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "초대 삭제"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid n’ajoute aucun contact sans votre accord. Vous décidez qui inviter, en personne ou à distance. Appuyez sur « Nouveau contact » pour commencer."
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover convite"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid non aggiunge nessuno senza la tua scelta. Decidi tu chi invitare, di persona o da remoto. Tocca \"Nuovo contatto\" per iniziare."
-          }
-        }
-      }
-    },
-    "COPIED" : {
-      "comment" : "A text that appears when a URL is copied to the clipboard.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kopiert!"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover convite"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copied!"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить приглашение"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¡Copiado!"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видалити запрошення"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copié !"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copiato!"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除邀请"
           }
         }
       }
     },
-    "COPY_MY_ID_TO_CLIPBOARD" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Meine Einladungslink in die Zwischenablage kopieren"
+    "CANNOT_INVITE_YOURSELF_MESSAGE": {
+      "comment": "The message displayed in an alert when the user tries to invite themselves to a group.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dies ist dein persönlicher Einladungslink. Du kannst ihn mit anderen Olvid-Nutzern teilen, damit sie dich per Fernzugriff einladen können."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy my invitation link to clipboard"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is your own invitation link. You can share it with other Olvid users so they can invite you remotely."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copiar mi enlace de invitación al portapapeles"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este es tu enlace de invitación personal. Puedes compartirlo con otros usuarios de Olvid para que te inviten de forma remota."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copier mon lien d’invitation"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce lien est le vôtre. Partagez-le avec d’autres utilisateurs d’Olvid pour qu’ils puissent vous inviter à distance."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copia il mio link di invito negli appunti"
-          }
-        }
-      }
-    },
-    "GET_IN_CONTACT" : {
-      "comment" : "A navigation title for a view that lets a user get in contact with another user.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kontaktiere mich"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo è il tuo link di invito personale. Puoi condividerlo con altri utenti Olvid in modo che possano invitarti da remoto."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Get in contact"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これはあなた自身の招待リンクです。他のOlvidユーザーと共有して、遠隔から招待してもらうことができます。"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ponte en contacto"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 링크는 본인 초대 링크입니다. 다른 Olvid 사용자들과 공유하여 원격으로 초대할 수 있습니다."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrer en contact"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este é o seu link de convite pessoal. Você pode compartilhá-lo com outros usuários do Olvid para que eles possam convidá-lo remotamente."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contattaci"
-          }
-        }
-      }
-    },
-    "GET_IN_CONTACT_REMOTELY" : {
-      "comment" : "A button label that allows the user to send an invitation to a remote user.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kontaktieren Sie die Person remote"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este é o seu link de convite pessoal. Pode partilhá-lo com outros utilizadores do Olvid para que o possam convidar remotamente."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Get in contact remotely"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это ваша личная ссылка-приглашение. Вы можете поделиться ею с другими пользователями Olvid, чтобы они могли пригласить вас удаленно."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contactar remotamente"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Це ваше особисте запрошення. Ви можете поділитися ним з іншими користувачами Olvid, щоб вони могли запросити вас віддалено."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrer en contact à distance"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contattami da remoto"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这是您的专属邀请链接。您可以将其分享给其他 Olvid 用户，以便他们可以远程邀请您。"
           }
         }
       }
     },
-    "HOW_DO_YOU_WANT_TO_ADD_A_CONTACT" : {
-      "comment" : "A confirmation dialog title that appears when the user taps the \"Add Contact\" button in the \"Contacts\" tab.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wie möchtest du diesen Kontakt hinzufügen?"
+    "CANNOT_INVITE_YOURSELF_TITLE": {
+      "comment": "Title of an alert that appears when the user tries to invite themselves to a group.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du kannst dich nicht selbst einladen"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How would you like to add this contact?"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot invite yourself"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Cómo te gustaría añadir este contacto?"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No puedes invitarte a ti mismo"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comment souhaitez-vous ajouter ce contact ?"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de s’inviter soi-même"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Come vorresti aggiungere questo contatto?"
-          }
-        }
-      }
-    },
-    "INVITE_%@_LOCALLY" : {
-      "comment" : "A text label inviting the user to scan their QR code to invite a user to join their care team. The placeholder is replaced with the user's name.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lass %@ diesen QR-Code scannen, um sofort Kontakt aufzunehmen."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non puoi invitare te stesso"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Have %@ scan this QR code to get in contact immediately."
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分自身を招待することはできません"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haz que %@ escanee este código QR para contactar inmediatamente."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "본인은 초대할 수 없습니다"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Faites scanner ce code QR à %@ pour entrer en contact immédiatement."
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não é possível se convidar"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fai scansionare questo codice QR a %@ per entrare in contatto immediatamente."
-          }
-        }
-      }
-    },
-    "KEYCLOAK_AUTHENTICATION_BUTTON_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anmelden"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não pode convidar a si próprio"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Log in"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нельзя пригласить самого себя"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Iniciar sesión"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не можна запросити себе"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Me reconnecter"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accedi"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法邀请自己"
           }
         }
       }
     },
-    "KEYCLOAK_AUTHENTICATION_REQUIRED_DESCRIPTION" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Um andere zu finden und sich mit ihnen zu verbinden, melden Sie sich bitte erneut an."
+    "CONTACT_VIEW_NEW_CONTACT": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuer Kontakt"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To find and connect with others, please log in again."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New contact"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Para encontrar y conectar con otros, por favor, inicia sesión de nuevo."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo contacto"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour rechercher des utilisateurs, une petite connexion et c’est reparti !"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau contact"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Per trovare e connetterti con gli altri, effettua nuovamente il login."
-          }
-        }
-      }
-    },
-    "KEYCLOAK_AUTHENTICATION_REQUIRED_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zeit zum erneuten Verbinden!"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuovo contatto"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Time to reconnect!"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しい連絡先"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¡Es hora de reconectar!"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "새 연락처"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il est temps de vous reconnecter"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Novo contato"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tempo per riconnettersi!"
-          }
-        }
-      }
-    },
-    "LATER" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Später"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Novo contacto"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Later"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый контакт"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Más tarde"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новий контакт"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plus tard"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Più tardi"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新联系人"
           }
         }
       }
     },
-    "MORE_INVITATION_METHODS" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zusätzliche Methoden zum Hinzufügen eines Kontakts."
+    "CONTACT_VIEW_NEW_GROUP": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Gruppe"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Additional methods for adding a contact."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New group"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Métodos adicionales para agregar un contacto."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo grupo"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autres méthodes d'ajout de contact."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau groupe"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Metodi aggiuntivi per aggiungere un contatto."
-          }
-        }
-      }
-    },
-    "OK" : {
-      "comment" : "The text displayed on the OK button.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OK"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuovo gruppo"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OK"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいグループ"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "De acuerdo"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "새 그룹"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OK"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Novo grupo"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OK"
-          }
-        }
-      }
-    },
-    "OPTION_ONE_FACE_TO_FACE" : {
-      "comment" : "A label displayed above the first option in the external scan validation view.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Option 1: persönlich"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Novo grupo"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Option 1: face-to-face"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая группа"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opción 1: cara a cara"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нова група"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Option 1 : en face-à-face"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opzione 1: di persona"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建群组"
           }
         }
       }
     },
-    "OPTION_TWO_REMOTELY" : {
-      "comment" : "A label displayed above the \"Option Two: Remotely\" section of the view.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Option 2: aus der Ferne"
+    "CONTACT_VIEW_PICKER_CONTACTS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benutzer"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Option 2: remotely"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Users"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opción 2: de forma remota"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuarios"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Option 2 : à distance"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisateurs"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opzione 2: da remoto"
-          }
-        }
-      }
-    },
-    "PASTE_CONTACT_ID_FROM_CLIPBOARD" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Füge einen Olvid-Link aus der Zwischenablage ein"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utenti"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paste an Olvid link from clipboard"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザー"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pega un enlace de Olvid desde el portapapeles"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용자"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coller un lien depuis le presse-papiers"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuários"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Incolla un link Olvid dagli appunti"
-          }
-        }
-      }
-    },
-    "PASTED_STRING_IS_NOT_OLVID_ID" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Was Sie eingefügt haben, scheint keine Olvid-ID zu sein 🧐"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilizadores"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What you pasted doesn't seem to be an Olvid ID 🧐"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пользователи"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lo que has pegado no parece ser un ID de Olvid 🧐"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Користувачі"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ce que vous venez de coller ne semble pas être un ID Olvid 🧐"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sembra che ciò che hai incollato non sia un Olvid ID 😕"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用户"
           }
         }
       }
     },
-    "PROFILE_COPY_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kopieren"
+    "CONTACT_VIEW_PICKER_DIRECTORY": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro-Verzeichnis"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro directory"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copiar"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Directorio Pro"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copier"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuaire pro"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copia"
-          }
-        }
-      }
-    },
-    "PROFILE_DOWNLOAD_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Herunterladen"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rubrica Pro"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロフェッショナルディレクトリ"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descargar"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "전문가 디렉터리"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Télécharger"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diretório profissional"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scarica"
-          }
-        }
-      }
-    },
-    "PROFILE_SHARE_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Teilen"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diretório Pro"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каталог профессионалов"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compartir"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профіль користувачів"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Partager"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Condividi"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "专业目录"
           }
         }
       }
     },
-    "SCAN_MUTAL_CANNOT_ACTION" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Andere Methoden verwenden"
+    "CONTACT_VIEW_PICKER_GROUPS": {
+      "comment": "A title for a picker option that filters contacts by group.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppen"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use other methods"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groups"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usar otros métodos"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupos"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inviter autrement"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groupes"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utilizza altri metodi"
-          }
-        }
-      }
-    },
-    "SCAN_MUTAL_CANNOT_STEP_2_ACTION" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fern einladen"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppi"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invite remotely"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invitar remotamente"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "그룹"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inviter à distance"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupos"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invita da remoto"
-          }
-        }
-      }
-    },
-    "SCAN_MUTUAL_CANNOT_MESSAGE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kannst du nicht scannen?"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupos"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You cannot scan?"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Группы"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿No puedes escanear?"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Групи"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous ne pouvez pas scanner ?"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Non riesci a scansionare?"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "群组"
           }
         }
       }
     },
-    "SCAN_MUTUAL_CANNOT_STEP_2_MESSAGE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kann dein Kontakt den Code nicht scannen?"
+    "CONTACT_VIEW_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Nachricht von…"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your contact cannot scan?"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New message to…"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Tu contacto no puede escanear?"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo mensaje de…"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre contact ne peut pas scanner ?"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau message à…"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il tuo contatto non riesce a scansionare?"
-          }
-        }
-      }
-    },
-    "SCAN_MUTUAL_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scannt gegenseitig eure QR-Codes, um eine Verbindung herzustellen"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuovo messaggio da…"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scan each other’s QR code to connect"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいメッセージ"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Escanear el código QR del otro para conectar"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "새 메시지가 도착했습니다..."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scannez vos codes QR mutuellement pour vous connecter"
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova mensagem para…"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scansiona il codice QR dell'altro per connetterti"
-          }
-        }
-      }
-    },
-    "SCAN_SUCCESS_MESSAGE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Code gescannt!"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova mensagem para..."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Code scanned!"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое сообщение от…"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¡Código escaneado!"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нове повідомлення від…"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Code scanné !"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Codice scansionato!"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自…的新消息"
           }
         }
       }
     },
-    "SCAN_VALIDATION_SUBTITLE_ADDING_CONTACT" : {
-      "comment" : "Subtitle text in the \"Scan Validation\" view when the contact is not yet added.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kontakt wird hinzugefügt…"
+    "CONTENT_UNAVAILABLE_VIEW_DESCRIPTION_CONTACTS_LIST": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Kontakt verfügbar"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adding contact…"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No contact available"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Añadiendo contacto…"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay contactos disponibles"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajout du contact en cours…"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de contacts disponibles"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aggiunta contatto..."
-          }
-        }
-      }
-    },
-    "SCAN_VALIDATION_SUBTITLE_CONTACT_WILL_BE_ADDED_WHEN_NETWORK_AVAILABLE" : {
-      "comment" : "Subtitle text in the \"Scan Validation\" view when a contact is not yet added, but the app expects the addition to succeed soon.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Kontakt wird hinzugefügt, sobald du wieder online bist."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun contatto disponibile"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your contact will be added as soon as you’re back online."
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可能な連絡先がありません"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tu contacto se añadirá tan pronto como vuelvas a estar conectado."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연락처가 없습니다"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre contact sera ajouté dès que vous serez de nouveau en ligne."
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum contato disponível"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il tuo contatto verrà aggiunto non appena sarai di nuovo online."
-          }
-        }
-      }
-    },
-    "SCAN_VALIDATION_SUBTITLE_DISCUSSION_AVAILABLE_%@" : {
-      "comment" : "Subtitle text in the \"Scan Validation\" view, when a contact has been added and a discussion is available. The placeholder is replaced with the contact’s first name.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ ist jetzt in Ihren Kontakten. Beginnen Sie jetzt mit dem Chatten!"
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum contacto disponível"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ is now in your contacts. Start chatting now!"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контактов не найдено"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ ahora está en tus contactos. ¡Empieza a conversar ahora!"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контакт недоступний"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ fait maintenant partie de vos contacts. Commencez à discuter dès maintenant !"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ è ora nei tuoi contatti. Inizia a chattare subito!"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可用联系人"
           }
         }
       }
     },
-    "SCAN_YOURS_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Warte, bis sie deinen QR-Code scannen."
+    "CONTENT_UNAVAILABLE_YET_VIEW_DESCRIPTION_CONTACTS_LIST": {
+      "comment": "Description text for a view that indicates that the content is not available yet. This view is displayed when there are no contacts in the contacts list.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Kontakte"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Their turn to scan your QR code."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No contacts yet"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ahora es su turno de escanear tu código QR."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay contactos aún"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "À son tour de scanner votre QR code."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun contact pour l’instant"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tocca a loro scansionare il tuo codice QR."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun contatto ancora"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだ連絡先がありません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연락처가 아직 없습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum contato ainda"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não tem contactos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока нет контактов"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поки що жодних контактів"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未添加任何联系人"
           }
         }
       }
     },
-    "SEARCH_CONTACT_OR_GROUP" : {
-      "comment" : "A placeholder text for a search bar.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Benutzer und Gruppen suchen"
+    "CONTENT_UNAVAILABLE_YET_VIEW_DESCRIPTION_CONTACTS_LIST_DESCRIPTION": {
+      "comment": "A description displayed below the title of a view that indicates that there is no content to display yet.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid fügt niemanden ohne Ihre Zustimmung hinzu. Sie entscheiden, wen Sie einladen – persönlich oder aus der Ferne. Tippen Sie auf „Neuer Kontakt“, um zu beginnen."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search users and groups"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid doesn’t add anyone without your choice. You decide who to invite—either in person or remotely. Tap ‘New contact’ to start."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buscar usuarios y grupos"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid no agregará a nadie sin tu elección. Tú decides a quién invitar, ya sea en persona o de forma remota. Toca ‘Nuevo contacto’ para comenzar."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utilisateurs et groupes"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid n’ajoute aucun contact sans votre accord. Vous décidez qui inviter, en personne ou à distance. Appuyez sur « Nouveau contact » pour commencer."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cerca utenti e gruppi"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid non aggiunge nessuno senza la tua scelta. Decidi tu chi invitare, di persona o da remoto. Tocca \"Nuovo contatto\" per iniziare."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidは、あなたの許可なしに誰かを追加することはありません。対面またはリモートで、誰を招待するかを自分で決められます。‘新しい連絡先’をタップして開始してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid는 사용자의 선택 없이 누구도 추가하지 않습니다. 사용자가 직접 초대할 사람을 결정합니다. 직접 초대하거나 원격으로 초대할 수 있습니다. '새 연락처'를 탭하여 시작하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid não adiciona ninguém sem sua permissão. Você decide quem convidar, seja pessoalmente ou remotamente. Toque em \"Novo contato\" para começar."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid não adiciona ninguém sem a sua permissão. Você decide quem convidar, seja pessoalmente ou remotamente. Toque em \"Novo contacto\" para começar."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid не добавляет никого без вашего выбора. Вы решаете, кого приглашать — лично или удаленно. Нажмите «Новый контакт», чтобы начать."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid ніколи не додає нікого без вашого дозволу. Ви вирішуєте, кого запрошувати – особисто чи віддалено. Натисніть «Новий контакт», щоб розпочати."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid不会在未经您同意的情况下添加任何人。您可以决定邀请谁，无论是亲自邀请还是远程邀请。点击“新联系人”开始。"
           }
         }
       }
     },
-    "SHARING_PROFILE_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Teile dein Profil"
+    "COPIED": {
+      "comment": "A text that appears when a URL is copied to the clipboard.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiert!"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share your profile"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied!"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comparte tu perfil"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Copiado!"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Partager votre profil"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copié !"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Condividi il tuo profilo"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiato!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピーしました！"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "복사됨!"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado!"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировано!"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопійовано!"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已复制！"
           }
         }
       }
     },
-    "SHOW_ADD_CONTACT_SHEET_DISTANCE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fernab"
+    "COPY_MY_ID_TO_CLIPBOARD": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meine Einladungslink in die Zwischenablage kopieren"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remotely"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy my invitation link to clipboard"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A distancia"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar mi enlace de invitación al portapapeles"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "À distance"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier mon lien d’invitation"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Da remoto"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia il mio link di invito negli appunti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待リンクをクリップボードにコピー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "초대 링크를 클립보드에 복사"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar meu link de convite para a área de transferência"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar o meu link de convite para a área de transferência"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать ссылку-приглашение в буфер обмена"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопіювати моє запрошення в буфер обміну"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将我的邀请链接复制到剪贴板"
           }
         }
       }
     },
-    "SHOW_ADD_CONTACT_SHEET_IN_PERSON" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Persönlich"
+    "GET_IN_CONTACT": {
+      "comment": "A navigation title for a view that lets a user get in contact with another user.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontaktiere mich"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Face-to-face"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get in contact"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En persona"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponte en contacto"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En face à face"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrer en contact"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Di persona"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contattaci"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連絡を取りましょう"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연락하세요"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entre em contato"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrar em contacto"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связаться"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зв'яжіться"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "联系我们"
           }
         }
       }
     },
-    "SOMETHING_WENT_WONT_DURING_KEYCLOAK_SEARCH" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hmm, das hat nicht funktioniert"
+    "GET_IN_CONTACT_REMOTELY": {
+      "comment": "A button label that allows the user to send an invitation to a remote user.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontaktieren Sie die Person remote"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hmm, that didn’t work"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get in contact remotely"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hmm, no funcionó"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contactar remotamente"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oh non, ça n’a pas fonctionné"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrer en contact à distance"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mmh, non ha funzionato"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contattami da remoto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リモートで連絡する"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "원격으로 연락하세요"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entre em contato remotamente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contacte-nos remotamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связаться удаленно"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зв'яжіться віддалено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通过远程方式进行联系"
           }
         }
       }
     },
-    "VIDEO_CAPTURE_DENIED_MESSAGE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid kann nicht auf die Kamera zugreifen. Um QR-Codes zu scannen, aktivieren Sie den Kamera-Zugriff in Ihren Geräteeinstellungen."
+    "HOW_DO_YOU_WANT_TO_ADD_A_CONTACT": {
+      "comment": "A confirmation dialog title that appears when the user taps the \"Add Contact\" button in the \"Contacts\" tab.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wie möchtest du diesen Kontakt hinzufügen?"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid cannot access the camera. To scan QR codes, enable camera access in your device settings."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How would you like to add this contact?"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid no puede acceder a la cámara. Para escanear códigos QR, habilita el acceso a la cámara en la configuración de tu dispositivo."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Cómo te gustaría añadir este contacto?"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid n'a pas accès à la caméra. Pour scanner des codes QR, activez l'accès à la caméra dans les paramètres de votre appareil."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comment souhaitez-vous ajouter ce contact ?"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid non può accedere alla fotocamera. Per scansionare i codici QR, abilita l'accesso alla fotocamera nelle impostazioni del tuo dispositivo."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Come vorresti aggiungere questo contatto?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この連絡先をどのように追加しますか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 연락처를 어떻게 추가하시겠습니까?"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Como você gostaria de adicionar este contato?"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Como gostaria de adicionar este contacto?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как вы хотите добавить этот контакт?"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Як ви хочете додати цей контакт?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您想如何添加此联系人？"
           }
         }
       }
     },
-    "VIDEO_CAPTURE_DENIED_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kamera-Zugriff verweigert"
+    "INVITE_%@_LOCALLY": {
+      "comment": "A text label inviting the user to scan their QR code to invite a user to join their care team. The placeholder is replaced with the user's name.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lass %@ diesen QR-Code scannen, um sofort Kontakt aufzunehmen."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Camera Access Denied"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Have %@ scan this QR code to get in contact immediately."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Acceso a la cámara denegado"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz que %@ escanee este código QR para contactar inmediatamente."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accès à la caméra refusé"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites scanner ce code QR à %@ pour entrer en contact immédiatement."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accesso alla fotocamera negato"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fai scansionare questo codice QR a %@ per entrare in contatto immediatamente."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@にこのQRコードをスキャンしてもらい、すぐに連絡を取り合ってください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에게 이 QR 코드를 스캔하도록 하여 즉시 연락하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peça para %@ escanear este código QR para que possamos conversar imediatamente."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peça a %@ para escanear este código QR para que possa entrar em contacto imediatamente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросите %@ отсканировать этот QR-код, чтобы немедленно установить контакт."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросіть %@ відсканувати цей QR-код, щоб негайно встановити контакт."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请让 %@ 扫描此二维码以立即建立联系。"
           }
         }
       }
     },
-    "VIDEO_CAPTURE_RESTRICTED_MESSAGE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid kann aufgrund von Gerätebeschränkungen nicht auf die Kamera zugreifen. Um QR-Codes zu scannen, überprüfen Sie die Einstellungen Ihres Geräts und stellen Sie sicher, dass dieser App der Zugriff auf die Kamera erlaubt ist."
+    "KEYCLOAK_AUTHENTICATION_BUTTON_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anmelden"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid cannot access the camera due to device restrictions. To scan QR codes, check your device settings and ensure camera access is allowed for this app."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log in"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid no puede acceder a la cámara debido a las restricciones del dispositivo. Para escanear códigos QR, comprueba la configuración de tu dispositivo y asegúrate de que el acceso a la cámara esté permitido para esta aplicación."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar sesión"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid ne peut pas accéder à la caméra en raison des restrictions de l'appareil. Pour scanner des codes QR, vérifiez les paramètres de votre appareil et assurez-vous que l'accès à la caméra est autorisé pour cette application."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Me reconnecter"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvid non può accedere alla fotocamera a causa delle restrizioni del dispositivo. Per scansionare i codici QR, controlla le impostazioni del tuo dispositivo e assicurati che l'accesso alla fotocamera sia consentito per questa app."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accedi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "로그인"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fazer login"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar sessão"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войти"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увійти"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登录"
           }
         }
       }
     },
-    "VIDEO_CAPTURE_RESTRICTED_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kamerazugriff eingeschränkt"
+    "KEYCLOAK_AUTHENTICATION_REQUIRED_DESCRIPTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um andere zu finden und sich mit ihnen zu verbinden, melden Sie sich bitte erneut an."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Camera Access Restricted"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To find and connect with others, please log in again."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Acceso a la cámara restringido"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para encontrar y conectar con otros, por favor, inicia sesión de nuevo."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accès à la caméra restreint"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour rechercher des utilisateurs, une petite connexion et c’est reparti !"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accesso alla fotocamera ristretto"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per trovare e connetterti con gli altri, effettua nuovamente il login."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "他のユーザーを検索して接続するには、再度ログインしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 사용자를 찾고 연결하려면 다시 로그인하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para encontrar e se conectar com outras pessoas, faça login novamente."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para encontrar e conectar-se com outras pessoas, por favor faça login novamente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтобы найти и связаться с другими, пожалуйста, войдите в систему еще раз."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Щоб знайти та зв’язатися з іншими, будь ласка, увійдіть ще раз."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为了查找和连接其他用户，请重新登录。"
           }
         }
       }
     },
-    "YOU_DO_NOT_HAVE_ANY_GROUPS_YET_DESCRIPTION" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nutze die Schaltfläche ‚Neue Gruppe‘ oben, um deine erste Gruppe zu erstellen!"
+    "KEYCLOAK_AUTHENTICATION_REQUIRED_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeit zum erneuten Verbinden!"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use the ‘New group’ button above to create your first one!"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time to reconnect!"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usa el botón ‘Nuevo grupo’ que aparece arriba para crear el primero."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Es hora de reconectar!"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utilisez le bouton « Nouveau groupe » ci-dessus pour créer votre premier groupe !"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il est temps de vous reconnecter"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utilizza il pulsante \"Nuovo gruppo\" in alto per crearne uno!"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempo per riconnettersi!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再接続の時間です！"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다시 연결할 시간입니다!"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hora de reconectar!"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hora de voltar a conectar!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пора подключиться снова!"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Час під'єднатися знову!"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "是时候重新连接了！"
           }
         }
       }
     },
-    "YOU_DO_NOT_HAVE_ANY_GROUPS_YET_TITLE" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Du hast noch keine Gruppen."
+    "LATER": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Später"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You don’t have any groups yet."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aún no tienes ningún grupo."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más tarde"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous n’avez aucun groupe pour le moment."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus tard"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Non hai ancora nessun gruppo."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Più tardi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "後で"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "나중에"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mais tarde"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mais tarde"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позже"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пізніше"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稍后"
           }
         }
       }
     },
-    "YOUR_ID_COULD_NOT_BE_COPIED_TO_CLIPBOARD" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Einladungslink konnte nicht in die Zwischenablage kopiert werden 🙁. Bitte versuche es erneut."
+    "MORE_INVITATION_METHODS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zusätzliche Methoden zum Hinzufügen eines Kontakts."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your invitation link could not be copied to clipboard 🥲. Please try again."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Additional methods for adding a contact."
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo copiar el enlace de invitación al portapapeles 🥺. Por favor, inténtalo de nuevo."
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Métodos adicionales para agregar un contacto."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre lien d’invitation n’a pas pu être copié dans le presse-papiers 🥲. Veuillez essayer à nouveau plus tard."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autres méthodes d'ajout de contact."
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Non è stato possibile copiare il tuo link di invito negli appunti 😔. Riprova."
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metodi aggiuntivi per aggiungere un contatto."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連絡先を追加するためのその他の方法。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연락처를 추가하는 다른 방법입니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Métodos adicionais para adicionar um contato."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Métodos adicionais para adicionar um contacto."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнительные способы добавления контакта."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додаткові способи додавання контакту."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加联系人的其他方法"
           }
         }
       }
     },
-    "YOUR_ID_WAS_COPIED_TO_CLIPBOARD" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Einladungslink wurde in die Zwischenablage kopiert."
+    "OK": {
+      "comment": "The text displayed on the OK button.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your invitation link was copied to clipboard"
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
           }
         },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tu ID ha sido copiado al portapapeles"
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De acuerdo"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre lien d’invitation a été copié dans le presse-papiers"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
           }
         },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il tuo ID è stato copiato negli appunti"
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "了解"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알겠습니다"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ОК"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Гаразд"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "好的"
+          }
+        }
+      }
+    },
+    "OPTION_ONE_FACE_TO_FACE": {
+      "comment": "A label displayed above the first option in the external scan validation view.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option 1: persönlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option 1: face-to-face"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opción 1: cara a cara"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option 1 : en face-à-face"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opzione 1: di persona"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オプション1：対面"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "옵션 1: 대면"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opção 1: pessoalmente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opção 1: presencial"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вариант 1: личная встреча"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Варіант 1: особиста зустріч"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选项 1：面对面"
+          }
+        }
+      }
+    },
+    "OPTION_TWO_REMOTELY": {
+      "comment": "A label displayed above the \"Option Two: Remotely\" section of the view.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option 2: aus der Ferne"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option 2: remotely"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opción 2: de forma remota"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option 2 : à distance"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opzione 2: da remoto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オプション 2: リモート"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "옵션 2: 원격으로"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opção 2: remotamente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opção 2: remotamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вариант 2: удаленно"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Варіант 2: віддалено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选项 2：远程"
+          }
+        }
+      }
+    },
+    "PASTED_STRING_IS_NOT_OLVID_ID": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was Sie eingefügt haben, scheint keine Olvid-ID zu sein 🧐"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you pasted doesn't seem to be an Olvid ID 🧐"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo que has pegado no parece ser un ID de Olvid 🧐"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que vous venez de coller ne semble pas être un ID Olvid 🧐"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sembra che ciò che hai incollato non sia un Olvid ID 😕"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "貼り付けた内容がOlvid IDではないようです。🧐"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "붙여넣은 내용이 올비드 ID가 아닌 것 같습니다. 😥"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O que você colou não parece ser um ID Olvid 😕"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O que colou não parece ser um ID Olvid 😕"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Похоже, то, что вы вставили, не является Olvid ID 🤦‍♀️"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Те, що ви вставили, не схоже на Olvid ID 🤦‍♀️"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您粘贴的内容似乎不是 Olvid ID 🧐"
+          }
+        }
+      }
+    },
+    "PASTE_CONTACT_ID_FROM_CLIPBOARD": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Füge einen Olvid-Link aus der Zwischenablage ein"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste an Olvid link from clipboard"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega un enlace de Olvid desde el portapapeles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coller un lien depuis le presse-papiers"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incolla un link Olvid dagli appunti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クリップボードからOlvidのリンクを貼り付けてください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "클립보드에서 Olvid 링크를 붙여넣으세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cole um link do Olvid da sua área de transferência"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cole um link do Olvid da sua área de transferência"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставьте ссылку Olvid из буфера обмена"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставте посилання Olvid з буфера обміну"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从剪贴板粘贴 Olvid 链接"
+          }
+        }
+      }
+    },
+    "PROFILE_COPY_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "복사"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копіювати"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制"
+          }
+        }
+      }
+    },
+    "PROFILE_DOWNLOAD_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herunterladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descargar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Télécharger"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scarica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロード"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다운로드"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixar"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descarregar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завантажити"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下载"
+          }
+        }
+      }
+    },
+    "PROFILE_SHARE_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teilen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condividi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "공유"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartilhar"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partilhar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поделиться"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поділитися"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享"
+          }
+        }
+      }
+    },
+    "SCAN_MUTAL_CANNOT_ACTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Andere Methoden verwenden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use other methods"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar otros métodos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviter autrement"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilizza altri metodi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別の方法を使用"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 방법을 사용하세요"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use outros métodos"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar outros métodos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Использовать другие способы"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Використовуйте інші способи"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用其他方法"
+          }
+        }
+      }
+    },
+    "SCAN_MUTAL_CANNOT_STEP_2_ACTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fern einladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite remotely"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitar remotamente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviter à distance"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invita da remoto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リモートで招待"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "원격으로 초대"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convidar remotamente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convidar remotamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пригласить удаленно"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запросити віддалено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "远程邀请"
+          }
+        }
+      }
+    },
+    "SCAN_MUTUAL_CANNOT_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kannst du nicht scannen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You cannot scan?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿No puedes escanear?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous ne pouvez pas scanner ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non riesci a scansionare?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スキャンできませんか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR 코드를 스캔할 수 없나요?"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você não consegue escanear?"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não consegue usar o scanner?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы не можете сканировать?"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ви не можете сканувати?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法扫描吗？"
+          }
+        }
+      }
+    },
+    "SCAN_MUTUAL_CANNOT_STEP_2_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kann dein Kontakt den Code nicht scannen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your contact cannot scan?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Tu contacto no puede escanear?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre contact ne peut pas scanner ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il tuo contatto non riesce a scansionare?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "相手が連絡先をスキャンできませんか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연락처가 QR 코드를 스캔할 수 없나요?"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seu contato não consegue escanear?"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O seu contacto não consegue efetuar a leitura do código?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш контакт не может сканировать?"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш контакт не може сканувати?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您的联系人无法扫描吗？"
+          }
+        }
+      }
+    },
+    "SCAN_MUTUAL_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scannt gegenseitig eure QR-Codes, um eine Verbindung herzustellen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan each other’s QR code to connect"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escanear el código QR del otro para conectar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scannez vos codes QR mutuellement pour vous connecter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scansiona il codice QR dell'altro per connetterti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お互いのQRコードをスキャンして接続"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상대방의 QR 코드를 스캔하여 연결하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escaneie o código QR do outro para se conectar"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Digitalize os códigos QR um do outro para se conectarem"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсканируйте QR-код друг друга, чтобы подключиться"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відскануйте QR-код один одного, щоб підключитися"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扫描对方的二维码以进行连接"
+          }
+        }
+      }
+    },
+    "SCAN_SUCCESS_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code gescannt!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code scanned!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Código escaneado!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code scanné !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codice scansionato!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コードをスキャンしました！"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "코드가 스캔되었습니다!"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código lido!"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código lido!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код отсканирован!"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код скановано!"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已扫描二维码！"
+          }
+        }
+      }
+    },
+    "SCAN_VALIDATION_SUBTITLE_ADDING_CONTACT": {
+      "comment": "Subtitle text in the \"Scan Validation\" view when the contact is not yet added.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakt wird hinzugefügt…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding contact…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadiendo contacto…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajout du contact en cours…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiunta contatto..."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連絡先を追加中…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연락처 추가 중..."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionando contato…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A adicionar contacto..."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавление контакта…"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додавання контакту…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在添加联系人……"
+          }
+        }
+      }
+    },
+    "SCAN_VALIDATION_SUBTITLE_CONTACT_WILL_BE_ADDED_WHEN_NETWORK_AVAILABLE": {
+      "comment": "Subtitle text in the \"Scan Validation\" view when a contact is not yet added, but the app expects the addition to succeed soon.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Kontakt wird hinzugefügt, sobald du wieder online bist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your contact will be added as soon as you’re back online."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu contacto se añadirá tan pronto como vuelvas a estar conectado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre contact sera ajouté dès que vous serez de nouveau en ligne."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il tuo contatto verrà aggiunto non appena sarai di nuovo online."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オンラインに戻ったら、すぐに連絡先が追加されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다시 온라인 상태가 되면 연락처가 즉시 추가됩니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seu contato será adicionado assim que você estiver online novamente."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O seu contacto será adicionado assim que estiver novamente online."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш контакт будет добавлен, как только вы вернетесь в онлайн."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш контакт буде додано, як тільки ви знову підключитесь до мережі."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您重新上线后，您的联系人将被添加。"
+          }
+        }
+      }
+    },
+    "SCAN_VALIDATION_SUBTITLE_DISCUSSION_AVAILABLE_%@": {
+      "comment": "Subtitle text in the \"Scan Validation\" view, when a contact has been added and a discussion is available. The placeholder is replaced with the contact’s first name.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist jetzt in Ihren Kontakten. Beginnen Sie jetzt mit dem Chatten!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is now in your contacts. Start chatting now!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ahora está en tus contactos. ¡Empieza a conversar ahora!"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ fait maintenant partie de vos contacts. Commencez à discuter dès maintenant !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ è ora nei tuoi contatti. Inizia a chattare subito!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ があなたの連絡先に登録されました。今すぐチャットを始めましょう！"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@님이 이제 연락처에 추가되었습니다. 지금 바로 대화를 시작하세요!"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ agora está em seus contatos. Comece a conversar!"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ está agora nos seus contactos. Comece a conversar já!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ теперь в ваших контактах. Начните общение!"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ тепер у ваших контактах. Почніть спілкування!"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 现在已在您的联系人中。现在就开始聊天吧！"
+          }
+        }
+      }
+    },
+    "SCAN_YOURS_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warte, bis sie deinen QR-Code scannen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Their turn to scan your QR code."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora es su turno de escanear tu código QR."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À son tour de scanner votre QR code."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca a loro scansionare il tuo codice QR."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "相手のQRコードをスキャンする番です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상대방이 QR 코드를 스캔할 차례입니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agora é a vez deles de escanear o seu código QR."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "É a vez deles de ler o seu código QR."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Их очередь сканировать ваш QR-код."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Їхня черга сканувати ваш QR-код."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "现在轮到对方扫描你的二维码了。"
+          }
+        }
+      }
+    },
+    "SEARCH_CONTACT_OR_GROUP": {
+      "comment": "A placeholder text for a search bar.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benutzer und Gruppen suchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search users and groups"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar usuarios y grupos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisateurs et groupes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerca utenti e gruppi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザーとグループを検索"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용자와 그룹 검색"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pesquisar usuários e grupos"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pesquisar utilizadores e grupos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск пользователей и групп"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пошук користувачів та груп"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索用户和群组"
+          }
+        }
+      }
+    },
+    "SHARING_PROFILE_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teile dein Profil"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share your profile"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparte tu perfil"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager votre profil"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condividi il tuo profilo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロフィールを共有"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "프로필을 공유하세요"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartilhe seu perfil"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partilhe o seu perfil"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поделитесь своим профилем"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поділіться своїм профілем"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享你的个人资料"
+          }
+        }
+      }
+    },
+    "SHOW_ADD_CONTACT_SHEET_DISTANCE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fernab"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remotely"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A distancia"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À distance"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Da remoto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リモート"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "원격으로"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remotamente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remotamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалённо"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Віддалено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "远程"
+          }
+        }
+      }
+    },
+    "SHOW_ADD_CONTACT_SHEET_IN_PERSON": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Persönlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Face-to-face"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En persona"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En face à face"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Di persona"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対面"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "직접 대면"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pessoalmente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presencialmente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лицом к лицу"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Опліччя до обличчя"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面对面"
+          }
+        }
+      }
+    },
+    "SOMETHING_WENT_WONT_DURING_KEYCLOAK_SEARCH": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hmm, das hat nicht funktioniert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hmm, that didn’t work"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hmm, no funcionó"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oh non, ça n’a pas fonctionné"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mmh, non ha funzionato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "うーん、うまくいきませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "음, 제대로 작동하지 않았네요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hmm, não funcionou."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hum, isso não funcionou."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хмм, что-то пошло не так"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Гм, не вийшло"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "嗯，好像没成功"
+          }
+        }
+      }
+    },
+    "VIDEO_CAPTURE_DENIED_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid kann nicht auf die Kamera zugreifen. Um QR-Codes zu scannen, aktivieren Sie den Kamera-Zugriff in Ihren Geräteeinstellungen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid cannot access the camera. To scan QR codes, enable camera access in your device settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid no puede acceder a la cámara. Para escanear códigos QR, habilita el acceso a la cámara en la configuración de tu dispositivo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid n'a pas accès à la caméra. Pour scanner des codes QR, activez l'accès à la caméra dans les paramètres de votre appareil."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid non può accedere alla fotocamera. Per scansionare i codici QR, abilita l'accesso alla fotocamera nelle impostazioni del tuo dispositivo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidはカメラにアクセスできません。QRコードをスキャンするには、デバイスの設定でカメラへのアクセスを有効にしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid이 카메라에 접근할 수 없습니다. QR 코드를 스캔하려면 장치 설정에서 카메라 접근 권한을 활성화하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid não tem permissão para acessar a câmera. Para escanear códigos QR, ative o acesso à câmera nas configurações do seu dispositivo."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid não consegue aceder à câmara. Para digitalizar códigos QR, ative o acesso à câmara nas definições do seu dispositivo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid не может получить доступ к камере. Чтобы сканировать QR-коды, включите доступ к камере в настройках вашего устройства."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid не може отримати доступ до камери. Щоб сканувати QR-коди, увімкніть доступ до камери в налаштуваннях пристрою."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid 无法访问相机。要扫描二维码，请在设备设置中启用相机访问权限。"
+          }
+        }
+      }
+    },
+    "VIDEO_CAPTURE_DENIED_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera-Zugriff verweigert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera Access Denied"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso a la cámara denegado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accès à la caméra refusé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accesso alla fotocamera negato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラへのアクセスが拒否されました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "카메라 접근 거부됨"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acesso à câmera negado"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acesso à câmara negado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ к камере отклонен"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ до камери заборонено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "相机访问被拒绝"
+          }
+        }
+      }
+    },
+    "VIDEO_CAPTURE_RESTRICTED_MESSAGE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid kann aufgrund von Gerätebeschränkungen nicht auf die Kamera zugreifen. Um QR-Codes zu scannen, überprüfen Sie die Einstellungen Ihres Geräts und stellen Sie sicher, dass dieser App der Zugriff auf die Kamera erlaubt ist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid cannot access the camera due to device restrictions. To scan QR codes, check your device settings and ensure camera access is allowed for this app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid no puede acceder a la cámara debido a las restricciones del dispositivo. Para escanear códigos QR, comprueba la configuración de tu dispositivo y asegúrate de que el acceso a la cámara esté permitido para esta aplicación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid ne peut pas accéder à la caméra en raison des restrictions de l'appareil. Pour scanner des codes QR, vérifiez les paramètres de votre appareil et assurez-vous que l'accès à la caméra est autorisé pour cette application."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid non può accedere alla fotocamera a causa delle restrizioni del dispositivo. Per scansionare i codici QR, controlla le impostazioni del tuo dispositivo e assicurati che l'accesso alla fotocamera sia consentito per questa app."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デバイス制限のため、Olvidはカメラにアクセスできません。QRコードをスキャンするには、デバイスの設定を確認し、このアプリにカメラへのアクセスが許可されていることを確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "장치 제한으로 인해 Olvid이 카메라에 접근할 수 없습니다. QR 코드를 스캔하려면 장치 설정을 확인하고 이 앱에 대한 카메라 접근 권한이 허용되었는지 확인하십시오."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid não pode acessar a câmera devido às restrições do dispositivo. Para escanear códigos QR, verifique as configurações do seu dispositivo e certifique-se de que o acesso à câmera esteja permitido para este aplicativo."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid não consegue aceder à câmara devido às restrições do dispositivo. Para digitalizar códigos QR, verifique as definições do seu dispositivo e certifique-se de que o acesso à câmara está permitido para esta aplicação."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid не может получить доступ к камере из-за ограничений устройства. Чтобы сканировать QR-коды, проверьте настройки вашего устройства и убедитесь, что приложению разрешен доступ к камере."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid не може отримати доступ до камери через обмеження пристрою. Щоб сканувати QR-коди, перевірте налаштування свого пристрою та переконайтеся, що для цієї програми дозволено доступ до камери."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由于设备限制，Olvid 无法访问摄像头。要扫描二维码，请检查您的设备设置，并确保允许本应用访问摄像头。"
+          }
+        }
+      }
+    },
+    "VIDEO_CAPTURE_RESTRICTED_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamerazugriff eingeschränkt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera Access Restricted"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso a la cámara restringido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accès à la caméra restreint"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accesso alla fotocamera ristretto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラへのアクセスが制限されています"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "카메라 접근 권한 제한됨"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acesso à câmera restrito"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acesso à câmara restrito"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ к камере ограничен"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ до камери обмежено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "相机访问受限"
+          }
+        }
+      }
+    },
+    "YOUR_ID_COULD_NOT_BE_COPIED_TO_CLIPBOARD": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Einladungslink konnte nicht in die Zwischenablage kopiert werden 🙁. Bitte versuche es erneut."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your invitation link could not be copied to clipboard 🥲. Please try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo copiar el enlace de invitación al portapapeles 🥺. Por favor, inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre lien d’invitation n’a pas pu être copié dans le presse-papiers 🥲. Veuillez essayer à nouveau plus tard."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non è stato possibile copiare il tuo link di invito negli appunti 😔. Riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待リンクをクリップボードにコピーできませんでした。 🥲。もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "초대 링크를 클립보드에 복사할 수 없습니다. 다시 시도해 주세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível copiar o link de convite para a área de transferência. Tente novamente."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível copiar o seu link de convite para a área de transferência 🙁. Tente novamente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скопировать ссылку-приглашение в буфер обмена 😔. Пожалуйста, попробуйте еще раз."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося скопіювати ваше запрошення до буфера обміну 😔. Будь ласка, спробуйте ще раз."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法将您的邀请链接复制到剪贴板，请稍后再试。"
+          }
+        }
+      }
+    },
+    "YOUR_ID_WAS_COPIED_TO_CLIPBOARD": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Einladungslink wurde in die Zwischenablage kopiert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your invitation link was copied to clipboard"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu ID ha sido copiado al portapapeles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre lien d’invitation a été copié dans le presse-papiers"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il tuo ID è stato copiato negli appunti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待リンクがクリップボードにコピーされました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "초대 링크가 클립보드에 복사되었습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O link do seu convite foi copiado para a área de transferência."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O seu link de convite foi copiado para a área de transferência"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваша ссылка-приглашение скопирована в буфер обмена"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше запрошення скопійовано в буфер обміну"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您的邀请链接已复制到剪贴板"
+          }
+        }
+      }
+    },
+    "YOU_DO_NOT_HAVE_ANY_GROUPS_YET_DESCRIPTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nutze die Schaltfläche ‚Neue Gruppe‘ oben, um deine erste Gruppe zu erstellen!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the ‘New group’ button above to create your first one!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa el botón ‘Nuevo grupo’ que aparece arriba para crear el primero."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisez le bouton « Nouveau groupe » ci-dessus pour créer votre premier groupe !"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilizza il pulsante \"Nuovo gruppo\" in alto per crearne uno!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一番上の「新しいグループ」ボタンを使って、最初のグループを作成しましょう！"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위쪽에 있는 ‘새 그룹’ 버튼을 사용하여 첫 번째 그룹을 만드세요!"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use o botão \"Novo grupo\" acima para criar o seu primeiro grupo!"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use o botão \"Novo grupo\" acima para criar o seu primeiro grupo!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Используйте кнопку «Новая группа» выше, чтобы создать свою первую группу!"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Використовуйте кнопку \"Нова група\" вище, щоб створити свою першу групу!"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用上方的“创建新群组”按钮来创建您的第一个群组！"
+          }
+        }
+      }
+    },
+    "YOU_DO_NOT_HAVE_ANY_GROUPS_YET_TITLE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast noch keine Gruppen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You don’t have any groups yet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no tienes ningún grupo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous n’avez aucun groupe pour le moment."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non hai ancora nessun gruppo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだグループがありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 그룹이 없습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você ainda não tem nenhum grupo."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não tem grupos."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У вас пока нет групп."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У вас ще немає груп."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您还没有任何群组。"
           }
         }
       }
     }
   },
-  "version" : "1.1"
+  "version": "1.1"
 }

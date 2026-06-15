@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,7 @@ import ObvEncoder
 public enum RequestGroupBlobLockResult: ObvCodable {
     
     case permanentFailure
-    case lockObtained(encryptedServerBlob: EncryptedData, logEntries: Set<Data>, groupAdminPublicKey: PublicKeyForAuthentication)
+    case lockObtained(encryptedServerBlob: EncryptedData, logEntries: Set<Data>, groupAdminPublicKey: PublicKeyForAuthentication, lastModificationTimestamp: Date)
     
     private var rawValue: Int {
         switch self {
@@ -42,8 +42,14 @@ public enum RequestGroupBlobLockResult: ObvCodable {
         switch self {
         case .permanentFailure:
             return [rawValue.obvEncode()].obvEncode()
-        case .lockObtained(let encryptedServerBlob, let logEntries, let groupAdminPublicKey):
-            return [rawValue.obvEncode(), encryptedServerBlob.obvEncode(), logEntries.map({ $0.obvEncode() }).obvEncode(), groupAdminPublicKey.obvEncode()].obvEncode()
+        case .lockObtained(encryptedServerBlob: let encryptedServerBlob, logEntries: let logEntries, groupAdminPublicKey: let groupAdminPublicKey, lastModificationTimestamp: let lastModificationTimestamp):
+            return [
+                rawValue.obvEncode(),
+                encryptedServerBlob.obvEncode(),
+                logEntries.map({ $0.obvEncode() }).obvEncode(),
+                groupAdminPublicKey.obvEncode(),
+                lastModificationTimestamp.obvEncode(),
+            ].obvEncode()
         }
     }
     
@@ -55,12 +61,31 @@ public enum RequestGroupBlobLockResult: ObvCodable {
         case 0:
             self = .permanentFailure
         case 1:
-            guard listOfEncoded.count == 4 else { assertionFailure(); return nil }
-            guard let encryptedServerBlob = EncryptedData(listOfEncoded[1]) else { return nil }
-            guard let listOfEncodedLogItems = [ObvEncoded](listOfEncoded[2]) else { return nil }
-            let logEntries = Set(listOfEncodedLogItems.compactMap({ Data($0) }))
-            guard let groupAdminPublicKey = PublicKeyForAuthenticationDecoder.obvDecode(listOfEncoded[3]) else { return nil }
-            self = .lockObtained(encryptedServerBlob: encryptedServerBlob, logEntries: logEntries, groupAdminPublicKey: groupAdminPublicKey)
+            if listOfEncoded.count == 4 {
+                // Legacy case, the blob was downloaded while using the Server API < 20
+                guard let encryptedServerBlob = EncryptedData(listOfEncoded[1]) else { return nil }
+                guard let listOfEncodedLogItems = [ObvEncoded](listOfEncoded[2]) else { return nil }
+                let logEntries = Set(listOfEncodedLogItems.compactMap({ Data($0) }))
+                guard let groupAdminPublicKey = PublicKeyForAuthenticationDecoder.obvDecode(listOfEncoded[3]) else { return nil }
+                self = .lockObtained(encryptedServerBlob: encryptedServerBlob,
+                                     logEntries: logEntries,
+                                     groupAdminPublicKey: groupAdminPublicKey,
+                                     lastModificationTimestamp: .now)
+            } else if listOfEncoded.count == 5 {
+                // Current case, using the Server API 20 or above
+                guard let encryptedServerBlob = EncryptedData(listOfEncoded[1]) else { return nil }
+                guard let listOfEncodedLogItems = [ObvEncoded](listOfEncoded[2]) else { return nil }
+                let logEntries = Set(listOfEncodedLogItems.compactMap({ Data($0) }))
+                guard let groupAdminPublicKey = PublicKeyForAuthenticationDecoder.obvDecode(listOfEncoded[3]) else { return nil }
+                guard let lastModificationTimestamp = Date(listOfEncoded[4]) else { assertionFailure(); return nil }
+                self = .lockObtained(encryptedServerBlob: encryptedServerBlob,
+                                     logEntries: logEntries,
+                                     groupAdminPublicKey: groupAdminPublicKey,
+                                     lastModificationTimestamp: lastModificationTimestamp)
+            } else {
+                assertionFailure()
+                return nil
+            }
         default:
             assertionFailure()
             return nil

@@ -419,11 +419,12 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     case .groupIsLocked, .generalError:
                         return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
-                    case .ok(encryptedBlob: let encryptedBlob, logItems: let logItems, adminPublicKey: let adminPublicKey):
+                    case .ok(encryptedBlob: let encryptedBlob, logItems: let logItems, adminPublicKey: let adminPublicKey, lastModificationTimestamp: let lastModificationTimestamp):
                         serverQuery.responseType = .getGroupBlob(result: .blobDownloaded(
                             encryptedServerBlob: encryptedBlob,
                             logEntries: logItems,
-                            groupAdminPublicKey: adminPublicKey))
+                            groupAdminPublicKey: adminPublicKey,
+                            lastModificationTimestamp: lastModificationTimestamp))
                         return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                     case .deletedFromServer:
@@ -505,11 +506,12 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     case .generalError, .groupIsLocked:
                         return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
-                    case .ok(let encryptedBlob, let logItems, let adminPublicKey):
+                    case .ok(encryptedBlob: let encryptedBlob, logItems: let logItems, adminPublicKey: let adminPublicKey, lastModificationTimestamp: let lastModificationTimestamp):
                         serverQuery.responseType = .requestGroupBlobLock(result: .lockObtained(
                             encryptedServerBlob: encryptedBlob,
                             logEntries: logItems,
-                            groupAdminPublicKey: adminPublicKey))
+                            groupAdminPublicKey: adminPublicKey,
+                            lastModificationTimestamp: lastModificationTimestamp))
                         return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
                     case .deletedFromServer, .invalidSignature:

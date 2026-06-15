@@ -87,6 +87,10 @@ public enum ChallengeType {
     case encryptionWithPreKey(encodedToSend: ObvEncoded, toIdentity: ObvCryptoIdentity, toDeviceUID: UID, preKeyId: CryptoKeyId)
     case backupUpload(backupKeyUID: UID, deviceOrProfileBackupThreadUID: UID, backupVersion: Int, encryptedBackup: EncryptedData)
     case backupDelete(backupKeyUID: UID, deviceOrProfileBackupThreadUID: UID, backupVersion: Int)
+    /// A challenge issued by a Keycloak server during the ID-based authentication flow.
+    /// The raw `challenge` bytes are signed directly (no additional framing) and the
+    /// result is sent to the `getSession` endpoint.
+    case keycloakIdBasedAuthentication(challenge: Data)
 
     public var challengePrefix: Data {
         switch self {
@@ -124,6 +128,8 @@ public enum ChallengeType {
             return "backupUpload".data(using: .utf8)!
         case .backupDelete:
             return "backupDelete".data(using: .utf8)!
+        case .keycloakIdBasedAuthentication:
+            return "keycloakChallenge".data(using: .utf8)!
         }
     }
     
@@ -177,6 +183,8 @@ public enum ChallengeType {
                 deviceOrProfileBackupThreadUID.obvEncode(),
                 backupVersion.obvEncode(),
             ].obvEncode().rawData
+        case .keycloakIdBasedAuthentication(challenge: let challenge):
+            return challenge
         }
     }
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,23 +20,24 @@
 import Foundation
 import SwiftUI
 import Combine
-import os.log
+import OSLog
 import CallKit
 import WebRTC
 import ObvTypes
+import ObvAppTypes
 import ObvUICoreData
 import ObvAppCoreConstants
 import ObvCrypto
+import ObvSettings
 
 
 protocol OlvidCallDelegate: AnyObject {
-    func newWebRTCMessageToSendToAllContactDevices(webrtcMessage: ObvUICoreData.WebRTCMessageJSON, contactIdentifier: ObvContactIdentifier, forStartingCall: Bool) async
+    func newWebRTCMessageToSendToAllContactDevices(webrtcMessage: ObvAppTypes.WebRTCMessageJSON, contactIdentifier: ObvContactIdentifier, forStartingCall: Bool) async
     func newWebRTCMessageToSendToSingleContactDevice(webrtcMessage: WebRTCMessageJSON, contactDeviceIdentifier: ObvContactDeviceIdentifier) async
-    //func newWebRTCMessageToSend(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, forStartingCall: Bool) async
     func newParticipantWasAdded(call: OlvidCall, callParticipant: OlvidCallParticipant) async
     func receivedRelayedMessage(call: OlvidCall, messageType: WebRTCMessageJSON.MessageType, serializedMessagePayload: String, uuidForWebRTC: UUID, fromOlvidUser: OlvidUserId) async
     func receivedHangedUpMessage(call: OlvidCall, serializedMessagePayload: String, uuidForWebRTC: UUID, fromOlvidUser: OlvidUserId) async
-    func requestTurnCredentialsForCall(call: OlvidCall, ownedIdentityForRequestingTurnCredentials: ObvCryptoId) async throws -> ObvTurnCredentials
+    func requestWellKnownTurnCredentialsForCall(call: OlvidCall, ownedIdentityForRequestingTurnCredentials: ObvCryptoId) async throws -> ObvWellKnownTurnCredentials
     func incomingWasNotAnsweredToAndTimedOut(call: OlvidCall) async
     func outgoingWasNotAnsweredToAndTimedOut(call: OlvidCall) async
     func callDidChangeState(call: OlvidCall, previousState: OlvidCall.State, newState: OlvidCall.State)
@@ -46,7 +47,6 @@ protocol OlvidCallDelegate: AnyObject {
 
 final class OlvidCall: ObservableObject {
     
-    private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "OlvidCall")
     private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "OlvidCall")
 
     let uuidForCallKit: UUID
@@ -55,9 +55,10 @@ final class OlvidCall: ObservableObject {
     let ownedCryptoId: ObvCryptoId
     /// Used for an outgoing call. If the owned identity making the call is allowed to do so, this is set to this owned identity. If she is not, this is set to some other owned identity on this device that is allowed to make calls.
     /// This makes it possible to make secure outgoing calls available to all profiles on this device as soon as one profile is allowed to make secure outgoing calls.
-    let ownedIdentityForRequestingTurnCredentials: ObvCryptoId? // Only for outgoing calls
-    private var turnCredentials: ObvTurnCredentials? // Only for outgoing calls
-    let turnCredentialsReceivedFromCaller: TurnCredentials? // Only for incoming calls
+    private let ownedIdentityForRequestingTurnCredentials: ObvCryptoId? // Only for outgoing calls
+    private let useAlternativeTurnServers: Bool // Only for outgoing calls
+    private var wellKnownTurnCredentials: ObvWellKnownTurnCredentials? // Only for outgoing calls
+    private let turnCredentialsReceivedFromCaller: TurnCredentialsAndServerURLs? // Only for incoming calls
     let direction: Direction
     let initialParticipantCount: Int
     private var pendingIceCandidates = [ObvCryptoId: [IceCandidateJSON]]()
@@ -91,7 +92,9 @@ final class OlvidCall: ObservableObject {
     private let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect() // Allows to keep availableAudioOptions up-to-date
     private var cancellables = Set<AnyCancellable>()
     private var cancellablesForWatchingOtherParticipants = Set<AnyCancellable>()
-
+    
+    private let iceCandidatesToSendBatchManager = IceCandidatesToSendBatchManager()
+    
     /// When receiving an incoming call, we let some time to the user to answer the call. After that, we end it automatically.
     private static let ringingTimeoutInterval: TimeInterval = 50
 
@@ -112,7 +115,20 @@ final class OlvidCall: ObservableObject {
     private weak var delegate: OlvidCallDelegate?
     
 
-    private init(ownedCryptoId: ObvCryptoId, persistedObvOwnedIdentity: PersistedObvOwnedIdentity, callIdentifierForCallKit: UUID, otherParticipants: [OlvidCallParticipant], ownedIdentityForRequestingTurnCredentials: ObvCryptoId?, direction: Direction, uuidForWebRTC: UUID, initialParticipantCount: Int, groupId: GroupIdentifier?, turnCredentialsReceivedFromCaller: TurnCredentials?, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory, delegate: OlvidCallDelegate) {
+    private init(ownedCryptoId: ObvCryptoId,
+                 persistedObvOwnedIdentity: PersistedObvOwnedIdentity,
+                 callIdentifierForCallKit: UUID,
+                 otherParticipants: [OlvidCallParticipant],
+                 ownedIdentityForRequestingTurnCredentials: ObvCryptoId?,
+                 direction: Direction,
+                 uuidForWebRTC: UUID,
+                 initialParticipantCount: Int,
+                 groupId: GroupIdentifier?,
+                 turnCredentialsReceivedFromCaller: TurnCredentialsAndServerURLs?,
+                 useAlternativeTurnServers: Bool, // Only for outgoing calls, any value is ok for incoming call as it has no effect
+                 rtcPeerConnectionQueue: OperationQueue,
+                 factory: ObvPeerConnectionFactory,
+                 delegate: OlvidCallDelegate) {
         self.ownedCryptoId = ownedCryptoId
         self.uuidForCallKit = callIdentifierForCallKit
         self.otherParticipants = otherParticipants
@@ -129,6 +145,7 @@ final class OlvidCall: ObservableObject {
         self.currentAudioOptions = RTCAudioSession.sharedInstance().session.currentRoute.inputs.map({ .init(portDescription: $0) })
         self.isSpeakerEnabled = false // The currentRoute.outputs always contain the builtInSpeaker speaker at this point, although we know it won't be activated. We set this value to false by default.
         self.persistedObvOwnedIdentity = persistedObvOwnedIdentity
+        self.useAlternativeTurnServers = useAlternativeTurnServers
         regularlyUpdatePublishedAudioInformations()
         reactToAppLifecycleNotifications()
         continuouslyWatchOtherParticipantsVideoEnabled()
@@ -186,11 +203,17 @@ final class OlvidCall: ObservableObject {
         }
         cancellables.forEach { $0.cancel() }
         cancellablesForWatchingOtherParticipants.forEach { $0.cancel() }
-        os_log("☎️ OlvidCall deinit", log: Self.log, type: .debug)
+        Self.logger.debug("☎️ OlvidCall deinit")
     }
     
     
-    static func createIncomingCall(callIdentifierForCallKit: UUID, uuidForWebRTC: UUID, callerDeviceIdentifier: ObvContactDeviceIdentifier, startCallMessage: StartCallMessageJSON, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory, delegate: OlvidCallDelegate) async throws -> OlvidCall {
+    static func createIncomingCall(callIdentifierForCallKit: UUID,
+                                   uuidForWebRTC: UUID,
+                                   callerDeviceIdentifier: ObvContactDeviceIdentifier,
+                                   startCallMessage: StartCallMessageJSON,
+                                   rtcPeerConnectionQueue: OperationQueue,
+                                   factory: ObvPeerConnectionFactory,
+                                   delegate: OlvidCallDelegate) async throws -> OlvidCall {
         
         let shouldISendTheOfferToCallParticipant = Self.shouldISendTheOfferToCallParticipant(ownedCryptoId: callerDeviceIdentifier.ownedCryptoId, cryptoId: callerDeviceIdentifier.contactCryptoId)
         
@@ -208,12 +231,13 @@ final class OlvidCall: ObservableObject {
             persistedObvOwnedIdentity: persistedObvOwnedIdentity,
             callIdentifierForCallKit: callIdentifierForCallKit,
             otherParticipants: [caller],
-            ownedIdentityForRequestingTurnCredentials: nil,
+            ownedIdentityForRequestingTurnCredentials: nil, // No need to request turn credentials, we will use the TURN servers and credentials sent by the caller
             direction: .incoming,
             uuidForWebRTC: uuidForWebRTC,
             initialParticipantCount: startCallMessage.participantCount,
             groupId: startCallMessage.groupIdentifier,
-            turnCredentialsReceivedFromCaller: startCallMessage.turnCredentials, 
+            turnCredentialsReceivedFromCaller: startCallMessage.turnCredentialsAndServerURLs,
+            useAlternativeTurnServers: false, // Any value could do, as this is only used for outgoing calls
             rtcPeerConnectionQueue: rtcPeerConnectionQueue,
             factory: factory,
             delegate: delegate)
@@ -237,7 +261,13 @@ final class OlvidCall: ObservableObject {
     
     
     @MainActor
-    static func createOutgoingCall(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory, delegate: OlvidCallDelegate) async throws -> OlvidCall {
+    static func createOutgoingCall(ownedCryptoId: ObvCryptoId,
+                                   contactCryptoIds: Set<ObvCryptoId>,
+                                   ownedIdentityForRequestingTurnCredentials: ObvCryptoId,
+                                   groupId: GroupIdentifier?,
+                                   rtcPeerConnectionQueue: OperationQueue,
+                                   factory: ObvPeerConnectionFactory,
+                                   delegate: OlvidCallDelegate) async throws -> OlvidCall {
         
         let callIdentifierForCallKitAndWebRTC = UUID()
 
@@ -267,7 +297,8 @@ final class OlvidCall: ObservableObject {
             uuidForWebRTC: callIdentifierForCallKitAndWebRTC, 
             initialParticipantCount: contactCryptoIds.count, 
             groupId: groupId, 
-            turnCredentialsReceivedFromCaller: nil, 
+            turnCredentialsReceivedFromCaller: nil, // Since we are the caller, we will use the TURN servers and credentials from the Well-known of our server
+            useAlternativeTurnServers: ObvMessengerSettings.VoIP.useAlternativeTurnServers,
             rtcPeerConnectionQueue: rtcPeerConnectionQueue,
             factory: factory,
             delegate: delegate)
@@ -311,7 +342,7 @@ final class OlvidCall: ObservableObject {
             update.localizedCallerName = "..."
         }
         update.remoteHandle = .init(type: .generic, value: uuidForCallKit.uuidString)
-        update.hasVideo = self.hasVideo
+        update.hasVideo = true // Not self.hasVideo, has this seems to prevent the Camera button to work on the standard CallKit screen.
         update.supportsGrouping = false
         update.supportsUngrouping = false
         update.supportsHolding = false
@@ -382,7 +413,7 @@ extension OlvidCall {
     
 
     func startVideoCameraIfAppropriate() async {
-        os_log("☎️ callViewDidDisappear", log: Self.log, type: .info)
+        Self.logger.info("☎️ callViewDidDisappear")
         try? await Task.sleep(milliseconds: 500) // Required to make things work when entering foreground
         guard userWantsToStreamSelfVideo else { return }
         do {
@@ -627,7 +658,7 @@ extension OlvidCall {
     /// This is called from the `OlvidCallManager` when the local user accepted an incoming call (either on the CallKit interface or on the Olvid UI).
     /// Returns the caller infos.
     func localUserWantsToAnswerThisIncomingCall() async throws -> OlvidCallParticipantInfo? {
-        os_log("☎️ Call to localUserWantsToAnswerThisIncomingCall()", log: Self.log, type: .info)
+        Self.logger.info("☎️ Call to localUserWantsToAnswerThisIncomingCall()")
         await setCallState(to: .userAnsweredIncomingCall)
         guard let callerOfIncomingCall else {
             assertionFailure()
@@ -645,7 +676,7 @@ extension OlvidCall {
     
     /// This called from the ``OlvidCallManager`` when the user ends an incoming call (either on the CallKit interface or on the Olvid UI).
     func endWasRequestedByLocalUser() async -> CallReport? {
-        os_log("☎️🔚 Call to endWasRequestedByLocalUser()", log: Self.log, type: .info)
+        Self.logger.info("☎️🔚 Call to endWasRequestedByLocalUser()")
         let values = await endWebRTCCall(reason: .localUserRequest)
         assert(values.cxCallEndedReason == nil, "Since the end of this call was request by the local user, it does not make sense to have a CXCallEndedReason")
         return values.callReport
@@ -657,8 +688,7 @@ extension OlvidCall {
         if let deviceUID = contact.contactDeviceIdentifier?.deviceUID {
             participant = await setDeviceUIDOfParticipant(remoteCryptoId: contact.remoteCryptoId, deviceUID: deviceUID)
         } else {
-            Self.logger.fault("☎️ We received a NewParticipantOfferMessageJSON message, which should contain the information about the remote device")
-            assertionFailure()
+            Self.logger.info("☎️ We received a NewParticipantOfferMessageJSON message, which should contain the information about the remote device")
             participant = await getParticipant(remoteCryptoId: contact.remoteCryptoId)
             await participant?.destinationDeviceIsKnownOrWillNotBeKnown()
         }
@@ -669,7 +699,7 @@ extension OlvidCall {
         }
         guard !Self.shouldISendTheOfferToCallParticipant(ownedCryptoId: ownedCryptoId, cryptoId: contact.remoteCryptoId) else { assertionFailure(); return }
         guard let turnCredentialsReceivedFromCaller else { assertionFailure(); throw ObvError.noTurnCredentialsFound }
-        try await participant.updateRecipient(newParticipantOfferMessage: newParticipantOffer, turnCredentials: turnCredentialsReceivedFromCaller)
+        try await participant.updateRecipient(newParticipantOfferMessage: newParticipantOffer, turnCredentialsReceivedFromCaller: turnCredentialsReceivedFromCaller)
     }
 
     
@@ -677,7 +707,7 @@ extension OlvidCall {
         guard direction == .incoming else { assertionFailure(); return (nil, nil) }
         guard let participant = await getParticipant(remoteCryptoId: contact.remoteCryptoId) else { assertionFailure(); return (nil, nil) }
         guard participant.isCallerOfIncomingCall else { assertionFailure(); return (nil, nil) }
-        os_log("☎️ We received an KickMessageJSON from caller", log: Self.log, type: .info)
+        Self.logger.info("☎️ We received an KickMessageJSON from caller")
         return await endWebRTCCall(reason: .kicked)
     }
     
@@ -702,7 +732,7 @@ extension OlvidCall {
         assert(direction == .incoming)
         
         guard let caller = self.callerOfIncomingCall else {
-            os_log("☎️ Could not send ringing message as the caller is not set", log: Self.log, type: .fault)
+            Self.logger.fault("☎️ Could not send ringing message as the caller is not set")
             assertionFailure()
             return
         }
@@ -713,7 +743,7 @@ extension OlvidCall {
         do {
             try await sendWebRTCMessage(to: caller, innerMessage: rejectedMessage, forStartingCall: false)
         } catch {
-            os_log("☎️ Failed to send a RejectCallMessageJSON to the caller: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ Failed to send a RejectCallMessageJSON to the caller: \(error.localizedDescription, privacy: .public)")
             assertionFailure() // Continue anyway
         }
         
@@ -753,12 +783,14 @@ extension OlvidCall {
         // Will will request turn credentials, we want the outgoing call to reflect that
         await setCallState(to: .gettingTurnCredentials)
 
-        assert(self.turnCredentials == nil)
-        let turnCredentials = try await delegate.requestTurnCredentialsForCall(call: self, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials)
+        assert(self.wellKnownTurnCredentials == nil)
+        let wellKnownTurnCredentials = try await delegate.requestWellKnownTurnCredentialsForCall(call: self, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials)
         
-        self.turnCredentials = turnCredentials
+        self.wellKnownTurnCredentials = wellKnownTurnCredentials
+        
+        let turnCredentials = wellKnownTurnCredentials.turnCredentialsForCaller(useAlternativeTurnServersIfPossible: useAlternativeTurnServers)
         for otherParticipant in self.otherParticipants {
-            try await otherParticipant.setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: turnCredentials.turnCredentialsForRecipient)
+            try await otherParticipant.setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: turnCredentials)
             try? await Task.sleep(milliseconds: 300) // 300 ms, dirty trick, required to prevent a deadlock of the WebRTC library
         }
         await setCallState(to: .initializingCall)
@@ -779,7 +811,7 @@ extension OlvidCall {
         guard let participant else { assertionFailure(); throw ObvError.couldNotFindParticipant }
         let sessionDescription = RTCSessionDescription(type: answerCallMessage.sessionDescriptionType, sdp: answerCallMessage.sessionDescription)
         do {
-            try await participant.setRemoteDescription(sessionDescription: sessionDescription)
+            try await participant.setRemoteDescription(sessionDescription: sessionDescription, isBatchIceSupported: answerCallMessage.isBatchIceSupported)
         } catch {
             try await participant.closeConnection()
             throw error
@@ -815,7 +847,7 @@ extension OlvidCall {
             throw ObvError.notOutgoingCall
         }
         
-        guard let turnCredentials else {
+        guard let wellKnownTurnCredentials else {
             assertionFailure()
             throw ObvError.noTurnCredentialsFound
         }
@@ -854,11 +886,12 @@ extension OlvidCall {
         
         try await setMuteSelfForOtherParticipants(muted: selfIsMuted)
 
+        let turnCredentials = wellKnownTurnCredentials.turnCredentialsForCaller(useAlternativeTurnServersIfPossible: useAlternativeTurnServers)
         for newParticipant in callees {
             try? await Task.sleep(milliseconds: 300) // 300 ms, dirty trick, required to prevent a deadlock of the WebRTC library
             await newParticipant.setDelegate(to: self)
             do {
-                try await newParticipant.setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: turnCredentials.turnCredentialsForRecipient)
+                try await newParticipant.setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: turnCredentials)
             } catch {
                 assertionFailure(error.localizedDescription)
                 continue
@@ -886,7 +919,7 @@ extension OlvidCall {
         do {
             try await sendWebRTCMessage(to: participantToKick, innerMessage: kickMessage, forStartingCall: false)
         } catch {
-            os_log("☎️ Could not send KickMessageJSON to kicked contact: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ Could not send KickMessageJSON to kicked contact: \(error.localizedDescription, privacy: .public)")
             assertionFailure()
             // Continue anyway
         }
@@ -944,15 +977,14 @@ extension OlvidCall {
         if let deviceUID = contact.contactDeviceIdentifier?.deviceUID {
             participant = await setDeviceUIDOfParticipant(remoteCryptoId: contact.remoteCryptoId, deviceUID: deviceUID)
         } else {
-            Self.logger.fault("☎️ We received a NewParticipantAnswerMessageJSON message, which should contain the information about the remote device")
-            assertionFailure()
+            Self.logger.info("☎️ We received a NewParticipantAnswerMessageJSON message, which does not contain the information about the remote device. This happens when the message was relayed by the caller.")
             participant = await getParticipant(remoteCryptoId: contact.remoteCryptoId)
             await participant?.destinationDeviceIsKnownOrWillNotBeKnown()
         }
         guard let participant else { assertionFailure(); return }
         guard Self.shouldISendTheOfferToCallParticipant(ownedCryptoId: ownedCryptoId, cryptoId: contact.remoteCryptoId) else { return }
         let sessionDescription = RTCSessionDescription(type: newParticipantAnswer.sessionDescriptionType, sdp: newParticipantAnswer.sessionDescription)
-        try await participant.processNewParticipantAnswerMessageJSON(sessionDescription: sessionDescription)
+        try await participant.processNewParticipantAnswerMessageJSON(sessionDescription: sessionDescription, isBatchIceSupported: newParticipantAnswer.isBatchIceSupported)
     }
     
 }
@@ -1191,7 +1223,7 @@ extension OlvidCall {
             do {
                 try await sendWebRTCMessage(to: participant, innerMessage: hangedUpMessage, forStartingCall: false)
             } catch {
-                os_log("☎️ Failed to send a HangedUpMessageJSON to a participant: %{public}@", log: Self.log, type: .error, error.localizedDescription)
+                Self.logger.error("☎️ Failed to send a HangedUpMessageJSON to a participant: \(error.localizedDescription, privacy: .public)")
                 assertionFailure() // Continue anyway
             }
         }
@@ -1201,7 +1233,7 @@ extension OlvidCall {
     private func sendRejectIncomingCallToCaller() async {
         assert(direction == .incoming)
         guard let caller = self.callerOfIncomingCall else {
-            os_log("Could not find caller", log: Self.log, type: .fault)
+            Self.logger.fault("☎️ Could not find caller")
             assertionFailure()
             return
         }
@@ -1209,7 +1241,7 @@ extension OlvidCall {
         do {
             try await sendWebRTCMessage(to: caller, innerMessage: rejectedMessage, forStartingCall: false)
         } catch {
-            os_log("Failed to send a RejectCallMessageJSON to the caller: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ Failed to send a RejectCallMessageJSON to the caller: \(error.localizedDescription, privacy: .public)")
             assertionFailure() // Continue anyway
         }
     }
@@ -1218,7 +1250,7 @@ extension OlvidCall {
     private func sendBusyMessageToCaller() async {
         assert(direction == .incoming)
         guard let caller = self.callerOfIncomingCall else {
-            os_log("Could not find caller", log: Self.log, type: .fault)
+            Self.logger.fault("☎️ Could not find caller")
             assertionFailure()
             return
         }
@@ -1226,7 +1258,7 @@ extension OlvidCall {
         do {
             try await sendWebRTCMessage(to: caller, innerMessage: rejectedMessage, forStartingCall: false)
         } catch {
-            os_log("Failed to send a BusyMessageJSON to the caller: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ Failed to send a BusyMessageJSON to the caller: \(error.localizedDescription, privacy: .public)")
             assertionFailure() // Continue anyway
         }
     }
@@ -1258,7 +1290,7 @@ extension OlvidCall {
                 let hangedUpDataChannel = try HangedUpDataChannelMessageJSON().embedInWebRTCDataChannelMessageJSON()
                 try await to.sendDataChannelMessage(hangedUpDataChannel)
             } catch {
-                os_log("☎️ Could not send HangedUpDataChannelMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                Self.logger.fault("☎️ Could not send HangedUpDataChannelMessageJSON: \(error.localizedDescription, privacy: .public)")
                 // Continue anyway
             }
         }
@@ -1284,7 +1316,7 @@ extension OlvidCall {
                 try await caller.sendDataChannelMessage(dataChannelMessage)
             } catch {
                 assertionFailure()
-                os_log("☎️ Could not send RelayMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                Self.logger.fault("☎️ Could not send RelayMessageJSON: \(error.localizedDescription, privacy: .public)")
                 return
             }
         }
@@ -1381,7 +1413,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
                 }
             }
         } catch {
-            os_log("We failed to notify the other participants about the new participants list: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ We failed to notify the other participants about the new participants list: \(error.localizedDescription, privacy: .public)")
             assertionFailure()
             // Continue anyway
         }
@@ -1406,17 +1438,18 @@ extension OlvidCall: OlvidCallParticipantDelegate {
             let message = try await UpdateParticipantsMessageJSON(callParticipants: otherParticipants).embedInWebRTCDataChannelMessageJSON()
             try await callParticipant.sendDataChannelMessage(message)
         } catch {
-            os_log("We failed to notify the participant about the new participants list: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ We failed to notify the participant about the new participants list: \(error.localizedDescription, privacy: .public)")
             assertionFailure()
         }
     }
     
     
-    func updateParticipants(with allCallParticipants: [ContactBytesAndNameJSON]) async throws {
+    func updateParticipantsDuringIncomingCall(with allCallParticipants: [ContactBytesAndNameJSON]) async throws {
         
-        os_log("☎️ Entering updateParticipants(with allCallParticipants: [ContactBytesAndNameJSON])", log: Self.log, type: .info)
-        os_log("☎️ The latest list of call participants contains %d participant(s)", log: Self.log, type: .info, allCallParticipants.count)
-        os_log("☎️ Before processing this list, we consider there are %d participant(s) in this call", log: Self.log, type: .info, otherParticipants.count)
+        let otherParticipantsCount = otherParticipants.count
+        Self.logger.info("☎️ Entering updateParticipantsDuringIncomingCall(with allCallParticipants: [ContactBytesAndNameJSON])")
+        Self.logger.info("☎️ The latest list of call participants contains \(allCallParticipants.count) participant(s)")
+        Self.logger.info("☎️ Before processing this list, we consider there are \(otherParticipantsCount) participant(s) in this call")
         
         // In case of large group calls, we can encounter race conditions. We prevent that by waiting until it is safe to process the new participants list
 
@@ -1434,7 +1467,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
             assertionFailure()
             throw ObvError.selfIsNotIncomingCall
         }
-        guard let turnCredentials = self.turnCredentialsReceivedFromCaller else {
+        guard let turnCredentialsReceivedFromCaller = self.turnCredentialsReceivedFromCaller else {
             assertionFailure()
             throw ObvError.noTurnCredentialsFound
         }
@@ -1457,7 +1490,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
 
         // Perform the necessary steps to add the participants
 
-        os_log("☎️ We have %d participant(s) to add", log: Self.log, type: .info, idsOfParticipantsToAdd.count)
+        Self.logger.info("☎️ We have \(idsOfParticipantsToAdd.count) participant(s) to add")
         
         for remoteCryptoId in idsOfParticipantsToAdd {
             
@@ -1484,10 +1517,10 @@ extension OlvidCall: OlvidCallParticipantDelegate {
             await delegate?.newParticipantWasAdded(call: self, callParticipant: callParticipant)
 
             if shouldISendTheOfferToCallParticipant {
-                os_log("☎️ Will set credentials for offer to a call participant", log: Self.log, type: .info)
-                try await callParticipant.setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: turnCredentials)
+                Self.logger.info("☎️ Will set credentials for offer to a call participant")
+                try await callParticipant.setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: turnCredentialsReceivedFromCaller)
             } else {
-                os_log("☎️ No need to send offer to the call participant", log: Self.log, type: .info)
+                Self.logger.info("☎️ No need to send offer to the call participant")
                 /// check if we already received the offer the CallParticipant is supposed to send us
                 if let (user, newParticipantOfferMessage) = self.receivedOfferMessages.removeValue(forKey: remoteCryptoId) {
                     try await processNewParticipantOfferMessageJSONFromContact(user, newParticipantOfferMessage)
@@ -1503,7 +1536,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
         // Perform the necessary steps to remove the participants.
         // Note that we know the caller is among the participants and we do not want to remove her here.
 
-        os_log("☎️ We have %d participant(s) to remove (unless one if the caller)", log: Self.log, type: .info, idsOfParticipantsToRemove.count)
+        Self.logger.info("☎️ We have \(idsOfParticipantsToRemove.count) participant(s) to remove (unless one if the caller)")
 
         for remoteCryptoId in idsOfParticipantsToRemove {
             guard let participant = otherParticipants.first(where: { $0.cryptoId == remoteCryptoId }) else { continue }
@@ -1515,7 +1548,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
     }
     
     
-    func relay(from: ObvTypes.ObvCryptoId, to: ObvTypes.ObvCryptoId, messageType: ObvUICoreData.WebRTCMessageJSON.MessageType, messagePayload: String) async {
+    func relay(from: ObvTypes.ObvCryptoId, to: ObvTypes.ObvCryptoId, messageType: ObvAppTypes.WebRTCMessageJSON.MessageType, messagePayload: String) async {
         
         guard messageType.isAllowedToBeRelayed else { assertionFailure(); return }
 
@@ -1524,14 +1557,14 @@ extension OlvidCall: OlvidCallParticipantDelegate {
         do {
             message = try RelayedMessageJSON(from: from.getIdentity(), relayedMessageType: messageType.rawValue, serializedMessagePayload: messagePayload).embedInWebRTCDataChannelMessageJSON()
         } catch {
-            os_log("☎️ Could not send UpdateParticipantsMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ Could not send UpdateParticipantsMessageJSON: \(error.localizedDescription, privacy: .public)")
             assertionFailure()
             return
         }
         do {
             try await participant.sendDataChannelMessage(message)
         } catch {
-            os_log("☎️ Could not send data channel message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            Self.logger.fault("☎️ Could not send data channel message: \(error.localizedDescription)")
             return
         }
     }
@@ -1548,7 +1581,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
             do {
                 guard let contact = try PersistedObvContactIdentity.get(objectID: contactObjectID.objectID, within: ObvStack.shared.viewContext) else {
                     assertionFailure()
-                    os_log("☎️ Could not find the contact to whom we should relay the message", log: Self.log, type: .error)
+                    Self.logger.error("☎️ Could not find the contact to whom we should relay the message")
                     return
                 }
                 fromOlvidUser = .known(contactObjectID: contactObjectID, contactIdentifier: contactIdentifier, contactDeviceUID: contactDeviceUID, displayName: contact.customOrNormalDisplayName)
@@ -1569,10 +1602,10 @@ extension OlvidCall: OlvidCallParticipantDelegate {
     
     /// Processes a messages that was relayed by the caller but originally sent by the `from`
     @MainActor
-    func receivedRelayedMessage(from: ObvTypes.ObvCryptoId, messageType: ObvUICoreData.WebRTCMessageJSON.MessageType, messagePayload: String) async {
-        os_log("☎️ Call to receivedRelayedMessage", log: Self.log, type: .info)
+    func receivedRelayedMessage(from: ObvTypes.ObvCryptoId, messageType: ObvAppTypes.WebRTCMessageJSON.MessageType, messagePayload: String) async {
+        Self.logger.info("☎️ Call to receivedRelayedMessage")
         guard let callParticipant = otherParticipants.first(where: { $0.cryptoId == from }) else {
-            os_log("☎️ Could not find the call participant in receivedRelayedMessage. We store the relayed message for later", log: Self.log, type: .info)
+            Self.logger.info("☎️ Could not find the call participant in receivedRelayedMessage. We store the relayed message for later")
             if var previous = pendingReceivedRelayedMessages[from] {
                 previous.append((messageType, messagePayload))
                 pendingReceivedRelayedMessages[from] = previous
@@ -1587,7 +1620,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
             do {
                 guard let contact = try PersistedObvContactIdentity.get(objectID: contactObjectID.objectID, within: ObvStack.shared.viewContext) else {
                     assertionFailure()
-                    os_log("☎️ Could not find the contact to whom we should relay the message", log: Self.log, type: .error)
+                    Self.logger.error("☎️ Could not find the contact to whom we should relay the message")
                     return
                 }
                 fromOlvidUser = .known(contactObjectID: contactObjectID, contactIdentifier: contactIdentifier, contactDeviceUID: contactDeviceUID, displayName: contact.customOrNormalDisplayName)
@@ -1596,7 +1629,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
                 return
             }
         case .unknown(remoteCryptoId: let remoteCryptoId):
-            os_log("☎️ Receiving a message from a participant that is not a contact. The message was relayed by the caller", log: Self.log, type: .error)
+            Self.logger.error("☎️ Receiving a message from a participant that is not a contact. The message was relayed by the caller")
             fromOlvidUser = .unknown(ownCryptoId: ownedCryptoId, remoteCryptoId: remoteCryptoId, displayName: callParticipant.displayName)
         }
         await delegate?.receivedRelayedMessage(
@@ -1609,22 +1642,16 @@ extension OlvidCall: OlvidCallParticipantDelegate {
 
     
     @MainActor
-    func sendStartCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription, turnCredentials: TurnCredentials) async throws {
+    func sendStartCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription) async throws {
         
         let gatheringPolicy = await callParticipant.gatheringPolicy
         
-        guard let turnServers = turnCredentials.turnServers else {
-            assertionFailure()
-            os_log("☎️ The turn servers are not set, which is unexpected at this point", log: Self.log, type: .fault)
-            throw ObvError.noTurnServersFound
-        }
-
         var filteredGroupId: GroupIdentifier?
         switch groupId {
         case .groupV1(groupV1Identifier: let groupV1Identifier):
             do {
                 guard let contactGroup = try? PersistedContactGroup.getContactGroup(groupIdentifier: groupV1Identifier, ownedCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else {
-                    os_log("☎️ Could not find contactGroup", log: Self.log, type: .fault)
+                    Self.logger.fault("☎️ Could not find contactGroup")
                     return
                 }
                 let groupMembers = Set(contactGroup.contactIdentities.map { $0.cryptoId })
@@ -1635,7 +1662,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
         case .groupV2(groupV2Identifier: let groupV2Identifier):
             do {
                 guard let group = try? PersistedGroupV2.get(ownIdentity: ownedCryptoId, appGroupIdentifier: groupV2Identifier, within: ObvStack.shared.viewContext) else {
-                    os_log("☎️ Could not find PersistedGroupV2", log: Self.log, type: .fault)
+                    Self.logger.fault("☎️ Could not find PersistedGroupV2")
                     return
                 }
                 let groupMembers = Set(group.otherMembers.compactMap({ $0.cryptoId }))
@@ -1646,13 +1673,16 @@ extension OlvidCall: OlvidCallParticipantDelegate {
         case .none:
             filteredGroupId = nil
         }
+        
+        guard let wellKnownTurnCredentials else {
+            assertionFailure()
+            throw ObvError.noTurnCredentialsFound
+        }
     
         let message = try StartCallMessageJSON(
             sessionDescriptionType: RTCSessionDescription.string(for: sessionDescription.type),
             sessionDescription: sessionDescription.sdp,
-            turnUserName: turnCredentials.turnUserName,
-            turnPassword: turnCredentials.turnPassword,
-            turnServers: turnServers,
+            turnCredentialsAndServerURLs: wellKnownTurnCredentials.turnCredentialsForRecipient(useAlternativeTurnServersIfPossible: self.useAlternativeTurnServers),
             participantCount: otherParticipants.count,
             groupIdentifier: filteredGroupId,
             gatheringPolicy: gatheringPolicy)
@@ -1673,7 +1703,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
                 message = try NewParticipantAnswerMessageJSON(sessionDescriptionType: RTCSessionDescription.string(for: sessionDescription.type), sessionDescription: sessionDescription.sdp)
             }
         } catch {
-            os_log("Could not create and send %{public}@: %{public}@", log: Self.log, type: .fault, messageDescripton, error.localizedDescription)
+            Self.logger.fault("Could not create and send \(messageDescripton, privacy: .public): \(error.localizedDescription, privacy: .public)")
             assertionFailure()
             throw error
         }
@@ -1709,8 +1739,18 @@ extension OlvidCall: OlvidCallParticipantDelegate {
     
     
     func sendNewIceCandidateMessage(to callParticipant: OlvidCallParticipant, iceCandidate: RTCIceCandidate) async throws {
-        let message = IceCandidateJSON(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid)
-        try await sendWebRTCMessage(to: callParticipant, innerMessage: message, forStartingCall: false)
+        let iceCandidate = IceCandidateJSON(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid)
+        let batchResult = await iceCandidatesToSendBatchManager.batch(iceCandidate, forCallParticipant: callParticipant)
+        switch batchResult {
+        case .processSingleCandidateAsCallParticipantDoesNotSupportBatching(iceCandidate: let iceCandidate):
+            try await sendWebRTCMessage(to: callParticipant, innerMessage: iceCandidate, forStartingCall: false)
+        case .batchProcessedByAnotherTask:
+            // Nothing left to do
+            return
+        case .processBatch(let iceCandidates):
+            let batchOfIceCandidates = BatchIceCandidatesMessageJSON(iceCandidates: iceCandidates)
+            try await sendWebRTCMessage(to: callParticipant, innerMessage: batchOfIceCandidates, forStartingCall: false)
+        }
     }
     
     
@@ -1730,7 +1770,7 @@ extension OlvidCall {
     private func addParticipant(callParticipant: OlvidCallParticipant) async {
         await callParticipant.setDelegate(to: self)
         guard otherParticipants.firstIndex(where: { $0.cryptoId == callParticipant.cryptoId }) == nil else {
-            os_log("☎️ The participant already exists in the set, we should never happen since we have an anti-race mechanism", log: Self.log, type: .fault)
+            Self.logger.fault("☎️ The participant already exists in the set, we should never happen since we have an anti-race mechanism")
             assertionFailure()
             return
         }
@@ -1745,7 +1785,7 @@ extension OlvidCall {
         // Process the messages from this participant that were relayed by the caller that were received before we were aware of this participant.
         if let relayedMessagesToProcess = pendingReceivedRelayedMessages.removeValue(forKey: callParticipant.cryptoId) {
             for relayedMsg in relayedMessagesToProcess {
-                os_log("☎️ Processing a relayed message received while we were not aware of this call participant", log: Self.log, type: .info)
+                Self.logger.info("☎️ Processing a relayed message received while we were not aware of this call participant")
                 await receivedRelayedMessage(from: callParticipant.cryptoId, messageType: relayedMsg.messageType, messagePayload: relayedMsg.messagePayload)
             }
         }
@@ -1790,7 +1830,7 @@ extension OlvidCall {
             do {
                 message = try await UpdateParticipantsMessageJSON(callParticipants: otherParticipants).embedInWebRTCDataChannelMessageJSON()
             } catch {
-                os_log("☎️ Could not send UpdateParticipantsMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                Self.logger.fault("☎️ Could not send UpdateParticipantsMessageJSON: \(error.localizedDescription, privacy: .public)")
                 assertionFailure()
                 return
             }
@@ -1814,7 +1854,7 @@ extension OlvidCall {
     /// This method allows to make sure we are not risking race conditions when updating the list of participants.
     private func waitUntilItIsSafeToModifyParticipants() async {
         while aTaskIsCurrentlyModifyingCallParticipants {
-            os_log("☎️ Since we are already currently modifying call participants, we must wait", log: Self.log, type: .info)
+            Self.logger.info("☎️ Since we are already currently modifying call participants, we must wait")
             let sleepTask: Task<Void, Error> = Task { try? await Task.sleep(seconds: 60) }
             sleepingTasksToCancelWhenEndingCallParticipantsModification.insert(sleepTask, at: 0) // First in, first out
             try? await sleepTask.value // Note the "try?": we don't want to throw when the task is cancelled
@@ -1825,7 +1865,7 @@ extension OlvidCall {
     private func oneOfTheTaskCurrentlyModifyingCallParticipantsIsDone() {
         assert(!aTaskIsCurrentlyModifyingCallParticipants)
         while let sleepingTask = sleepingTasksToCancelWhenEndingCallParticipantsModification.popLast() {
-            os_log("☎️ Since a task potentially modifying the set of call participants is done, we can proceed with the next one", log: Self.log, type: .info)
+            Self.logger.info("☎️ Since a task potentially modifying the set of call participants is done, we can proceed with the next one")
             sleepingTask.cancel()
         }
     }
@@ -1966,7 +2006,7 @@ extension OlvidCall {
         // An outgoing call can move to the outgoingCallIsConnecting state from the ringing state only.
         if newState == .outgoingCallIsConnecting && previousState != .ringing { return }
 
-        os_log("☎️ OlvidCall will change state: %{public}@ --> %{public}@", log: Self.log, type: .info, previousState.debugDescription, newState.debugDescription)
+        Self.logger.info("☎️ OlvidCall will change state: \(previousState.debugDescription, privacy: .public) --> \(newState.debugDescription, privacy: .public)")
 
         self.state = newState
         
@@ -1986,19 +2026,19 @@ extension OlvidCall {
             assert(self.direction == .outgoing)
             // Schedule a timeout after which this outgoing call should be automatically ended
             Task { [weak self] in
-                os_log("☎️ Calling outgoingWasNotAnsweredToAndTimedOut", log: Self.log, type: .debug)
+                Self.logger.debug("☎️ Calling outgoingWasNotAnsweredToAndTimedOut")
                 try? await Task.sleep(for: Self.ringingTimeoutInterval)
-                os_log("☎️ Ending ringingTimeoutInterval for outgoing call", log: Self.log, type: .debug)
+                Self.logger.debug("☎️ Ending ringingTimeoutInterval for outgoing call")
                 guard let self else {
                     return
                 }
                 guard state == .ringing else {
-                    os_log("☎️ The incoming is not in the ringing state anymore, but in the %{public}@ state", log: Self.log, type: .debug, state.debugDescription)
+                    Self.logger.debug("☎️ The incoming is not in the ringing state anymore, but in the \(state.debugDescription, privacy: .public) state")
                     return
                 }
                 // The following call will eventually call us back, with the endOutgoingCallAsItTimedOut() method.
                 // We don't call it directly since ending the call is not enough (we have to remove it from the call manager, etc.)
-                os_log("☎️ Calling outgoingWasNotAnsweredToAndTimedOut", log: Self.log, type: .debug)
+                Self.logger.debug("☎️ Calling outgoingWasNotAnsweredToAndTimedOut")
                 await delegate?.outgoingWasNotAnsweredToAndTimedOut(call: self)
             }
         }
@@ -2077,6 +2117,78 @@ fileprivate extension AVAudioSessionPortDescription {
         values.append(self.uid)
         let concat = values.joined(separator: ",")
         return "AVAudioSessionPortDescription<\(concat)>"
+    }
+    
+}
+
+
+
+/// Batches ICE candidates to send to reduce the number of Olvid messages sent during calls.
+///
+/// Before v4.1, ICE candidates were sent individually.
+/// This actor accumulates candidates and sends them in batches every 200ms.
+fileprivate actor IceCandidatesToSendBatchManager {
+    
+    private let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "IceCandidatesToSendBatchManager")
+        
+    private enum IceCandidatesToSendBatchStatus {
+        case notBatchingYet
+        case batching(currentIceCandidates: [IceCandidateJSON])
+    }
+    
+    private var internalStatusForCallParticipantCryptoId = [ObvCryptoId: IceCandidatesToSendBatchStatus]()
+
+    enum BatchResult {
+        case batchProcessedByAnotherTask
+        case processBatch(iceCandidates: [IceCandidateJSON])
+        case processSingleCandidateAsCallParticipantDoesNotSupportBatching(iceCandidate: IceCandidateJSON)
+    }
+    
+
+    func batch(_ iceCandidate: IceCandidateJSON, forCallParticipant callParticipant: OlvidCallParticipant) async -> BatchResult {
+        
+        logger.debug("Call to batch")
+        
+        guard callParticipant.supportsIceBatch else {
+            logger.debug("The cancidate does not support ICE batching, we send them the ICE candidate immediately")
+            return .processSingleCandidateAsCallParticipantDoesNotSupportBatching(iceCandidate: iceCandidate)
+        }
+        
+        let internalStatus: IceCandidatesToSendBatchStatus = self.internalStatusForCallParticipantCryptoId[callParticipant.cryptoId, default: .notBatchingYet]
+        
+        switch internalStatus {
+            
+        case .notBatchingYet:
+
+            logger.debug("Not batching yet")
+
+            self.internalStatusForCallParticipantCryptoId[callParticipant.cryptoId] = .batching(currentIceCandidates: [iceCandidate])
+
+            logger.debug("Will wait for 200ms")
+
+            try? await Task.sleep(milliseconds: 200)
+
+            logger.debug("Did wait for 200ms")
+
+            let currentInternalStatus = self.internalStatusForCallParticipantCryptoId[callParticipant.cryptoId, default: .notBatchingYet]
+            
+            switch currentInternalStatus {
+            case .notBatchingYet:
+                assertionFailure()
+                return .batchProcessedByAnotherTask
+            case .batching(currentIceCandidates: let currentIceCandidates):
+                self.internalStatusForCallParticipantCryptoId.removeValue(forKey: callParticipant.cryptoId)
+                logger.debug("Returning \(currentIceCandidates.count) ICE candidates to send")
+                return .processBatch(iceCandidates: currentIceCandidates)
+            }
+            
+        case .batching(currentIceCandidates: var currentIceCandidates):
+            currentIceCandidates.append(iceCandidate)
+            self.internalStatusForCallParticipantCryptoId[callParticipant.cryptoId] = .batching(currentIceCandidates: currentIceCandidates)
+            logger.debug("Added one candidate to the batch that now contains \(currentIceCandidates.count) candidates")
+            return .batchProcessedByAnotherTask
+            
+        }
     }
     
 }

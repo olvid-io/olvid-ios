@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,11 +19,12 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvEngine
 import OlvidUtils
 import ObvTypes
 import ObvUICoreData
+import ObvAppTypes
 
 
 final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForCancel<SendReactionJSONOperationReasonForCancel>, @unchecked Sendable {
@@ -31,11 +32,14 @@ final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForC
     private let obvEngine: ObvEngine
     private let messageObjectID: TypeSafeManagedObjectID<PersistedMessage>
     private let emoji: String?
+    private let originalServerTimestamp: Date?
 
-    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, obvEngine: ObvEngine, emoji: String?) {
+    /// The `originalServerTimestamp` is set only when re-sending a reaction to a group member who switched from the pending to the non-pending state.
+    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, obvEngine: ObvEngine, emoji: String?, originalServerTimestamp: Date?) {
         self.messageObjectID = messageObjectID
         self.obvEngine = obvEngine
         self.emoji = emoji
+        self.originalServerTimestamp = originalServerTimestamp
         super.init()
     }
 
@@ -53,7 +57,7 @@ final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForC
         
         let itemJSON: PersistedItemJSON
         do {
-            let reactionJSON = try ReactionJSON(persistedMessageToReact: message, emoji: emoji)
+            let reactionJSON = try ReactionJSON(persistedMessageToReact: message, emoji: emoji, originalServerTimestamp: originalServerTimestamp)
             itemJSON = PersistedItemJSON(reactionJSON: reactionJSON)
         } catch {
             return cancel(withReason: .couldNotConstructReactionJSON)

@@ -219,8 +219,13 @@ public struct OwnedDeviceView: View {
     private func userWantsToDeactivateOtherOwnedDevice() {
         withAnimation { isDeactivatingThisOtherOwnedDevice = true }
         Task {
-            defer { withAnimation { isDeactivatingThisOtherOwnedDevice = false } }
-            try await actions.userWantsToDeactivateOtherOwnedDevice(self, otherOwnedDeviceIdentifier: ownedDeviceIdentifier)
+            // We do not always reset isDeactivatingThisOtherOwnedDevice to false: we just wait until this view disappears.
+            // We do reset it in case of error
+            do {
+                try await actions.userWantsToDeactivateOtherOwnedDevice(self, otherOwnedDeviceIdentifier: ownedDeviceIdentifier)
+            } catch {
+                withAnimation { isDeactivatingThisOtherOwnedDevice = false }
+            }
         }
     }
     

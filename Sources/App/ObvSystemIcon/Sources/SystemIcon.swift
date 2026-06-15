@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,6 +31,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case atCircle
     case atCircleFill
     case alarm
+    case appBadge
     case appwindowSwipeRectangle
     case archivebox
     case archiveboxFill
@@ -56,6 +57,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case arrowTriangleheadCounterclockwiseIcloud
     case arrowTriangleheadCounterclockwiseIcloudFill
     case arrowUpCircle
+    case arrowUpCircleFill
     case arrowUpLeftAndArrowDownRight
     case arrowUturnForwardCircleFill
     case arrowshapeTurnUpBackwardFill
@@ -129,6 +131,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case envelopeOpenFill
     case eraser
     case exclamationmarkCircle
+    case exclamationmarkCircleFill
     case exclamationmarkBubble
     case exclamationmarkShieldFill
     case externaldrive
@@ -162,6 +165,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case hare
     case headphones
     case hourglass
+    case hourglassCircle
     case icloud(_: SystemIconFillOption = .none)
     case icloudAndArrowDown
     case infoCircle
@@ -170,9 +174,13 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case ipad
     case ipadLandscape
     case iphone
+    case iphoneAndArrowForwardInward
+    case iphoneAndArrowForwardOutward
     case iphoneGen3CircleFill
+    case iphoneRadiowavesLeftAndRight
     case laptopcomputerAndIphone
     case key
+    case keyboard
     case keyFill
     case keySlash
     case lightbulbMax
@@ -182,9 +190,11 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case locationFill
     case locationCircle
     case locationCircleFill
+    case locationViewfinder
     case lock(_: SystemIconFillOption = .none, _: SystemIconShieldOption = .none)
     case lockRectangleOnRectangle
     case network
+    case networkSlash
     case noteText
     case laptopcomputer
     case mappin
@@ -206,6 +216,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case musicNoteList
     case oneCircleFill
     case paperclip
+    case paperclipCircle
+    case paperclipCircleFill
     case paperplaneFill
     case pauseCircle
     case pauseFill
@@ -262,6 +274,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case playFill
     case plus
     case plusCircle
+    case power
     case poweroff
     case qrcode
     case qrcodeViewfinder
@@ -273,10 +286,14 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case rectangleDashedAndPaperclip
     case rectangleCompressVertical
     case rectangleSplit3x3
+    case repeatIcon
+    case repeatCircle
+    case repeatCircleFill
     case restartCircle
     case scanner
     case serverRack
     case shieldFill
+    case shieldSlash
     case smartphone
     case speakerWave3Fill
     case speakerSlashFill
@@ -288,6 +305,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case starSlash
     case starFill
     case textformat
+    case textBubble
     case textBubbleFill
     case timer
     case tortoise
@@ -306,6 +324,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case visionpro
     case waveform
     case waveformCircle
+    case wifi
     case xmark
     case xmarkCircle
     case xmarkCircleFill
@@ -315,11 +334,14 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case heart
     case heartSlash
     case heartSlashFill
+    case stopFill
     case stopWatch
     case storefront
     case safari
+    case wandAndSparkles
     case wrenchAdjustable
     case wrenchAdjustableFill
+    case zipperPage
     case zzz
 
     public var name: String {
@@ -362,6 +384,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "arrow.up"
         case .arrowUpCircle:
             return "arrow.up.circle"
+        case .arrowUpCircleFill:
+            return "arrow.up.circle.fill"
         case .arrowUpLeftAndArrowDownRight:
             return "arrow.up.left.and.arrow.down.right"
         case .pauseCircle:
@@ -440,6 +464,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "tv"
         case .uiwindowSplit2x1:
             return "uiwindow.split.2x1"
+        case .stopFill:
+            return "stop.fill"
         case .stopWatch:
             return "stopwatch"
         case .storefront:
@@ -468,6 +494,10 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "photo"
         case .paperclip:
             return "paperclip"
+        case .paperclipCircle:
+            return "paperclip.circle"
+        case .paperclipCircleFill:
+            return "paperclip.circle.fill"
         case .trash:
             return "trash"
         case .arrowshapeTurnUpLeft2:
@@ -500,6 +530,18 @@ public enum SystemIcon: SymbolIcon, Sendable {
             } else {
                 return "dot.square"
             }
+        case .iphoneAndArrowForwardInward:
+            if #available(iOS 18.0, *) {
+                return "iphone.and.arrow.forward.inward"
+            } else {
+                return "iphone"
+            }
+        case .iphoneAndArrowForwardOutward:
+            if #available(iOS 18.0, *) {
+                return "iphone.and.arrow.forward.outward"
+            } else {
+                return "iphone"
+            }
         case .iphoneGen3CircleFill:
             if #available(iOS 16.1, *) {
                 return "iphone.gen3.circle.fill"
@@ -508,6 +550,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             } else {
                 return "checkmark.circle"
             }
+        case .iphoneRadiowavesLeftAndRight:
+            return "iphone.radiowaves.left.and.right"
         case .laptopcomputerAndIphone:
         if #available(iOS 14, *) {
             return "laptopcomputer.and.iphone"
@@ -516,6 +560,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
         }
         case .key:
             return "key"
+        case .keyboard:
+            return "keyboard"
         case .keyFill:
             return "key.fill"
         case .keySlash:
@@ -592,6 +638,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "headphones"
         case .hourglass:
             return "hourglass"
+        case .hourglassCircle:
+            return "hourglass.circle"
         case .folder:
             return "folder"
         case .folderCircle:
@@ -682,6 +730,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "location.circle"
         case .locationCircleFill:
             return "location.circle.fill"
+        case .locationViewfinder:
+            return "location.viewfinder"
         case .lock(let fill, let shield):
             return "lock" + shield.complement + fill.complement
         case .lockRectangleOnRectangle:
@@ -704,6 +754,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "checkmark.shield"
         case .checkmarkShieldFill:
             return "checkmark.shield.fill"
+        case .shieldSlash:
+            return "shield.slash"
         case .icloud(let fill):
             return "icloud" + fill.complement
         case .folderFill:
@@ -756,6 +808,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "chevron.up.chevron.down"
         case .chevronUp:
             return "chevron.up"
+        case .textBubble:
+            return "text.bubble"
         case .textBubbleFill:
             return "text.bubble.fill"
         case .phone:
@@ -858,6 +912,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "shield.fill"
         case .exclamationmarkCircle:
             return "exclamationmark.circle"
+        case .exclamationmarkCircleFill:
+            return "exclamationmark.circle.fill"
         case .exclamationmarkBubble:
             return "exclamationmark.bubble"
         case .exclamationmarkShieldFill:
@@ -934,6 +990,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "speaker.slash.fill"
         case .plusCircle:
             return "plus.circle"
+        case .power:
+            return "power"
         case .poweroff:
             if #available(iOS 14.0, *) {
                 return "poweroff"
@@ -985,6 +1043,12 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "network"
             } else {
                 return "link"
+            }
+        case .networkSlash:
+            if #available(iOS 17.0, *) {
+                return "network.slash"
+            } else {
+                return "network"
             }
         case .noteText:
             return "note.text"
@@ -1110,6 +1174,12 @@ public enum SystemIcon: SymbolIcon, Sendable {
             }
         case .rectangleSplit3x3:
             return "rectangle.split.3x3"
+        case .repeatIcon:
+            return "repeat"
+        case .repeatCircle:
+            return "repeat.circle"
+        case .repeatCircleFill:
+            return "repeat.circle.fill"
         case .textformat:
             return "textformat"
         case .docBadgeGearshape:
@@ -1127,6 +1197,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "chevron.left.slash.chevron.right"
             }
         case .alarm: return "alarm"
+        case .appBadge:
+            return "app.badge"
         case .appwindowSwipeRectangle:
             if #available(iOS 17, *) {
                 return "appwindow.swipe.rectangle"
@@ -1156,6 +1228,12 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "eyeglasses"
             }
         case .safari: return "safari"
+        case .wandAndSparkles:
+            if #available(iOS 18, *) {
+                return "wand.and.sparkles"
+            } else {
+                return "wand.and.rays"
+            }
         case .wrenchAdjustable:
             if #available(iOS 16, *) {
                 return "wrench.adjustable"
@@ -1168,8 +1246,16 @@ public enum SystemIcon: SymbolIcon, Sendable {
             } else {
                 return "hammer.fill"
             }
+        case .zipperPage:
+            if #available(iOS 18, *) {
+                return "zipper.page"
+            } else {
+                return "doc.zipper"
+            }
         case .zzz:
             return "zzz"
+        case .wifi:
+            return "wifi"
         }
     }
 }

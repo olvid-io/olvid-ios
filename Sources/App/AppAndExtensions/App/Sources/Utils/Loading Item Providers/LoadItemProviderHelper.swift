@@ -29,6 +29,7 @@ import ObvUICoreData
 import ObvSettings
 import ObvAppCoreConstants
 import LinkPresentation
+import ObvAppTypes
 
 
 struct LoadedItemProviderToAttach {
@@ -224,7 +225,7 @@ actor LoadItemProviderHelper {
 
             Self.logger.info("Type identifier to load conforms to UTType.fileURL")
 
-            let tempURL = try await itemProvider.obvLoadItemToTemporaryFileForTypeFileURL()
+            let tempURL = try await itemProvider.obvLoadItemToTemporaryFileForTypeFileURL(logger: Self.logger)
 
             let fileType = (try? tempURL.resourceValues(forKeys: [.contentTypeKey]).contentType) ?? contentTypeToLoad
             
@@ -566,33 +567,43 @@ fileprivate extension NSItemProvider {
     
     /// In case `self` conforms to `UTType.fileURL`, this method returns an URL to a file (in a temporary directory) which is a copy of the file
     /// referenced by `self`.
-    func obvLoadItemToTemporaryFileForTypeFileURL() async throws -> URL  {
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, any Error>) in
-            self.obvLoadItem(forType: .fileURL) { (item, error) in
-                do {
-                    if let error {
-                        throw error
-                    } else {
-                        let pickerURL: URL
-                        if let url = item as? URL {
-                            pickerURL = url
-                        } else if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
-                            // Occurs when performing a copy of a file in the macOS Finder, and a paste in the composition view
-                            pickerURL = url
+    func obvLoadItemToTemporaryFileForTypeFileURL(logger: Logger) async throws -> URL  {
+        // First, try to resolve a URL from the item and copy it directly.
+        // This works in most cases (e.g., Files app, macOS Finder paste), but may fail when the source
+        // app's sandbox prevents direct access (e.g., when pasting a photo copied from Messages).
+        do {
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, any Error>) in
+                self.obvLoadItem(forType: .fileURL) { (item, error) in
+                    do {
+                        if let error {
+                            throw error
                         } else {
-                            throw LoadItemProviderHelper.ObvError.pickerURLIsNil
+                            let pickerURL: URL
+                            if let url = item as? URL {
+                                pickerURL = url
+                            } else if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+                                // Occurs when performing a copy of a file in the macOS Finder, and a paste in the composition view
+                                pickerURL = url
+                            } else {
+                                throw LoadItemProviderHelper.ObvError.pickerURLIsNil
+                            }
+                            let filename = pickerURL.lastPathComponent
+                            let emptyTempDir = try FileManager.default.createEmptyTemporaryDirectoryForLoadedNSItemProviders()
+                            let tempURL = emptyTempDir.appendingPathComponent(filename)
+                            try FileManager.default.copyItem(at: pickerURL, to: tempURL)
+                            return continuation.resume(returning: tempURL)
                         }
-                        let filename = pickerURL.lastPathComponent
-                        let emptyTempDir = try FileManager.default.createEmptyTemporaryDirectoryForLoadedNSItemProviders()
-                        let tempURL = emptyTempDir.appendingPathComponent(filename)
-                        try FileManager.default.copyItem(at: pickerURL, to: tempURL)
-                        return continuation.resume(returning: tempURL)
+                    } catch {
+                        return continuation.resume(throwing: error)
                     }
-                } catch {
-                    assertionFailure()
-                    return continuation.resume(throwing: error)
                 }
             }
+        } catch {
+            // The direct copy failed (e.g., the source URL is in another app's sandbox and is not accessible).
+            // Fall back to loadFileRepresentation, which the system uses to safely copy the file into a
+            // temporary location we can access.
+            logger.info("obvLoadItemToTemporaryFileForTypeFileURL: direct copy failed (\(error.localizedDescription, privacy: .public)), falling back to loadFileRepresentation")
+            return try await self.obvLoadFileRepresentation(for: .fileURL)
         }
     }
     

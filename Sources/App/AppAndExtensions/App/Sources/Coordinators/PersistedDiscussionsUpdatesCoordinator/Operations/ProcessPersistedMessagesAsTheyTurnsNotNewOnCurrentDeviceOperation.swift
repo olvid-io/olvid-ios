@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,10 +19,11 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvUICoreData
 import ObvTypes
+import ObvAppTypes
 
 /// When a discussion displays a new message, we consider it to be "not new" anymore. In the case of a `PersistedMessageReceived` instance, we mark the message as `unread` if it it marked as `readOnce`, and we mark it as `read` otherwise.
 final class ProcessPersistedMessagesAsTheyTurnsNotNewOnCurrentDeviceOperation: ContextualOperationWithSpecificReasonForCancel<ProcessPersistedMessagesAsTheyTurnsNotNewOperationReasonForCancel>, @unchecked Sendable, OperationProvidingDiscussionReadJSON {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,8 +21,9 @@ import Foundation
 import CoreData
 import ObvEngine
 import ObvCrypto
-import os.log
+import OSLog
 import ObvTypes
+import ObvAppTypes
 import OlvidUtils
 import ObvSettings
 
@@ -32,6 +33,7 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
     
     private static let entityName = "PersistedMessageSentRecipientInfos"
     private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedMessageSentRecipientInfos")
+    private static let logger = Logger(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedMessageSentRecipientInfos")
     
     // MARK: Attributes
 
@@ -414,16 +416,188 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
     }
     
     
-    /// Exclusively called by the `ComputeHintsForGivenDecryptedReceivedReturnReceiptOperation`.
-    public static func computeHintsForProcessingDecryptedReceivedReturnReceipt(decryptedReceivedReturnReceipt: ObvDecryptedReceivedReturnReceipt, within context: NSManagedObjectContext) throws -> HintsForProcessingDecryptedReceivedReturnReceipt {
-
-        let messageInfosToMarkAsDelivered: (TypeSafeManagedObjectID<PersistedMessageSentRecipientInfos>, andRead: Bool)?
-        let attachmentInfosToMarkAsDelivered: (TypeSafeManagedObjectID<PersistedAttachmentSentRecipientInfos>, andRead: Bool)?
-        var messageInfosToMarkAsSent = Set<TypeSafeManagedObjectID<PersistedMessageSentRecipientInfos>>()
-        let messageToRefresh: (messageSent: TypeSafeManagedObjectID<PersistedMessageSent>, newStatus: PersistedMessageSent.MessageStatus)?
-        let sentFyleMessageJoinWithStatusToRefresh: (sentFyleMessageJoinWithStatus: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, newReceptionStatus: SentFyleMessageJoinWithStatus.FyleReceptionStatus)?
-        var markAsCompleteAllSentFyleMessageJoinWithStatusOfRefreshedMessage = false
+    public static func markSentMessageAsCouldNotBeSentToServer(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, within context: NSManagedObjectContext) throws {
         
+        let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(
+            messageIdentifierFromEngine: messageIdentifierFromEngine,
+            ownedCryptoId: ownedCryptoId,
+            within: context)
+        
+        guard !infos.isEmpty else {
+            // No info found, so there is nothing to do
+            return
+        }
+        
+        for info in infos {
+            info.setAsCouldNotBeSentToServer()
+        }
+
+    }
+    
+    
+    public static func setTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfos(ownedCryptoId: ObvCryptoId, messageIdentifiersFromEngine: [Data], within context: NSManagedObjectContext) throws {
+
+        for messageIdentifierFromEngine in messageIdentifiersFromEngine {
+            
+            let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: context)
+            guard !infos.isEmpty else {
+                continue
+            }
+            
+            for info in infos {
+                info.setTimestampAllAttachmentsSentIfPossible()
+            }
+            
+        }
+
+    }
+    
+    
+    /// This method not only marks the appropriate `SentFyleMessageJoinWithStatus` as complete, it also marks all the appropriate `PersistedAttachmentSentRecipientInfos` as complete too.
+    /// It shall only be called when the associated sent message was sent from the **current** device.
+    ///
+    /// - Parameters:
+    ///   - messageIdentifierFromEngine: The message identifier from the engine. If this identifier corresponds to more than one `PersistedMessageSent`, the result of this operation is not properly defined. But this case is very unlikely.
+    ///   - restrictToAttachmentNumbers: If `nil`, all attachments are considered. Otherwise, only the specified attachments are considered.
+    public static func markSentFyleMessageJoinWithStatusAsFullyUploadedByCurrentDevice(
+        ownedCryptoId: ObvCryptoId,
+        messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo: [(messageIdentifierFromEngine: Data, restrictToAttachmentNumbers: [Int]?)],
+        within context: NSManagedObjectContext) throws {
+        
+        for (messageIdentifierFromEngine, restrictToAttachmentNumbers) in messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo {
+            
+            let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(
+                messageIdentifierFromEngine: messageIdentifierFromEngine,
+                ownedCryptoId: ownedCryptoId,
+                within: context)
+            guard !infos.isEmpty, let persistedMessageSent = infos.first?.messageSent else {
+                continue
+            }
+            
+            guard persistedMessageSent.isSentFromCurrentDevice else {
+                Self.logger.fault("This method shall only be called from messages sent from the current device, but it is called on a message sent from another owned device.")
+                assertionFailure()
+                throw ObvUICoreDataError.shouldNotBeCalledOnMessageSentFromAnotherOwnedDevice
+            }
+            
+            let attachmentNumbers: [Int]
+            if let restrictToAttachmentNumbers {
+                attachmentNumbers = restrictToAttachmentNumbers
+            } else {
+                attachmentNumbers = Array(0..<persistedMessageSent.fyleMessageJoinWithStatuses.count)
+            }
+            
+            for attachmentNumber in attachmentNumbers {
+                // Mark all the approprate `PersistedAttachmentSentRecipientInfos` as complete
+                infos.forEach { info in
+                    info.attachmentInfos.first(where: { $0.index == attachmentNumber })?.attachmentWasUploaded()
+                }
+                
+                guard attachmentNumber < persistedMessageSent.fyleMessageJoinWithStatuses.count else {
+                    assertionFailure()
+                    continue
+                }
+                
+                // Mark the appropriate `SentFyleMessageJoinWithStatus` as complete
+                let fyleMessageJoinWithStatus = persistedMessageSent.fyleMessageJoinWithStatuses[attachmentNumber]
+                fyleMessageJoinWithStatus.markAsFullyUploadedByCurrentDevice()
+            }
+            
+        } // End of for (messageIdentifierFromEngine, restrictToAttachmentNumbers) in messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo
+
+    }
+    
+    
+    public static func markMessageWasSentNoLaterThan(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngineAndTimestampFromServer: [(messageIdentifierFromEngine: Data, timestampFromServer: Date)], alsoMarkAttachmentsAsSent: Bool, within context: NSManagedObjectContext) throws {
+        
+        for (messageIdentifierFromEngine, timestampFromServer) in messageIdentifierFromEngineAndTimestampFromServer {
+            
+            let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfosWithoutTimestampMessageSentAndMatching(
+                messageIdentifierFromEngine: messageIdentifierFromEngine,
+                ownedCryptoId: ownedCryptoId,
+                within: context)
+            
+            // Note that the infos list may be empty for that messageIdentifierFromEngine and owned identity.
+            // Since we now (2022-02-24) also filter out infos that already have a timestampMessageSent, this is not an issue.
+            
+            infos.forEach {
+                $0.messageWasSentNoLaterThan(timestampFromServer, alsoMarkAttachmentsAsSent: alsoMarkAttachmentsAsSent)
+            }
+            
+        }
+        
+    }
+    
+    
+    public static func deleteRecipientInfosThatHaveNoMsgIdentifierFromEngineAndAssociatedToDeletedContact(within context: NSManagedObjectContext) throws {
+        
+        let infos: [PersistedMessageSentRecipientInfos] = try PersistedMessageSentRecipientInfos.getAllUnprocessed(within: context)
+
+        var infosWithDeletedContact = [PersistedMessageSentRecipientInfos]()
+        for info in infos {
+            do {
+                let recipient = try info.getRecipient()
+                if recipient == nil {
+                    infosWithDeletedContact.append(info)
+                }
+            } catch {
+                os_log("Could not get contact: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                // We continue anyway
+            }
+        }
+        
+        guard !infosWithDeletedContact.isEmpty else { return }
+        
+        let associatedSentMessages = infosWithDeletedContact.map({ $0.messageSent })
+        
+        for info in infosWithDeletedContact {
+            context.delete(info)
+        }
+        
+        for message in associatedSentMessages {
+            message.refreshStatus()
+        }
+                
+    }
+    
+    
+    /// This method deletes all `PersistedMessageSentRecipientInfos` instances associated to the contact identity the that have no `messageIdentifierFromEngine`. It appropriately recompute the status of the associated messages.
+    ///
+    /// This operation is called when a contact is deleted. Yet, we do not test whether the contact is indeed deleted since, when receiving the information from the engine, the `PersistedObvContactIdentity` might not have been deleted already.
+    public static func deletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFromEngineAndAssociatedToContactIdentity(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) throws {
+        
+        let infos: [PersistedMessageSentRecipientInfos] = try PersistedMessageSentRecipientInfos.getAllUnprocessedForSpecificContact(contactCryptoId: contactIdentifier.contactCryptoId, ownedCryptoId: contactIdentifier.ownedCryptoId, within: context)
+        
+        guard !infos.isEmpty else { return }
+        
+        let associatedSentMessages = infos.map({ $0.messageSent })
+        
+        for info in infos {
+            context.delete(info)
+        }
+        
+        for message in associatedSentMessages {
+            message.refreshStatus()
+        }
+        
+    }
+    
+    
+    /// Processes an `ObvDecryptedReceivedReturnReceipt` and updates the relevant objects.
+    ///
+    /// The updated objects are expected instances of one of the following `NSManagedObject` subclasses:
+    /// - `PersistedMessageSentRecipientInfos`
+    /// - `PersistedAttachmentSentRecipientInfos`
+    /// - `PersistedMessageSent`
+    /// - `SentFyleMessageJoinWithStatus`
+    ///
+    /// **In practice**
+    /// - The caller typically provides a temporary "read-only" background context, which is **not saved**.
+    /// - Required changes (updates or deletes) are collected and stored for later replay.
+    /// - These changes are applied asynchronously on the appropriate queues for efficiency and thread safety.
+    public static func processDecryptedReceivedReturnReceipt(decryptedReceivedReturnReceipt: ObvDecryptedReceivedReturnReceipt, within context: NSManagedObjectContext) throws {
+
         var messageSentToRefresh: PersistedMessageSent?
         
         // The return receipt might concern an attachment, but we consider it concerns a message
@@ -464,7 +638,7 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
             
             infos.messageWasDeliveredNoLaterThan(decryptedReceivedReturnReceipt.timestamp, andRead: andRead)
             
-            messageInfosToMarkAsDelivered = infos.hasChanges ? (infos.typedObjectID, andRead) : nil
+            //messageInfosToMarkAsDelivered = infos.hasChanges ? (infos.typedObjectID, andRead) : nil
             
             if messageSentToRefresh == nil && infos.hasChanges {
                 messageSentToRefresh = infos.messageSent
@@ -472,8 +646,7 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
             
             // If a message was delivered to a recipient, and if the message is sent from the current device, we know we should mark all the attachments as "sent" (i.e., complete)
             if let messageSentToRefresh, messageSentToRefresh.isSentFromCurrentDevice {
-                let joins = messageSentToRefresh.markAllFyleMessageJoinWithStatusesAsFullyUploadedByCurrentDevice()
-                markAsCompleteAllSentFyleMessageJoinWithStatusOfRefreshedMessage = !joins.filter({ $0.hasChanges }).isEmpty
+                _ = messageSentToRefresh.markAllFyleMessageJoinWithStatusesAsFullyUploadedByCurrentDevice()
             }
                         
             // If a message was delivered to a recipient, we know it was at least stored on the server for all other infos with the same message identifier
@@ -493,17 +666,12 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
                 let otherInfos = try context.fetch(request)
                 for otherInfo in otherInfos {
                     otherInfo.messageWasSentNoLaterThan(decryptedReceivedReturnReceipt.timestamp, alsoMarkAttachmentsAsSent: true)
-                    if otherInfo.hasChanges {
-                        messageInfosToMarkAsSent.insert(otherInfo.typedObjectID)
-                    }
                     if messageSentToRefresh == nil && otherInfo.hasChanges {
                         messageSentToRefresh = otherInfo.messageSent
                     }
                 }
             }
 
-        } else {
-            messageInfosToMarkAsDelivered = nil
         }
 
         // If the return receipts concerns an attachment, we also want to update the appropriate PersistedAttachmentSentRecipientInfos
@@ -532,107 +700,37 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
                 
                 attachmentInfos.attachmentWasDelivered(andRead: andRead)
                 
-                attachmentInfosToMarkAsDelivered = attachmentInfos.hasChanges ? (attachmentInfos.typedObjectID, andRead) : nil
+                let attachmentInfosToMarkAsDelivered = attachmentInfos.hasChanges ? (attachmentInfos.typedObjectID, andRead) : nil
                 
                 // If the infos were changed for the recipient, we might have to update the global status for this attachment.
                 
                 if attachmentInfosToMarkAsDelivered != nil {
                     
-                    if let refreshedJoin: SentFyleMessageJoinWithStatus = messageInfos.messageSent.refreshStatusOfSentFyleMessageJoinWithStatus(atIndex: attachmentNumber) {
-                        sentFyleMessageJoinWithStatusToRefresh = refreshedJoin.hasChanges ? (refreshedJoin.typedObjectID, refreshedJoin.receptionStatus) : nil
-                    } else {
-                        sentFyleMessageJoinWithStatusToRefresh = nil
-                    }
+                    _ = messageInfos.messageSent.refreshStatusOfSentFyleMessageJoinWithStatus(atIndex: attachmentNumber)
                                             
-                } else {
-                    
-                    sentFyleMessageJoinWithStatusToRefresh = nil
-                    
                 }
-                
-            } else {
-                
-                attachmentInfosToMarkAsDelivered = nil
-                sentFyleMessageJoinWithStatusToRefresh = nil
                 
             }
             
-        } else {
-            
-            // The receipt does not concern an attachment
-            
-            attachmentInfosToMarkAsDelivered = nil
-            sentFyleMessageJoinWithStatusToRefresh = nil
-
         }
                 
         // If we reach this point, we might need to refresh the sent message status
         
         if let messageSentToRefresh {
             messageSentToRefresh.refreshStatus()
-            messageToRefresh = messageSentToRefresh.hasChanges ? (messageSentToRefresh.typedObjectID, messageSentToRefresh.status) : nil
-        } else {
-            messageToRefresh = nil
         }
         
-        // Return the hints
-        
-        let hints = HintsForProcessingDecryptedReceivedReturnReceipt(
-            serverTimestamp: decryptedReceivedReturnReceipt.timestamp,
-            messageInfosToMarkAsDelivered: messageInfosToMarkAsDelivered,
-            messageInfosToMarkAsSent: messageInfosToMarkAsSent,
-            attachmentInfosToMarkAsDelivered: attachmentInfosToMarkAsDelivered,
-            messageToRefresh: messageToRefresh,
-            sentFyleMessageJoinWithStatusToRefresh: sentFyleMessageJoinWithStatusToRefresh,
-            markAsCompleteAllSentFyleMessageJoinWithStatusOfRefreshedMessage: markAsCompleteAllSentFyleMessageJoinWithStatusOfRefreshedMessage)
-        
-        return hints
-
     }
     
     
-    private static func getPersistedMessageSentRecipientInfos(objectID: TypeSafeManagedObjectID<PersistedMessageSentRecipientInfos>, within context: NSManagedObjectContext) throws -> PersistedMessageSentRecipientInfos? {
+    public static func getPersistedMessageSentRecipientInfos(objectID: TypeSafeManagedObjectID<PersistedMessageSentRecipientInfos>, within context: NSManagedObjectContext) throws -> PersistedMessageSentRecipientInfos? {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
         request.predicate = Predicate.withObjectID(objectID)
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
     
-    
-    /// Exclusively called from `ApplyHintsForProcessingDecryptedReceivedReturnReceiptOperation`.
-    public static func applyHintsForProcessingDecryptedReceivedReturnReceipt(hints: HintsForProcessingDecryptedReceivedReturnReceipt, within context: NSManagedObjectContext) throws {
-        
-        if let (messageInfosToMarkAsDelivered, andRead) = hints.messageInfosToMarkAsDelivered {
-            let infos = try Self.getPersistedMessageSentRecipientInfos(objectID: messageInfosToMarkAsDelivered, within: context)
-            infos?.messageWasDeliveredNoLaterThan(hints.serverTimestamp, andRead: andRead)
-        }
-        
-        for messageInfosToMarkAsSent in hints.messageInfosToMarkAsSent {
-            let otherInfo = try Self.getPersistedMessageSentRecipientInfos(objectID: messageInfosToMarkAsSent, within: context)
-            otherInfo?.messageWasSentNoLaterThan(hints.serverTimestamp, alsoMarkAttachmentsAsSent: true)
-        }
-        
-        if let (attachmentInfosToMarkAsDelivered, andRead) = hints.attachmentInfosToMarkAsDelivered {
-            let attachmentInfos = try PersistedAttachmentSentRecipientInfos.getPersistedMessageSentRecipientInfos(objectID: attachmentInfosToMarkAsDelivered, within: context)
-            attachmentInfos?.attachmentWasDelivered(andRead: andRead)
-        }
-        
-        if let (sentFyleMessageJoinWithStatus, newReceptionStatus) = hints.sentFyleMessageJoinWithStatusToRefresh {
-            let sentFyleMessageJoinWithStatusToRefresh = try SentFyleMessageJoinWithStatus.getSentFyleMessageJoinWithStatus(objectID: sentFyleMessageJoinWithStatus, within: context)
-            sentFyleMessageJoinWithStatusToRefresh?.tryToSetReceptionStatusTo(newReceptionStatus)
-        }
-        
-        if let (messageSent, newStatus) = hints.messageToRefresh {
-            let messageSentToRefresh = try PersistedMessageSent.getPersistedMessageSent(objectID: messageSent, within: context)
-            messageSentToRefresh?.setStatusOnApplyingHintOnPersistedMessageSentRecipientInfos(newStatus: newStatus)
-            if hints.markAsCompleteAllSentFyleMessageJoinWithStatusOfRefreshedMessage {
-                _ = messageSentToRefresh?.markAllFyleMessageJoinWithStatusesAsFullyUploadedByCurrentDevice()
-            }
-        }
-        
-    }
-    
-    
+
     /// Before version 3.1, we could end up in a situation where a sent message was considered as delivered for a recipient (i.e., `timestampDelivered != nil`) but not sent (i.e., `timestampMessageSent != nil`),
     /// which makes no sense. This method, exclusively called from ``ConsolidateLegacyTimestampsOfPersistedMessageSentRecipientInfosOperation``, consolidates all the timestamps.
     public static func consolidateLegacyTimestamps(within context: NSManagedObjectContext, maxNumberOfChanges: Int) throws {
@@ -693,45 +791,4 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
 
     }
 
-}
-
-
-// MARK: - HintsForProcessingDecryptedReceivedReturnReceipt
-
-public struct HintsForProcessingDecryptedReceivedReturnReceipt {
-
-    let serverTimestamp: Date
-    
-    /// There is one `PersistedMessageSentRecipientInfos` per recipient (contact) of a sent message. When receiving a return receipt, it comes from one of those
-    /// recipients (from one of their device, but we do not distinguish between devices). It can either be a "read" receipt (in which case `andRead` is `true`), or a reception receipt.
-    let messageInfosToMarkAsDelivered: (TypeSafeManagedObjectID<PersistedMessageSentRecipientInfos>, andRead: Bool)?
-    
-    /// If a recipient (contact) sends us back a return receipt, we know the message was received by the server of this recipient and thus, "sent" to all recipients sharing the same server.
-    /// This set stores all the `PersistedMessageSentRecipientInfos` corresponding to the recipients for which we can mark the message as "sent" (i.e., received by the server).
-    let messageInfosToMarkAsSent: Set<TypeSafeManagedObjectID<PersistedMessageSentRecipientInfos>>
-    
-    /// There is one `PersistedMessageSentRecipientInfos` per recipient (contact) of a sent message. For each of these message infos, there is one `PersistedAttachmentSentRecipientInfos`
-    /// per attachment. When receiving a return receipt for a specific attachment from on of those recipients, we mark the attachment as delivered to this recipient (and "read", if the receipt is a "read" receipt).
-    let attachmentInfosToMarkAsDelivered: (TypeSafeManagedObjectID<PersistedAttachmentSentRecipientInfos>, andRead: Bool)?
-    
-    
-    /// The change of a `PersistedMessageSentRecipientInfos` can have an impact on the whole status of the corresponding sent message. If this is the case, `messageToRefresh`
-    /// is non-nil.
-    let messageToRefresh: (messageSent: TypeSafeManagedObjectID<PersistedMessageSent>, newStatus: PersistedMessageSent.MessageStatus)?
-    
-    
-    /// The change of a `PersistedAttachmentSentRecipientInfos` can have an impact on the whole status of the corresponding attachment of the sent message. In this case, `sentFyleMessageJoinWithStatusToRefresh`
-    /// is non-nil.
-    let sentFyleMessageJoinWithStatusToRefresh: (sentFyleMessageJoinWithStatus: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, newReceptionStatus: SentFyleMessageJoinWithStatus.FyleReceptionStatus)?
-    
-    
-    /// Since recipients are notified that a message is available only after all attachments have been sent to the server, we know we can mark all attachments as "sent" (i.e., complete) when receiving a return receipt.
-    /// Note that this is an imprecise reasoning, in particular when considering contacts on distinct server. Here, we  consider that attachments should be shown as "sent" if there were successfully sent to at least one server.
-    /// This constant can only be true if `messageToRefresh` is non-nil.
-    let markAsCompleteAllSentFyleMessageJoinWithStatusOfRefreshedMessage: Bool
-
-    public var receivedReturnReceiptRequiresProcessing: Bool {
-        messageInfosToMarkAsDelivered != nil || attachmentInfosToMarkAsDelivered != nil || !messageInfosToMarkAsSent.isEmpty || messageToRefresh != nil || sentFyleMessageJoinWithStatusToRefresh != nil
-    }
-    
 }

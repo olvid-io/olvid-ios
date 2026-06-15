@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,22 +25,24 @@ import OlvidUtils
 
 public extension ObvOwnedAttachment {
     
-    init(attachmentId: ObvAttachmentIdentifier, networkFetchDelegate: ObvNetworkFetchDelegate, within context: NSManagedObjectContext) throws {
+    init(attachmentId: ObvAttachmentIdentifier,
+         networkFetchDelegate: ObvNetworkFetchDelegate,
+         within context: NSManagedObjectContext) throws {
+        
         guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: context) else {
             throw ObvError.couldNotGetAttachment
         }
+        
         let attachmentId = networkReceivedAttachment.attachmentId
         let metadata = networkReceivedAttachment.metadata
-        let url = networkReceivedAttachment.url
         let status = networkReceivedAttachment.status.toObvAttachmentStatus
         let messageUploadTimestampFromServer = networkReceivedAttachment.messageUploadTimestampFromServer
-        let totalUnitCount = networkReceivedAttachment.totalUnitCount
+        
         self.init(metadata: metadata,
-                  totalUnitCount: totalUnitCount,
-                  url: url,
                   status: status,
                   attachmentId: attachmentId,
                   messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
     }
     
 }

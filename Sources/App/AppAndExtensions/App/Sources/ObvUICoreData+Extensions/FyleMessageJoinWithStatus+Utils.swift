@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -47,7 +47,7 @@ extension FyleMessageJoinWithStatus {
         assert(joinObject.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
         if let sentJoin = joinObject as? SentFyleMessageJoinWithStatus {
             switch sentJoin.status {
-            case .uploadable, .complete, .downloadable, .cancelledByServer:
+            case .uploadable, .complete, .downloadable, .cancelledByServer, .untransferred:
                 // No need to perform an update of the progress in this case
                 return
             case .uploading, .downloading:
@@ -56,7 +56,7 @@ extension FyleMessageJoinWithStatus {
         }
         if let receivedJoin = joinObject as? ReceivedFyleMessageJoinWithStatus {
             switch receivedJoin.status {
-            case .downloadable, .complete, .cancelledByServer:
+            case .downloadable, .complete, .cancelledByServer, .untransferred, .notYetDownloadableAsReceivedByUserNotification:
                 // No need to perform an update of the progress in this case
                 return
             case .downloading:

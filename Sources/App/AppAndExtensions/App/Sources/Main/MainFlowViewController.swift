@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,6 +52,7 @@ import ObvUIGroupV2
 import ObvCells
 import ObvUIGroupSharedBetweenV1AndV2
 import ObvSingleOwnedIdentity
+import ObvHistoryTransfer
 
 
 @MainActor
@@ -123,7 +124,8 @@ final class MainFlowViewController: UISplitViewController {
          localAuthenticationDelegate: LocalAuthenticationDelegate,
          appBackupDelegate: AppBackupDelegate,
          mainFlowViewControllerDelegate: MainFlowViewControllerDelegate,
-         storeKitDelegate: StoreKitDelegate, dataSources: ObvDataSources,
+         storeKitDelegate: StoreKitDelegate,
+         dataSources: ObvDataSources,
          actions: any MainFlowViewControllerActions) {
                 
         Self.logger.info("🥏🏁 Call to the initializer of MainFlowViewController")
@@ -392,18 +394,12 @@ final class MainFlowViewController: UISplitViewController {
                             ObvMessengerInternalNotification.displayedSnackBarShouldBeRefreshed.postOnDispatchQueue()
                         }
                     case .grantPermissionToRecordInSettings:
-                        guard let appSettings = URL(string: UIApplication.openSettingsURLString) else { assertionFailure(); return }
+                        guard let appSettings = URL(string: UIApplication.openRecordSettingsURLString) else { assertionFailure(); return }
                         guard UIApplication.shared.canOpenURL(appSettings) else { assertionFailure(); return }
                         UIApplication.shared.open(appSettings, options: [:])
-                    case .upgradeIOS:
-                        break
                     case .newerAppVersionAvailable:
                         guard UIApplication.shared.canOpenURL(ObvMessengerConstants.shortLinkToOlvidAppIniTunes) else { assertionFailure(); return }
                         UIApplication.shared.open(ObvMessengerConstants.shortLinkToOlvidAppIniTunes, options: [:], completionHandler: nil)
-                    case .ownedIdentityIsInactive:
-                        let deepLink = ObvDeepLink.myId(ownedCryptoId: ownedCryptoId)
-                        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-                            .postOnDispatchQueue()
                     }
                 }
             },
@@ -414,13 +410,7 @@ final class MainFlowViewController: UISplitViewController {
                     case .grantPermissionToRecord, .grantPermissionToRecordInSettings:
                         ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
                             .postOnDispatchQueue()
-                    case .upgradeIOS:
-                        ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
-                            .postOnDispatchQueue()
                     case .newerAppVersionAvailable:
-                        ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
-                            .postOnDispatchQueue()
-                    case .ownedIdentityIsInactive:
                         ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
                             .postOnDispatchQueue()
                     }
@@ -519,39 +509,8 @@ final class MainFlowViewController: UISplitViewController {
     }
     
     
+    @MainActor
     private func presentOneOfTheModalViewControllersIfRequired() {
-        // This shall be the last possible alert we check, since we can only do this asynchronously
-        UNUserNotificationCenter.current().getNotificationSettings(completionHandler: { [weak self] (userNotificationSettings) in
-            DispatchQueue.main.async {
-                switch userNotificationSettings.authorizationStatus {
-                case .notDetermined:
-                    Task { await
-                        self?.presentUserNotificationsSubscriberHostingController()
-                    }
-                default:
-                    self?.presentOneOfTheOtherModalViewControllersIfRequired()
-                }
-            }
-        })
-        
-    }
-    
-    
-    @MainActor
-    private func presentUserNotificationsSubscriberHostingController() async {
-        guard presentedViewController == nil else {
-            // We are already presengtin a view controller (e.g., a keycloak authentication view controller)
-            // We do not present the NewAutorisationRequesterViewController
-            return
-        }
-        let vc = NewAutorisationRequesterViewController(autorisationCategory: .localNotifications, delegate: self)
-        present(vc, animated: true)
-    }
-    
-    
-    /// Shall only be called from `presentOneOfTheModalViewControllersIfRequired`
-    @MainActor
-    private func presentOneOfTheOtherModalViewControllersIfRequired() {
         assert(Thread.isMainThread)
         guard (ObvMessengerSettings.AppVersionAvailable.minimum ?? 0) <= ObvAppCoreConstants.bundleVersionAsInt else {
             let vc = OlvidAlertViewController()
@@ -846,12 +805,7 @@ extension MainFlowViewController: NewAutorisationRequesterViewControllerDelegate
         switch autorisationCategory {
         case .localNotifications:
             if now {
-                let center = UNUserNotificationCenter.current()
-                do {
-                    try await center.requestAuthorization(options: [.alert, .sound, .badge])
-                } catch {
-                    os_log("Could not request authorization for notifications: %@", log: log, type: .error, error.localizedDescription)
-                }
+                await requestLocalNotificationsAuthorization()
             }
             dismiss(animated: true)
         case .recordPermission:
@@ -860,6 +814,18 @@ extension MainFlowViewController: NewAutorisationRequesterViewControllerDelegate
                 os_log("User granted access to audio: %@", log: log, type: .info, String(describing: granted))
             }
             dismiss(animated: true)
+        }
+    }
+    
+    
+    /// Presents the system notification-authorization dialog. Safe to call even if authorization has already been decided —
+    /// `requestAuthorization` is a no-op in that case.
+    private func requestLocalNotificationsAuthorization() async {
+        let center = UNUserNotificationCenter.current()
+        do {
+            try await center.requestAuthorization(options: [.alert, .sound, .badge])
+        } catch {
+            Self.logger.error("Could not request authorization for notifications: \(error, privacy: .public)")
         }
     }
 
@@ -1032,6 +998,20 @@ extension MainFlowViewController {
 // MARK: - Implementing ObvFlowControllerDelegate
 
 extension MainFlowViewController: ObvFlowControllerDelegate {
+    
+    func userWantsToRequestNotificationsAuthorization(_ vc: ObvFlowController) {
+        Task { await requestLocalNotificationsAuthorization() }
+    }
+    
+    func userWantsToForwardMessage(_ vc: ObvFlowController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToForwardMessage(self, identifierOfMessageToForwad: identifierOfMessageToForwad, identifiersOfDiscussionsWhereMessageShouldBeForwarded: identifiersOfDiscussionsWhereMessageShouldBeForwarded)
+    }
+    
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: ObvFlowController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+    }
     
     func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ flowController: ObvFlowController) {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
@@ -1283,15 +1263,14 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
     }
     
     
-    func userWantsToDeleteAttachmentsFromDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async {
-        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
-        await mainFlowViewControllerDelegate.userWantsToDeleteAttachmentsFromDraft(self, draftObjectID: draftObjectID, draftTypeToDelete: draftTypeToDelete)
+    func userWantsToDeleteDraftAttachment(_ flowController: ObvFlowController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToDeleteDraftAttachment(self, draftFyleJoinObjectID: draftFyleJoinObjectID)
     }
     
-    
-    func userWantsToUpdateDraftBodyAndMentions(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToUpdateDraftBodyAndMentions(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        try await mainFlowViewControllerDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body, mentions: mentions)
+        try await mainFlowViewControllerDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body)
     }
     
     
@@ -1306,9 +1285,9 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         return try await mainFlowViewControllerDelegate.userWantsToAddAttachmentsToDraft(self, draftObjectID: draftObjectID, itemProviders: itemProviders, source: source)
     }
     
-    func userWantsToSendDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToSendDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        try await mainFlowViewControllerDelegate.userWantsToSendDraft(mainFlowViewController: self, draftObjectID: draftObjectID, textBody: textBody, mentions: mentions)
+        try await mainFlowViewControllerDelegate.userWantsToSendDraft(mainFlowViewController: self, draftObjectID: draftObjectID, textBody: textBody)
     }
     
     /// Called when the user taps the "plus" button implemented in UIKit
@@ -1936,7 +1915,7 @@ extension MainFlowViewController: ObvInvitationFlow.ObvContactInvitationViewActi
     private func userWantsToDiscussWith(contactIdentifier: ObvTypes.ObvContactIdentifier) {
         guard let oneToOneDiscussion = try? PersistedOneToOneDiscussion.getPersistedDiscussionOneToOne(contactId: contactIdentifier, within: ObvStack.shared.viewContext) else { return }
         guard oneToOneDiscussion.contactIdentity?.cryptoId == contactIdentifier.contactCryptoId else { return }
-        guard let discussionIdentifier = oneToOneDiscussion.discussionIdentifier else { assertionFailure(); return }
+        guard let discussionIdentifier = try? oneToOneDiscussion.discussionIdentifier else { assertionFailure(); return }
         let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink).postOnDispatchQueue()
@@ -2473,10 +2452,14 @@ extension MainFlowViewController {
                 presentStorageManagementViewController()
             }
             
-        case .message(let messsageAppIdentifier):
+        case .message(let messageAppIdentifier):
             switchToFlow(.latestDiscussions)
             await presentedViewController?.dismissAndAwaitCompletion(animated: true)
-            guard let message = try? PersistedMessage.getMessage(messageAppIdentifier: messsageAppIdentifier, within: ObvStack.shared.viewContext) else { return }
+            guard let message = try? PersistedMessage.getMessage(messageAppIdentifier: messageAppIdentifier, within: ObvStack.shared.viewContext) else {
+                // If we can't find the message, we try to navigate to the discussion
+                await performCurrentDeepLinkInitialNavigation(deepLink: .singleDiscussion(discussionIdentifier: messageAppIdentifier.discussionIdentifier))
+                return
+            }
             let discussionFlow = self.flowControllerForFlow(.latestDiscussions)
             discussionFlow.userWantsToDisplay(persistedMessage: message)
             
@@ -2486,8 +2469,30 @@ extension MainFlowViewController {
             
         case .groupCreation:
             userWantsToAddContactGroup(ownedCryptoId: currentOwnedCryptoId)
+            
+        case .webRTCHistoryTransferConfirmation(sourceDeviceIdentifier: let sourceDeviceIdentifier, transferId: let transferId):
+            await self.presentProgressHistoryImportHostingView(sourceDeviceIdentifier: sourceDeviceIdentifier, transferId: transferId)
+            
         }
         
+    }
+    
+    
+    private func presentProgressHistoryImportHostingView(sourceDeviceIdentifier: ObvOwnedDeviceIdentifier, transferId: String) async {
+        while let presentedViewController = self.presentedViewController {
+            await presentedViewController.dismissAndAwaitCompletion(animated: true)
+        }
+        do {
+            let sourceDeviceName = try await Self.getNameOfPersistedObvOwnedDevice(ownedDeviceIdentifier: sourceDeviceIdentifier)
+            let vc = ProgressImportHostingView(
+                sourceDeviceName: sourceDeviceName,
+                sourceDeviceIdentifier: sourceDeviceIdentifier,
+                transferIdFromSource: transferId,
+                actions: self)
+            self.present(vc, animated: true)
+        } catch {
+            Self.logger.fault("Could not present view: \(error.localizedDescription)")
+        }
     }
     
     
@@ -2549,7 +2554,8 @@ extension MainFlowViewController {
                                             createPasscodeDelegate: createPasscodeDelegate,
                                             localAuthenticationDelegate: localAuthenticationDelegate,
                                             appBackupDelegate: appBackupDelegate,
-                                            settingsFlowViewControllerDelegate: self)
+                                            settingsFlowViewControllerDelegate: self,
+                                            dataSources: dataSources.historyTransferNavigationStackDataSources)
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true)
@@ -2575,7 +2581,8 @@ extension MainFlowViewController {
                                             createPasscodeDelegate: createPasscodeDelegate,
                                             localAuthenticationDelegate: localAuthenticationDelegate,
                                             appBackupDelegate: appBackupDelegate,
-                                            settingsFlowViewControllerDelegate: self)
+                                            settingsFlowViewControllerDelegate: self,
+                                            dataSources: dataSources.historyTransferNavigationStackDataSources)
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true) {
@@ -2599,6 +2606,22 @@ extension MainFlowViewController {
         return discussionVC
     }
     
+}
+
+
+// MARK: - Implementing LocalNetworkImportViewActions
+
+extension MainFlowViewController: LocalNetworkImportViewActions {
+        
+    func userWantsToDismissView(_ view: ObvHistoryTransfer.LocalNetworkImportView) {
+        (self.presentedViewController as? ProgressImportHostingView)?.dismiss(animated: true)
+    }
+    
+    func userRequiresMessageHistoryTransferService(_ view: ObvHistoryTransfer.LocalNetworkImportView) async throws -> any ObvHistoryTransfer.TransferServiceForLocalNetworkImportView {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userRequiresMessageHistoryTransferService(self)
+    }
+
 }
 
 
@@ -3037,6 +3060,22 @@ extension MainFlowViewController {
 // MARK: - Implementing SettingsFlowViewControllerDelegate
 
 extension MainFlowViewController: SettingsFlowViewControllerDelegate {
+    
+    func historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(_ vc: SettingsFlowViewController, transferId: String, otherOwnedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier) async throws -> ObvHistoryTransfer.DestinationOwnedDeviceDecision {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(self, transferId: transferId, otherOwnedDeviceIdentifier: otherOwnedDeviceIdentifier)
+    }
+    
+    func userRequiresMessageHistoryTransferService(_ settingsFlowViewController: SettingsFlowViewController) async throws -> ObvHistoryTransfer.TransferService {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userRequiresMessageHistoryTransferService(self)
+    }
+
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: SettingsFlowViewController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+    }
+    
     
     func userWantsToBeRemindedToWriteDownBackupKey(_ settingsFlowViewController: SettingsFlowViewController) async {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
@@ -3493,6 +3532,14 @@ extension MainFlowViewController {
         try jpegData.write(to: filepath)
         return filepath
     }
+    
+    
+    private static func getNameOfPersistedObvOwnedDevice(ownedDeviceIdentifier: ObvOwnedDeviceIdentifier) async throws -> String? {
+        return try await withCheckedThrowingContextualContinuation { (continuation: CheckedContinuation<String?, any Error>, context: NSManagedObjectContext) in
+            let name = try PersistedObvOwnedDevice.getNameOfPersistedObvOwnedDevice(ownedDeviceIdentifier: ownedDeviceIdentifier, within: context)
+            return continuation.resume(returning: name)
+        }
+    }
 
 }
 
@@ -3569,11 +3616,11 @@ protocol MainFlowViewControllerDelegate: AnyObject {
     func userWantsToPublishGroupV2Creation(_ mainFlowViewController: MainFlowViewController, groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws
     func userWantsToPublishGroupV2Modification(_ mainFlowViewController: MainFlowViewController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws
     func userRequestedAppDatabaseSyncWithEngine(mainFlowViewController: MainFlowViewController) async throws
-    func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws
     func userWantsToAddAttachmentsToDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
     func userWantsToAddAttachmentsToDraftFromURLs(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
-    func userWantsToUpdateDraftBodyAndMentions(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToDeleteAttachmentsFromDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
+    func userWantsToUpdateDraftBodyAndMentions(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws
+    func userWantsToDeleteDraftAttachment(_ mainFlowViewController: MainFlowViewController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws
     func userWantsToReplyToMessage(_ mainFlowViewController: MainFlowViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
     func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ mainFlowViewController: MainFlowViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
     func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ mainFlowViewController: MainFlowViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
@@ -3644,9 +3691,15 @@ protocol MainFlowViewControllerDelegate: AnyObject {
     func userWantsToUnhideOwnedIdentity(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async throws
 
     func userWantsToUpdateOwnedCustomDisplayName(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, newCustomDisplayName: String?) async throws
-
+    func historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(_ mainFlowViewController: MainFlowViewController, transferId: String, otherOwnedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier) async throws -> ObvHistoryTransfer.DestinationOwnedDeviceDecision
+    
     func userWantsToDiscoverOlvidPlus(_ mainFlowViewController: MainFlowViewController)
     func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ mainFlowViewController: MainFlowViewController)
+    func userRequiresMessageHistoryTransferService(_ mainFlowViewController: MainFlowViewController) async throws -> ObvHistoryTransfer.TransferService
+
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: MainFlowViewController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws
+
+    func userWantsToForwardMessage(_ mainFlowViewController: MainFlowViewController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
 
 }
 

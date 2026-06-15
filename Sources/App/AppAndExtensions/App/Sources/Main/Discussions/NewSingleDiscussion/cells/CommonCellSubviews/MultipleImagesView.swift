@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,6 @@
 import UIKit
 import QuickLookThumbnailing
 
-@available(iOS 14.0, *)
 final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, ViewShowingHardLinks, UIViewWithTappableStuff {
     
     private var currentConfigurations = [SingleImageView.Configuration]()
@@ -179,6 +178,16 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
             fyleProgressView.setConfiguration(.cancelled)
             tapToReadView.messageObjectID = nil
             imageView.reset()
+        case .notYetDownloadableAsReceivedByUserNotification:
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.notYetDownloadableAsReceivedByUserNotification)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+        case .untransferred:
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.untransferred)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
         }
     }
 
@@ -319,7 +328,6 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
 
 
 
-@available(iOS 14.0, *)
 fileprivate class HorizontalPairOfImagesView: ViewForOlvidStack, UIViewWithTappableStuff {
     
     fileprivate let lTapToReadView = TapToReadView(showText: false)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,7 @@ import ObvUICoreData
 import ObvAppCoreConstants
 
 
+/// 2026-01-23 This operation is no longer used for now. It was used with the old composition view, which allows to remove all attachments. For the moment, this is not the case of the new one. We keep this code for now.
 final class DeleteAllDraftFyleJoinOfDraftOperation: ContextualOperationWithSpecificReasonForCancel<DeleteAllDraftFyleJoinOfDraftOperationReasonForCancel>, @unchecked Sendable {
     
     private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>

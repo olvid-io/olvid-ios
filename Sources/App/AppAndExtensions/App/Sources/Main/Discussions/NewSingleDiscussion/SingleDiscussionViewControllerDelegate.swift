@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,13 +34,13 @@ protocol SingleDiscussionViewControllerDelegate: AnyObject {
     /// - Parameters:
     ///   - viewController: An instance of ``SomeSingleDiscussionViewController``.
     ///   - mentionableIdentity: An instance of ``ObvMentionableIdentityAttribute.Value`` that the user tapped.
-    func singleDiscussionViewController(_ viewController: SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: ObvMentionableIdentityAttribute.Value) async
+    func singleDiscussionViewController(_ viewController: SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: ObvMentionAttribute.Value) async
     
-    func userWantsToSendDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToSendDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws
     func userWantsToAddAttachmentsToDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
     func userWantsToAddAttachmentsToDraftFromURLs(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
-    func userWantsToUpdateDraftBodyAndMentions(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToDeleteAttachmentsFromDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
+    func userWantsToUpdateDraftBodyAndMentions(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws
+    func userWantsToDeleteDraftAttachment(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws
     func userWantsToReplyToMessage(_ singleDiscussionViewController: SomeSingleDiscussionViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
     func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ singleDiscussionViewController: SomeSingleDiscussionViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
     func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ singleDiscussionViewController: SomeSingleDiscussionViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
@@ -66,5 +66,9 @@ protocol SingleDiscussionViewControllerDelegate: AnyObject {
     func discussionViewWillDisappear(_ singleDiscussionViewController: SomeSingleDiscussionViewController)
     
     func userWantsToDisplayContactIntroductionScreen(_ singleDiscussionViewController: SomeSingleDiscussionViewController, contactIdentifier: ObvTypes.ObvContactIdentifier)
+    
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: SomeSingleDiscussionViewController, value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) async throws
+
+    func userWantsToForwardMessage(_ vc: SomeSingleDiscussionViewController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
     
 }

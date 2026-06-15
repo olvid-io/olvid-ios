@@ -105,7 +105,7 @@ struct OwnedIdentityTransferSummaryView: View {
         } else {
             deviceToKeepActive = nil
         }
-        isInterfaceDisabled = true
+        withAnimation { isInterfaceDisabled = true }
         Task {
             do {
                 try await actions.userWishesToFinalizeOwnedIdentityTransferFromSourceDevice(
@@ -251,10 +251,18 @@ struct OwnedIdentityTransferSummaryView: View {
             }
             
             HStack {
-                InternalButton("Cancel", style: .red, action: cancelButtonTapped)
-                InternalButton("VALIDATE", style: .blue, action: proceedButtonTapped)
+                OlvidButtonNew(action: cancelButtonTapped) {
+                    Text("Cancel")
+                }
+                .tint(.red)
+                OlvidButtonNew(action: proceedButtonTapped) {
+                    HStack {
+                        if isInterfaceDisabled { ProgressView() }
+                        Text("VALIDATE")
+                    }
+                }
             }.padding()
-            
+
         }
         .disabled(isInterfaceDisabled)
         .alert(alertTitle, isPresented: $isAlertShown) {
@@ -265,51 +273,6 @@ struct OwnedIdentityTransferSummaryView: View {
         }
 
     }
-}
-
-
-// MARK: - Button used in this view only
-
-private struct InternalButton: View {
-    
-    enum Style {
-        case red
-        case blue
-    }
-    
-    private var backgroundColor: Color {
-        switch style {
-        case .red:
-            return Color(UIColor.systemRed)
-        case .blue:
-            return Color.blue01
-        }
-    }
-    
-    private let key: LocalizedStringKey
-    private let action: () -> Void
-    private let style: Style
-    @Environment(\.isEnabled) var isEnabled
-    
-    init(_ key: LocalizedStringKey, style: Style, action: @escaping () -> Void) {
-        self.key = key
-        self.action = action
-        self.style = style
-    }
-        
-    var body: some View {
-        Button(action: action) {
-            Text(key)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 26)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity)
-        }
-        .background(backgroundColor)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
-    }
-    
 }
 
 

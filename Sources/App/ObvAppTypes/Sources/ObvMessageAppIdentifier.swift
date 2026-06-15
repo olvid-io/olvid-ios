@@ -34,6 +34,56 @@ public enum ObvMessageAppIdentifier: Sendable {
 }
 
 
+public struct ObvMessageSentAppIdentifier: Sendable, Equatable, Hashable {
+    
+    public let discussionIdentifier: ObvDiscussionIdentifier
+    public let senderThreadIdentifier: UUID
+    public let senderSequenceNumber: Int
+    
+    public init(discussionIdentifier: ObvDiscussionIdentifier,
+                senderThreadIdentifier: UUID,
+                senderSequenceNumber: Int) {
+        self.discussionIdentifier = discussionIdentifier
+        self.senderThreadIdentifier = senderThreadIdentifier
+        self.senderSequenceNumber = senderSequenceNumber
+    }
+    
+    public var messageAppIdentifier: ObvMessageAppIdentifier {
+        .sent(discussionIdentifier: discussionIdentifier,
+              senderThreadIdentifier: senderThreadIdentifier,
+              senderSequenceNumber: senderSequenceNumber)
+    }
+    
+}
+
+
+public struct ObvMessageReceivedAppIdentifier: Sendable, Equatable, Hashable {
+    
+    public let discussionIdentifier: ObvDiscussionIdentifier
+    public let senderIdentifier: Data
+    public let senderThreadIdentifier: UUID
+    public let senderSequenceNumber: Int
+
+    public init(discussionIdentifier: ObvDiscussionIdentifier,
+                senderIdentifier: Data,
+                senderThreadIdentifier: UUID,
+                senderSequenceNumber: Int) {
+        self.discussionIdentifier = discussionIdentifier
+        self.senderIdentifier = senderIdentifier
+        self.senderThreadIdentifier = senderThreadIdentifier
+        self.senderSequenceNumber = senderSequenceNumber
+    }
+    
+    public var messageAppIdentifier: ObvMessageAppIdentifier {
+        .received(discussionIdentifier: discussionIdentifier,
+                  senderIdentifier: senderIdentifier,
+                  senderThreadIdentifier: senderThreadIdentifier,
+                  senderSequenceNumber: senderSequenceNumber)
+    }
+    
+}
+
+
 extension ObvMessageAppIdentifier: Equatable, Hashable {}
 
 extension ObvMessageAppIdentifier {
@@ -92,6 +142,10 @@ extension ObvMessageAppIdentifier {
 
     public var ownedCryptoId: ObvCryptoId {
         discussionIdentifier.ownedCryptoId
+    }
+    
+    public var senderCryptoId: ObvCryptoId {
+        contactIdentifier?.contactCryptoId ?? ownedCryptoId
     }
     
 }

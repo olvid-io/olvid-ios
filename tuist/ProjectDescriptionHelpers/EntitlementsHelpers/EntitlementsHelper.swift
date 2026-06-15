@@ -41,7 +41,8 @@ extension Entitlements {
             "com.apple.security.network.client": .boolean(true),
             "com.apple.security.network.server": .boolean(true), // macOS key, required by WebRTC
             "com.apple.security.personal-information.photos-library": .boolean(true),
-            "com.apple.security.personal-information.location": .boolean(true)
+            "com.apple.security.personal-information.location": .boolean(true),
+            "com.apple.developer.wifi-aware": .array(["Subscribe", "Publish"]),
         ])
     }
     

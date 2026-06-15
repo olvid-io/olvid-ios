@@ -22,6 +22,7 @@ import SwiftUI
 import CoreData
 import ObvTypes
 import ObvUICoreData
+import ObvSystemIcon
 
 
 final class ReceivedMessageInfosHostingViewController: UIHostingController<ReceivedMessageInfosView> {
@@ -72,6 +73,7 @@ fileprivate final class ReceivedMessageInfosViewStore: ObservableObject {
     @Published var timeBasedDeletionDateString: String?
     @Published var numberOfNewMessagesBeforeSuppression: Int?
     @Published var receivedDateString: String
+    @Published var messageUploadTimestampFromServerDateString: String?
     @Published var readDateString: String?
     @Published var allReceivedFyleMessageJoinWithStatus: [ReceivedFyleMessageJoinWithStatus]
 
@@ -83,7 +85,8 @@ fileprivate final class ReceivedMessageInfosViewStore: ObservableObject {
         self.messageReceivedObjectID = messageReceived.objectID
         self.timeBasedDeletionDateString = nil
         self.numberOfNewMessagesBeforeSuppression = nil
-        self.receivedDateString = ReceivedMessageInfosViewStore.dateFormater.string(from: messageReceived.timestamp)
+        self.receivedDateString = ReceivedMessageInfosViewStore.dateFormater.string(from: messageReceived.receivedDate)
+        self.messageUploadTimestampFromServerDateString = ReceivedMessageInfosViewStore.dateStringFromDate(messageReceived.messageUploadTimestampFromServer)
         self.readDateString = ReceivedMessageInfosViewStore.dateStringFromDate(messageReceived.dateWhenMessageWasRead)
         self.allReceivedFyleMessageJoinWithStatus = messageReceived.fyleMessageJoinWithStatuses
         refreshRetentionInformation()
@@ -99,7 +102,8 @@ fileprivate final class ReceivedMessageInfosViewStore: ObservableObject {
     }()
 
     static func dateStringFromDate(_ date: Date?) -> String? {
-        date == nil ? nil : dateFormater.string(from: date!)
+        guard let date else { return nil }
+        return dateFormater.string(from: date)
     }
 
     private func refreshRetentionInformation() {
@@ -150,6 +154,7 @@ struct ReceivedMessageInfosView: View {
     var body: some View {
         ReceivedMessageInfosInnerView(ownedCryptoId: store.ownedCryptoId,
                                       receivedDateString: store.receivedDateString,
+                                      messageUploadTimestampFromServerDateString: store.messageUploadTimestampFromServerDateString,
                                       readDateString: store.readDateString,
                                       timeBasedDeletionDateString: store.timeBasedDeletionDateString,
                                       numberOfNewMessagesBeforeSuppression: store.numberOfNewMessagesBeforeSuppression,
@@ -167,6 +172,7 @@ struct ReceivedMessageInfosInnerView: View {
     
     let ownedCryptoId: ObvCryptoId
     let receivedDateString: String
+    let messageUploadTimestampFromServerDateString: String?
     let readDateString: String?
     let timeBasedDeletionDateString: String?
     let numberOfNewMessagesBeforeSuppression: Int?
@@ -186,6 +192,11 @@ struct ReceivedMessageInfosInnerView: View {
                     ReceivedMessageStatusView(forStatus: .read, dateAsString: readDateString)
                 }
                 ReceivedMessageStatusView(forStatus: .new, dateAsString: receivedDateString)
+                if let messageUploadTimestampFromServerDateString {
+                    ReceivedMessageStatusView(title: "SENT_MESSAGE_STATUS_KIND_SENT",
+                                              icon: SystemIcon.arrowUpCircleFill,
+                                              dateAsString: messageUploadTimestampFromServerDateString)
+                }
             }
             
             AllReceivedFyleMessageJoinWithStatusView(allReceivedFyleMessageJoinWithStatus: allReceivedFyleMessageJoinWithStatus)

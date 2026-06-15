@@ -405,7 +405,7 @@ public class PersistedContactGroup: NSManagedObject {
     }
 
     
-    func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: String?) throws {
+    func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: AttributedString?) throws {
         
         guard self.ownedIdentity == ownedIdentity else {
             throw ObvUICoreDataError.unexpectedContact

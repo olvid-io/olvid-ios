@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -77,14 +77,27 @@ final class ProcessObvLocationForThisPhysicalDeviceOperation: ContextualOperatio
                 self.unprocessedMessagesToSend.formUnion(unprocessedMessagesToSend)
                 self.updateMessageJSONsToSend.formUnion(try updatedSentMessages.map({ try $0.toUpdateMessageJSONToSend() }))
 
-            case .updateSharing(let locationData):
-                
+            case .updateSharing(locationData: let locationData, sendTo: let destinationToSendTo):
+
                 let ownedIdentities = try PersistedObvOwnedIdentity.getAllActive(within: obvContext.context)
                 
                 for ownedIdentity in ownedIdentities {
                     let (unprocessedMessagesToSend, updatedSentMessages) = try ownedIdentity.updatePersistedLocationContinuousSent(locationData: locationData)
                     self.unprocessedMessagesToSend.formUnion(unprocessedMessagesToSend)
-                    self.updateMessageJSONsToSend.formUnion(try updatedSentMessages.map({ try $0.toUpdateMessageJSONToSend() }))
+                    let addtionalMessageJSONsToSend = try updatedSentMessages
+                        .filter { message in
+                            switch destinationToSendTo {
+                            case .all:
+                                return true
+                            case .discussion(discussionIdentifier: let discussionIdentifierToRestrictTo):
+                                return try message.discussion?.discussionIdentifier == discussionIdentifierToRestrictTo
+                            case .discussions(discussionIdentifiers: let discussionIdentifiers):
+                                guard let currentDiscussionIdentifier = try message.discussion?.discussionIdentifier else { assertionFailure(); return false }
+                                return discussionIdentifiers.contains(currentDiscussionIdentifier)
+                            }
+                        }
+                        .map({ try $0.toUpdateMessageJSONToSend() })
+                    self.updateMessageJSONsToSend.formUnion(addtionalMessageJSONsToSend)
                 }
 
             case .endSharing(let type):
@@ -105,6 +118,25 @@ final class ProcessObvLocationForThisPhysicalDeviceOperation: ContextualOperatio
 
                     let updatedSentMessages = try ownedIdentity.endPersistedLocationContinuousSentInDiscussion(discussionIdentifier: discussionIdentifier)
                     self.updateMessageJSONsToSend.formUnion(try updatedSentMessages.map({ try $0.toUpdateMessageJSONToSend() }))
+                    
+                case .discussions(discussionIdentifiers: let discussionIdentifiers):
+                    
+                    for discussionIdentifier in discussionIdentifiers {
+                        
+                        guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: discussionIdentifier.ownedCryptoId, within: obvContext.context) else {
+                            assertionFailure()
+                            return cancel(withReason: .couldNotFindOwnedIdentityInDatabase)
+                        }
+
+                        guard ownedIdentity.isActive else {
+                            assertionFailure()
+                            return cancel(withReason: .ownedIdentityIsInactive)
+                        }
+
+                        let updatedSentMessages = try ownedIdentity.endPersistedLocationContinuousSentInDiscussion(discussionIdentifier: discussionIdentifier)
+                        self.updateMessageJSONsToSend.formUnion(try updatedSentMessages.map({ try $0.toUpdateMessageJSONToSend() }))
+                        
+                    }
 
                 case .all:
                     

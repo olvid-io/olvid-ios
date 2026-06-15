@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,10 +19,11 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvUICoreData
 import ObvTypes
+import ObvAppTypes
 import ObvAppCoreConstants
 
 
@@ -50,7 +51,7 @@ final class TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperati
     }
 
     /// This array stores all the `LimitedVisibilityMessageOpenedJSON` that should be sent after this operation finishes.
-    private(set) var limitedVisibilityMessageOpenedJSONsToSend = [ObvUICoreData.LimitedVisibilityMessageOpenedJSON]()
+    private(set) var limitedVisibilityMessageOpenedJSONsToSend = [ObvAppTypes.LimitedVisibilityMessageOpenedJSON]()
     private(set) var ownedCryptoId: ObvCryptoId?
     private(set) var ownedIdentityHasAnotherReachableDevice = false
     

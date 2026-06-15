@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -886,6 +886,23 @@ extension ObvFlowController: EditNicknameAndCustomPictureViewControllerDelegate 
 
 extension ObvFlowController: SingleDiscussionViewControllerDelegate {
     
+    func userWantsToForwardMessage(_ vc: any SomeSingleDiscussionViewController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        try await flowDelegate.userWantsToForwardMessage(self, identifierOfMessageToForwad: identifierOfMessageToForwad, identifiersOfDiscussionsWhereMessageShouldBeForwarded: identifiersOfDiscussionsWhereMessageShouldBeForwarded)
+    }
+    
+    
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: any SomeSingleDiscussionViewController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        try await flowDelegate.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+    }
+    
+
+    func userWantsToDeleteDraftAttachment(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws {
+        guard let flowDelegate else { assertionFailure(); return }
+        try await flowDelegate.userWantsToDeleteDraftAttachment(self, draftFyleJoinObjectID: draftFyleJoinObjectID)
+    }
+    
     func userTappedTitleOfDiscussion(_ vc: NewSingleDiscussionViewController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
         guard let flowDelegate else { assertionFailure(); return }
         do {
@@ -959,31 +976,39 @@ extension ObvFlowController: SingleDiscussionViewControllerDelegate {
     
 
     /// Called when the user taps on a mention in a single discussion view controller. In that case, we present the appropriate detail view controller, depending on the ``mentionableIdentity`` that was tapped.
-    func singleDiscussionViewController(_ viewController: any SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: ObvMentionableIdentityAttribute.Value) async {
+    func singleDiscussionViewController(_ viewController: any SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: ObvMentionAttribute.Value) async {
         
-        switch mentionableIdentity {
-            
-        case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
-            
-            userWantsToPresentMyId(ownedCryptoId: ownedCryptoId)
-            
-        case .contact(let contactIdentifier):
-            
+        if mentionableIdentity == self.currentOwnedCryptoId {
+            userWantsToPresentMyId(ownedCryptoId: currentOwnedCryptoId)
+        } else {
+            let contactIdentifier = ObvContactIdentifier(contactCryptoId: mentionableIdentity, ownedCryptoId: currentOwnedCryptoId)
             let root: ObvPresentedNavigationStack.NavigationStackRootView = .contactDetails(contactIdentifier: contactIdentifier)
             appNavigationRouter.presentNavigationStack(root: root, on: self)
-            
-        case .groupV2Member(groupIdentifier: let groupIdentifier, memberId: _):
-            
-            let root: ObvPresentedNavigationStack.NavigationStackRootView = .groupV2Details(groupV2Identifier: groupIdentifier)
-            appNavigationRouter.presentNavigationStack(root: root, on: self)
-            
         }
+        
+//        switch mentionableIdentity {
+//            
+//        case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
+//            
+//            userWantsToPresentMyId(ownedCryptoId: ownedCryptoId)
+//            
+//        case .contact(let contactIdentifier):
+//            
+//            let root: ObvPresentedNavigationStack.NavigationStackRootView = .contactDetails(contactIdentifier: contactIdentifier)
+//            appNavigationRouter.presentNavigationStack(root: root, on: self)
+//            
+//        case .groupV2Member(groupIdentifier: let groupIdentifier, memberId: _):
+//            
+//            let root: ObvPresentedNavigationStack.NavigationStackRootView = .groupV2Details(groupV2Identifier: groupIdentifier)
+//            appNavigationRouter.presentNavigationStack(root: root, on: self)
+//            
+//        }
     }
 
     
-    func userWantsToSendDraft(_ singleDiscussionViewController: any SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToSendDraft(_ singleDiscussionViewController: any SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws {
         guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
-        try await flowDelegate.userWantsToSendDraft(self, draftObjectID: draftObjectID, textBody: textBody, mentions: mentions)
+        try await flowDelegate.userWantsToSendDraft(self, draftObjectID: draftObjectID, textBody: textBody)
     }
     
 
@@ -999,15 +1024,9 @@ extension ObvFlowController: SingleDiscussionViewControllerDelegate {
     }
 
     
-    func userWantsToUpdateDraftBodyAndMentions(_ singleDiscussionViewController: any SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws {
+    func userWantsToUpdateDraftBodyAndMentions(_ singleDiscussionViewController: any SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws {
         guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
-        try await flowDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body, mentions: mentions)
-    }
-
-    
-    func userWantsToDeleteAttachmentsFromDraft(_ singleDiscussionViewController: any SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async {
-        guard let flowDelegate else { assertionFailure(); return }
-        await flowDelegate.userWantsToDeleteAttachmentsFromDraft(self, draftObjectID: draftObjectID, draftTypeToDelete: draftTypeToDelete)
+        try await flowDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body)
     }
 
     
@@ -1252,19 +1271,22 @@ extension ObvFlowController {
     }
 
     
-    func getNewSingleDiscussionViewController(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, initialScroll: NewSingleDiscussionViewController.InitialScroll) throws -> NewSingleDiscussionViewController {
-        guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else {
-            throw ObvFlowControllerError.couldNotFindDiscussion
-        }
-        assert(Thread.isMainThread)
-        let singleDiscussionVC = try NewSingleDiscussionViewController(
-            discussion: discussion,
-            delegate: self,
-            initialScroll: initialScroll,
-            avatarViewDataSource: self.dataSources.avatarViewDataSource,
-            messageReactionsViewDataSource: self.dataSources.messageReactionsViewDataSource)
-        singleDiscussionVC.hidesBottomBarWhenPushed = true
-        return singleDiscussionVC
+    func getNewSingleDiscussionViewController(
+        discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>,
+        initialScroll: NewSingleDiscussionViewController.InitialScroll) throws -> NewSingleDiscussionViewController {
+            guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else {
+                throw ObvFlowControllerError.couldNotFindDiscussion
+            }
+            assert(Thread.isMainThread)
+            let singleDiscussionVC = try NewSingleDiscussionViewController(
+                discussion: discussion,
+                delegate: self,
+                initialScroll: initialScroll,
+                composeViewDataSources: self.dataSources.composeViewDataSources,
+                avatarViewDataSource: self.dataSources.avatarViewDataSource,
+                messageReactionsViewDataSource: self.dataSources.messageReactionsViewDataSource)
+            singleDiscussionVC.hidesBottomBarWhenPushed = true
+            return singleDiscussionVC
     }
 
 }
@@ -1871,11 +1893,11 @@ protocol ObvFlowControllerDelegate: AnyObject {
     func userAskedToRefreshDiscussions() async throws
     func userWantsToInviteContactsToOneToOne(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws
     func userWantsToRemoveOneToOneInvitationSent(_ flowController: ObvFlowController, contactIdentifier: ObvTypes.ObvContactIdentifier) async throws
-    func userWantsToSendDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToSendDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws
     func userWantsToAddAttachmentsToDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
     func userWantsToAddAttachmentsToDraftFromURLs(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
-    func userWantsToUpdateDraftBodyAndMentions(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToDeleteAttachmentsFromDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
+    func userWantsToUpdateDraftBodyAndMentions(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws
+    func userWantsToDeleteDraftAttachment(_ flowController: ObvFlowController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws
     func userWantsToReplyToMessage(_ flowController: ObvFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
     func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ flowController: ObvFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
     func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ flowController: ObvFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
@@ -1945,5 +1967,13 @@ protocol ObvFlowControllerDelegate: AnyObject {
 
     func userWantsToDiscoverOlvidPlus(_ flowController: ObvFlowController)
     func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ flowController: ObvFlowController)
+
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: ObvFlowController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws
+
+    func userWantsToForwardMessage(_ vc: ObvFlowController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
+
+    /// Called when the user taps the "Allow Notifications" button inside the tip card. The delegate is responsible
+    /// for invoking the system authorization dialog.
+    func userWantsToRequestNotificationsAuthorization(_ vc: ObvFlowController)
 
 }

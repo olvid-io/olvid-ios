@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,10 +35,11 @@ public class PersistedPollVote: NSManagedObject {
     @NSManaged public private(set) var version: Int
     @NSManaged public private(set) var voted: Bool
     
-    // MARK: - Relationships
+    // Relationships
+    
     @NSManaged public private(set) var candidate: PersistedPollCandidate? // Non-optional in the model
     
-    // MARK: - Initializer
+    // Initializer
     
     fileprivate convenience init(version: Int, voted: Bool, pollCandidate: PersistedPollCandidate, timestamp: Date, forEntityName entityName: String) throws {
 
@@ -75,6 +76,24 @@ public class PersistedPollVote: NSManagedObject {
     }
 }
 
+// MARK: History transfer
+
+extension PersistedPollVote {
+    
+    static func createDuringHistoryTransfer(pollVote: ObvHistoryReceivedMessage.PollVote, candidate: PersistedPollCandidate) throws {
+        guard let ownedCryptoId = candidate.poll?.message?.discussion?.ownedIdentity?.cryptoId else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotDetermineOwnedCryptoId
+        }
+        if pollVote.sender == ownedCryptoId {
+            try PersistedPollVoteSent.createSentDuringHistoryTransfer(pollVote: pollVote, candidate: candidate)
+        } else {
+            try PersistedPollVoteReceived.createReceivedDuringHistoryTransfer(pollVote: pollVote, candidate: candidate)
+        }
+    }
+    
+}
+
 extension PersistedPollVote {
     
     struct Predicate {
@@ -96,6 +115,47 @@ extension PersistedPollVote {
             NSPredicate(Key.candidate, equalToObjectWithObjectID: objectID.objectID)
         }
         
+        static func whereVotedIs(_ bool: Bool) -> NSPredicate {
+            NSPredicate(Key.voted, is: bool)
+        }
+        
+        static func withPollInDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
+            let key: String = [
+                Key.candidate.rawValue,
+                PersistedPollCandidate.Predicate.Key.poll.rawValue,
+                PersistedPoll.Predicate.Key.message.rawValue,
+                PersistedMessage.Predicate.Key.discussion.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(key, equalToObjectWithObjectID: discussionObjectID.objectID)
+        }
+
+        static func withMessageLaterThan(_ date: Date) -> NSPredicate {
+            let key: String = [
+                Key.candidate.rawValue,
+                PersistedPollCandidate.Predicate.Key.poll.rawValue,
+                PersistedPoll.Predicate.Key.message.rawValue,
+                PersistedMessage.Predicate.Key.timestamp.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(key, laterThan: date)
+        }
+        
+        static func withMessageEarlierOrEqualTo(_ date: Date) -> NSPredicate {
+            let key: String = [
+                Key.candidate.rawValue,
+                PersistedPollCandidate.Predicate.Key.poll.rawValue,
+                PersistedPoll.Predicate.Key.message.rawValue,
+                PersistedMessage.Predicate.Key.timestamp.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(key, earlierOrEqualTo: date)
+        }
+        
+        static func withMessageInTimeInterval(startDate: Date, endDate: Date) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withMessageLaterThan(startDate),
+                withMessageEarlierOrEqualTo(endDate),
+            ])
+        }
+
     }
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedPollVote> {
@@ -139,6 +199,10 @@ extension PersistedPollVote {
 
 }
 
+
+
+// MARK: - PersistedPollVoteSent
+
 @objc(PersistedPollVoteSent)
 public final class PersistedPollVoteSent: PersistedPollVote {
     
@@ -148,17 +212,74 @@ public final class PersistedPollVoteSent: PersistedPollVote {
         try self.init(version: version, voted: voted, pollCandidate: pollCandidate, timestamp: timestamp, forEntityName: Self.entityName)
     }
     
+    @nonobjc public class func fetchRequest() -> NSFetchRequest<PersistedPollVoteSent> {
+        return NSFetchRequest<PersistedPollVoteSent>(entityName: entityName)
+    }
+
+    /// When a group member status changes from pending to non-pending, we need to send them the current users (sent) votes
+    /// relating to messages (sent or received) containing a Poll in the group during the member's pending period. This method returns these votes.
+    public static func getPollVoteSentOnGroupMessages(groupIdentifier: ObvGroupV2Identifier,
+                                                      dateInterval: PersistedGroupV2Member.DateInterval,
+                                                      within context: NSManagedObjectContext) throws -> [(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, version: Int, originalServerTimestamp: Date)] {
+        // Determine the objectID of the discussion associated to the group
+        guard let groupV2 = try PersistedGroupV2.get(groupIdentifier: groupIdentifier, within: context) else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+        }
+        guard let objectIDOfGroupDiscussion = groupV2.discussion?.typedObjectID else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotFindDiscussion
+        }
+        // Find all the sent votes associated to a message sent/received in the date interval in the discussion.
+        let request: NSFetchRequest<PersistedPollVoteSent> = PersistedPollVoteSent.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            PersistedPollVote.Predicate.withPollInDiscussion(discussionObjectID: objectIDOfGroupDiscussion.downcast),
+            PersistedPollVote.Predicate.withMessageInTimeInterval(startDate: dateInterval.startDate, endDate: dateInterval.endDate),
+            PersistedPollVote.Predicate.whereVotedIs(true),
+        ])
+        request.fetchBatchSize = 1_000
+        let fetchResults = try context.fetch(request)
+        let results: [(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, version: Int, originalServerTimestamp: Date)] = fetchResults.compactMap { voteSent in
+            guard voteSent.voted else { assertionFailure(); return nil }
+            guard let messageObjectID = voteSent.candidate?.poll?.message?.typedObjectID else { assertionFailure(); return nil }
+            guard let pollVoteCandidateUuid = voteSent.candidate?.uuid else { assertionFailure(); return nil }
+            let version = voteSent.version
+            let originalServerTimestamp = voteSent.timestamp
+            return (messageObjectID, pollVoteCandidateUuid, version, originalServerTimestamp)
+        }
+        return results
+    }
+
 }
+
+
+// MARK: History transfer
+
+extension PersistedPollVoteSent {
+    
+    fileprivate static func createSentDuringHistoryTransfer(pollVote: ObvHistoryReceivedMessage.PollVote, candidate: PersistedPollCandidate) throws {
+        _ = try self.init(version: pollVote.version,
+                          voted: pollVote.voted,
+                          timestamp: pollVote.timestamp,
+                          pollCandidate: candidate)
+    }
+    
+}
+
+
+// MARK: - PersistedPollVoteReceived
 
 @objc(PersistedPollVoteReceived)
 public final class PersistedPollVoteReceived: PersistedPollVote {
     
     private static let entityName = "PersistedPollVoteReceived"
     
-    // MARK: - Attributes
+    // Attributes
+    
     @NSManaged private(set) var contactIdentity: Data? // Non-optional in the model
     
-    // MARK: - Relationships
+    // Relationships
+    
     @NSManaged public private(set) var contact: PersistedObvContactIdentity? // Optional in the model
     
     /// Expected to be non-nil, even if the contact was deleted
@@ -224,4 +345,50 @@ public final class PersistedPollVoteReceived: PersistedPollVote {
         return try context.fetch(request)
     }
 
+}
+
+
+// MARK: History transfer
+
+extension PersistedPollVoteReceived {
+    
+    private convenience init(pollVote: ObvHistoryReceivedMessage.PollVote, candidate: PersistedPollCandidate) throws {
+
+        guard let context = candidate.managedObjectContext else {
+            assertionFailure()
+            throw ObvUICoreDataError.noContext
+        }
+        guard let ownedCryptoId = candidate.poll?.message?.discussion?.ownedIdentity?.cryptoId else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotDetermineOwnedCryptoId
+        }
+
+        try self.init(version: pollVote.version,
+                      voted: pollVote.voted,
+                      pollCandidate: candidate,
+                      timestamp: pollVote.timestamp,
+                      forEntityName: Self.entityName)
+        
+        // Attributes
+
+        self.contactIdentity = pollVote.sender.getIdentity()
+
+        // Relationships
+        
+        let contactIdentifier = ObvContactIdentifier(contactCryptoId: pollVote.sender, ownedCryptoId: ownedCryptoId)
+        if let persistedContact = try PersistedObvContactIdentity.get(
+            persisted: contactIdentifier,
+            whereOneToOneStatusIs: .any,
+            within: context) {
+            self.contact = persistedContact
+        } else {
+            self.contact = nil
+        }
+        
+    }
+
+    fileprivate static func createReceivedDuringHistoryTransfer(pollVote: ObvHistoryReceivedMessage.PollVote, candidate: PersistedPollCandidate) throws {
+        _ = try self.init(pollVote: pollVote, candidate: candidate)
+    }
+    
 }

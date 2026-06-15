@@ -48,7 +48,7 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
     @NSManaged private var rawBlobVersionSeed: Data? // nil iff the group is a keycloak managed group
     @NSManaged private var rawCategory: Int  // Part of GroupV2.Identifier, part of primary key
     @NSManaged private var rawGroupUID: Data  // Part of GroupV2.Identifier, part of primary key
-    @NSManaged private var rawLastModificationTimestamp: Date? // Non nil for keycloak groups only
+    @NSManaged private var rawLastModificationTimestamp: Date? // Timestamp of the last modification to this group. Initially set only for keycloak groups, but now recorded for all groups. Note: legacy (older) non-keycloak groups may still have a nil value.
     @NSManaged fileprivate var rawOwnedIdentityIdentity: Data // Part of primary key
     @NSManaged private var rawOwnPermissions: String // Permission strings joined with a "|"
     @NSManaged private var rawPushTopic: String? // Non-nil iff this is a keycloak group
@@ -203,7 +203,7 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
     
     private(set) var lastModificationTimestamp: Date {
         get {
-            return rawLastModificationTimestamp ?? .distantPast
+            return rawLastModificationTimestamp ?? .now
         }
         set {
             guard rawLastModificationTimestamp != newValue else { return }
@@ -267,7 +267,21 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
         
     // MARK: - Initializer
     
-    private convenience init(frozen: Bool, groupIdentifier: GroupV2.Identifier, rawOwnPermissions: Set<String>, verifiedAdministratorsChain: GroupV2.AdministratorsChain?, groupVersion: Int, blobMainSeed: Seed?, blobVersionSeed: Seed?, ownGroupInvitationNonce: Data, ownedIdentity: OwnedIdentity, trustedDetails: ContactGroupV2Details, otherGroupMembers: Set<GroupV2.IdentityAndPermissionsAndDetails>, serializedGroupType: Data?, groupAdminServerAuthenticationPrivateKey: PrivateKeyForAuthentication?, serializedSharedSettings: String?, lastModificationTimestamp: Date?) throws {
+    private convenience init(frozen: Bool,
+                             groupIdentifier: GroupV2.Identifier,
+                             rawOwnPermissions: Set<String>,
+                             verifiedAdministratorsChain: GroupV2.AdministratorsChain?,
+                             groupVersion: Int,
+                             blobMainSeed: Seed?,
+                             blobVersionSeed: Seed?,
+                             ownGroupInvitationNonce: Data,
+                             ownedIdentity: OwnedIdentity,
+                             trustedDetails: ContactGroupV2Details,
+                             otherGroupMembers: Set<GroupV2.IdentityAndPermissionsAndDetails>,
+                             serializedGroupType: Data?,
+                             groupAdminServerAuthenticationPrivateKey: PrivateKeyForAuthentication?,
+                             serializedSharedSettings: String?,
+                             lastModificationTimestamp: Date) throws {
         
         guard let context = ownedIdentity.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "No context in owned identity") }
 
@@ -394,7 +408,7 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
         self.rawServerURL = groupIdentifier.serverURL
         self.rawVerifiedAdministratorsChain = snapshotNode.rawVerifiedAdministratorsChain
         self.serializedSharedSettings = snapshotNode.serializedSharedSettings
-        self.rawLastModificationTimestamp = snapshotNode.lastModificationTimestamp // Set iff keycloak group
+        self.rawLastModificationTimestamp = snapshotNode.lastModificationTimestamp
         self.serializedGroupType = snapshotNode.serializedGroupType?.data(using: .utf8)
 
         switch groupIdentifier.category {
@@ -501,7 +515,7 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
                                   serializedGroupType: serializedGroupType,
                                   groupAdminServerAuthenticationPrivateKey: privateKey,
                                   serializedSharedSettings: nil,
-                                  lastModificationTimestamp: nil)
+                                  lastModificationTimestamp: .now)
         
         // Set an appropriate value for the initiator
         
@@ -513,7 +527,12 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
 
     
     /// Called when joigning a new group (we may be an administrator or not but if we are, we certainly did not create the group). This method is *not* the one to call when restoring a backup.
-    static func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: OwnedIdentity, groupIdentifier: GroupV2.Identifier, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys, createdByMeOnOtherDevice: Bool) throws {
+    static func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: OwnedIdentity,
+                                                          groupIdentifier: GroupV2.Identifier,
+                                                          serverBlob: GroupV2.ServerBlob,
+                                                          blobKeys: GroupV2.BlobKeys,
+                                                          createdByMeOnOtherDevice: Bool,
+                                                          lastModificationTimestamp: Date) throws {
         
         guard let context = ownedIdentity.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Cannot find context in OwnedIdentity") }
         
@@ -562,7 +581,7 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
                                   serializedGroupType: serverBlob.serializedGroupType,
                                   groupAdminServerAuthenticationPrivateKey: blobKeys.groupAdminServerAuthenticationPrivateKey,
                                   serializedSharedSettings: nil,
-                                  lastModificationTimestamp: nil)
+                                  lastModificationTimestamp: lastModificationTimestamp)
         
         // Set an appropriate value for the initiator
         
@@ -979,7 +998,7 @@ extension ContactGroupV2 {
     /// Note that, if these versions are equal, we do *not* accept any member or pending member insertion, nor any member or pending member update. We only allow member or pending member deletions.
     ///
     /// This method returns a set of the identities of the members that have been inserted or that have a new nonce. Eventually, this set is sent back to the group V2 management protocol so as to ping all these members.
-    func updateGroupV2(newBlobKeys: GroupV2.BlobKeys, consolidatedServerBlob: GroupV2.ServerBlob, groupUpdatedByOwnedIdentity: Bool) throws -> Set<ObvCryptoIdentity> {
+    func updateGroupV2(newBlobKeys: GroupV2.BlobKeys, consolidatedServerBlob: GroupV2.ServerBlob, groupUpdatedByOwnedIdentity: Bool, lastModificationTimestamp: Date) throws -> Set<ObvCryptoIdentity> {
         
         guard let context = self.managedObjectContext else { throw Self.makeError(message: "Cannot update group as it has no context") }
 
@@ -991,6 +1010,7 @@ extension ContactGroupV2 {
         self.blobMainSeed = newBlobKeys.blobMainSeed
         self.blobVersionSeed = newBlobKeys.blobVersionSeed
         self.groupAdminServerAuthenticationPrivateKey = newBlobKeys.groupAdminServerAuthenticationPrivateKey
+        self.lastModificationTimestamp = lastModificationTimestamp
         
         guard consolidatedServerBlob.administratorsChain.integrityChecked else { throw Self.makeError(message: "Cannot update group if the administrators chain is not checked") }
         guard let knownVerifiedAdministratorsChain = self.verifiedAdministratorsChain else {
@@ -1779,6 +1799,7 @@ extension ContactGroupV2 {
                                             rawGroupUID: self.rawGroupUID,
                                             rawOwnPermissions: self.rawOwnPermissions,
                                             rawServerURL: self.rawServerURL,
+                                            lastModificationTimestamp: self.rawLastModificationTimestamp ?? .now,
                                             rawGroupAdminServerAuthenticationPrivateKey: self.rawGroupAdminServerAuthenticationPrivateKey,
                                             rawVerifiedAdministratorsChain: rawVerifiedAdministratorsChain,
                                             rawOtherMembers: self.rawOtherMembers,
@@ -1829,7 +1850,7 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
     fileprivate let rawVerifiedAdministratorsChain: Data?
     fileprivate let serializedSharedSettings: String?
     fileprivate let serializedGroupType: String?
-    fileprivate let lastModificationTimestamp: Date?
+    fileprivate let lastModificationTimestamp: Date
     fileprivate let rawOtherMembers: Set<ContactGroupV2MemberBackupItem>
     fileprivate let rawPendingMembers: Set<ContactGroupV2PendingMemberBackupItem>
     fileprivate let rawPublishedDetails: ContactGroupV2DetailsBackupItem?
@@ -1842,7 +1863,22 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
     static let errorDomain = "ContactGroupV2BackupItem"
 
     // Backuping a server group
-    fileprivate init(groupVersion: Int, ownGroupInvitationNonce: Data, rawBlobMainSeed: Data, rawBlobVersionSeed: Data, rawCategory: Int, rawGroupUID: Data, rawOwnPermissions: String, rawServerURL: URL, rawGroupAdminServerAuthenticationPrivateKey: Data?, rawVerifiedAdministratorsChain: Data, rawOtherMembers: Set<ContactGroupV2Member>, rawPendingMembers: Set<ContactGroupV2PendingMember>, rawPublishedDetails: ContactGroupV2Details?, rawTrustedDetails: ContactGroupV2Details, serializedGroupeType: String?) {
+    fileprivate init(groupVersion: Int,
+                     ownGroupInvitationNonce: Data,
+                     rawBlobMainSeed: Data,
+                     rawBlobVersionSeed: Data,
+                     rawCategory: Int,
+                     rawGroupUID: Data,
+                     rawOwnPermissions: String,
+                     rawServerURL: URL,
+                     lastModificationTimestamp: Date,
+                     rawGroupAdminServerAuthenticationPrivateKey: Data?,
+                     rawVerifiedAdministratorsChain: Data,
+                     rawOtherMembers: Set<ContactGroupV2Member>,
+                     rawPendingMembers: Set<ContactGroupV2PendingMember>,
+                     rawPublishedDetails: ContactGroupV2Details?,
+                     rawTrustedDetails: ContactGroupV2Details,
+                     serializedGroupeType: String?) {
         assert(rawCategory == GroupV2.Identifier.Category.server.rawValue)
         self.groupVersion = groupVersion
         self.ownGroupInvitationNonce = ownGroupInvitationNonce
@@ -1856,7 +1892,7 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
         self.rawServerURL = rawServerURL
         self.rawVerifiedAdministratorsChain = rawVerifiedAdministratorsChain
         self.serializedSharedSettings = nil
-        self.lastModificationTimestamp = nil
+        self.lastModificationTimestamp = lastModificationTimestamp
         self.rawOtherMembers = Set(rawOtherMembers.compactMap({ $0.backupItem }))
         self.rawPendingMembers = Set(rawPendingMembers.map({ $0.backupItem }))
         self.rawPublishedDetails = rawPublishedDetails?.backupItem
@@ -1866,7 +1902,19 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
 
     
     // Backuping a keycloak group
-    fileprivate init(groupVersion: Int, ownGroupInvitationNonce: Data, rawPushTopic: String?, rawCategory: Int, rawGroupUID: Data, rawOwnPermissions: String, rawServerURL: URL, serializedSharedSettings: String?, lastModificationTimestamp: Date, rawOtherMembers: Set<ContactGroupV2Member>, rawPendingMembers: Set<ContactGroupV2PendingMember>, rawPublishedDetails: ContactGroupV2Details?, rawTrustedDetails: ContactGroupV2Details) {
+    fileprivate init(groupVersion: Int,
+                     ownGroupInvitationNonce: Data,
+                     rawPushTopic: String?,
+                     rawCategory: Int,
+                     rawGroupUID: Data,
+                     rawOwnPermissions: String,
+                     rawServerURL: URL,
+                     serializedSharedSettings: String?,
+                     lastModificationTimestamp: Date,
+                     rawOtherMembers: Set<ContactGroupV2Member>,
+                     rawPendingMembers: Set<ContactGroupV2PendingMember>,
+                     rawPublishedDetails: ContactGroupV2Details?,
+                     rawTrustedDetails: ContactGroupV2Details) {
         assert(rawCategory == GroupV2.Identifier.Category.keycloak.rawValue)
         self.groupVersion = groupVersion
         self.ownGroupInvitationNonce = ownGroupInvitationNonce
@@ -1922,9 +1970,7 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
         try container.encode(rawCategory, forKey: .rawCategory)
         try container.encodeIfPresent(rawGroupAdminServerAuthenticationPrivateKey, forKey: .rawGroupAdminServerAuthenticationPrivateKey)
         try container.encode(rawGroupUID, forKey: .rawGroupUID)
-        if let lastModificationTimestampInMs = lastModificationTimestamp?.epochInMs {
-            try container.encode(lastModificationTimestampInMs, forKey: .lastModificationTimestamp)
-        }
+        try container.encode(lastModificationTimestamp.epochInMs, forKey: .lastModificationTimestamp)
         try container.encode(rawOwnPermissions, forKey: .rawOwnPermissions)
         try container.encodeIfPresent(rawPushTopic, forKey: .rawPushTopic)
         try container.encode(rawServerURL, forKey: .rawServerURL)
@@ -1961,7 +2007,8 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
         if let lastModificationTimestampInMs = try values.decodeIfPresent(Int.self, forKey: .lastModificationTimestamp) {
             self.lastModificationTimestamp = Date(epochInMs: Int64(lastModificationTimestampInMs))
         } else {
-            self.lastModificationTimestamp = nil
+            // This happens when the group was backuped at a time where we did not store a `lastModificationTimestamp` for non-keycloak groups (this changed around 12/2025).
+            self.lastModificationTimestamp = .now
         }
         self.rawOwnPermissions = try values.decode([String].self, forKey: .rawOwnPermissions)
         self.rawPushTopic = try values.decodeIfPresent(String.self, forKey: .rawPushTopic)
@@ -2052,6 +2099,7 @@ extension ContactGroupV2 {
                          rawBlobMainSeed: rawBlobMainSeed,
                          rawBlobVersionSeed: rawBlobVersionSeed,
                          rawOwnPermissions: rawOwnPermissions,
+                         lastModificationTimestamp: rawLastModificationTimestamp ?? .now,
                          rawGroupAdminServerAuthenticationPrivateKey: rawGroupAdminServerAuthenticationPrivateKey,
                          rawVerifiedAdministratorsChain: rawVerifiedAdministratorsChain,
                          rawOtherMembers: rawOtherMembers,
@@ -2090,7 +2138,7 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
     fileprivate let rawBlobVersionSeed: Data?
     fileprivate let rawGroupAdminServerAuthenticationPrivateKey: Data?
     fileprivate let ownGroupInvitationNonce: Data?
-    fileprivate let lastModificationTimestamp: Date?
+    fileprivate let lastModificationTimestamp: Date
     fileprivate let rawPushTopic: String?
     fileprivate let serializedSharedSettings: String?
     fileprivate let serializedGroupType: String?
@@ -2145,7 +2193,19 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
 
 
     /// Snapshoting a server group
-    fileprivate init(groupVersion: Int, ownGroupInvitationNonce: Data, rawBlobMainSeed: Data, rawBlobVersionSeed: Data, rawOwnPermissions: String, rawGroupAdminServerAuthenticationPrivateKey: Data?, rawVerifiedAdministratorsChain: Data, rawOtherMembers: Set<ContactGroupV2Member>, rawPendingMembers: Set<ContactGroupV2PendingMember>, serializedGroupType: String?, rawPublishedDetails: ContactGroupV2Details?, rawTrustedDetails: ContactGroupV2Details) {
+    fileprivate init(groupVersion: Int,
+                     ownGroupInvitationNonce: Data,
+                     rawBlobMainSeed: Data,
+                     rawBlobVersionSeed: Data,
+                     rawOwnPermissions: String,
+                     lastModificationTimestamp: Date,
+                     rawGroupAdminServerAuthenticationPrivateKey: Data?,
+                     rawVerifiedAdministratorsChain: Data,
+                     rawOtherMembers: Set<ContactGroupV2Member>,
+                     rawPendingMembers: Set<ContactGroupV2PendingMember>,
+                     serializedGroupType: String?,
+                     rawPublishedDetails: ContactGroupV2Details?,
+                     rawTrustedDetails: ContactGroupV2Details) {
         self.groupVersion = groupVersion
         self.ownGroupInvitationNonce = ownGroupInvitationNonce
         self.rawBlobMainSeed = rawBlobMainSeed
@@ -2155,7 +2215,7 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
         self.rawPushTopic = nil
         self.rawVerifiedAdministratorsChain = rawVerifiedAdministratorsChain
         self.serializedSharedSettings = nil
-        self.lastModificationTimestamp = nil // Only used for keycloak groups
+        self.lastModificationTimestamp = lastModificationTimestamp
         // rawOtherMembers
         do {
             let keysAndValues: [(ObvCryptoId, ContactGroupV2MemberSyncSnapshotItem)] = rawOtherMembers.compactMap({
@@ -2180,7 +2240,16 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
 
     
     /// Snapshoting a keycloak group
-    fileprivate init(groupVersion: Int, ownGroupInvitationNonce: Data, rawPushTopic: String?, rawOwnPermissions: String, serializedSharedSettings: String?, lastModificationTimestamp: Date, rawOtherMembers: Set<ContactGroupV2Member>, rawPendingMembers: Set<ContactGroupV2PendingMember>, rawPublishedDetails: ContactGroupV2Details?, rawTrustedDetails: ContactGroupV2Details) {
+    fileprivate init(groupVersion: Int,
+                     ownGroupInvitationNonce: Data,
+                     rawPushTopic: String?,
+                     rawOwnPermissions: String,
+                     serializedSharedSettings: String?,
+                     lastModificationTimestamp: Date,
+                     rawOtherMembers: Set<ContactGroupV2Member>,
+                     rawPendingMembers: Set<ContactGroupV2PendingMember>,
+                     rawPublishedDetails: ContactGroupV2Details?,
+                     rawTrustedDetails: ContactGroupV2Details) {
         self.groupVersion = groupVersion
         self.ownGroupInvitationNonce = ownGroupInvitationNonce
         self.rawBlobMainSeed = nil
@@ -2224,9 +2293,7 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
         try container.encodeIfPresent(rawBlobMainSeed, forKey: .rawBlobMainSeed)
         try container.encodeIfPresent(rawBlobVersionSeed, forKey: .rawBlobVersionSeed)
         try container.encodeIfPresent(rawGroupAdminServerAuthenticationPrivateKey, forKey: .rawGroupAdminServerAuthenticationPrivateKey)
-        if let lastModificationTimestampInMs = lastModificationTimestamp?.epochInMs {
-            try container.encode(lastModificationTimestampInMs, forKey: .lastModificationTimestamp)
-        }
+        try container.encode(lastModificationTimestamp.epochInMs, forKey: .lastModificationTimestamp)
         try container.encode(rawOwnPermissions, forKey: .rawOwnPermissions)
         try container.encodeIfPresent(rawPushTopic, forKey: .rawPushTopic)
         try container.encodeIfPresent(rawVerifiedAdministratorsChain, forKey: .rawVerifiedAdministratorsChain)
@@ -2271,7 +2338,8 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
             if let lastModificationTimestampInMs = try values.decodeIfPresent(Int.self, forKey: .lastModificationTimestamp) {
                 self.lastModificationTimestamp = Date(epochInMs: Int64(lastModificationTimestampInMs))
             } else {
-                self.lastModificationTimestamp = nil
+                // This happens when the group was backuped at a time where we did not store a `lastModificationTimestamp` for non-keycloak groups (this changed around 12/2025).
+                self.lastModificationTimestamp = .now
             }
             self.rawOwnPermissions = try values.decodeIfPresent([String].self, forKey: .rawOwnPermissions) ?? []
             self.rawPushTopic = try values.decodeIfPresent(String.self, forKey: .rawPushTopic)

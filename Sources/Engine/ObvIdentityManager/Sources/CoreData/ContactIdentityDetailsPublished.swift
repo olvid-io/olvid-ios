@@ -42,6 +42,8 @@ final class ContactIdentityDetailsPublished: ContactIdentityDetails, ObvErrorMak
     
     // MARK: Other variables
         
+    private var isInsertedWhileRestoringSyncSnapshot = false
+    
     // MARK: - Initializer
     
     convenience init?(contactIdentity: ContactIdentity, contactIdentityDetailsElements: IdentityDetailsElements) {
@@ -72,6 +74,7 @@ final class ContactIdentityDetailsPublished: ContactIdentityDetails, ObvErrorMak
                   photoServerKeyAndLabel: snapshotNode.photoServerKeyAndLabel,
                   entityName: ContactIdentityDetailsPublished.entityName,
                   within: context)
+        self.isInsertedWhileRestoringSyncSnapshot = true
     }
 
     // MARK: - Observers
@@ -141,6 +144,17 @@ extension ContactIdentityDetailsPublished {
     
     override func didSave() {
         super.didSave()
+        
+        defer {
+            isInsertedWhileRestoringSyncSnapshot = false
+        }
+        
+        
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            Self.logger.info("Insertion during a snapshot restore --> we don't send any notification")
+            return
+        }
         
         guard !isDeleted else {
             return

@@ -724,7 +724,6 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
                  .couldNotRetrieveAnHTTPResponse,
                  .sessionInvalidationError,
                  .couldNotSaveContext,
-                 .atLeastOneChunkIsNotYetAvailableOnServer,
                  .couldNotOpenEncryptedChunkFile,
                  .markChunkAsWrittenToAttachmentFileOperationFailed,
                  .unsupportedHTTPErrorStatusCode:
@@ -748,10 +747,17 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
                 try await resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: .specificDownloadableAttachmentsWithoutSession(attachmentId: attachmentId, resumeRequestedByApp: false), flowId: flowId)
                 return
                 
-            case .cannotFindAttachmentInDatabase:
-                // We do nothing
+            case .attachmentNoLongerAvailable:
+                
+                let op1 = MarkAttachmentAsDeletedFromServerOperation(attachmentId: attachmentId)
+                try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+
+                failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
                 downloadAttachmentTask.removeValue(forKey: attachmentId)
-                return
+
+                // The attachment was deleted from server, and we marked it as cancelledFromServer in database.
+                // The networkFetchFlowDelegate that we notify will notify the app. Then, the app will request the deletion of this attachment.
+                delegateManager.networkFetchFlowDelegate.attachmentWasCancelledByServer(attachmentId: attachmentId, flowId: flowId)
 
             }
 

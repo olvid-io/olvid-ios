@@ -367,12 +367,28 @@ extension OwnedIdentity {
     
 
     func bindToKeycloak(keycloakState: ObvKeycloakState) throws {
-        // If there is a previous keycloak server, we unbind from this old server before setting the new one
-        if self.keycloakServer != nil {
-            try unbindFromKeycloak(isUnbindRequestByUser: true)
+
+        if let existingKeycloakServer = self.keycloakServer {
+            
+            if existingKeycloakServer.serverURL == keycloakState.keycloakServer &&
+                existingKeycloakServer.clientId == keycloakState.clientId &&
+                existingKeycloakServer.clientSecret == keycloakState.clientSecret {
+                
+                // The previous keycloak server has the exact same "QR code fields" than the new one.
+                // The user is trying to bind to the same server again, there is nothing to do.
+                return
+                
+            } else {
+
+                try unbindFromKeycloak(isUnbindRequestByUser: true)
+
+            }
+            
         }
+        
         self.keycloakServer = try KeycloakServer(keycloakState: keycloakState, managedOwnedIdentity: self)
         refreshCertifiedByOwnKeycloakAndTrustedDetailsForAllContacts()
+        
     }
     
     

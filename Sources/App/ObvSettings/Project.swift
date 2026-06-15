@@ -18,6 +18,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.App.obvAppTypes,
         .Olvid.App.ObvUserNotifications.sounds,
         .Olvid.App.obvAppCoreConstants,
+        .Olvid.App.obvSystemIcon,
     ])
 
 

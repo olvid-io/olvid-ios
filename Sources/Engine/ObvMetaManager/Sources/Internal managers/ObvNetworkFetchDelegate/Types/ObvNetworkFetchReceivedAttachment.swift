@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,12 +23,12 @@ import ObvTypes
 
 public struct ObvNetworkFetchReceivedAttachment: Equatable, Hashable {
     
-    public enum Status: Int, CustomDebugStringConvertible {
-        case paused = 0
-        case resumed = 1
-        case downloaded = 2
-        case cancelledByServer = 3
-        case markedForDeletion = 4
+    public enum Status: Hashable, Equatable, CustomDebugStringConvertible {
+        case paused(expectedTotalUnitCount: Int64)
+        case resumed(expectedTotalUnitCount: Int64) // expectedTotalUnitCount is the number of bytes of the plaintext
+        case downloaded(url: URL, totalUnitCount: Int64) // totalUnitCount is the number of bytes of the plaintext
+        case cancelledByServer
+        case markedForDeletion
         
         public var debugDescription: String {
             switch self {
@@ -39,27 +39,22 @@ public struct ObvNetworkFetchReceivedAttachment: Equatable, Hashable {
             case .markedForDeletion: return "Marked for deletion"
             }
         }
-        
     }
-    
+
     
     public let fromCryptoIdentity: ObvCryptoIdentity
     public let attachmentId: ObvAttachmentIdentifier
     public let metadata: Data
-    public let totalUnitCount: Int64 // Bytes of the plaintext
-    public let url: URL
     public let status: Status
     public let messageUploadTimestampFromServer: Date
     public let downloadTimestampFromServer: Date
     
-    public init(fromCryptoIdentity: ObvCryptoIdentity, attachmentId: ObvAttachmentIdentifier, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, metadata: Data, totalUnitCount: Int64, url: URL, status: Status) {
+    public init(fromCryptoIdentity: ObvCryptoIdentity, attachmentId: ObvAttachmentIdentifier, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, metadata: Data, status: Status) {
         self.fromCryptoIdentity = fromCryptoIdentity
         self.attachmentId = attachmentId
         self.metadata = metadata
-        self.url = url
         self.status = status
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer
-        self.totalUnitCount = totalUnitCount
         self.downloadTimestampFromServer = downloadTimestampFromServer
     }
 }

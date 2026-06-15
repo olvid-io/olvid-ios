@@ -29,6 +29,7 @@ import ObvUIObvCircledInitials
 import ObvSettings
 import ObvAppTypes
 import ObvUICoreDataStructs
+import ObvDesignSystem
 
 
 @objc(PersistedObvContactIdentity)
@@ -1943,6 +1944,18 @@ extension PersistedObvContactIdentity {
         }
     }
     
+    
+    /// Used during a zip export, to save the contacts display names in the json file.
+    public static func getContactDisplayNames(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, within context: NSManagedObjectContext) throws -> [ObvCryptoId: String] {
+        var results = [ObvCryptoId: String]()
+        for contactCryptoId in contactCryptoIds {
+            if let contact = try? Self.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: context) {
+                results[contactCryptoId] = contact.fullDisplayName
+            }
+        }
+        return results
+    }
+    
 }
 
 
@@ -2256,6 +2269,17 @@ extension PersistedObvContactIdentity {
                     .postOnDispatchQueue()
             }
 
+            if changedKeys.contains(Predicate.Key.atLeastOneDeviceAllowsThisContactToReceiveMessages.rawValue), self.atLeastOneDeviceAllowsThisContactToReceiveMessages {
+                do {
+                    let contactIdentifier = try self.obvContactIdentifier
+                    Task {
+                        await Self.observersHolder.contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: contactIdentifier)
+                    }
+                } catch {
+                    assertionFailure()
+                }
+            }
+            
             // Potentially notify that the previous backed up profile snapshot is obsolete.
             // We only notify in case of a change. Insertion/Deletion are notified by
             // the engine.
@@ -2288,52 +2312,72 @@ public typealias ContactPermanentID = ObvManagedObjectPermanentID<PersistedObvCo
 // MARK: - MentionableIdentity
 
 /// Allows a `PersistedObvContactIdentity` to be displayed in the views showing mentions.
-extension PersistedObvContactIdentity: MentionableIdentity {
-    
-    public var mentionnedCryptoId: ObvCryptoId? {
-        return self.cryptoId
-    }
-    
-    public var mentionSearchMatcher: String {
-        return sortDisplayName
-    }
-
-    public var mentionPickerTitle: String {
-        if let customDisplayName {
-            return customDisplayName
-        }
-
-        return mentionPersistedName
-    }
-
-    public var mentionPickerSubtitle: String? {
-        if customDisplayName == nil {
-            return nil
-        }
-
-        return mentionPersistedName
-    }
-
-    public var mentionPersistedName: String {
-        guard identityCoreDetails != nil else {
-            assertionFailure("not linked identityCoreDetails, assuming this has been cascade deleted?")
-
-            return ""
-        }
-
-        let components = PersonNameComponents()..{
-            $0.givenName = firstName
-            $0.familyName = lastName
-        }
-
-        return PersonNameComponentsFormatter.localizedString(from: components,
-                                                             style: .default)
-    }
-
-    public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
-        return .contact(typedObjectID)
-    }
-}
+//extension PersistedObvContactIdentity: MentionableIdentity {
+//    
+//    public var mentionnedCryptoId: ObvCryptoId? {
+//        return self.cryptoId
+//    }
+//    
+//    public var mentionSearchMatcher: String {
+//        return sortDisplayName
+//    }
+//
+//    public var mentionPickerTitle: String {
+//        if let customDisplayName {
+//            return customDisplayName
+//        }
+//
+//        return mentionPersistedName
+//    }
+//
+//    public var mentionPickerSubtitle: String? {
+//        if customDisplayName == nil {
+//            return nil
+//        }
+//
+//        return mentionPersistedName
+//    }
+//
+//    public var mentionPersistedName: String {
+//        guard identityCoreDetails != nil else {
+//            assertionFailure("not linked identityCoreDetails, assuming this has been cascade deleted?")
+//
+//            return ""
+//        }
+//
+//        let components = PersonNameComponents()..{
+//            $0.givenName = firstName
+//            $0.familyName = lastName
+//        }
+//
+//        return PersonNameComponentsFormatter.localizedString(from: components,
+//                                                             style: .default)
+//    }
+//
+//    public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
+//        return .contact(typedObjectID)
+//    }
+//    
+//    public var avatar: ObvAvatarViewModel {
+//        let character = self.customOrFullDisplayName.first
+//        let characterOrIcon: ObvAvatarViewModel.CharacterOrIcon
+//        if let character {
+//            characterOrIcon = .character(character)
+//        } else {
+//            characterOrIcon = .icon(.person)
+//        }
+//
+//        let backgroundColor = circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared)
+//        let foregroundColor = circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared)
+//        let colors = ObvDesignSystem.ObvAvatarViewModel.Colors(foreground: foregroundColor, background: backgroundColor)
+//
+//        let photoURL = customPhotoURL ?? photoURL
+//        
+//        return .init(characterOrIcon: characterOrIcon,
+//                     colors: colors,
+//                     photoURL: photoURL)
+//    }
+//}
 
 
 // MARK: - For snapshot purposes
@@ -2449,6 +2493,7 @@ public extension NSFetchedResultsController<PersistedObvContactIdentity> {
 
 public protocol PersistedObvContactIdentityObserver: AnyObject, Sendable {
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ObvCryptoId) async
+    func contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: ObvContactIdentifier) async
 }
 
 
@@ -2473,6 +2518,14 @@ private actor ObserversHolder: PersistedObvContactIdentityObserver {
         await withTaskGroup(of: Void.self) { taskGroup in
             for observer in observers.compactMap(\.value) {
                 taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+    
+    func contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: ObvContactIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: contactIdentifier) }
             }
         }
     }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,7 @@ import ObvUICoreDataStructs
 extension PersistedUserMention {
         
     public func toStructure() throws -> PersistedUserMentionStructure {
-        .init(mentionedCryptoId: try self.mentionnedCryptoId)
+        .init(mentionedCryptoId: try self.mentionedCryptoId)
     }
 
 }

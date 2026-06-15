@@ -68,7 +68,9 @@ struct CurrentDeviceNameChooserView: View {
                     Spacer()
                 }.opacity(isInterfaceDisabled ? 1.0 : 0.0)
 
-                InternalButton("ONBOARDING_DEVICE_NAME_CHOOSER_BUTTON_TITLE", action: userDidChooseCurrentDeviceName)
+                OlvidButtonNew(action: userDidChooseCurrentDeviceName) {
+                    Text("ONBOARDING_DEVICE_NAME_CHOOSER_BUTTON_TITLE")
+                }
                 .disabled(isButtonDisabled)
                 .padding(.top, 20)
                                 
@@ -82,34 +84,6 @@ struct CurrentDeviceNameChooserView: View {
             deviceName = String(localizedInThisBundle: "MY_DEVICE_NAME_\(model.defaultDeviceName)")
         }
         .disabled(isInterfaceDisabled)
-    }
-    
-}
-
-
-// MARK: - Button used in this view only
-
-private struct InternalButton: View {
-    
-    private let key: LocalizedStringKey
-    private let action: () -> Void
-    @Environment(\.isEnabled) var isEnabled
-    
-    init(_ key: LocalizedStringKey, action: @escaping () -> Void) {
-        self.key = key
-        self.action = action
-    }
-        
-    var body: some View {
-        Button(action: action) {
-            Text(key)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 30)
-                .padding(.vertical, 24)
-        }
-        .background(Color.blue01)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
     }
     
 }

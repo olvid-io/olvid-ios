@@ -904,7 +904,7 @@ extension DataSourceAndActionsForPreviews: ObvProfilePictureBarButtonItemViewDat
 
 extension DataSourceAndActionsForPreviews: OwnedIdentityChooserViewDataSource {
     
-    func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) throws -> (streamUUID: UUID, stream: AsyncStream<ObvOwnedIdentityChooser.OwnedIdentityChooserViewModel>) {
+    func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserInnerView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) throws -> (streamUUID: UUID, stream: AsyncStream<ObvOwnedIdentityChooser.OwnedIdentityChooserViewModel>) {
         let stream = AsyncStream(OwnedIdentityChooserViewModel.self) { (continuation: AsyncStream<OwnedIdentityChooserViewModel>.Continuation) in
             let model = OwnedIdentityChooserViewModel.sampleData
             continuation.yield(model)
@@ -912,7 +912,7 @@ extension DataSourceAndActionsForPreviews: OwnedIdentityChooserViewDataSource {
         return (UUID(), stream)
     }
     
-    func finishAsyncStreamOfOwnedIdentityChooserViewModel(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, streamUUID: UUID) {
+    func finishAsyncStreamOfOwnedIdentityChooserViewModel(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserInnerView, streamUUID: UUID) {
         // Nothing to finish in previews
     }
     

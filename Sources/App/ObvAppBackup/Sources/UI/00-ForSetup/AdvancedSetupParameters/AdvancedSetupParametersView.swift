@@ -172,18 +172,9 @@ struct AdvancedSetupParametersView: View {
                     }
                 }
                 
-                Button {
-                    validateButtonTapped()
-                } label: {
-                    HStack {
-                        Spacer()
-                        Text("VALIDATE")
-                            .fontWeight(.bold)
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                }
-                .buttonStyle(.borderedProminent)
+                OlvidButtonNew(action: validateButtonTapped) {
+                    Text("VALIDATE")
+                }                
                 .padding()
 
             }

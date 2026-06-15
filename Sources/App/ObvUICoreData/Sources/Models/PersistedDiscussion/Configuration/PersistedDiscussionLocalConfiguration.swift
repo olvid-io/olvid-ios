@@ -451,6 +451,17 @@ extension PersistedDiscussionLocalConfiguration {
             cacheName: nil)
     }
     
+    
+    /// Since this method performs a fetch, we ensure it performs it on the appropriate thread. This is required as this method is often called from the main thread, but with a background context.
+    public static func getFetchedResultsController(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, within context: NSManagedObjectContext) async throws -> NSFetchedResultsController<PersistedDiscussionLocalConfiguration> {
+        try await context.perform {
+            guard let discussionObjectID = try PersistedDiscussion.getPersistedDiscussionObjectID(discussionIdentifier: discussionIdentifier, within: context) else {
+                throw ObvUICoreDataError.couldNotFindDiscussion
+            }
+            return getFetchedResultsController(persistedDiscussionObjectID: discussionObjectID, within: context)
+        }
+    }
+
 }
 
 

@@ -49,13 +49,13 @@ extension OwnedIdentityChooserViewAppDataSource: OwnedIdentityChooserViewDataSou
     
     // For the view allowing to choose a profile among all profiles
     
-    public func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvOwnedIdentityChooser.OwnedIdentityChooserViewModel>) {
+    public func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserInnerView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvOwnedIdentityChooser.OwnedIdentityChooserViewModel>) {
         let manager = OwnedIdentityChooserViewModelStreamManager(currentOwnedCryptoId: currentOwnedCryptoId, context: anyContext)
         ownedIdentityChooserViewModelStreamManagerForStreamUUID[manager.streamUUID] = manager
         return try await manager.startStream()
     }
     
-    public func finishAsyncStreamOfOwnedIdentityChooserViewModel(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, streamUUID: UUID) {
+    public func finishAsyncStreamOfOwnedIdentityChooserViewModel(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserInnerView, streamUUID: UUID) {
         guard let manager = ownedIdentityChooserViewModelStreamManagerForStreamUUID.removeValue(forKey: streamUUID) else { return }
         manager.finishStream()
     }

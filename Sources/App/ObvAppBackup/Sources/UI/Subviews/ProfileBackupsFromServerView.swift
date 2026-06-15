@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import ObvTypes
 import ObvSystemIcon
 import ObvCrypto
 import ObvAppCoreConstants
+import ObvDesignSystem
 
 
 
@@ -192,7 +193,7 @@ struct ProfileBackupsFromServerView: View {
                 self.selectedBackup = self.model
             } label: {
                 HStack(alignment: .top) {
-                    DeviceImageView(platform: model.additionalInfosForProfileBackup.platformOfDeviceWhichPerformedBackup)
+                    ObvDeviceImageView(platform: model.additionalInfosForProfileBackup.platformOfDeviceWhichPerformedBackup)
                     VStack(alignment: .leading) {
                         HStack {
                             Text(model.creationDate.formatted(.dateTime.year().month().day().hour().minute()))
@@ -229,7 +230,7 @@ struct ProfileBackupsFromServerView: View {
         case .settings:
             
             HStack(alignment: .top) {
-                DeviceImageView(platform: model.additionalInfosForProfileBackup.platformOfDeviceWhichPerformedBackup)
+                ObvDeviceImageView(platform: model.additionalInfosForProfileBackup.platformOfDeviceWhichPerformedBackup)
                 VStack(alignment: .leading) {
                     HStack {
                         Text(model.creationDate.formatted(.dateTime.year().month().day().hour().minute()))

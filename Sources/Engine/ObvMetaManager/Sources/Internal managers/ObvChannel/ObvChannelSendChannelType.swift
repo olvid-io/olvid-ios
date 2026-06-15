@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,6 +35,7 @@ public enum ObvChannelSendChannelType {
     case userInterface(uuid: UUID, ownedIdentity: ObvCryptoIdentity, dialogType: ObvChannelDialogToSendType)
     case serverQuery(ownedIdentity: ObvCryptoIdentity) // The identity is one of our own, used to receive the server response
     case confirmedObliviousChannelOrPreKeyChannelWithContactDevice(contactDevice: ObvContactDeviceIdentifier)
+    case confirmedObliviousChannelOrPreKeyChannelWithOtherOwnedDevice(otherOwnedDevice: ObvOwnedDeviceIdentifier, withUserContent: Bool)
 
     
     /// Only owned identities can "send" on a channel. Note that when sending a message to self, the `fromOwnedIdentity` is identical to the `toIdentity`
@@ -52,6 +53,8 @@ public enum ObvChannelSendChannelType {
             return fromOwnedIdentity
         case .confirmedObliviousChannelOrPreKeyChannelWithContactDevice(contactDevice: let contactDevice):
             return contactDevice.ownedCryptoId.cryptoIdentity
+        case .confirmedObliviousChannelOrPreKeyChannelWithOtherOwnedDevice(otherOwnedDevice: let otherOwnedDevice, withUserContent: _):
+            return otherOwnedDevice.ownedCryptoId.cryptoIdentity
         }
     }
     
@@ -69,6 +72,8 @@ public enum ObvChannelSendChannelType {
             return toIdentity
         case .confirmedObliviousChannelOrPreKeyChannelWithContactDevice(contactDevice: let contactDevice):
             return contactDevice.contactCryptoId.cryptoIdentity
+        case .confirmedObliviousChannelOrPreKeyChannelWithOtherOwnedDevice(otherOwnedDevice: let otherOwnedDevice, withUserContent: _):
+            return otherOwnedDevice.ownedCryptoId.cryptoIdentity
         case .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts,
                 .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices:
             return nil
@@ -91,6 +96,8 @@ public enum ObvChannelSendChannelType {
             return toIdentities
         case .confirmedObliviousChannelOrPreKeyChannelWithContactDevice(contactDevice: let contactDevice):
             return Set([contactDevice.contactCryptoId.cryptoIdentity])
+        case .confirmedObliviousChannelOrPreKeyChannelWithOtherOwnedDevice(otherOwnedDevice: let otherOwnedDevice, withUserContent: _):
+            return Set([otherOwnedDevice.ownedCryptoId.cryptoIdentity])
         }
     }
     
@@ -106,7 +113,8 @@ public enum ObvChannelSendChannelType {
                 .serverQuery:
             return false
         case .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: _, fromOwnedIdentity: _, withUserContent: let withUserContent, contactDeviceIdentifiersToExclude: _),
-                .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices(contactIdentities: _, fromOwnedIdentity: _, withUserContent: let withUserContent, contactDeviceIdentifiersToExclude: _):
+                .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices(contactIdentities: _, fromOwnedIdentity: _, withUserContent: let withUserContent, contactDeviceIdentifiersToExclude: _),
+                .confirmedObliviousChannelOrPreKeyChannelWithOtherOwnedDevice(otherOwnedDevice: _, withUserContent: let withUserContent):
             return withUserContent
         case .confirmedObliviousChannelOrPreKeyChannelWithContactDevice(contactDevice: _):
             return false

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,10 +39,14 @@ import ObvUIGroupSharedBetweenV1AndV2
 import ObvAppNavigation
 import ObvSingleOwnedIdentity
 import ObvSubscription
+import ObvHistoryTransfer
+import ObvComposition
+import ObvLocation
 
 
 /// Allows to easily inject all the datasources required by the children view controller
 struct ObvDataSources {
+    
     let avatarViewDataSource: ObvAvatarViewDataSource
     let ownedIdentityChooserViewDataSource: OwnedIdentityChooserViewDataSource
     let profilePictureBarButtonItemViewDataSource: ObvProfilePictureBarButtonItemViewDataSource
@@ -70,6 +74,8 @@ struct ObvDataSources {
     let discussionsListViewDataSource: any ObvDiscussionsListViewDataSource
     let locationsCellViewDataSource: any ObvLocationsCellViewDataSource
     let tipCellViewAppDataSource: any TipCellViewDataSource
+
+    let mapViewDataSource: any ObvMapViewDataSource
 
     let listOfGroupMembersViewDataSource: any ObvUIGroupSharedBetweenV1AndV2.ListOfGroupMembersViewDataSource & ObvUIGroupV2.FullListOfGroupMembersViewDataSource
     let ownedIdentityAsGroupMemberViewDataSource: any ObvUIGroupSharedBetweenV1AndV2.OwnedIdentityAsGroupMemberViewDataSource
@@ -131,6 +137,18 @@ struct ObvDataSources {
     
     let olvidShopViewDataSource: any ObvSubscription.OlvidShopViewDataSource
     let olvidShopViewDataSources: ObvSubscription.OlvidShopView.DataSources
+    
+    let listOfOtherOwnedDevicesViewDataSource: any ObvHistoryTransfer.ListOfOtherOwnedDevicesViewDataSource
+    let zipExportViewDataSource: any ObvHistoryTransfer.ZipExportViewDataSource
+    let historyTransferNavigationStackDataSources: ObvHistoryTransfer.HistoryTransferNavigationStack.DataSources
+
+    let composeViewAppSource: any ComposeViewDataSource
+    let composeAttachmentViewDataSource: any ComposeAttachmentViewDataSource
+    let composeReplyToViewDataSource: any ComposeReplyToViewDataSource
+    let composeViewParametersDataSource: any ComposeViewParametersDataSource
+    let composeMentionsViewDataSource: any ComposeMentionsViewDataSource
+    let composeLinkPreviewViewDataSource: any ComposeLinkPreviewViewDataSource
+    let composeViewDataSources: ComposeView.DataSources
 
     @MainActor
     init(avatarViewAppDataSourceDelegate: any ObvAvatarViewAppDataSourceDelegate,
@@ -141,6 +159,7 @@ struct ObvDataSources {
          editGroupNameAndPictureViewAppDataSourceDelegate: any EditGroupNameAndPictureViewAppDataSourceDelegate,
          chooseDeviceToReactivateViewAppDataSourceDelegate: any ObvChooseDeviceToReactivateViewAppDataSourceDelegate,
          ownedDetailedInfosViewAppDataSourceDelegate: any ObvOwnedDetailedInfosViewAppDataSourceDelegate,
+         discussionCacheDelegate: any DiscussionCacheDelegate,
          obvEngine: ObvEngine,
          backgroundContext: NSManagedObjectContext,
          viewContext: NSManagedObjectContext) {
@@ -154,7 +173,11 @@ struct ObvDataSources {
         self.discussionsArchivedListViewAppDataSource = ObvDiscussionsArchivedListViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
         self.discussionsListViewDataSource = ObvDiscussionsListViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
         self.locationsCellViewDataSource = ObvLocationsCellViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
-        self.tipCellViewAppDataSource = TipCellViewAppDataSource()
+        self.tipCellViewAppDataSource = TipCellViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
+        
+        // ForMaps
+        
+        self.mapViewDataSource = ObvMapViewControllerAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
 
         // ForGroupsList
         
@@ -249,6 +272,20 @@ struct ObvDataSources {
         // For ObvSubscription
         
         self.olvidShopViewDataSource = OlvidShopViewAppDataSource()
+        
+        // For history transfer
+        
+        self.listOfOtherOwnedDevicesViewDataSource = ListOfOtherOwnedDevicesViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
+        self.zipExportViewDataSource = ZipExportViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
+
+        // ForComposeView
+        
+        self.composeViewAppSource = ComposeViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
+        self.composeAttachmentViewDataSource = ComposeAttachmentViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext, cacheDelegate: discussionCacheDelegate)
+        self.composeReplyToViewDataSource = ComposeReplyToViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext, cacheDelegate: discussionCacheDelegate)
+        self.composeViewParametersDataSource = ComposeViewParametersAppDataSource()
+        self.composeMentionsViewDataSource = ComposeMentionsViewAppDataSource(viewContext: viewContext)
+        self.composeLinkPreviewViewDataSource = ComposeLinkPreviewViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
 
         // For convenience
         
@@ -446,6 +483,21 @@ struct ObvDataSources {
             singleOwnedIdentityViewDataSources: singleOwnedIdentityViewDataSources,
             editOwnedDetailsViewDataSources: editOwnedDetailsViewDataSources,
             ownedDevicesListViewDataSources: ownedDevicesListViewDataSources)
+                
+        self.historyTransferNavigationStackDataSources = .init(
+            ownedIdentityChooserViewDataSource: ownedIdentityChooserViewDataSource,
+            avatarViewDataSource: avatarViewDataSource,
+            listOfOtherOwnedDevicesViewDataSource: listOfOtherOwnedDevicesViewDataSource,
+                                zipExportViewDataSource: zipExportViewDataSource)
+        
+        self.composeViewDataSources = .init(
+            dataSource: composeViewAppSource,
+            attachmentDataSource: composeAttachmentViewDataSource,
+            replyToDataSource: composeReplyToViewDataSource,
+            mentionsDataSource: composeMentionsViewDataSource,
+            avatarViewDataSource: avatarViewDataSource,
+            composeViewParametersDataSource: composeViewParametersDataSource,
+            composeLinkPreviewViewDataSource: composeLinkPreviewViewDataSource)
         
     }
     

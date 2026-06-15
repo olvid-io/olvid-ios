@@ -22,7 +22,6 @@ private let frameworkTarget = Target.makeFrameworkTarget(
 
 let project = Project.createProjectForFramework(
     packages: [
-        //.remote(url: "https://github.com/olvid-io/JOSESwift-for-Olvid", requirement: .branch("targetfix")),
         .remote(url: "https://github.com/airsidemobile/JOSESwift", requirement: .exact(.init(3, 0, 0))),
     ],
     frameworkTarget: frameworkTarget,

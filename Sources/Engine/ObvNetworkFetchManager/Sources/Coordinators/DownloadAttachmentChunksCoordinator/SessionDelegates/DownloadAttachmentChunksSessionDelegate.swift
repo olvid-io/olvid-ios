@@ -44,6 +44,7 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
     private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     private static let logCategory = "DownloadAttachmentChunksSessionDelegate"
     private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+    private static var logger = Logger(subsystem: defaultLogSubsystem, category: logCategory)
 
     let uuid = UUID()
     let attachmentId: ObvAttachmentIdentifier
@@ -63,9 +64,8 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
         case atLeastOneChunkDownloadPrivateURLHasExpired
         case couldNotRetrieveAnHTTPResponse
         case sessionInvalidationError(error: Error)
-        case cannotFindAttachmentInDatabase
         case couldNotSaveContext
-        case atLeastOneChunkIsNotYetAvailableOnServer
+        case attachmentNoLongerAvailable
         case couldNotOpenEncryptedChunkFile
         case failedToDecryptChunkOrWriteToFile
         case markChunkAsWrittenToAttachmentFileOperationFailed
@@ -198,8 +198,8 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDownloadDelegate {
                 os_log("The server reported that the private URL for a chunk of attachment %{public}@ has expired. We should ask for new private URLs", log: Self.log, type: .info, attachmentId.debugDescription)
                 self.errorForTracker = .atLeastOneChunkDownloadPrivateURLHasExpired
             case 404:
-                os_log("The server reported that the chunk is not yet available on server.", log: Self.log, type: .info)
-                self.errorForTracker = .atLeastOneChunkIsNotYetAvailableOnServer
+                Self.logger.error("The server reported that the chunk is not available on server (meaning the attachment is no longer available)")
+                self.errorForTracker = .attachmentNoLongerAvailable
             default:
                 os_log("The error status code is not supported. Error code is %{public}d", log: Self.log, type: .fault, httpURLResponse.statusCode)
                 logRequestURLInTask(downloadTask, to: Self.log)

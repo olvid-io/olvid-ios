@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,8 @@ import Foundation
 import CoreData
 import ObvCrypto
 import ObvEngine
+import ObvTypes
+import ObvAppTypes
 
 
 @objc(PersistedMessageReaction)
@@ -78,6 +80,35 @@ public class PersistedMessageReaction: NSManagedObject {
     
 }
 
+
+// MARK: - History transfer
+
+extension PersistedMessageReaction {
+    
+    static func createDuringHistoryTransfer(reaction: ObvHistoryReceivedMessage.Reaction, on message: PersistedMessage) throws {
+        guard let ownedCryptoId = message.discussion?.ownedIdentity?.cryptoId else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotDetermineOwnedCryptoId
+        }
+        guard let context = message.managedObjectContext else {
+            assertionFailure()
+            throw ObvUICoreDataError.noContext
+        }
+        if reaction.sender == ownedCryptoId {
+            _ = try PersistedMessageReactionSent.createSentDuringHistoryTransfer(emoji: reaction.emoji, timestamp: reaction.timestamp, message: message)
+        } else {
+            let contactIdentifier = ObvContactIdentifier(contactCryptoId: reaction.sender, ownedCryptoId: ownedCryptoId)
+            let persistedContact = try PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: context)
+            _ = try PersistedMessageReactionReceived.createReceivedDuringHistoryTransfer(
+                emoji: reaction.emoji,
+                timestamp: reaction.timestamp,
+                message: message,
+                contactDuringHistoryTransfer: persistedContact)
+        }
+    }
+    
+}
+
 // MARK: - Convenience DB getters
 
 extension PersistedMessageReaction {
@@ -97,6 +128,33 @@ extension PersistedMessageReaction {
         }
         static var withNonNilEmoji: NSPredicate {
             NSPredicate(withNonNilValueForKey: Key.rawEmoji)
+        }
+        static func withMessageInDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
+            let key: String = [
+                Key.message.rawValue,
+                PersistedMessage.Predicate.Key.discussion.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(key, equalToObjectWithObjectID: discussionObjectID.objectID)
+        }
+        static func withMessageLaterThan(_ date: Date) -> NSPredicate {
+            let key: String = [
+                Key.message.rawValue,
+                PersistedMessage.Predicate.Key.timestamp.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(key, laterThan: date)
+        }
+        static func withMessageEarlierOrEqualTo(_ date: Date) -> NSPredicate {
+            let key: String = [
+                Key.message.rawValue,
+                PersistedMessage.Predicate.Key.timestamp.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(key, earlierOrEqualTo: date)
+        }
+        static func withMessageInTimeInterval(startDate: Date, endDate: Date) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withMessageLaterThan(startDate),
+                withMessageEarlierOrEqualTo(endDate),
+            ])
         }
     }
 
@@ -142,6 +200,16 @@ public final class PersistedMessageReactionSent: PersistedMessageReaction {
     
 }
 
+
+// MARK: - History transfer
+
+extension PersistedMessageReactionSent {
+    
+    fileprivate static func createSentDuringHistoryTransfer(emoji: String, timestamp: Date, message: PersistedMessage) throws {
+        _ = try self.init(emoji: emoji, timestamp: timestamp, message: message)
+    }
+    
+}
 
 // MARK: - Convenience DB getters
 
@@ -192,6 +260,37 @@ extension PersistedMessageReactionSent {
                                           cacheName: nil)
     }
 
+    /// When a group member status changes from pending to non-pending, we need to send them the current users (sent) reactions on messages
+    /// sent or received in the group during the member's pending period. This method returns these reactions.
+    public static func getReactionsSentOnGroupMessages(groupIdentifier: ObvGroupV2Identifier,
+                                                       dateInterval: PersistedGroupV2Member.DateInterval,
+                                                       within context: NSManagedObjectContext) throws -> [(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, emoji: String, originalServerTimestamp: Date)] {
+        // Determine the objectID of the discussion associated to the group
+        guard let groupV2 = try PersistedGroupV2.get(groupIdentifier: groupIdentifier, within: context) else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+        }
+        guard let objectIDOfGroupDiscussion = groupV2.discussion?.typedObjectID else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotFindDiscussion
+        }
+        // Find all the sent reactions associated to a message sent/received in the date interval in the discussion.
+        let request: NSFetchRequest<PersistedMessageReactionSent> = PersistedMessageReactionSent.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            PersistedMessageReaction.Predicate.withMessageInDiscussion(discussionObjectID: objectIDOfGroupDiscussion.downcast),
+            PersistedMessageReaction.Predicate.withMessageInTimeInterval(startDate: dateInterval.startDate, endDate: dateInterval.endDate),
+            PersistedMessageReaction.Predicate.withNonNilEmoji,
+        ])
+        request.fetchBatchSize = 1_000
+        let fetchResults = try context.fetch(request)
+        let results: [(TypeSafeManagedObjectID<PersistedMessage>, emoji: String, originalServerTimestamp: Date)] = fetchResults.compactMap { reactionSent in
+            guard let messageObjectID = reactionSent.message?.typedObjectID else { assertionFailure(); return nil }
+            guard let emoji = reactionSent.emoji else { assertionFailure(); return nil }
+            return (messageObjectID, emoji, reactionSent.timestamp)
+        }
+        return results
+    }
+    
 }
 
 
@@ -213,6 +312,10 @@ public final class PersistedMessageReactionReceived: PersistedMessageReaction {
 
     @NSManaged public private(set) var contact: PersistedObvContactIdentity?
 
+    // MARK: Other variables
+    
+    private var isInsertedDuringHistoryTransfer = false
+    
     // MARK: - Initializer
 
     convenience init(emoji: String?, timestamp: Date, message: PersistedMessage, contact: PersistedObvContactIdentity) throws {
@@ -244,7 +347,10 @@ public final class PersistedMessageReactionReceived: PersistedMessageReaction {
         super.didSave()
         defer {
             self.userInfoForDeletion = nil
+            self.isInsertedDuringHistoryTransfer = false
         }
+        
+        guard !isInsertedDuringHistoryTransfer else { return }
 
         if isDeleted, let userInfoForDeletion = self.userInfoForDeletion {
             guard let messagePermanentID = userInfoForDeletion[UserInfoForDeletionKeys.messagePermanentID] as? MessageSentPermanentID,
@@ -259,6 +365,27 @@ public final class PersistedMessageReactionReceived: PersistedMessageReaction {
         }
     }
 
+}
+
+
+// MARK: - History transfer
+
+extension PersistedMessageReactionReceived {
+    
+    /// Initialiser used exclusively during a history transfer.
+    ///
+    /// The `PersistedObvContactIdentity` is optional, as we cannot guarantee a non nil value during a history transfer.
+    private convenience init(emoji: String?, timestamp: Date, message: PersistedMessage, contactDuringHistoryTransfer: PersistedObvContactIdentity?) throws {
+        try self.init(emoji: emoji, timestamp: timestamp, message: message, forEntityName: Self.entityName)
+        self.contact = contactDuringHistoryTransfer
+        self.isInsertedDuringHistoryTransfer = true
+    }
+
+    
+    fileprivate static func createReceivedDuringHistoryTransfer(emoji: String?, timestamp: Date, message: PersistedMessage, contactDuringHistoryTransfer: PersistedObvContactIdentity?) throws {
+        _ = try self.init(emoji: emoji, timestamp: timestamp, message: message, contactDuringHistoryTransfer: contactDuringHistoryTransfer)
+    }
+    
 }
 
 

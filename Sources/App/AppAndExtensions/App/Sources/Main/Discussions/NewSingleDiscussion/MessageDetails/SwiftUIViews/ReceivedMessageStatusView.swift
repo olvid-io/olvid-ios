@@ -26,27 +26,29 @@ import ObvDesignSystem
 
 struct ReceivedMessageStatusView: View {
     
-    let forStatus: PersistedMessageReceived.MessageStatus
-    var dateAsString: String?
+    private let icon: any SymbolIcon
+    private let title: LocalizedStringKey
+    private let dateString: String
     
-    private var icon: any SymbolIcon {
+    init(forStatus: PersistedMessageReceived.MessageStatus, dateAsString: String?) {
         switch forStatus {
-        case .new: return SystemIcon.arrowDownCircleFill
-        case .unread: return CustomIcon.checkmarkCircle
-        case .read: return CustomIcon.checkmarkCircleFill
+        case .new:
+            self.icon = SystemIcon.arrowDownCircleFill
+            self.title = "Received"
+        case .unread:
+            self.icon = CustomIcon.checkmarkCircle
+            self.title = "Unread"
+        case .read:
+            self.icon = CustomIcon.checkmarkCircleFill
+            self.title = "Read"
         }
+        self.dateString = dateAsString ?? "-"
     }
     
-    private var title: LocalizedStringKey {
-        switch forStatus {
-        case .new: return "Received"
-        case .unread: return "Unread"
-        case .read: return "Read"
-        }
-    }
-    
-    private var dateString: String {
-        dateAsString ?? "-"
+    init(title: LocalizedStringKey, icon: any SymbolIcon, dateAsString: String?) {
+        self.title = title
+        self.icon = icon
+        self.dateString = dateAsString ?? "-"
     }
     
     var body: some View {

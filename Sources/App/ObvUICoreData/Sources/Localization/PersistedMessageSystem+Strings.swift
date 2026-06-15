@@ -79,7 +79,13 @@ extension PersistedMessageSystem {
             return String.localizedStringWithFormat(NSLocalizedString("count new messages", comment: "Number of new messages"), count)
         }
 
-        static let discussionIsEndToEndEncrypted = NSLocalizedString("Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography.", comment: "System message displayed at the top of each conversation.")
+        private static let discussionIsEndToEndEncrypted = NSLocalizedString("Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography.", comment: "System message displayed at the top of each conversation.")
+        
+        private static let discussionIsEndToEndEncryptedShortVersion = String(localizedInThisBundle: "Messages are protected with end-to-end authentication and end-to-end encryption.")
+        
+        static func discussionIsEndToEndEncrypted(shortVersion: Bool) -> String {
+            shortVersion ? Self.discussionIsEndToEndEncryptedShortVersion : Self.discussionIsEndToEndEncrypted
+        }
         
         static let contactWasDeleted = NSLocalizedString("This contact was deleted from your contacts, either because you did or because this contact deleted you.", comment: "System message displayed within a group discussion")
 

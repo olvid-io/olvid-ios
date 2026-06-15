@@ -54,6 +54,7 @@ public protocol FullListOfGroupMembersViewNavigationDuringCreation {
     func userConfirmedTheAdminsChoiceDuringGroupCreationAndWantsToNavigateToNextScreen(_ view: FullListOfGroupMembersView.InternalView, creationSessionUUID: UUID, ownedCryptoId: ObvCryptoId)
 }
 
+@MainActor
 public protocol FullListOfGroupMembersViewActionsInEditAdminsMode {
     func userWantsToUpdateGroupV2(_ view: FullListOfGroupMembersView.InternalView, groupIdentifier: ObvGroupV2Identifier, changeset: ObvGroupV2.Changeset) async throws
 }
@@ -543,7 +544,7 @@ public struct FullListOfGroupMembersView: View {
                 isAdminsPermissionUpdateInProgress = true
                 self.hudCategory = .progress
 
-                Task {
+                Task { @MainActor in
                     defer {
                         isAdminsPermissionUpdateInProgress = false
                         self.hudCategory = nil

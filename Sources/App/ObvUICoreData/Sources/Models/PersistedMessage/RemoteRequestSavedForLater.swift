@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import OSLog
 import OlvidUtils
 import ObvTypes
 import ObvSettings
+import ObvAppTypes
 
 /// 2025-08-06: The two cases dealt with by this `NSManagedObject` are message `delete` and `edit` requests.
 /// The other cases are dealt with at the coordinator level, thanks to the `AppInboxService`.

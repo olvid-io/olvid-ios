@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -53,7 +53,6 @@ public enum ObvMessengerCoreDataNotification {
 	case persistedMessagesWereWiped(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>)
 	case persistedDiscussionStatusChanged(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, newStatus: PersistedDiscussion.Status)
 	case persistedGroupV2UpdateIsFinished(objectID: TypeSafeManagedObjectID<PersistedGroupV2>, ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV2Identifier)
-	case aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 	case ownedCircledInitialsConfigurationDidChange(ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>, ownedCryptoId: ObvCryptoId, newOwnedCircledInitialsConfiguration: CircledInitialsConfiguration)
 	case ownedIdentityHiddenStatusChanged(ownedCryptoId: ObvCryptoId, isHidden: Bool)
 	case badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity(ownedCryptoId: ObvCryptoId)
@@ -88,7 +87,6 @@ public enum ObvMessengerCoreDataNotification {
 		case persistedMessagesWereWiped
 		case persistedDiscussionStatusChanged
 		case persistedGroupV2UpdateIsFinished
-		case aPersistedGroupV2MemberChangedFromPendingToNonPending
 		case ownedCircledInitialsConfigurationDidChange
 		case ownedIdentityHiddenStatusChanged
 		case badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity
@@ -133,7 +131,6 @@ public enum ObvMessengerCoreDataNotification {
 			case .persistedMessagesWereWiped: return Name.persistedMessagesWereWiped.name
 			case .persistedDiscussionStatusChanged: return Name.persistedDiscussionStatusChanged.name
 			case .persistedGroupV2UpdateIsFinished: return Name.persistedGroupV2UpdateIsFinished.name
-			case .aPersistedGroupV2MemberChangedFromPendingToNonPending: return Name.aPersistedGroupV2MemberChangedFromPendingToNonPending.name
 			case .ownedCircledInitialsConfigurationDidChange: return Name.ownedCircledInitialsConfigurationDidChange.name
 			case .ownedIdentityHiddenStatusChanged: return Name.ownedIdentityHiddenStatusChanged.name
 			case .badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity: return Name.badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity.name
@@ -241,10 +238,6 @@ public enum ObvMessengerCoreDataNotification {
 				"objectID": objectID,
 				"ownedCryptoId": ownedCryptoId,
 				"groupIdentifier": groupIdentifier,
-			]
-		case .aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: let contactObjectID):
-			info = [
-				"contactObjectID": contactObjectID,
 			]
 		case .ownedCircledInitialsConfigurationDidChange(ownedIdentityPermanentID: let ownedIdentityPermanentID, ownedCryptoId: let ownedCryptoId, newOwnedCircledInitialsConfiguration: let newOwnedCircledInitialsConfiguration):
 			info = [
@@ -498,14 +491,6 @@ public enum ObvMessengerCoreDataNotification {
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let groupIdentifier = notification.userInfo!["groupIdentifier"] as! GroupV2Identifier
 			block(objectID, ownedCryptoId, groupIdentifier)
-		}
-	}
-
-	public static func observeAPersistedGroupV2MemberChangedFromPendingToNonPending(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
-		let name = Name.aPersistedGroupV2MemberChangedFromPendingToNonPending.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactObjectID = notification.userInfo!["contactObjectID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
-			block(contactObjectID)
 		}
 	}
 

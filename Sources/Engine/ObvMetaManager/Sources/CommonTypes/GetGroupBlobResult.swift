@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,7 @@ import ObvEncoder
 public enum GetGroupBlobResult: ObvCodable {
     
     case blobWasDeletedFromServer
-    case blobDownloaded(encryptedServerBlob: EncryptedData, logEntries: Set<Data>, groupAdminPublicKey: PublicKeyForAuthentication)
+    case blobDownloaded(encryptedServerBlob: EncryptedData, logEntries: Set<Data>, groupAdminPublicKey: PublicKeyForAuthentication, lastModificationTimestamp: Date)
     case blobCouldNotBeDownloaded
     
     private var rawValue: Int {
@@ -45,8 +45,13 @@ public enum GetGroupBlobResult: ObvCodable {
         switch self {
         case .blobWasDeletedFromServer:
             return [rawValue.obvEncode()].obvEncode()
-        case .blobDownloaded(let encryptedServerBlob, let logEntries, let groupAdminPublicKey):
-            return [rawValue.obvEncode(), encryptedServerBlob.obvEncode(), logEntries.map({ $0.obvEncode() }).obvEncode(), groupAdminPublicKey.obvEncode()].obvEncode()
+        case .blobDownloaded(let encryptedServerBlob, let logEntries, let groupAdminPublicKey, lastModificationTimestamp: let lastModificationTimestamp):
+            return [rawValue.obvEncode(),
+                    encryptedServerBlob.obvEncode(),
+                    logEntries.map({ $0.obvEncode() }).obvEncode(),
+                    groupAdminPublicKey.obvEncode(),
+                    lastModificationTimestamp.obvEncode(),
+            ].obvEncode()
         case .blobCouldNotBeDownloaded:
             return [rawValue.obvEncode()].obvEncode()
         }
@@ -60,12 +65,25 @@ public enum GetGroupBlobResult: ObvCodable {
         case 0:
             self = .blobWasDeletedFromServer
         case 1:
-            guard listOfEncoded.count == 4 else { assertionFailure(); return nil }
-            guard let encryptedServerBlob = EncryptedData(listOfEncoded[1]) else { return nil }
-            guard let listOfEncodedLogItems = [ObvEncoded](listOfEncoded[2]) else { return nil }
-            let logEntries = Set(listOfEncodedLogItems.compactMap({ Data($0) }))
-            guard let groupAdminPublicKey = PublicKeyForAuthenticationDecoder.obvDecode(listOfEncoded[3]) else { return nil }
-            self = .blobDownloaded(encryptedServerBlob: encryptedServerBlob, logEntries: logEntries, groupAdminPublicKey: groupAdminPublicKey)
+            if listOfEncoded.count == 4 {
+                // Legacy case, the blob was downloaded while using the Server API < 20
+                guard let encryptedServerBlob = EncryptedData(listOfEncoded[1]) else { return nil }
+                guard let listOfEncodedLogItems = [ObvEncoded](listOfEncoded[2]) else { return nil }
+                let logEntries = Set(listOfEncodedLogItems.compactMap({ Data($0) }))
+                guard let groupAdminPublicKey = PublicKeyForAuthenticationDecoder.obvDecode(listOfEncoded[3]) else { return nil }
+                self = .blobDownloaded(encryptedServerBlob: encryptedServerBlob, logEntries: logEntries, groupAdminPublicKey: groupAdminPublicKey, lastModificationTimestamp: .now)
+            } else if listOfEncoded.count == 5 {
+                // Current case, using the Server API 20 or above
+                guard let encryptedServerBlob = EncryptedData(listOfEncoded[1]) else { return nil }
+                guard let listOfEncodedLogItems = [ObvEncoded](listOfEncoded[2]) else { return nil }
+                let logEntries = Set(listOfEncodedLogItems.compactMap({ Data($0) }))
+                guard let groupAdminPublicKey = PublicKeyForAuthenticationDecoder.obvDecode(listOfEncoded[3]) else { return nil }
+                guard let lastModificationTimestamp = Date(listOfEncoded[4]) else { assertionFailure(); return nil }
+                self = .blobDownloaded(encryptedServerBlob: encryptedServerBlob, logEntries: logEntries, groupAdminPublicKey: groupAdminPublicKey, lastModificationTimestamp: lastModificationTimestamp)
+            } else {
+                assertionFailure()
+                return nil
+            }
         case 2:
             self = .blobCouldNotBeDownloaded
         default:

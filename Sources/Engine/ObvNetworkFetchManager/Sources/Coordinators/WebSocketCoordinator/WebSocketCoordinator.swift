@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -243,7 +243,6 @@ extension WebSocketCoordinator: WebSocketDelegate {
         
         guard let webSocketTask = webSocketTaskForOwnedCryptoId[ownedIdentity] else {
             os_log("🏓 Could not find an appropriate webSocketServerURL for this owned identity", log: log, type: .error)
-            assertionFailure()
             queue.async {
                 handler(.failure(ObvError.couldNotFindWebSocketTaskForOwnedIdentity))
             }

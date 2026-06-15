@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -87,7 +87,6 @@ final class SyncPersistedObvOwnedDeviceWithEngineOperation: ContextualOperationW
                 
                 // Make sure the owned device still does not exist within the engine
                 guard try obvEngine.getObvOwnedDevice(with: ownedDeviceIdentifier) == nil else {
-                    // This can happen for an inactive identity. This should be investigated.
                     assertionFailure()
                     return
                 }

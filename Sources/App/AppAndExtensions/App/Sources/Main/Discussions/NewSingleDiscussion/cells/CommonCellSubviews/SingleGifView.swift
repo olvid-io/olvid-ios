@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,6 @@
  */
 
 import UIKit
-import LinkPresentation
 import UniformTypeIdentifiers
 
 
@@ -99,6 +98,18 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
         case .cancelledByServer:
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.cancelled)
+            tapToReadView.messageObjectID = nil
+            removeImageURL()
+            bubble.backgroundColor = .systemFill
+        case .notYetDownloadableAsReceivedByUserNotification:
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.notYetDownloadableAsReceivedByUserNotification)
+            tapToReadView.messageObjectID = nil
+            removeImageURL()
+            bubble.backgroundColor = .systemFill
+        case .untransferred:
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.untransferred)
             tapToReadView.messageObjectID = nil
             removeImageURL()
             bubble.backgroundColor = .systemFill

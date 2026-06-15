@@ -82,7 +82,7 @@ final class SendEndSharingLocationJSONWhenDeletingDiscussionOperation: Operation
                 }
                 
                 let endSharingLocationJSON = LocationJSON(type: .END_SHARING, timestamp: Date.now, count: nil, quality: nil, sharingExpiration: nil, latitude: 0, longitude: 0, altitude: nil, precision: nil, address: nil)
-                let updateMessageJSON = try sentMessagesInDiscussion.map { try UpdateMessageJSON(persistedMessageSentToEdit: $0, newTextBody: nil, userMentions: [], locationJSON: endSharingLocationJSON) }
+                let updateMessageJSON = try sentMessagesInDiscussion.map { try UpdateMessageJSON(persistedMessageSentToEdit: $0, newBodyAndMentions: nil, locationJSON: endSharingLocationJSON) }
                 let itemJSONs = updateMessageJSON.map { PersistedItemJSON(updateMessageJSON: $0) }
                 
                 // We have itemJSONs to send

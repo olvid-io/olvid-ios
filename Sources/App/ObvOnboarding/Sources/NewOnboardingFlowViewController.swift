@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -43,8 +43,14 @@ public protocol NewOnboardingFlowViewControllerDataSource: NewWelcomeScreenViewD
 }
 
 
+@MainActor
 public protocol NewOnboardingFlowViewControllerDelegate: AnyObject {
     
+    /// Called when the user taps the cancel button on the identity-provider validation screen.
+    /// Only reachable when the screen is presented modally (profile binding via deep link), not
+    /// during the linear initial onboarding.
+    func userWantsToDismissOnboardingFlow(_ onboardingFlow: NewOnboardingFlowViewController)
+
     func onboardingIsFinished(onboardingFlow: NewOnboardingFlowViewController, ownedCryptoIdGeneratedDuringOnboarding: ObvCryptoId) async
     
     func onboardingNeedsToPreventPrivacyWindowSceneFromShowingOnNextWillResignActive(onboardingFlow: NewOnboardingFlowViewController) async
@@ -62,10 +68,23 @@ public protocol NewOnboardingFlowViewControllerDelegate: AnyObject {
     
     func userWantsToEnableAutomaticBackup(onboardingFlow: NewOnboardingFlowViewController) async throws
     
-    func onboardingRequiresToDiscoverKeycloakServer(onboardingFlow: NewOnboardingFlowViewController, keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)
+    func onboardingRequiresToDiscoverKeycloakServer(_ onboardingFlow: NewOnboardingFlowViewController, keycloakServerURL: URL) async throws -> KeycloakServerDiscoveryResult
         
+    /// Performs Keycloak authentication and returns the user details needed to continue onboarding.
+    ///
+    /// - Parameter magicLink: When non-nil, the magic-link exchange is attempted before falling back
+    ///   to the interactive OIDC browser flow. Pass `nil` for the standard OIDC-only path.
     @MainActor
-    func onboardingRequiresKeycloakAuthentication(onboardingFlow: NewOnboardingFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState)
+    func onboardingRequiresKeycloakAuthentication(
+        _ onboardingFlow: NewOnboardingFlowViewController,
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        magicLink: ObvMagicLink?,
+        discoveryResult: KeycloakServerDiscoveryResult
+    ) async throws -> (
+        keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff,
+        keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff,
+        keycloakState: ObvKeycloakState
+    )
     
     func onboardingRequiresKeycloakToSyncAllManagedIdentities() async
     
@@ -329,9 +348,11 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
             
             let model = IdentityProviderValidationView.Model(
                 keycloakConfiguration: keycloakConfigurationAndServer.keycloakConfiguration,
+                magicLink: keycloakConfigurationAndServer.magicLink,
                 isConfiguredFromMDM: false,
-                isBindingExistingProfile: .yes(ownedCryptoId: ownedCryptoId))
-            rootViewController = IdentityProviderValidationViewController(model: model, delegate: self)
+                isBindingExistingProfile: .yes(ownedCryptoId: ownedCryptoId),
+                showDismissButton: true)
+            rootViewController = IdentityProviderValidationViewController(model: model, actions: self)
             
         }
         
@@ -415,7 +436,7 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
                 flowNavigationController.setViewControllers([displayNameChooserVC], animated: animated)
                 return
             }
-        case .keycloakConfigAvailable(keycloakConfiguration: let keycloakConfiguration, isConfiguredFromMDM: let isConfiguredFromMDM):
+        case .keycloakConfigAvailable(keycloakConfiguration: let keycloakConfiguration, magicLink: let magicLink, isConfiguredFromMDM: let isConfiguredFromMDM):
             var viewControllers = [UIViewController]()
             let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
             let welcomeScreenVC = flowNavigationController.viewControllers.first(where: { $0 is NewWelcomeScreenViewController }) ?? vc
@@ -425,9 +446,11 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
             }
             let identityProviderValidationVC = IdentityProviderValidationViewController(
                 model: .init(keycloakConfiguration: keycloakConfiguration,
+                             magicLink: magicLink,
                              isConfiguredFromMDM: isConfiguredFromMDM,
-                             isBindingExistingProfile: .no),
-                delegate: self)
+                             isBindingExistingProfile: .no,
+                             showDismissButton: false),
+                actions: self)
             viewControllers.append(identityProviderValidationVC)
             flowNavigationController.setViewControllers(viewControllers, animated: animated)
         case .keycloakUserDetailsAndStuffAvailable(let keycloakUserDetailsAndStuff, let keycloakServerRevocationsAndStuff, let keycloakState):
@@ -643,7 +666,10 @@ extension NewOnboardingFlowViewController: NewWelcomeScreenViewControllerDelegat
             await requestNextAutorisationPermissionAfterCreatingTheOwnedIdentity(profileKind: profileKindOfCreatedOwnedIdentity)
         } else {
             if let mdmConfig = mode.mdmConfigDuringInitialOnboarding {
-                self.internalState = .keycloakConfigAvailable(keycloakConfiguration: mdmConfig.keycloakConfiguration.keycloakConfiguration, isConfiguredFromMDM: true)
+                self.internalState = .keycloakConfigAvailable(
+                    keycloakConfiguration: mdmConfig.keycloakConfiguration.keycloakConfiguration,
+                    magicLink: mdmConfig.keycloakConfiguration.magicLink,
+                    isConfiguredFromMDM: true)
             } else {
                 self.internalState = .userWantsToChooseUnmanagedDetails
             }
@@ -1134,9 +1160,22 @@ extension NewOnboardingFlowViewController: ManagedDetailsViewerViewControllerDel
             try await delegate.onboardingRequiresToRegisterAndUploadOwnedIdentityToKeycloakServer(ownedCryptoId: ownedIdentityToBind, keycloakUserIdAndState: (keycloakDetails.keycloakUserDetailsAndStuff.id, keycloakState))
         } catch {
             Self.logger.fault("Could not bind existing profile to keycloak server: \(error.localizedDescription, privacy: .public)")
-            let alert = UIAlertController(title: String(localizedInThisBundle: "DIALOG_TITLE_IDENTITY_PROVIDER_ERROR"),
-                                          message: String(localizedInThisBundle: "DIALOG_MESSAGE_FAILED_TO_UPLOAD_IDENTITY_TO_KEYCLOAK"),
-                                          preferredStyle: .alert)
+            let title: String
+            let message: String
+            if let error = error as? KeycloakManager.UploadOwnedIdentityError {
+                switch error {
+                case .ownedIdentityWasRevoked:
+                    title = String(localizedInThisBundle: "DIALOG_IDENTITY_PROVIDER_REVOKED_THIS_IDENTITY_TITLE")
+                    message = String(localizedInThisBundle: "DIALOG_IDENTITY_PROVIDER_REVOKED_THIS_IDENTITY_MESSAGE")
+                default:
+                    title = String(localizedInThisBundle: "DIALOG_TITLE_IDENTITY_PROVIDER_ERROR")
+                    message = String(localizedInThisBundle: "DIALOG_MESSAGE_FAILED_TO_UPLOAD_IDENTITY_TO_KEYCLOAK")
+                }
+            } else {
+                title = String(localizedInThisBundle: "DIALOG_TITLE_IDENTITY_PROVIDER_ERROR")
+                message = String(localizedInThisBundle: "DIALOG_MESSAGE_FAILED_TO_UPLOAD_IDENTITY_TO_KEYCLOAK")
+            }
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "Ok", style: .default))
             present(alert, animated: true)
             return
@@ -1164,20 +1203,35 @@ extension NewOnboardingFlowViewController: ManagedDetailsViewerViewControllerDel
 
 // MARK: - IdentityProviderValidationViewControllerDelegate
 
-extension NewOnboardingFlowViewController: IdentityProviderValidationViewControllerDelegate {
+extension NewOnboardingFlowViewController: IdentityProviderValidationViewActionsProtocol {
     
-    func discoverKeycloakServer(controller: IdentityProviderValidationViewController, keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration) {
-        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
-        return try await delegate.onboardingRequiresToDiscoverKeycloakServer(onboardingFlow: self, keycloakServerURL: keycloakServerURL)
+    func userWantsToDismiss(_ view: IdentityProviderValidationView) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToDismissOnboardingFlow(self)
     }
     
     
-    func userWantsToAuthenticateOnKeycloakServer(controller: IdentityProviderValidationViewController, keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool, isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws {
+    func discoverKeycloakServer(_ view: IdentityProviderValidationView, keycloakServerURL: URL) async throws -> KeycloakServerDiscoveryResult {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.onboardingRequiresToDiscoverKeycloakServer(self, keycloakServerURL: keycloakServerURL)
+    }
+    
+    
+    func userWantsToAuthenticateOnKeycloakServer(
+        _ view: IdentityProviderValidationView,
+        keycloakConfiguration: ObvKeycloakConfiguration,
+        magicLink: ObvMagicLink?,
+        discoveryResult: KeycloakServerDiscoveryResult,
+        isConfiguredFromMDM: Bool,
+        isBindingExistingProfile: IdentityProviderValidationView.Model.BindingExistingProfile
+    ) async throws {
         guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
         let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff, keycloakState) = try await delegate.onboardingRequiresKeycloakAuthentication(
-            onboardingFlow: self,
+            self,
             keycloakConfiguration: keycloakConfiguration,
-            keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
+            magicLink: magicLink,
+            discoveryResult: discoveryResult
+        )
         switch isBindingExistingProfile {
         case .no:
             internalState = .keycloakUserDetailsAndStuffAvailable(keycloakUserDetailsAndStuff: keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff, keycloakState: keycloakState)
@@ -1457,7 +1511,11 @@ extension NewOnboardingFlowViewController: NewIdentityProviderManualConfiguratio
     
     @MainActor
     func userWantsToValidateManualKeycloakConfiguration(controller: NewIdentityProviderManualConfigurationViewController, keycloakConfig: ObvKeycloakConfiguration) async {
-        self.internalState = .keycloakConfigAvailable(keycloakConfiguration: keycloakConfig, isConfiguredFromMDM: false)
+        self.internalState = .keycloakConfigAvailable(
+            keycloakConfiguration: keycloakConfig,
+            magicLink: nil,
+            isConfiguredFromMDM: false
+        )
         await showNextOnboardingScreen(animated: true)
     }
     
@@ -1539,7 +1597,11 @@ extension NewOnboardingFlowViewController {
     
     /// Called by the `MetaFlowController` when the user scans (or taps) an `OlvidURL` containing a `ObvKeycloakConfigurationAndServer` during an onboarding.
     public func handleOlvidURLOfTypeConfigurationWithKeycloakConfigurationAndServer(keycloakConfig: ObvKeycloakConfigurationAndServer) async {
-        self.internalState = .keycloakConfigAvailable(keycloakConfiguration: keycloakConfig.keycloakConfiguration, isConfiguredFromMDM: false)
+        self.internalState = .keycloakConfigAvailable(
+            keycloakConfiguration: keycloakConfig.keycloakConfiguration,
+            magicLink: keycloakConfig.magicLink,
+            isConfiguredFromMDM: false
+        )
         await showNextOnboardingScreen(animated: true)
     }
     

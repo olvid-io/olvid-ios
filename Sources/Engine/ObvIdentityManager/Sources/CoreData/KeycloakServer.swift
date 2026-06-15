@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,6 +59,9 @@ final class KeycloakServer: NSManagedObject {
     @NSManaged private var rawServerSignatureKey: Data? // The key (serialized JsonWebKey) used to sign the user's details which should not change
     @NSManaged private(set) var serverURL: URL
     @NSManaged private(set) var isTransferRestricted: Bool // If true, the user will be unable to transfer their identity to a new device unless they can successfully authenticate with the Keycloak server
+    /// Whether the Keycloak server for this identity currently advertises support for ID-based authentication.
+    /// Refreshed on each synchronization from the `.well-known/olvid` endpoint.
+    @NSManaged private(set) var supportsIdBasedAuth: Bool
 
     // MARK: Relationships
     
@@ -67,13 +70,21 @@ final class KeycloakServer: NSManagedObject {
     
     // MARK: Other variables
     
+    /// The combination of authentication methods supported by this server for the associated owned identity.
+    var supportedAuthenticationMethods: SupportedAuthenticationMethods {
+        get {
+            let openIdConnect = ObvKeycloakAuthOIDC(clientId: self.clientId, clientSecret: self.clientSecret)
+            let idBased: ObvKeycloakAuthIdBased? = (supportsIdBasedAuth ? .init() : nil)
+            return .init(openIdConnect: openIdConnect, idBased: idBased)
+        }
+    }
+    
     var toObvKeycloakState: ObvKeycloakState {
         get throws {
             let jwks = try self.jwks
             return ObvKeycloakState(
                 keycloakServer: serverURL,
-                clientId: clientId,
-                clientSecret: clientSecret,
+                supportedAuthenticationMethods: supportedAuthenticationMethods,
                 jwks: jwks,
                 rawAuthState: rawAuthState,
                 signatureVerificationKey: serverSignatureVerificationKey,
@@ -127,7 +138,10 @@ final class KeycloakServer: NSManagedObject {
 
     // MARK: Init
     
-    convenience init(keycloakState: ObvKeycloakState, managedOwnedIdentity: OwnedIdentity) throws {
+    convenience init(
+        keycloakState: ObvKeycloakState,
+        managedOwnedIdentity: OwnedIdentity
+    ) throws {
         guard let context = managedOwnedIdentity.managedObjectContext else { throw KeycloakServer.makeError(message: "KeycloakServer initialization failed, cannot find appropriate context") }
         let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakServer.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
@@ -135,8 +149,9 @@ final class KeycloakServer: NSManagedObject {
         self.rawOwnedIdentity = try managedOwnedIdentity.cryptoIdentity.getIdentity()
         self.selfRevocationTestNonce = nil
         try self.setJwks(keycloakState.jwks)
-        self.clientId = keycloakState.clientId
-        self.clientSecret = keycloakState.clientSecret
+        self.clientId = keycloakState.supportedAuthenticationMethods.openIdConnect.clientId
+        self.clientSecret = keycloakState.supportedAuthenticationMethods.openIdConnect.clientSecret
+        self.supportsIdBasedAuth = (keycloakState.supportedAuthenticationMethods.idBased != nil)
         self.rawPushTopics = nil
         self.keycloakUserId = nil
         self.latestRevocationListTimetamp = nil
@@ -232,6 +247,11 @@ final class KeycloakServer: NSManagedObject {
         }
     }
    
+    /// Updates the `supportsIdBasedAuth` flag, no-op if the value is unchanged.
+    func setSupportsIdBasedAuth(to newValue: Bool) {
+        guard self.supportsIdBasedAuth != newValue else { return }
+        self.supportsIdBasedAuth = newValue
+    }
     
     // MARK: - Observers
 
@@ -430,6 +450,7 @@ final class KeycloakServer: NSManagedObject {
             case rawServerSignatureKey = "rawServerSignatureKey"
             case serverURL = "serverURL"
             case isTransferRestricted = "isTransferRestricted"
+            case supportsIdBasedAuth = "supportsIdBasedAuth"
             // Relationships
             case managedOwnedIdentity = "managedOwnedIdentity"
             case revokedIdentities = "revokedIdentities"
@@ -453,6 +474,30 @@ final class KeycloakServer: NSManagedObject {
         return item
     }
     
+    
+    /// Fetches only the server URL for the keycloak server associated with `ownedCryptoId`.
+    static func getServerURL(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> URL? {
+        let request: NSFetchRequest<KeycloakServer> = KeycloakServer.fetchRequest()
+        request.predicate = Predicate.withRawOwnedIdentity(ownedCryptoId.getIdentity())
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.serverURL.rawValue]
+        let serverURL = try context.fetch(request).first?.serverURL
+        return serverURL
+    }
+    
+    
+    /// Updates the `supportsIdBasedAuth` flag for the keycloak server associated with `ownedCryptoId`.
+    static func setOwnedIdentityKeycloakSupportsIdBasedAuth(ownedCryptoId: ObvCryptoId, supportsIdBasedAuth: Bool, within context: NSManagedObjectContext) throws {
+        let request: NSFetchRequest<KeycloakServer> = KeycloakServer.fetchRequest()
+        request.predicate = Predicate.withRawOwnedIdentity(ownedCryptoId.getIdentity())
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.supportsIdBasedAuth.rawValue]
+        guard let item = try context.fetch(request).first else {
+            assertionFailure()
+            throw ObvIdentityManagerError.ownedIdentityIsNotKeycloakManaged
+        }
+        item.setSupportsIdBasedAuth(to: supportsIdBasedAuth)
+    }
     
     // MARK: - Keycloak pushed groups
     

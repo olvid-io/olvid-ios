@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -73,7 +73,7 @@ final class ProcessRemoteWipeMessagesRequestOperation: ContextualOperationWithSp
             return result = .processed
         }
         
-        guard let discussionIdentifier = deleteMessagesJSON.getDiscussionIdentifier(ownedCryptoId: requester.ownedCryptoId) else {
+        guard let discussionIdentifier = try? deleteMessagesJSON.getObvDiscussionId(ownedCryptoId: requester.ownedCryptoId) else {
             return cancel(withReason: .couldNotDetermineDiscussionIdentifier)
         }
 

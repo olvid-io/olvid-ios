@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -47,7 +47,7 @@ fileprivate extension SentFyleMessageJoinWithStatus {
         switch self.status {
         case .uploadable, .uploading, .downloading:
             return true
-        case .complete, .downloadable, .cancelledByServer:
+        case .complete, .downloadable, .cancelledByServer, .untransferred:
             return false
         }
     }

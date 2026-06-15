@@ -32,3 +32,34 @@ public struct ObvOwnedDeviceIdentifier: Hashable, Sendable {
     }
     
 }
+
+
+extension ObvOwnedDeviceIdentifier: Identifiable {
+    
+    public var id: Data {
+        self.ownedCryptoId.getIdentity() + self.deviceUID.raw
+    }
+    
+}
+
+
+// MARK: - Implementing LosslessStringConvertible
+
+extension ObvOwnedDeviceIdentifier: LosslessStringConvertible {
+    
+    private static var separator: String { "|" }
+    
+    public var description: String {
+        self.ownedCryptoId.description + Self.separator + deviceUID.hexString()
+    }
+    
+    public init?(_ description: String) {
+        let splits = description.split(separator: Self.separator, maxSplits: 1, omittingEmptySubsequences: true)
+        guard splits.count == 2 else { assertionFailure(); return nil }
+        guard let ownedCryptoId = ObvCryptoId(String(splits[0])) else { assertionFailure(); return nil }
+        guard let deviceUID = UID(hexString: String(splits[1])) else { assertionFailure(); return nil }
+        self.init(ownedCryptoId: ownedCryptoId,
+                  deviceUID: deviceUID)
+    }
+    
+}

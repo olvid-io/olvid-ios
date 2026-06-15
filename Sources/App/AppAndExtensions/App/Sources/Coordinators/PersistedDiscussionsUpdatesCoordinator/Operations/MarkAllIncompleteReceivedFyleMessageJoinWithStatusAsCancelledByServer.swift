@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import OlvidUtils
 import ObvUICoreData
 import ObvTypes
@@ -59,9 +59,9 @@ final class MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServe
             for message in receivedMessages {
                 for join in message.fyleMessageJoinWithStatuses {
                     switch join.status {
-                    case .downloadable, .downloading:
+                    case .downloadable, .downloading, .notYetDownloadableAsReceivedByUserNotification:
                         join.tryToSetStatusToCancelledByServer()
-                    case .complete, .cancelledByServer:
+                    case .complete, .cancelledByServer, .untransferred:
                         break
                     }
                 }

@@ -781,7 +781,7 @@ private struct SelectedProductViewBackground: View {
     
     var body: some View {
         RoundedRectangle(cornerSize: .init(width: cornerRadius, height: cornerRadius), style: .continuous)
-            .foregroundStyle(AngularGradient(gradient: Gradient(colors: [.red, .yellow, .green, .blue, .purple, .red]), center: .center))
+            .foregroundStyle(AngularGradient.rainbow)
     }
     
 }

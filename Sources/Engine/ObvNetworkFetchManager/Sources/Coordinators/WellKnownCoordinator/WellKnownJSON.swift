@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -50,17 +50,22 @@ struct WellKnownServerConfigJSON: Decodable {
     
     public let webSocketURL: URL
     public let turnServerURLs: [String]
+    public let turnServerAlternativeURLs: [String]
     
     enum CodingKeys: String, CodingKey {
         case webSocketURL = "ws_server"
         case turnServerURLs = "turn_servers"
+        case turnServerAlternativeURLs = "alt_turn_servers"
+        
     }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.webSocketURL = try values.decode(URL.self, forKey: .webSocketURL)
-        // REMARK Encode nil and [] as []
+        // We decode nil and [] as []
         self.turnServerURLs = try values.decodeIfPresent([String].self, forKey: .turnServerURLs) ?? []
+        self.turnServerAlternativeURLs = try values.decodeIfPresent([String].self, forKey: .turnServerAlternativeURLs) ?? []
+        debugPrint("")
     }
 
     static func jsonDecode(_ data: Data) throws -> WellKnownServerConfigJSON {
@@ -68,5 +73,4 @@ struct WellKnownServerConfigJSON: Decodable {
         return try decoder.decode(WellKnownServerConfigJSON.self, from: data)
     }
 
-    
 }

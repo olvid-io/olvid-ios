@@ -1,0 +1,801 @@
+diff --git a/p2p/BUILD.gn b/p2p/BUILD.gn
+index 34f6ef11ea..134e70c20c 100644
+--- a/p2p/BUILD.gn
++++ b/p2p/BUILD.gn
+@@ -115,6 +115,7 @@ rtc_library("basic_packet_socket_factory") {
+     "../rtc_base:ssl",
+     "../rtc_base:ssl_adapter",
+     "../rtc_base/system:rtc_export",
++    "../rtc_base:olvid_async_https_proxy_socket",
+     "//third_party/abseil-cpp/absl/memory",
+   ]
+ }
+diff --git a/p2p/base/basic_packet_socket_factory.cc b/p2p/base/basic_packet_socket_factory.cc
+index 3810e2b324..db5efd08b8 100644
+--- a/p2p/base/basic_packet_socket_factory.cc
++++ b/p2p/base/basic_packet_socket_factory.cc
+@@ -14,6 +14,7 @@
+ #include <memory>
+ #include <string>
+ 
++#include "rtc_base/olvid_async_https_proxy_socket.h"
+ #include "absl/memory/memory.h"
+ #include "api/async_dns_resolver.h"
+ #include "api/packet_socket_factory.h"
+@@ -36,6 +37,20 @@ BasicPacketSocketFactory::BasicPacketSocketFactory(
+     SocketFactory* socket_factory)
+     : socket_factory_(socket_factory) {}
+ 
++BasicPacketSocketFactory::BasicPacketSocketFactory(
++    SocketFactory* socket_factory,
++    SocketAddress proxy_socket_address,
++    std::string& user_agent)
++    : socket_factory_(socket_factory) {
++  if (proxy_socket_address.IsComplete()) {
++    proxy_type_ = PROXY_HTTPS;
++    proxy_socket_address_ = proxy_socket_address;
++  } else {
++    proxy_type_ = PROXY_NONE;
++  }
++  user_agent_ = user_agent;
++}
++
+ BasicPacketSocketFactory::~BasicPacketSocketFactory() {}
+ 
+ AsyncPacketSocket* BasicPacketSocketFactory::CreateUdpSocket(
+@@ -121,6 +136,12 @@ AsyncPacketSocket* BasicPacketSocketFactory::CreateClientTcpSocket(
+                       << socket->GetError();
+   }
+ 
++  // proxy support
++  if (proxy_type_ == PROXY_HTTPS) {
++    socket =
++        new olvid::AsyncHttpsProxySocket(socket, user_agent_, proxy_socket_address_);
++  }
++
+   // Assert that at most one TLS option is used.
+   int tlsOpts = tcp_options.opts & (PacketSocketFactory::OPT_TLS |
+                                     PacketSocketFactory::OPT_TLS_FAKE |
+diff --git a/p2p/base/basic_packet_socket_factory.h b/p2p/base/basic_packet_socket_factory.h
+index 40bf94cce4..f7ea6d2da7 100644
+--- a/p2p/base/basic_packet_socket_factory.h
++++ b/p2p/base/basic_packet_socket_factory.h
+@@ -24,9 +24,14 @@
+ 
+ namespace webrtc {
+ 
++enum ProxyType { PROXY_NONE, PROXY_HTTPS };
++
+ class RTC_EXPORT BasicPacketSocketFactory : public PacketSocketFactory {
+  public:
+   explicit BasicPacketSocketFactory(SocketFactory* socket_factory);
++  explicit BasicPacketSocketFactory(SocketFactory* socket_factory,
++                                        SocketAddress proxy_socket_address,
++                                        std::string& user_agent);
+   ~BasicPacketSocketFactory() override;
+ 
+   AsyncPacketSocket* CreateUdpSocket(const SocketAddress& local_address,
+@@ -50,6 +55,10 @@ class RTC_EXPORT BasicPacketSocketFactory : public PacketSocketFactory {
+                  uint16_t max_port);
+ 
+   SocketFactory* socket_factory_;
++  // Proxy support
++  ProxyType proxy_type_;
++  SocketAddress proxy_socket_address_;
++  std::string user_agent_;
+ };
+ 
+ }  //  namespace webrtc
+diff --git a/rtc_base/BUILD.gn b/rtc_base/BUILD.gn
+index 27cf292d16..78ce93fda9 100644
+--- a/rtc_base/BUILD.gn
++++ b/rtc_base/BUILD.gn
+@@ -1421,6 +1421,24 @@ rtc_library("dscp") {
+   sources = [ "dscp.h" ]
+ }
+ 
++rtc_library("olvid_async_https_proxy_socket") {
++  visibility = [ "*" ]
++  sources = [
++    "olvid_async_https_proxy_socket.cc",
++    "olvid_async_https_proxy_socket.h",
++  ]
++  deps = [
++    "../api:array_view",
++    ":async_socket",
++    ":socket",
++    ":socket_adapters",
++    ":socket_address",
++    "//third_party/abseil-cpp/absl/strings",
++    ":checks",
++    ":logging",
++  ]
++}
++
+ rtc_library("file_rotating_stream") {
+   sources = [
+     "file_rotating_stream.cc",
+diff --git a/rtc_base/olvid_async_https_proxy_socket.cc b/rtc_base/olvid_async_https_proxy_socket.cc
+new file mode 100644
+index 0000000000..5856853ece
+--- /dev/null
++++ b/rtc_base/olvid_async_https_proxy_socket.cc
+@@ -0,0 +1,251 @@
++/*
++////////////////////////////////////////////////////////
++Proxy support
++////////////////////////////////////////////////////////
++
++Copied from rtc_base/socket_adapters.cc (version 6478)
++before this part was deleted (L.218)
++*/
++
++#include "rtc_base/olvid_async_https_proxy_socket.h"
++
++#include <algorithm>
++#include <cerrno>
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++
++#include "absl/strings/match.h"
++#include "api/array_view.h"
++#include "rtc_base/async_socket.h"
++#include "rtc_base/checks.h"
++#include "rtc_base/logging.h"
++#include "rtc_base/socket.h"
++#include "rtc_base/socket_address.h"
++
++namespace webrtc {
++namespace olvid {
++
++AsyncHttpsProxySocket::AsyncHttpsProxySocket(Socket* socket,
++                                             absl::string_view user_agent,
++                                             const SocketAddress& proxy)
++    : BufferedReadAdapter(socket, 1024),
++      proxy_(proxy),
++      agent_(user_agent),
++      force_connect_(false),
++      state_(PS_ERROR) {}
++
++AsyncHttpsProxySocket::~AsyncHttpsProxySocket() {}
++
++int AsyncHttpsProxySocket::Connect(const SocketAddress& addr) {
++  int ret;
++  RTC_LOG(LS_VERBOSE) << "AsyncHttpsProxySocket::Connect("
++                      << proxy_.ToSensitiveString() << ")";
++  dest_ = addr;
++  state_ = PS_INIT;
++  if (ShouldIssueConnect()) {
++    BufferInput(true);
++  }
++  ret = BufferedReadAdapter::Connect(proxy_);
++  // TODO: Set state_ appropriately if Connect fails.
++  return ret;
++}
++
++SocketAddress AsyncHttpsProxySocket::GetRemoteAddress() const {
++  return dest_;
++}
++
++int AsyncHttpsProxySocket::Close() {
++  headers_.clear();
++  state_ = PS_ERROR;
++  dest_.Clear();
++  return BufferedReadAdapter::Close();
++}
++
++Socket::ConnState AsyncHttpsProxySocket::GetState() const {
++  if (state_ < PS_TUNNEL) {
++    return CS_CONNECTING;
++  } else if (state_ == PS_TUNNEL) {
++    return CS_CONNECTED;
++  } else {
++    return CS_CLOSED;
++  }
++}
++
++void AsyncHttpsProxySocket::OnConnectEvent(Socket* socket) {
++  RTC_LOG(LS_VERBOSE) << "AsyncHttpsProxySocket::OnConnectEvent";
++  if (!ShouldIssueConnect()) {
++    state_ = PS_TUNNEL;
++    BufferedReadAdapter::OnConnectEvent(socket);
++    return;
++  }
++  SendRequest();
++}
++
++void AsyncHttpsProxySocket::OnCloseEvent(Socket* socket, int err) {
++  RTC_LOG(LS_VERBOSE) << "AsyncHttpsProxySocket::OnCloseEvent(" << err << ")";
++  if ((state_ == PS_WAIT_CLOSE) && (err == 0)) {
++    state_ = PS_ERROR;
++    Connect(dest_);
++  } else {
++    BufferedReadAdapter::OnCloseEvent(socket, err);
++  }
++}
++
++void AsyncHttpsProxySocket::ProcessInput(char* data, size_t* len) {
++  size_t start = 0;
++  for (size_t pos = start; state_ < PS_TUNNEL && pos < *len;) {
++    if (state_ == PS_SKIP_BODY) {
++      size_t consume = std::min(*len - pos, content_length_);
++      pos += consume;
++      start = pos;
++      content_length_ -= consume;
++      if (content_length_ == 0) {
++        EndResponse();
++      }
++      continue;
++    }
++
++    if (data[pos++] != '\n')
++      continue;
++
++    size_t length = pos - start - 1;
++    if ((length > 0) && (data[start + length - 1] == '\r'))
++      --length;
++
++    data[start + length] = 0;
++    ProcessLine(data + start, length);
++    start = pos;
++  }
++
++  *len -= start;
++  if (*len > 0) {
++    memmove(data, data + start, *len);
++  }
++
++  if (state_ != PS_TUNNEL)
++    return;
++
++  bool remainder = (*len > 0);
++  BufferInput(false);
++  SignalConnectEvent(this);
++
++  // FIX: if SignalConnect causes the socket to be destroyed, we are in trouble
++  if (remainder)
++    SignalReadEvent(this);  // TODO: signal this??
++}
++
++bool AsyncHttpsProxySocket::ShouldIssueConnect() const {
++  // TODO: Think about whether a more sophisticated test
++  // than dest port == 80 is needed.
++  return force_connect_ || (dest_.port() != 80);
++}
++
++void AsyncHttpsProxySocket::SendRequest() {
++  webrtc::StringBuilder ss;
++  ss << "CONNECT " << dest_.ToString() << " HTTP/1.0\r\n";
++  ss << "User-Agent: " << agent_ << "\r\n";
++  ss << "Host: " << dest_.HostAsURIString() << "\r\n";
++  ss << "Content-Length: 0\r\n";
++  ss << "Proxy-Connection: Keep-Alive\r\n";
++  ss << headers_;
++  ss << "\r\n";
++  std::string str = ss.str();
++  DirectSend(str.c_str(), str.size());
++  state_ = PS_LEADER;
++  expect_close_ = true;
++  content_length_ = 0;
++  headers_.clear();
++
++  RTC_LOG(LS_VERBOSE) << "AsyncHttpsProxySocket >> " << str;
++}
++
++void AsyncHttpsProxySocket::ProcessLine(char* data, size_t len) {
++  RTC_LOG(LS_VERBOSE) << "AsyncHttpsProxySocket << " << data;
++
++  if (len == 0) {
++    if (state_ == PS_TUNNEL_HEADERS) {
++      state_ = PS_TUNNEL;
++    } else if (state_ == PS_ERROR_HEADERS) {
++      Error(defer_error_);
++      return;
++    } else if (state_ == PS_SKIP_HEADERS) {
++      if (content_length_) {
++        state_ = PS_SKIP_BODY;
++      } else {
++        EndResponse();
++        return;
++      }
++    } else {
++      if (!unknown_mechanisms_.empty()) {
++        RTC_LOG(LS_ERROR) << "Unsupported authentication methods: "
++                          << unknown_mechanisms_;
++      }
++      // Unexpected end of headers
++      Error(0);
++      return;
++    }
++  } else if (state_ == PS_LEADER) {
++    unsigned int code;
++    if (sscanf(data, "HTTP/%*u.%*u %u", &code) != 1) {
++      Error(0);
++      return;
++    }
++    switch (code) {
++      case 200:
++        // connection good!
++        state_ = PS_TUNNEL_HEADERS;
++        return;
++#if defined(HTTP_STATUS_PROXY_AUTH_REQ) && (HTTP_STATUS_PROXY_AUTH_REQ != 407)
++#error Wrong code for HTTP_STATUS_PROXY_AUTH_REQ
++#endif
++      case 407:  // HTTP_STATUS_PROXY_AUTH_REQ
++        state_ = PS_AUTHENTICATE;
++        return;
++      default:
++        defer_error_ = 0;
++        state_ = PS_ERROR_HEADERS;
++        return;
++    }
++  } else if ((state_ == PS_AUTHENTICATE) &&
++             absl::StartsWithIgnoreCase(data, "Proxy-Authenticate:")) {
++    // Essai qui peut fonctionner à partir d'ici (g supprimé des trucs cf les
++    // doc pour plus d'infos)
++    std::string response, auth_method;
++    RTC_LOG(LS_VERBOSE) << "Ignoring Proxy-Authenticate: " << auth_method;
++    if (!unknown_mechanisms_.empty())
++      unknown_mechanisms_.append(", ");
++    unknown_mechanisms_.append(auth_method);
++  } else if (absl::StartsWithIgnoreCase(data, "Content-Length:")) {
++    content_length_ = strtoul(data + 15, 0, 0);
++  } else if (absl::StartsWithIgnoreCase(data, "Proxy-Connection: Keep-Alive")) {
++    expect_close_ = false;
++    /*
++  } else if (absl::StartsWithIgnoreCase(data, "Connection: close") {
++    expect_close_ = true;
++    */
++  }
++}
++
++void AsyncHttpsProxySocket::EndResponse() {
++  if (!expect_close_) {
++    SendRequest();
++    return;
++  }
++
++  // No point in waiting for the server to close... let's close now
++  // TODO: Refactor out PS_WAIT_CLOSE
++  state_ = PS_WAIT_CLOSE;
++  BufferedReadAdapter::Close();
++  OnCloseEvent(this, 0);
++}
++
++void AsyncHttpsProxySocket::Error(int error) {
++  BufferInput(false);
++  Close();
++  SetError(error);
++  SignalCloseEvent(this, error);
++}
++
++}  // olvid
++}  // namespace webrtc
+diff --git a/rtc_base/olvid_async_https_proxy_socket.h b/rtc_base/olvid_async_https_proxy_socket.h
+new file mode 100644
+index 0000000000..38dce188fa
+--- /dev/null
++++ b/rtc_base/olvid_async_https_proxy_socket.h
+@@ -0,0 +1,82 @@
++/*
++///////////////////////////////////////////////////////
++Proxy support
++///////////////////////////////////////////////////////
++
++Copied from rtc_base/socket_adapters.h (version 6478)
++before this part was deleted (L.79)
++*/
++
++#ifndef RTC_BASE_OLVID_ASYNC_HTTPS_PROXY_SOCKET_H_
++#define RTC_BASE_OLVID_ASYNC_HTTPS_PROXY_SOCKET_H_
++
++#include <cstddef>
++#include <cstdint>
++
++#include "api/array_view.h"
++#include "rtc_base/async_socket.h"
++#include "rtc_base/socket.h"
++#include "rtc_base/socket_adapters.h"
++#include "rtc_base/socket_address.h"
++
++namespace webrtc {
++namespace olvid {
++
++// Implements a socket adapter that speaks the HTTP/S proxy protocol.
++class AsyncHttpsProxySocket : public BufferedReadAdapter {
++ public:
++  AsyncHttpsProxySocket(Socket* socket,
++                        absl::string_view user_agent,
++                        const SocketAddress& proxy);
++  ~AsyncHttpsProxySocket() override;
++
++  AsyncHttpsProxySocket(const AsyncHttpsProxySocket&) = delete;
++  AsyncHttpsProxySocket& operator=(const AsyncHttpsProxySocket&) = delete;
++
++  // If connect is forced, the adapter will always issue an HTTP CONNECT to the
++  // target address.  Otherwise, it will connect only if the destination port
++  // is not port 80.
++  void SetForceConnect(bool force) { force_connect_ = force; }
++
++  int Connect(const SocketAddress& addr) override;
++  SocketAddress GetRemoteAddress() const override;
++  int Close() override;
++  ConnState GetState() const override;
++
++ protected:
++  void OnConnectEvent(Socket* socket) override;
++  void OnCloseEvent(Socket* socket, int err) override;
++  void ProcessInput(char* data, size_t* len) override;
++
++  bool ShouldIssueConnect() const;
++  void SendRequest();
++  void ProcessLine(char* data, size_t len);
++  void EndResponse();
++  void Error(int error);
++
++ private:
++  SocketAddress proxy_, dest_;
++  std::string agent_, headers_;
++  bool force_connect_;
++  size_t content_length_;
++  int defer_error_;
++  bool expect_close_;
++  enum ProxyState {
++    PS_INIT,
++    PS_LEADER,
++    PS_AUTHENTICATE,
++    PS_SKIP_HEADERS,
++    PS_ERROR_HEADERS,
++    PS_TUNNEL_HEADERS,
++    PS_SKIP_BODY,
++    PS_TUNNEL,
++    PS_WAIT_CLOSE,
++    PS_ERROR
++  } state_;
++  std::string unknown_mechanisms_;
++};
++
++}  //  namespace olvid
++}  //  namespace webrtc
++
++#endif  // RTC_BASE_OLVID_ASYNC_HTTPS_PROXY_SOCKET_H_
+\ No newline at end of file
+diff --git a/sdk/BUILD.gn b/sdk/BUILD.gn
+index 75f5ee2541..88b1e7ce16 100644
+--- a/sdk/BUILD.gn
++++ b/sdk/BUILD.gn
+@@ -1153,6 +1153,8 @@ if (is_ios || is_mac) {
+         "../rtc_base:stringutils",
+         "../rtc_base:threading",
+         "../rtc_base:timeutils",
++        "../rtc_base:socket_address",
++        "../p2p:basic_packet_socket_factory",
+         "../stats:rtc_stats",
+         "../system_wrappers:field_trial",
+         "../system_wrappers:metrics",
+diff --git a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
+index abfa679a1c..dd5e8723b3 100644
+--- a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
++++ b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.h
+@@ -9,6 +9,8 @@
+  */
+ 
+ #import <Foundation/Foundation.h>
++#include <stdint.h>
++#include "RTCMediaStreamTrack.h"
+ 
+ #import "sdk/objc/base/RTCMacros.h"
+ 
+@@ -35,12 +37,33 @@ NS_ASSUME_NONNULL_BEGIN
+ @protocol RTC_OBJC_TYPE
+ (RTCAudioDevice);
+ 
++// Proxy support
++RTC_OBJC_EXPORT
++@interface RTC_OBJC_TYPE (ObjcppProxyInfo) : NSObject
++
++- (instancetype)
++      initWithproxyAddress:
++      (NSString*)proxyAddress
++                      port:(uint16_t)
++                        port
++                 userAgent:(NSString*) userAgent;
++
++@end
++
+ RTC_OBJC_EXPORT
+ @interface RTC_OBJC_TYPE (RTCPeerConnectionFactory) : NSObject
+ 
+ /* Initialize object with default H264 video encoder/decoder factories and default ADM */
+ - (instancetype)init;
+ 
++// proxy support
++- (instancetype)
++      initWithEncoderFactory:
++      (nullable id<RTC_OBJC_TYPE(RTCVideoEncoderFactory)>)encoderFactory
++              decoderFactory:(nullable id<RTC_OBJC_TYPE(RTCVideoDecoderFactory)>)
++                        decoderFactory
++             objcppProxyInfo:(ObjcppProxyInfo*) objcppProxyInfo;
++
+ /* Initialize object with injectable video encoder/decoder factories and default
+  * ADM */
+ - (instancetype)
+diff --git a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
+index 619d0469e9..a4e4c5cd80 100644
+--- a/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
++++ b/sdk/objc/api/peerconnection/RTCPeerConnectionFactory.mm
+@@ -8,6 +8,8 @@
+  *  be found in the AUTHORS file in the root of the source tree.
+  */
+ 
++#include "RTCPeerConnectionFactory.h"
++#include <cstdint>
+ #include <memory>
+ 
+ #import "RTCPeerConnectionFactory+Native.h"
+@@ -27,6 +29,11 @@
+ #import "base/RTCVideoEncoderFactory.h"
+ #import "helpers/NSString+StdString.h"
+ #include "rtc_base/checks.h"
++// Proxy support
++#include "p2p/base/basic_packet_socket_factory.h"
++#include "rtc_base/socket_address.h"
++#include "rtc_base/socket_server.h"
++
+ #include "sdk/objc/native/api/network_monitor_factory.h"
+ #include "sdk/objc/native/api/ssl_certificate_verifier.h"
+ 
+@@ -54,6 +61,31 @@
+ #import "sdk/objc/native/api/audio_device_module.h"
+ #endif
+ 
++@implementation RTC_OBJC_TYPE (ObjcppProxyInfo) {
++  @public
++  NSString *_proxyAddress;
++  uint16_t _port;
++  NSString *_userAgent;
++}
++
++- (instancetype)
++      initWithproxyAddress:
++      (NSString*)proxyAddress
++                      port:(uint16_t)
++                        port
++                 userAgent:(NSString*) userAgent {
++
++  self = [super init];
++  if (self) {
++    _proxyAddress = proxyAddress;
++    _port = port;
++    _userAgent = userAgent;
++  }
++  return self;
++}
++
++@end
++
+ @implementation RTC_OBJC_TYPE (RTCPeerConnectionFactory) {
+   std::unique_ptr<webrtc::Thread> _networkThread;
+   std::unique_ptr<webrtc::Thread> _workerThread;
+@@ -63,6 +95,99 @@ @implementation RTC_OBJC_TYPE (RTCPeerConnectionFactory) {
+ 
+ @synthesize nativeFactory = _nativeFactory;
+ 
++// proxy support
++// copied from init, initWithEncoderFactory(and decoder), initWithMediaAndDependencies, and initWithNativeDependencies
++- (instancetype)
++      initWithEncoderFactory:
++      (nullable id<RTC_OBJC_TYPE(RTCVideoEncoderFactory)>)encoderFactory
++              decoderFactory:(nullable id<RTC_OBJC_TYPE(RTCVideoDecoderFactory)>)
++                        decoderFactory
++                objcppProxyInfo:(ObjcppProxyInfo*) objcppProxyInfo {
++  // converts obj-cpp to cpp
++  std::string proxy_address = [NSString stdStringForString:objcppProxyInfo->_proxyAddress];
++  std::string user_agent = [NSString stdStringForString:objcppProxyInfo->_userAgent];
++  uint16_t port = objcppProxyInfo->_port;
++
++  // copied from initWithEncoderFactory:decoderFactory:audioDevice
++  webrtc::PeerConnectionFactoryDependencies dependencies;
++  dependencies.env = webrtc::CreateEnvironment();
++  dependencies.audio_encoder_factory =
++      webrtc::CreateBuiltinAudioEncoderFactory();
++  dependencies.audio_decoder_factory =
++      webrtc::CreateBuiltinAudioDecoderFactory();
++  if (encoderFactory) {
++    dependencies.video_encoder_factory =
++        webrtc::ObjCToNativeVideoEncoderFactory(encoderFactory);
++  }
++  if (decoderFactory) {
++    dependencies.video_decoder_factory =
++        webrtc::ObjCToNativeVideoDecoderFactory(decoderFactory);
++  }
++
++  #ifdef WEBRTC_IOS
++    dependencies.adm = webrtc::CreateAudioDeviceModule(*dependencies.env);
++  #endif
++
++  #ifndef WEBRTC_EXCLUDE_AUDIO_PROCESSING_MODULE
++  if (dependencies.audio_processing_builder == nullptr) {
++    dependencies.audio_processing_builder =
++        std::make_unique<webrtc::BuiltinAudioProcessingBuilder>();
++  }
++  #endif
++  if (dependencies.event_log_factory == nullptr) {
++    dependencies.event_log_factory =
++        std::make_unique<webrtc::RtcEventLogFactory>();
++  }
++  webrtc::EnableMedia(dependencies);
++
++  self = [super init];
++  if (self) {
++
++    _networkThread = webrtc::Thread::CreateWithSocketServer();
++    _networkThread->SetName("network_thread", _networkThread.get());
++    webrtc::SocketServer* socket_server = _networkThread.get()->socketserver();
++    BOOL result = _networkThread->Start();
++    RTC_DCHECK(result) << "Failed to start network thread.";
++
++    _workerThread = webrtc::Thread::Create();
++    _workerThread->SetName("worker_thread", _workerThread.get());
++    result = _workerThread->Start();
++    RTC_DCHECK(result) << "Failed to start worker thread.";
++
++    _signalingThread = webrtc::Thread::Create();
++    _signalingThread->SetName("signaling_thread", _signalingThread.get());
++    result = _signalingThread->Start();
++    RTC_DCHECK(result) << "Failed to start signaling thread.";
++
++    // Set fields that are relevant both to 'no media' and 'with media'
++    // scenarios.
++    dependencies.network_thread = _networkThread.get();
++    dependencies.worker_thread = _workerThread.get();
++    dependencies.signaling_thread = _signalingThread.get();
++    if (!dependencies.env.has_value()) {
++      dependencies.env = webrtc::CreateEnvironment();
++    }
++    if (dependencies.network_monitor_factory == nullptr &&
++        dependencies.env->field_trials().IsEnabled(
++            "WebRTC-Network-UseNWPathMonitor")) {
++      dependencies.network_monitor_factory =
++          webrtc::CreateNetworkMonitorFactory();
++    }
++
++    if ((!proxy_address.empty() && port != 0) || !user_agent.empty()) {
++      dependencies.packet_socket_factory =
++          std::make_unique<webrtc::BasicPacketSocketFactory>(
++              socket_server, webrtc::SocketAddress(proxy_address, port), user_agent
++          );
++    }
++
++    _nativeFactory =
++        webrtc::CreateModularPeerConnectionFactory(std::move(dependencies));
++    NSAssert(_nativeFactory, @"Failed to initialize PeerConnectionFactory!");
++  }
++  return self;
++}
++
+ - (instancetype)init {
+   webrtc::PeerConnectionFactoryDependencies dependencies;
+   dependencies.audio_encoder_factory =
+diff --git a/sdk/objc/components/capturer/RTCCameraVideoCapturer.h b/sdk/objc/components/capturer/RTCCameraVideoCapturer.h
+index 5185fa866e..6c846b6339 100644
+--- a/sdk/objc/components/capturer/RTCCameraVideoCapturer.h
++++ b/sdk/objc/components/capturer/RTCCameraVideoCapturer.h
+@@ -34,6 +34,9 @@ RTC_OBJC_EXPORT
+ // Returns the most efficient supported output pixel format for this capturer.
+ - (FourCharCode)preferredOutputPixelFormat;
+ 
++// proxy support
++- (void)setRotationDependsOnDeviceOrientation:(BOOL)value;
++
+ // Starts the capture session asynchronously and notifies callback on
+ // completion. The device will capture video in the format given in the `format`
+ // parameter. If the pixel format in `format` is supported by the WebRTC
+diff --git a/sdk/objc/components/capturer/RTCCameraVideoCapturer.m b/sdk/objc/components/capturer/RTCCameraVideoCapturer.m
+index ff55bd7f19..1ec07ed121 100644
+--- a/sdk/objc/components/capturer/RTCCameraVideoCapturer.m
++++ b/sdk/objc/components/capturer/RTCCameraVideoCapturer.m
+@@ -9,6 +9,7 @@
+  */
+ 
+ #import <Foundation/Foundation.h>
++#include <objc/objc.h>
+ 
+ #import "RTCCameraVideoCapturer.h"
+ #import "base/RTCLogging.h"
+@@ -42,6 +43,7 @@ @implementation RTC_OBJC_TYPE (RTCCameraVideoCapturer) {
+   FourCharCode _preferredOutputPixelFormat;
+   FourCharCode _outputPixelFormat;
+   RTCVideoRotation _rotation;
++  BOOL _rotationDependsOnDeviceOrientation;
+ #if TARGET_OS_IPHONE
+   UIDeviceOrientation _orientation;
+   BOOL _generatingOrientationNotifications;
+@@ -55,6 +57,10 @@ @implementation RTC_OBJC_TYPE (RTCCameraVideoCapturer) {
+ @synthesize isRunning = _isRunning;
+ @synthesize willBeRunning = _willBeRunning;
+ 
++- (void)setRotationDependsOnDeviceOrientation:(BOOL)value {
++  _rotationDependsOnDeviceOrientation = value;
++}
++
+ - (instancetype)init {
+   return [self initWithDelegate:nil
+                  captureSession:[[AVCaptureSession alloc] init]];
+@@ -70,6 +76,7 @@ - (instancetype)initWithDelegate:
+ - (instancetype)initWithDelegate:
+                     (__weak id<RTC_OBJC_TYPE(RTCVideoCapturerDelegate)>)delegate
+                   captureSession:(AVCaptureSession *)captureSession {
++  _rotationDependsOnDeviceOrientation = YES;
+   self = [super initWithDelegate:delegate];
+   if (self) {
+     // Create the capture session and all relevant inputs and outputs. We need
+@@ -308,6 +315,11 @@ - (void)captureOutput:(AVCaptureOutput *)captureOutput
+   _rotation = RTCVideoRotation_0;
+ #endif
+ 
++  // If the rotation should not depend on the orientation of the device, reset it.
++  if (!_rotationDependsOnDeviceOrientation) {
++    _rotation = RTCVideoRotation_0;
++  }
++
+   RTC_OBJC_TYPE(RTCCVPixelBuffer) *rtcPixelBuffer =
+       [[RTC_OBJC_TYPE(RTCCVPixelBuffer) alloc] initWithPixelBuffer:pixelBuffer];
+   int64_t timeStampNs =
+@@ -337,28 +349,7 @@ - (void)captureOutput:(AVCaptureOutput *)captureOutput
+ #pragma mark - AVCaptureSession notifications
+ 
+ - (void)handleCaptureSessionInterruption:(NSNotification *)notification {
+-  NSString *reasonString = nil;
+-#if TARGET_OS_IPHONE
+-  NSNumber *reason =
+-      notification.userInfo[AVCaptureSessionInterruptionReasonKey];
+-  if (reason) {
+-    switch (reason.intValue) {
+-      case AVCaptureSessionInterruptionReasonVideoDeviceNotAvailableInBackground:
+-        reasonString = @"VideoDeviceNotAvailableInBackground";
+-        break;
+-      case AVCaptureSessionInterruptionReasonAudioDeviceInUseByAnotherClient:
+-        reasonString = @"AudioDeviceInUseByAnotherClient";
+-        break;
+-      case AVCaptureSessionInterruptionReasonVideoDeviceInUseByAnotherClient:
+-        reasonString = @"VideoDeviceInUseByAnotherClient";
+-        break;
+-      case AVCaptureSessionInterruptionReasonVideoDeviceNotAvailableWithMultipleForegroundApps:
+-        reasonString = @"VideoDeviceNotAvailableWithMultipleForegroundApps";
+-        break;
+-    }
+-  }
+-#endif
+-  RTCLog(@"Capture session interrupted: %@", reasonString);
++  RTCLog(@"Capture session interrupted.");
+ }
+ 
+ - (void)handleCaptureSessionInterruptionEnded:(NSNotification *)notification {
+@@ -460,7 +451,10 @@ - (BOOL)setupCaptureSession:(AVCaptureSession *)captureSession {
+   NSAssert(_captureSession == nil, @"Setup capture session called twice.");
+   _captureSession = captureSession;
+ #if defined(WEBRTC_IOS)
++#if TARGET_OS_MACCATALYST
++#else
+   _captureSession.sessionPreset = AVCaptureSessionPresetInputPriority;
++#endif // TARGET_OS_MACCATALYST
+   _captureSession.usesApplicationAudioSession = NO;
+ #endif
+   [self setupVideoDataOutput];
+diff --git a/tools_webrtc/ios/build_ios_libs.py b/tools_webrtc/ios/build_ios_libs.py
+index e7967db56b..b713e6c839 100755
+--- a/tools_webrtc/ios/build_ios_libs.py
++++ b/tools_webrtc/ios/build_ios_libs.py
+@@ -41,8 +41,8 @@ DEFAULT_ARCHS = [
+     'device:arm64', 'simulator:arm64', 'simulator:x64'
+ ]
+ IOS_MINIMUM_DEPLOYMENT_TARGET = {
+-    'device': '14.0',
+-    'simulator': '14.0',
++    'device': '15.5',
++    'simulator': '15.5',
+     'catalyst': '14.0'
+ }
+ LIBVPX_BUILD_VP9 = False

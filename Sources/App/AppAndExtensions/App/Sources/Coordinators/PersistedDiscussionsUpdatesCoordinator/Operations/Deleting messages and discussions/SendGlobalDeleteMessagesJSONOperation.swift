@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,8 +19,9 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
+import ObvAppTypes
 import OlvidUtils
 import ObvEngine
 import ObvUICoreData

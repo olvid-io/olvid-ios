@@ -118,8 +118,12 @@ struct SuccessfulTransferConfirmationView: View {
                 }.padding(.top)
                 
                 HStack {
-                    InternalButton(style: .white, "ADD_ANOTHER_PROFILE", action: addButtonTapped)
-                    InternalButton(style: .blue, "NO_OTHER_PROFILE_TO_ADD", action: doneButtonTapped)
+                    OlvidButtonNew(action: addButtonTapped, style: .glassOrBordered) {
+                        Text("ADD_ANOTHER_PROFILE")
+                    }
+                    OlvidButtonNew(action: doneButtonTapped) {
+                        Text("NO_OTHER_PROFILE_TO_ADD")
+                    }
                 }.padding(.top)
                 
                 Spacer()
@@ -128,75 +132,6 @@ struct SuccessfulTransferConfirmationView: View {
             .padding(.horizontal)
         }
     }
-}
-
-
-// MARK: - Button used in this view only
-
-private struct InternalButton: View {
-    
-    private let style: Style
-    private let key: LocalizedStringKey
-    private let action: () -> Void
-    @Environment(\.isEnabled) var isEnabled
-    
-    enum Style {
-        case blue
-        case white
-    }
-    
-    private var backgroundColor: Color {
-        switch style {
-        case .blue:
-            return Color.blue01
-        case .white:
-            return Color(UIColor.systemBackground)
-        }
-    }
-    
-    
-    private var textColor: Color {
-        switch style {
-        case .blue:
-            return .white
-        case .white:
-            return Color(UIColor.label)
-        }
-    }
-    
-    private var borderOpacity: Double {
-        switch style {
-        case .blue:
-            return 0.0
-        case .white:
-            return 1.0
-        }
-    }
-    
-    init(style: Style, _ key: LocalizedStringKey, action: @escaping () -> Void) {
-        self.style = style
-        self.key = key
-        self.action = action
-    }
-        
-    var body: some View {
-        Button(action: action) {
-            Text(key)
-                .foregroundStyle(textColor)
-                .padding(.horizontal, 26)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .background(backgroundColor)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(isEnabled ? 1.0 : 0.6)
-        .overlay(content: {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(UIColor.lightGray), lineWidth: 1)
-                .opacity(borderOpacity)
-        })
-    }
-    
 }
 
 

@@ -55,19 +55,20 @@ public enum MessageIdentifier {
 
 public enum SentMessageIdentifier {
     case objectID(objectID: NSManagedObjectID)
-    case authorIdentifier(writerIdentifier: MessageWriterIdentifier)
+    case authorIdentifier(writerIdentifier: MessageIdentifierInDiscussion)
 }
 
 public enum ReceivedMessageIdentifier {
     case objectID(objectID: NSManagedObjectID)
-    case authorIdentifier(writerIdentifier: MessageWriterIdentifier)
+    case authorIdentifier(writerIdentifier: MessageIdentifierInDiscussion)
 }
 
 public enum SystemMessageIdentifier {
     case objectID(objectID: NSManagedObjectID)
 }
 
-public struct MessageWriterIdentifier {
+/// Identifier that uniquely determines a message in a given discussion.
+public struct MessageIdentifierInDiscussion {
     public let senderSequenceNumber: Int
     public let senderThreadIdentifier: UUID
     public let senderIdentifier: Data // Bytes of the identity of the writer

@@ -21,7 +21,6 @@ import Foundation
 import OSLog
 import CoreData
 import ObvTypes
-import LinkPresentation
 import OlvidUtils
 @preconcurrency import ObvEngine
 import ObvUICoreData
@@ -71,7 +70,6 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         await setDateOfCreationOfFirstProfileIfRequired(withDate: nil)
-        await updateLegacyStatusesOfSentMessagesIfRequired()
         pruneObsoletePersistedInvitations()
         removeOldCachedPreviewFetched()
         await resyncPersistedInvitationsWithEngine()
@@ -234,84 +232,6 @@ extension BootstrapCoordinator {
                 }
             }
         }
-    }
-    
-    
-    /// Update the legacy sent message statutes of previously sent messages to update them if required. This method also consolidates the timestamps in sent message infos as, before v3.1,
-    /// we could end up in a situation where a sent info could have a non-nil delivered timestamp, with a nil sent timestamp (which makes no sense).
-    private func updateLegacyStatusesOfSentMessagesIfRequired() async {
-
-        guard let userDefaults else { assertionFailure(); return }
-
-        // We only allow the commit of 50 changes at once per operation. This is to make sure that saving the Core Data context doesn't take too long.
-        let maxNumberOfChanges = 50
-                
-        do {
-            
-            let userDefaultsKey = "BootstrapCoordinator.ConsolidateLegacyTimestampsOfPersistedMessageSentRecipientInfosOperation.wasFullyPerformed"
-            defer {
-                userDefaults.setValue(true, forKey: userDefaultsKey)
-            }
-
-            if userDefaults.value(forKey: userDefaultsKey) == nil {
-                
-                var operationDidSaveSomeChanges = true
-
-                while operationDidSaveSomeChanges {
-                    
-                    let op1 = ConsolidateLegacyTimestampsOfPersistedMessageSentRecipientInfosOperation(maxNumberOfChanges: maxNumberOfChanges)
-                    let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-                    composedOp.queuePriority = .veryHigh
-                    await coordinatorsQueue.addAndAwaitOperation(composedOp)
-                    
-                    guard op1.isFinished && !op1.isCancelled else {
-                        assertionFailure()
-                        return
-                    }
-                    
-                    operationDidSaveSomeChanges = op1.didSaveSomeChanges
-                    
-                }
-                
-                userDefaults.setValue(true, forKey: userDefaultsKey)
-                                
-            }
-            
-        }
-        
-        do {
-            
-            let userDefaultsKey = "BootstrapCoordinator.UpdateLegacyStatusesOfSentMessagesOperation.wasFullyPerformed"
-            defer {
-                userDefaults.setValue(true, forKey: userDefaultsKey)
-            }
-
-            if userDefaults.value(forKey: userDefaultsKey) == nil {
-                
-                var operationDidSaveSomeChanges = true
-
-                while operationDidSaveSomeChanges {
-                    
-                    let op1 = UpdateLegacyStatusesOfSentMessagesOperation(maxNumberOfChanges: maxNumberOfChanges)
-                    let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-                    composedOp.queuePriority = .veryHigh
-                    await coordinatorsQueue.addAndAwaitOperation(composedOp)
-                    
-                    guard op1.isFinished && !op1.isCancelled else {
-                        assertionFailure()
-                        return
-                    }
-                    
-                    operationDidSaveSomeChanges = op1.didSaveSomeChanges
-                    
-                }
-                
-                userDefaults.setValue(true, forKey: userDefaultsKey)
-                
-            }
-            
-        }
-        
     }
     
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -50,7 +50,9 @@ enum NewOnboardingState {
     case userWantsToChooseNameForCurrentDevice
     case userWantsToRestoreThisEncryptedLegacyBackup(encryptedBackup: Data, backupSeedManuallyEntered: BackupSeed?)
     case userWantsToRestoreThisDecryptedBackup(backupRequestIdentifier: UUID)
-    case keycloakConfigAvailable(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool)
+    /// A Keycloak configuration is ready to validate. `magicLink` is non-nil when the configuration
+    /// arrived via an OlvidURL that also carried a one-time authentication token.
+    case keycloakConfigAvailable(keycloakConfiguration: ObvKeycloakConfiguration, magicLink: ObvMagicLink?, isConfiguredFromMDM: Bool)
     case keycloakUserDetailsAndStuffAvailable(keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState)
     case keycloakDistributionServerMismatch(distributionServerRequiredByKeycloak: URL, ownedCryptoIdToBind: ObvCryptoId)
     case shouldRequestPermission(profileKind: ProfileKind, category: NewAutorisationRequesterViewController.AutorisationCategory)

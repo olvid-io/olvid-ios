@@ -932,11 +932,40 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func getDeterministicSeedForOwnedIdentity(_ identity: ObvCryptoIdentity, diversifiedUsing data: Data, within obvContext: ObvContext) throws -> Seed {
-        guard let ownedIdentityObj = try OwnedIdentity.get(identity, within: obvContext.context)  else {
+    public func getDeterministicSeedForReturnReceiptToSendEncryption(returnReceiptsToSend: [ObvReturnReceiptToSend]) async -> [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)] {
+            
+        let receiptsAndSeeds: [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)] = await withCheckedContinuation { (continuation: CheckedContinuation<[(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)], Never>) in
+            delegateManager.contextCreator.performBackgroundTask { context in
+                
+                let receiptsAndSeeds: [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)] = returnReceiptsToSend.compactMap { returnReceiptToSend in
+                    do {
+                        let seed = try self.getDeterministicSeedForOwnedIdentity(
+                            returnReceiptToSend.contactIdentifier.ownedCryptoId.cryptoIdentity,
+                            diversifiedUsing: returnReceiptToSend.elements.nonce,
+                            forProtocol: .encryptReturnReceipt,
+                            within: context)
+                        return (returnReceiptToSend, seed)
+                    } catch {
+                        assertionFailure() // In production, continue with the next receipt
+                        return nil
+                    }
+                }
+                
+                return continuation.resume(returning: receiptsAndSeeds)
+                
+            }
+        }
+        
+        return receiptsAndSeeds
+        
+    }
+    
+    
+    public func getDeterministicSeedForOwnedIdentity(_ identity: ObvCryptoIdentity, diversifiedUsing data: Data, forProtocol seedProtocol: ObvConstants.SeedProtocol, within context: NSManagedObjectContext) throws -> Seed {
+        guard let ownedIdentityObj = try OwnedIdentity.get(identity, within: context)  else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
         }
-        return try ownedIdentityObj.getDeterministicSeed(diversifiedUsing: data, forProtocol: .trustEstablishmentWithSAS)
+        return try ownedIdentityObj.getDeterministicSeed(diversifiedUsing: data, forProtocol: seedProtocol)
     }
     
     
@@ -1026,7 +1055,13 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys, createdByMeOnOtherDevice: Bool, within obvContext: ObvContext) throws {
+    public func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity,
+                                                          groupIdentifier: GroupV2.Identifier,
+                                                          serverBlob: GroupV2.ServerBlob,
+                                                          blobKeys: GroupV2.BlobKeys,
+                                                          createdByMeOnOtherDevice: Bool,
+                                                          lastModificationTimestamp: Date,
+                                                          within obvContext: ObvContext) throws {
         
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, within: obvContext.context) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
@@ -1036,7 +1071,8 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
                                                                      groupIdentifier: groupIdentifier,
                                                                      serverBlob: serverBlob,
                                                                      blobKeys: blobKeys,
-                                                                     createdByMeOnOtherDevice: createdByMeOnOtherDevice)
+                                                                     createdByMeOnOtherDevice: createdByMeOnOtherDevice,
+                                                                     lastModificationTimestamp: lastModificationTimestamp)
     }
     
     
@@ -1114,14 +1150,21 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func updateGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, newBlobKeys: GroupV2.BlobKeys, consolidatedServerBlob: GroupV2.ServerBlob, groupUpdatedByOwnedIdentity: Bool, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+    public func updateGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier,
+                              of ownedIdentity: ObvCryptoIdentity,
+                              newBlobKeys: GroupV2.BlobKeys,
+                              consolidatedServerBlob: GroupV2.ServerBlob,
+                              groupUpdatedByOwnedIdentity: Bool,
+                              lastModificationTimestamp: Date,
+                              within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, within: obvContext.context) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
         }
         guard let group = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity) else { throw Self.makeError(message: "Could not find group") }
         let insertedOrUpdatedIdentities = try group.updateGroupV2(newBlobKeys: newBlobKeys,
                                                                   consolidatedServerBlob: consolidatedServerBlob,
-                                                                  groupUpdatedByOwnedIdentity: groupUpdatedByOwnedIdentity)
+                                                                  groupUpdatedByOwnedIdentity: groupUpdatedByOwnedIdentity,
+                                                                  lastModificationTimestamp: lastModificationTimestamp)
         return insertedOrUpdatedIdentities
     }
     
@@ -1506,6 +1549,22 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         try ownedIdentity.setIsTransferRestricted(to: isTransferRestricted)
     }
     
+    
+    public func getOwnedIdentityKeycloakServer(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> URL {
+        guard let serverURL = try KeycloakServer.getServerURL(ownedCryptoId: ownedCryptoId, within: context) else {
+            throw ObvIdentityManagerError.ownedIdentityIsNotKeycloakManaged
+        }
+        return serverURL
+    }
+    
+    
+    public func setOwnedIdentityKeycloakSupportsIdBasedAuth(ownedCryptoId: ObvCryptoId, supportsIdBasedAuth: Bool, within context: NSManagedObjectContext) throws {
+        try KeycloakServer.setOwnedIdentityKeycloakSupportsIdBasedAuth(
+            ownedCryptoId: ownedCryptoId,
+            supportsIdBasedAuth: supportsIdBasedAuth,
+            within: context
+        )
+    }
     
     // MARK: - API related to owned devices
     

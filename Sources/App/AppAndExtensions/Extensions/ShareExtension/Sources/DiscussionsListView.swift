@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,12 +23,12 @@ import ObvTypes
 import ObvUI
 import ObvUICoreData
 import OlvidUtils
-import os.log
+import OSLog
 import SwiftUI
 
 
-@available(iOS 16.0, *)
 struct NewDiscussionsListView: UIViewControllerRepresentable, ObvErrorMaker {
+
     static let errorDomain: String = "NewDiscussionsListView"
     
     typealias UIViewControllerType = NewDiscussionsSelectionViewController
@@ -51,35 +51,6 @@ struct NewDiscussionsListView: UIViewControllerRepresentable, ObvErrorMaker {
             buttonSystemIcon: .checkmarkCircleFill)
         
         let vc = NewDiscussionsSelectionViewController(viewModel: vcViewModel, delegate: viewModel)
-
-        return vc
-    }
-    
-    func updateUIViewController(_ uiViewController: UIViewControllerType, context: Context) {
-        // Updates the state of the specified view controller with new information from SwiftUI.
-    }
-}
-
-
-@available(iOS 15.0, *)
-struct DiscussionsListView: UIViewControllerRepresentable, ObvErrorMaker {
-    static let errorDomain: String = "DiscussionsListView"
-    
-    typealias UIViewControllerType = DiscussionsSelectionViewController
-
-    private let viewModel: DiscussionsListViewModel
-    
-    init(ownedCryptoId: ObvCryptoId, discussionsViewModel: DiscussionsViewModel) {
-        self.viewModel = DiscussionsListViewModel(ownedCryptoId: ownedCryptoId, discussionsViewModel: discussionsViewModel)
-    }
-    
-    func makeUIViewController(context: Context) -> UIViewControllerType {
-        
-        let vc = DiscussionsSelectionViewController(ownedCryptoId: viewModel.ownedCryptoId,
-                                                    within: ObvStack.shared.viewContext,
-                                                    preselectedDiscussions: viewModel.preselectedDiscussions,
-                                                    delegate: viewModel,
-                                                    acceptButtonTitle: CommonString.Word.Choose)
 
         return vc
     }

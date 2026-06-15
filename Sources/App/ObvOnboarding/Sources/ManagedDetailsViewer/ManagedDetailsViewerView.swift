@@ -216,39 +216,19 @@ private struct SwitchToManagedProfileButton: View {
     
     @Environment(\.isEnabled) var isEnabled
 
-    @ViewBuilder
-    private var buttonLabel: some View {
-        Label {
-            Text("SWITCH_TO_A_MANAGED_PROFILE")
-        } icon: {
-            Image(systemIcon: .serverRack)
-        }
-        .padding(.vertical, 8)
-    }
-        
     var body: some View {
 
-        if #available(iOS 26, *) {
-            Button(action: action) {
-                HStack {
-                    if !isEnabled { ProgressView().tint(.white) }
-                    buttonLabel
+        OlvidButtonNew(action: action) {
+            HStack {
+                if !isEnabled { ProgressView() }
+                Label {
+                    Text("SWITCH_TO_A_MANAGED_PROFILE")
+                } icon: {
+                    Image(systemIcon: .serverRack)
                 }
             }
-                .buttonStyle(.glassProminent)
-                .buttonSizing(.flexible)
-        } else {
-            Button(action: action) {
-                HStack {
-                    Spacer(minLength: 0)
-                    if !isEnabled { ProgressView() }
-                    buttonLabel
-                    Spacer(minLength: 0)
-                }
-            }
-            .buttonStyle(.borderedProminent)
         }
-        
+                
     }
 }
 
@@ -349,25 +329,10 @@ private struct CreateProfileButton: View {
     }
         
     var body: some View {
-        if #available(iOS 26, *) {
-            Button(action: action) {
-                Text(key)
-                    .padding(.vertical, 8)
-            }
-            .buttonStyle(.glassProminent)
-            .buttonSizing(.flexible)
-        } else {
-            Button(action: action) {
-                Text(key)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 26)
-                    .padding(.vertical, 16)
-                    .frame(maxWidth: .infinity)
-            }
-            .background(Color.blue01)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .opacity(isEnabled ? 1.0 : 0.6)
-        }
+        OlvidButtonNew(action: action) {
+            if !isEnabled { ProgressView() }
+            Text(key)
+        }        
     }
     
 }

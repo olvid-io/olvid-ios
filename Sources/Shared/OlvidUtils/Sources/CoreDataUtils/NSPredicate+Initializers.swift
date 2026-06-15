@@ -36,6 +36,11 @@ public extension NSPredicate {
         self.init(format: "%K == %@", key, data as NSData)
     }
     
+    convenience init(_ key: String, in datas: [Data]) {
+        assert(datas.count < 150, "Warning, an SQL IN statement max size is limited.")
+        self.init(format: "%K IN %@", key, datas as [NSData])
+    }
+    
     convenience init<T: RawRepresentable>(_ key: T, EqualToUuid uuid: UUID) where T.RawValue == String {
         self.init(key.rawValue, EqualToUuid: uuid)
     }
@@ -169,7 +174,11 @@ public extension NSPredicate {
     }
 
     convenience init<T: RawRepresentable>(_ key: T, equalToObjectWithObjectID objectID: NSManagedObjectID) where T.RawValue == String {
-        self.init(format: "%K == %@", key.rawValue, objectID)
+        self.init(key.rawValue, equalToObjectWithObjectID: objectID)
+    }
+
+    convenience init(_ rawKey: String, equalToObjectWithObjectID objectID: NSManagedObjectID) {
+        self.init(format: "%K == %@", rawKey, objectID)
     }
 
     convenience init<T: RawRepresentable>(_ key: T, contains object: NSManagedObject) where T.RawValue == String {

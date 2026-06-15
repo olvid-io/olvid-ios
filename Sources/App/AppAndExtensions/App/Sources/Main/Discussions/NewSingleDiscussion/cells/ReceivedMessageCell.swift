@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,6 @@ import OSLog
 import ObvUI
 import ObvUICoreData
 import ObvUIObvCircledInitials
-import LinkPresentation
 import ObvEncoder
 import ObvUIObvCircledInitials
 import ObvSettings
@@ -417,6 +416,8 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         let config: SingleImageView.Configuration
         let message = imageAttachment.receivedMessage
         switch imageAttachment.status {
+        case .untransferred:
+            config = .untransferred
         case .downloadable, .downloading:
             if message.readingRequiresUserAction {
                 if imageAttachment.status == .downloadable {
@@ -505,6 +506,8 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
                     }
                 }
             }
+        case .notYetDownloadableAsReceivedByUserNotification:
+            config = .notYetDownloadableAsReceivedByUserNotification
         case .cancelledByServer:
             config = .cancelledByServer
         }
@@ -602,6 +605,10 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             }
         case .cancelledByServer:
             config = .cancelledByServer(fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename)
+        case .untransferred:
+            config = .untransferred(fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename)
+        case .notYetDownloadableAsReceivedByUserNotification:
+            config = .notYetDownloadableAsReceivedByUserNotification
         }
         return config
     }
@@ -625,11 +632,15 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         }
                 
         switch previewAttachment.status {
+        case .untransferred:
+            config = nil
         case .downloading:
             config = .downloadingOrDecoding
         case .downloadable:
             config = .downloadable
         case .cancelledByServer:
+            config = nil
+        case .notYetDownloadableAsReceivedByUserNotification:
             config = nil
         case .complete:
             if message.readingRequiresUserAction {
@@ -1136,7 +1147,9 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
             guard let messageObjectID = self.messageObjectID, let draftObjectID = self.draftObjectID else { assertionFailure(); return }
             guard let replyToDelegate = self.replyToDelegate else { assertionFailure(); return }
             Task {
-                try? await replyToDelegate.userWantsToReplyToMessage(messageObjectID: messageObjectID.downcast, draftObjectID: draftObjectID)
+                if let cell = self.superview as? ReceivedMessageCell {
+                    try? await replyToDelegate.userWantsToReplyToMessage(cell: cell, messageObjectID: messageObjectID.downcast, draftObjectID: draftObjectID)
+                }
             }
         }
     }
@@ -1791,5 +1804,5 @@ fileprivate final class ReceivedMessageCellBackgroundView: UIView {
 // MARK: - CellReplyToDelegate
 
 protocol CellReplyToDelegate: AnyObject {
-    func userWantsToReplyToMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
+    func userWantsToReplyToMessage(cell: CellWithMessage, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
 }

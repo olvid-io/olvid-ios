@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,7 +38,10 @@ final class NewInvitationsFlowViewController: ObvFlowController {
     
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, dataSources: ObvDataSources) {
         
-        super.init(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, dataSources: dataSources, doAddFloatingButton: true)
+        super.init(ownedCryptoId: ownedCryptoId,
+                   obvEngine: obvEngine,
+                   dataSources: dataSources,
+                   doAddFloatingButton: true)
 
         let vc = AllInvitationsViewController(ownedCryptoId: ownedCryptoId,
                                               avatarViewDataSource: dataSources.avatarViewDataSource,
@@ -127,7 +130,7 @@ extension NewInvitationsFlowViewController: AllInvitationsViewControllerDelegate
                                                                  ownedIdentityCryptoId: ownedCryptoId,
                                                                  whereOneToOneStatusIs: .oneToOne,
                                                                  within: ObvStack.shared.viewContext),
-              let discussionIdentifier = contact.oneToOneDiscussion?.discussionIdentifier else {
+              let discussionIdentifier = try? contact.oneToOneDiscussion?.discussionIdentifier else {
             return
         }
         let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)

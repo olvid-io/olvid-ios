@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
   
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvEngine
@@ -58,7 +58,7 @@ final class ResumeOrPauseAttachmentDownloadOperation: ContextualOperationWithSpe
             guard resumeOrPause == .pause else { return }
         case .downloadable:
             guard resumeOrPause == .resume else { return }
-        case .complete, .cancelledByServer:
+        case .complete, .cancelledByServer, .untransferred, .notYetDownloadableAsReceivedByUserNotification:
             return
         }
         

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -341,6 +341,10 @@ extension DiscussionsFlowViewController: ObvDiscussionsListViewControllerActions
     }
     
     func userWantsToSetDoSendReadReceipt(_ vc: ObvDiscussionsList.ObvDiscussionsListViewController, doSendReadReceipt: Bool) {
+        // Once doSendReadReceipt is persisted, `doSendReadReceiptIsSet` becomes true and the tip won't appear
+        // again. Recording the dismissal date here additionally prevents any other tip from sliding in
+        // immediately after the user makes their choice.
+        ObvMessengerSettings.ObvTips.setDateWhenUserDimissedTip(to: .now)
         ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: doSendReadReceipt, changeMadeFromAnotherOwnedDevice: false)
     }
     
@@ -510,4 +514,22 @@ extension DiscussionsFlowViewController: ObvDiscussionsListViewControllerActions
         try await flowDelegate.userWantsToMarkAllMessagesAsReadInDiscussion(self, discussionObjectID: discussionObjectID)
     }
     
+    
+    func userWantsToManageTheirDevices(_ vc: ObvDiscussionsListViewController, ownedCryptoId: ObvCryptoId) {
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .myId(ownedCryptoId: ownedCryptoId))
+            .postOnDispatchQueue()
+    }
+    
+    
+    func userWantsToShowThisDeviceReactivationOptions(_ vc: ObvDiscussionsListViewController, ownedCryptoId: ObvCryptoId) {
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .myId(ownedCryptoId: ownedCryptoId))
+            .postOnDispatchQueue()
+    }
+    
+    
+    func userWantsToRequestNotificationsAuthorization(_ vc: ObvDiscussionsList.ObvDiscussionsListViewController) {
+        guard let flowDelegate else { assertionFailure(); return }
+        flowDelegate.userWantsToRequestNotificationsAuthorization(self)
+    }
+
 }

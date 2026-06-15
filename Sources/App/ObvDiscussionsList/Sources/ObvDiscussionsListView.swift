@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -159,7 +159,7 @@ public struct ObvDiscussionsListViewConfiguration: Sendable {
     
     public enum ShowTipCell: Sendable {
         case no
-        case yes(dataSource: TipCellViewDataSource)
+        case yes(dataSource: any TipCellViewDataSource)
     }
     
     public enum ShowProfilePictureBarButtonItem: Sendable {
@@ -197,7 +197,7 @@ public struct ObvDiscussionsListView: View {
     @State private var streamUUIDForProgressCell: UUID?
     
     /// Used iff this view is configured to show the "tip" cell
-    @State private var tipCellViewModel: TipCellViewModel?
+    @State private var tipCellViewModelAndDataSourceActions: (model: TipCellViewModel, dataSourceActions: TipCellViewDataSourceActions)?
     @State private var streamUUIDForTipCell: UUID?
 
     // Implementing search
@@ -403,7 +403,11 @@ public struct ObvDiscussionsListView: View {
                     self.streamUUIDForTipCell = newStreamUUID
                     for await receivedModel in stream {
                         withAnimation {
-                            self.tipCellViewModel = receivedModel
+                            if let receivedModel {
+                                self.tipCellViewModelAndDataSourceActions = (model: receivedModel, dataSourceActions: cellDataSource)
+                            } else {
+                                self.tipCellViewModelAndDataSourceActions = nil
+                            }
                         }
                     }
                 } catch {
@@ -506,7 +510,7 @@ public struct ObvDiscussionsListView: View {
                              archivedDiscussionsCellModel: archivedDiscussionsCellModel,
                              locationsCellViewModel: locationsCellViewModel,
                              progressCellViewModel: progressCellViewModel,
-                             tipCellViewModel: tipCellViewModel,
+                             tipCellViewModelAndDataSourceActions: tipCellViewModelAndDataSourceActions,
                              dataSource: dataSource,
                              avatarViewDataSource: avatarViewDataSource,
                              internalDataSource: self,
@@ -808,7 +812,7 @@ private struct MainInternalView: View {
     let archivedDiscussionsCellModel: ObvArchivedDiscussionsCellModel?
     let locationsCellViewModel: ObvLocationsCellViewModel?
     let progressCellViewModel: Double?
-    let tipCellViewModel: TipCellViewModel?
+    let tipCellViewModelAndDataSourceActions: (model: TipCellViewModel, dataSourceActions: TipCellViewDataSourceActions)?
     let dataSource: ObvDiscussionsListViewDataSource
     let avatarViewDataSource: ObvAvatarViewDataSource
     let internalDataSource: MainInternalViewDataSource
@@ -893,8 +897,10 @@ private struct MainInternalView: View {
                                 ProgressCellView(fractionCompleted: progressCellViewModel)
                             }
                             // Section: Tip cell
-                            if let tipCellViewModel, !isSearchInProgress {
-                                TipCellView(viewModel: tipCellViewModel, actions: actions)
+                            if let tipCellViewModelAndDataSourceActions, !isSearchInProgress {
+                                TipCellView(viewModel: tipCellViewModelAndDataSourceActions.model,
+                                            actions: actions,
+                                            dataSourceActions: tipCellViewModelAndDataSourceActions.dataSourceActions)
                                     .listRowSeparator(.hidden, edges: .top)
                             }
                             // Section: Location cell
@@ -1139,7 +1145,7 @@ extension DataSourceForPreviews: DiscussionCellViewDataSource {
 
 extension DataSourceForPreviews: OwnedIdentityChooserViewDataSource {
 
-    func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserView, currentOwnedCryptoId: ObvCryptoId) throws -> (streamUUID: UUID, stream: AsyncStream<OwnedIdentityChooserViewModel>) {
+    func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserInnerView, currentOwnedCryptoId: ObvCryptoId) throws -> (streamUUID: UUID, stream: AsyncStream<OwnedIdentityChooserViewModel>) {
         let stream = AsyncStream(OwnedIdentityChooserViewModel.self) { (continuation: AsyncStream<OwnedIdentityChooserViewModel>.Continuation) in
             let model = OwnedIdentityChooserViewModel.sampleDatas[0]
             continuation.yield(model)
@@ -1147,7 +1153,7 @@ extension DataSourceForPreviews: OwnedIdentityChooserViewDataSource {
         return (UUID(), stream)
     }
     
-    func finishAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserView, streamUUID: UUID) {
+    func finishAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserInnerView, streamUUID: UUID) {
         // Nothing to finish in previews
     }
     
@@ -1288,6 +1294,38 @@ extension ActionsForPreviews: TipCellViewActionsProtocol {
 
     func userWantsToDismissOlvidPlusSuccessfulSubscriptionView(_ view: OlvidPlusSuccessfulSubscriptionView) {
         print("User wants to dismiss Olvid+ successful subscription view")
+    }
+    
+    func userWantsToDismissOSUpgradeCell(_ view: OSUpgradeCell) {
+        print("User wants to dismiss OS upgrade cell")
+    }
+    
+}
+
+extension ActionsForPreviews: ProfileIsDeactivatedOnThisDeviceTipViewActions {
+    
+    func userWantsToShowThisDeviceReactivationOptions(_ view: ProfileIsDeactivatedOnThisDeviceTipView, ownedCryptoId: ObvCryptoId) {
+        print("User wants to show this device reactivation options")
+    }
+    
+}
+
+extension ActionsForPreviews: RequestUserNotificationsAuthorizationTipViewActions {
+    
+    func userWantsToRequestNotificationsAuthorization(_ view: RequestUserNotificationsAuthorizationTipView) {
+        print("User wants to request notifications authorization")
+    }
+    
+}
+
+extension ActionsForPreviews: OwnedDeviceExpriginSoonTipViewActions {
+    
+    func userWantsToDiscoverOlvidPlus(_ view: OwnedDeviceExpiringSoonTipView) {
+        print("User wants to discover Olvid+")
+    }
+    
+    func userWantsToManageTheirDevices(_ view: OwnedDeviceExpiringSoonTipView, ownedCryptoId: ObvCryptoId) {
+        print("User wants to manage their devices")
     }
     
 }

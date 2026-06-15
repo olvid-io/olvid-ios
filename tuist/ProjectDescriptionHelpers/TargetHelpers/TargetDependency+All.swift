@@ -41,6 +41,7 @@ extension TargetDependency {
             public static let obvSubscription = TargetDependency.project(target: "ObvSubscription", path: .olvidPath("ObvSubscription", in: .app))
             public static let obvOnboarding = TargetDependency.project(target: "ObvOnboarding", path: .olvidPath("ObvOnboarding", in: .app))
             public static let obvPollFeature = TargetDependency.project(target: "ObvPollFeature", path: .olvidPath("ObvPollFeature", in: .app))
+            public static let obvComposition = TargetDependency.project(target: "ObvComposition", path: .olvidPath("ObvComposition", in: .app))
             public static let obvKeycloakManager = TargetDependency.project(target: "ObvKeycloakManager", path: .olvidPath("ObvKeycloakManager", in: .app))
             public static let obvAppTypes = TargetDependency.project(target: "ObvAppTypes", path: .olvidPath("ObvAppTypes", in: .app))
             public static let obvUICoreData = TargetDependency.project(target: "ObvUICoreData", path: .olvidPath("ObvUICoreData", in: .app))
@@ -48,6 +49,7 @@ extension TargetDependency {
             public static let obvLicenceActivationFlow = TargetDependency.project(target: "ObvLicenceActivationFlow", path: .olvidPath("ObvLicenceActivationFlow", in: .app))
             public static let obvInvitationFlow = TargetDependency.project(target: "ObvInvitationFlow", path: .olvidPath("ObvInvitationFlow", in: .app))
             public static let obvAppBackup = TargetDependency.project(target: "ObvAppBackup", path: .olvidPath("ObvAppBackup", in: .app))
+            public static let obvHistoryTransfer = TargetDependency.project(target: "ObvHistoryTransfer", path: .olvidPath("ObvHistoryTransfer", in: .app))
             public static let obvUICoreDataStructs = TargetDependency.project(target: "ObvUICoreDataStructs", path: .olvidPath("ObvUICoreDataStructs", in: .app))
             public static let obvAppCoreConstants = TargetDependency.project(target: "ObvAppCoreConstants", path: .olvidPath("ObvAppCoreConstants", in: .app))
             public static let obvUIGroupV1 = TargetDependency.project(target: "ObvUIGroupV1", path: .olvidPath("ObvUIGroupV1", in: .app))
@@ -67,18 +69,7 @@ extension TargetDependency {
             public static let obvSingleOwnedIdentity = TargetDependency.project(target: "ObvSingleOwnedIdentity", path: .olvidPath("ObvSingleOwnedIdentity", in: .app))
             public static let obvCells = TargetDependency.project(target: "ObvCells", path: .olvidPath("ObvCells", in: .app))
             public static let obvCommunicationInteractor = TargetDependency.project(target: "ObvCommunicationInteractor", path: .olvidPath("ObvCommunicationInteractor", in: .app))
-            public struct Discussions {
-                public struct Mentions {
-                    public struct AutoGrowingTextView {
-                        public static let textViewDelegateProxy = TargetDependency.project(target: "Discussions_Mentions_AutoGrowingTextView_TextViewDelegateProxy", path: .olvidPath("Discussions", in: .app))
-                    }
-                    public struct Builders {
-                        public static let composeMessage = TargetDependency.project(target: "Discussions_Mentions_ComposeMessageBuilder", path: .olvidPath("Discussions", in: .app))
-                        public static let buildersShared = TargetDependency.project(target: "_Discussions_Mentions_Builders_Shared", path: .olvidPath("Discussions", in: .app))
-                    }
-                }
-                public static let scrollToBottomButton = TargetDependency.project(target: "ObvDiscussionsScrollToBottomButton", path: .olvidPath("Discussions", in: .app))
-            }
+            public static let obvContinuedProcessingTaskManager = TargetDependency.project(target: "ObvContinuedProcessingTaskManager", path: .olvidPath("ObvContinuedProcessingTaskManager", in: .app))
             public struct Platform {
                 public static let uiKitAdditions = TargetDependency.project(target: "ObvPlatformUIKitAdditions", path: .olvidPath("Platform", in: .app))
                 public static let base = TargetDependency.project(target: "ObvPlatformBase", path: .olvidPath("Platform", in: .app))

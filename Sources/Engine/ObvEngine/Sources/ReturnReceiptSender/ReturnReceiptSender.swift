@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import Foundation
 import ObvCrypto
 import ObvEncoder
 import ObvServerInterface
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
@@ -62,7 +62,7 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
     func postReturnReceiptsWithElements(returnReceiptsToSend: [ObvReturnReceiptToSend], flowId: FlowIdentifier) async throws {
         
         guard let identityDelegate = self.identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
+            logger.fault("The identity delegate is not set")
             assertionFailure()
             throw ReturnReceiptSender.makeError(message: "The identity delegate is not set")
         }
@@ -70,10 +70,25 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
         let log = self.log
 
         let returnReceiptsToSend = returnReceiptsToSend.filter({ !$0.contactDeviceUIDs.isEmpty })
+        
+        // Encryption Method Update (2025-12-11)
+        // Replaced PRNG-based encryption with deterministic encryption for return receipt payloads.
+        // This change enables server-side deduplication of identical receipts from multiple owned devices,
+        // reducing processing overhead for the original sender by minimizing redundant receipts.
+        //
+        // Implementation Note:
+        // A deterministic seed is now required for the PRNG used in the encryption process.
+        // Since these seeds are computed via a database query at the identity manager level,
+        // they are fetched in advance for later use.
 
-        let returnReceipts: [ObvServerUploadReturnReceipt.ReturnReceipt] = returnReceiptsToSend.compactMap { returnReceiptToSend in
+        let returnReceiptsToSendAndSeeds: [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)] = await identityDelegate.getDeterministicSeedForReturnReceiptToSendEncryption(returnReceiptsToSend: returnReceiptsToSend)
+        
+        assert(returnReceiptsToSendAndSeeds.count == returnReceiptsToSend.count)
+        
+        let returnReceipts: [ObvServerUploadReturnReceipt.ReturnReceipt] = returnReceiptsToSendAndSeeds.compactMap { (returnReceiptToSend, seedForEncryption) in
             guard !returnReceiptToSend.contactDeviceUIDs.isEmpty else { assertionFailure(); return nil }
-            let ownedIdentity = returnReceiptToSend.contactIdentifier.ownedCryptoId.getIdentity()
+            let ownedCryptoId = returnReceiptToSend.contactIdentifier.ownedCryptoId
+            let ownedIdentity = ownedCryptoId.getIdentity()
             let status = returnReceiptToSend.status
             var payloadElements: [ObvEncodable] = [ownedIdentity, status]
             if let attachmentNumber = returnReceiptToSend.attachmentNumber {
@@ -87,7 +102,8 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
             let encryptedPayload: EncryptedData
             do {
                 let authenticatedEncryptionKey = try AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
-                encryptedPayload = try ObvCryptoSuite.sharedInstance.authenticatedEncryption().encrypt(payload, with: authenticatedEncryptionKey, and: self.prng)
+                let prngForDeterministicEncryption = ObvCryptoSuite.sharedInstance.concretePRNG().init(with: seedForEncryption)
+                encryptedPayload = try ObvCryptoSuite.sharedInstance.authenticatedEncryption().encrypt(payload, with: authenticatedEncryptionKey, and: prngForDeterministicEncryption)
             } catch {
                 assertionFailure()
                 return nil
@@ -153,7 +169,16 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
                             }
                             
                         } catch {
-                            self.logger.fault("Failed to send batch of return receipts: \(error.localizedDescription)")
+                            self.logger.fault("Failed to send batch of return receipts: \(error.localizedDescription, privacy: .public)")
+                            let nsError = error as NSError
+                            if nsError.domain == NSURLErrorDomain {
+                                switch nsError.code {
+                                case Int(CFNetworkErrors.cfurlErrorNotConnectedToInternet.rawValue):
+                                    return
+                                default:
+                                    assertionFailure()
+                                }
+                            }
                             assertionFailure()
                         }
 

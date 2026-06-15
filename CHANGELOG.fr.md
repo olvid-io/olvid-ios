@@ -1,5 +1,55 @@
 # Changelog
 
+## [4.2 (960)] - 2026-05-03
+
+- Vous pouvez désormais transférer votre historique de discussion entre vos appareils, une fonctionnalité très attendue !
+- Amélioration de l'expérience de collage : copiez du texte, des médias ou des pièces jointes depuis n'importe où, même en dehors d'Olvid, et collez-les directement dans la zone de rédaction. Un nouveau bouton « Coller » est également disponible dans le menu « + » pour un accès facilité.
+- Une nouvelle option permet de désactiver la correction automatique, idéale pour copier-coller du code sans modification indésirable.
+- Meilleure expérience de réponse : fermez la vue floutée pour continuer votre conversation tout en gardant le contexte de la réponse visible.
+- Ajout de notifications pour vous avertir lorsqu'un de vos appareils est sur le point d'être désactivé.
+- Lorsque vous tapez le symbole @ pour mentionner quelqu'un, l'ordre des contacts dans la liste est désormais plus naturel.
+- L'ajout ou la suppression de membres dans un groupe inclut désormais un retour haptique pour éviter les ajouts ou suppressions accidentels.
+- Nouveau pour les utilisateurs Enterprise : les profils gérés peuvent désormais s'authentifier à l'aide de leur identité cryptographique Olvid, en alternative à l'OpenID Connect standard, rendant l'authentification totalement transparente.
+- Les profils gérés peuvent désormais s'authentifier via un lien magique à usage unique, simplifiant ainsi le processus de première authentification.
+- Remplacement de la fenêtre modale répétitive demandant l'autorisation des notifications par un conseil discret intégré à l'application, affiché uniquement lorsque cela est pertinent.
+- Appuyez fortement sur l'icône de l'appli Olvid pour accéder rapidement au scanner et entrer en contact avec d'autres utilisateurs encore plus vite.
+- Correction du bouton « Arrêter le partage » qui ne fonctionnait pas correctement dans la vue de partage de localisation à l'intérieur d'un message.
+- Correction de conseils incorrects affichés lors du partage de votre position.
+- Résolution d'un problème pouvant survenir lors du téléchargement d'une pièce jointe reçue il y a plus de trois mois.
+- Correction d'un bug graphique dans l'écran d'édition des messages.
+- Correction d'un crash pouvant survenir lors de la modification d'un message envoyé.
+- La tentative d'enregistrement ou de liaison d'un profil géré révoqué affiche désormais un message d'erreur spécifique et actionnable, au lieu d'un échec générique.
+- Le japonais et le coréen sont désormais des langues prises en charge dans l'application.
+
+## [4.1 (953)] - 2026-03-12
+
+- Nouveau design de la zone de composition de messages pour une interface plus claire lors de la saisie de texte, de l'ajout de pièces jointes, de messages vocaux et de l'envoi de messages.
+- Introduction du partage de position en temps réel pendant 2 minutes, avec des mises à jour presque chaque seconde, en plus des options existantes de 1 heure et illimité.
+- Traitement plus rapide des accusés de réception, garantissant un démarrage plus fluide de l'application, surtout après que votre appareil ait été éteint pendant un certain temps.
+- Amélioration de la vitesse et de la fiabilité de l'établissement des appels grâce à une optimisation de la gestion des connexions réseau.
+- Vous pouvez désormais condenser le message d'introduction des discussions pour une vue plus épurée.
+- Olvid est désormais disponible dans 4 langues supplémentaires, pour une accessibilité mondiale accrue.
+- Les messages reçus affichent maintenant la date et l'heure exactes de leur réception par le serveur.
+- Correction d'un problème où les notifications n'apparaissaient pas pour les messages contenant uniquement des pièces jointes.
+- Résolution d'un problème où les actions issues des notifications utilisateur étaient parfois peu fiables.
+- Correction de bugs dans la fonctionnalité de partage de position pour une meilleure fiabilité.
+- Correction d'un problème où appuyer sur un appel Olvid dans l'historique des appels de l'iPhone ne lançait pas toujours un nouvel appel.
+- Correction d'un bug où le désappairage se produisait incorrectement lors de la reconnexion à une instance Keycloak à laquelle vous êtes déjà lié.
+- Correction d'un problème où les résultats des sondages dans les discussions de groupe pouvaient sembler incorrects pour les utilisateurs ayant rejoint le groupe après la création du sondage.
+- Correction d'un problème où les dates des réactions pouvaient sembler incorrectes pour les utilisateurs ayant rejoint un groupe après l'envoi de la réaction.
+- Correction d'un problème empêchant parfois les utilisateurs d'écouter les messages audio.
+- Correction d'un problème où il était possible de transférer un message reçu sans télécharger d'abord toutes ses pièces jointes.
+- Correction d'un problème d'interface utilisateur empêchant de mettre facilement une discussion en silencieux pendant une certaine durée.
+- Sur macOS, appuyer sur la touche Échap ferme désormais la fenêtre de l'application Photos si elle s'ouvre sans élément, évitant qu'elle ne reste bloquée.
+- Les messages « lisibles une fois » expirés sont désormais supprimés de manière fiable au démarrage de l'application.
+- Peut corriger le bouton de l'appareil photo de l'interface standard CallKit.
+- Mise à jour de WebRTC vers la version 7390 pour de meilleures performances.
+- Amélioration du design de l'écran des participants à un appel.
+- Les utilisateurs avancés peuvent désormais utiliser des serveurs TURN alternatifs avec des adresses IP rotatives.
+- Correction d'un plantage rare pouvant survenir lors de l'utilisation de l'application.
+- Le bouton « Ouvrir les paramètres » fonctionne désormais correctement sur macOS.
+- Résolution d'un problème où le bouton « Créer un groupe avec... » sur les fiches de contact ne répondait pas toujours comme prévu.
+
 ## [4.0.3 (944)] - 2025-12-01
 
 - Olvid+ propose désormais de nouveaux forfaits, vous permettant de partager votre abonnement avec votre famille et de rester connecté en toute sécurité.
@@ -36,14 +86,11 @@
 
 ## [4.0 (907)] - 2025-09-20
 
-- Nous sommes prêts pour iOS26, iPadOS26 et macOS26.
-- Nouvelle navigation sur iPad et Mac.
 - Nous avons optimisé le processus de réception des messages pour une expérience plus fluide et plus cohérente.
 - Vous pouvez désormais partager des dossiers entiers avec Olvid ! Il vous suffit de sélectionner un dossier, qui sera automatiquement compressé en ZIP et ajouté en pièce jointe.
 - Meilleure expérience de partage des résultats, notamment pour les articles.
 - Résolution d'un bug rare pouvant entraîner l'absence de certaines discussions dans la liste des conversations récentes.
 - Correction d'un problème empêchant parfois le téléchargement des pièces jointes envoyées depuis un autre de vos appareils.
-- Correction de l'ordre incohérent des profils entre la vue de sélection de profil et le geste de changement rapide.
 - Plusieurs optimisations et corrections pour garantir un fonctionnement optimal.
 - Nous travaillons sur la fonctionnalité la plus demandée par nos utilisateurs — c'est pour bientôt !
 
@@ -131,7 +178,7 @@
 
 ## [3.3 (815)] - 2024-10-21
 
-- Les notifications ont été entièrement repensées pour les rendre moins intrusives, mais plus fiables et pertinentes !
+- Les notifications ont été entièrement repensées pour les rendre moins intrusives, mais plus fiables et pertinentes !
 - Les notifications concernant les nouveaux messages sont maintenant regroupées par discussion, ce qui facilite la gestion de vos conversations.
 - De plus, si quelqu'un modifie ou supprime un message qu'il vous a envoyé, Olvid reflète ces changements en temps réel, afin que vous ayez toujours une vue précise de la conversation.
 - Et si vous utilisez Olvid sur plusieurs appareils, nous avons pensé à vous ! Lorsque vous lisez un message sur un appareil, la notification disparaît automatiquement de tous vos autres appareils.
@@ -176,7 +223,7 @@
 
 - Nous avons repensé l'expérience de réaction aux messages ! Un double tap (ou pression longue) sur un message affiche uniquement vos réactions préférées.
 - Ces réactions préférées sont entièrement personnalisables.
-- Obtenez de meilleures informations sur la livraison de vos messages ! Nous avons introduit des statuts d'envoi de message améliorés qui fournissent plus de détails sur qui a reçu et lu vos messages et pièces jointes.
+- Obtenez de meilleures informations sur la livraison de vos messages ! Nous avons introduit des statuts d'envoi de message améliorés qui fournissent plus de détails sur qui a reçu et lu vos messages et pièces jointes.
 - Lorsque l'administrateur d'un groupe ajoute ou retire des membres du groupe, une liste complète des modifications est désormais affichée dans la discussion du groupe.
 - Olvid supporte maintenant Handoff.
 - Le flux d'invitation a été optimisé pour une expérience plus fluide.
@@ -489,10 +536,10 @@
 
 ## [0.12.0 (580)] - 2022-10-22
 
-- Bienvenue aux nouvelles discussions de groupe ! Vous pouvez maintenant les configurer avec autant d'administrateurs que vous voulez.
+- Bienvenue aux nouvelles discussions de groupe ! Vous pouvez maintenant les configurer avec autant d'administrateurs que vous voulez.
 - Les sauvegardes sont plus rapides et encore plus robustes qu'avant.
 - Le nom d'un contact qui supprime un message pour tous est maintenant affiché directement dans la discussion.
-- Les fichiers csv peuvent maintenant être partagés vers Olvid avec AirDrop. Youpi !
+- Les fichiers csv peuvent maintenant être partagés vers Olvid avec AirDrop. Youpi !
 - Taper un nouveau message place la discussion au sommet de la liste des discussions récentes.
 - Vous êtes maintenant notifié quand un contact fait une capture d'écran affichant des messages sensibles (à lecture unique ou à visibilité limitée).
 - La progression des téléchargements peut être consultée depuis le panel d'information du message associé.
@@ -510,7 +557,7 @@
 
 ## [0.11.1 (564)] - 2022-09-22
 
-- Il est maintenant possible de choisir un PIN ou un mot de passe personnalisé pour déverrouiller Olvid !
+- Il est maintenant possible de choisir un PIN ou un mot de passe personnalisé pour déverrouiller Olvid !
 - Le design de l'écran de liste des groupes a été complètement revu.
 - Après avoir partagé un message vers une autre discussion, cette discussion est maintenant affichée.
 - Corrige des problèmes graphiques sous iOS 16.
@@ -564,7 +611,7 @@
 
 ## [0.10.1 (501)] - 2022-03-24
 
-- Il est maintenant possible de répondre à un message, ou de le marquer comme lu, directement depuis la notification !
+- Il est maintenant possible de répondre à un message, ou de le marquer comme lu, directement depuis la notification !
 - Si vous appréciez une réaction faite par un autre utilisateur, vous pouvez facilement l'ajouter à la liste de vos réactions préférées.
 - Corrige un problème empêchant un message reçu d'être édité par son envoyeur.
 - Corrige un problème empêchant la bonne mise à jour des versions supportées et recommandées d'Olvid.
@@ -573,15 +620,15 @@
 ## [0.10.0 (495)] - 2022-03-21
 
 - Nouveau comportement de votre carnet d'adresse Olvid ! Maintenant, un autre utilisateur d'Olvid devient un contact *uniquement* si vous l'acceptez explicitement. Vous avez enfin un contrôle total sur votre carnet d'adresse ;-)
-- Une nouvelle liste « d'autres » utilisateurs d'Olvid est maintenant accessible depuis l'écran de Contacts. Ces utilisateurs sont typiquement ceux qui font partie des mêmes groupes que vous mais qui ne sont néanmoins pas des contacts. Pour vous les inviter en une touche !
+- Une nouvelle liste « d'autres » utilisateurs d'Olvid est maintenant accessible depuis l'écran de Contacts. Ces utilisateurs sont typiquement ceux qui font partie des mêmes groupes que vous mais qui ne sont néanmoins pas des contacts. Pour vous les inviter en une touche !
 - Maintenant, une invitation à un groupe provenant d'un contact est automatiquement acceptée.
 - Vous devez toujours accepter explicitement une invitation à un groupe si elle provient d'un utilisateur qui ne fait partie de vos contacts.
-- Le partage via Olvid a été entièrement refait ! Il est maintenant possible de partager du contenu vers plusieurs discussions en une seule fois !
+- Le partage via Olvid a été entièrement refait ! Il est maintenant possible de partager du contenu vers plusieurs discussions en une seule fois !
 - Support pour de nouveaux émojis.
 - Les réactions affichées dans la vue de discussion sont plus faciles à atteindre.
 - Les réactions n'étaient pas systématiquement rafraîchies en cas de changement. C'est corrigé.
 - Corrige un problème concernant les notifications utilisateur, qui pouvaient ne pas être affichée après une mise à jour de l'app (jusqu'au premier lancement).
-- Faire un « double tap » sur une image dans une discussion pouvait afficher l'image au lieu du panel de réactions. C'est corrigé.
+- Faire un « double tap » sur une image dans une discussion pouvait afficher l'image au lieu du panel de réactions. C'est corrigé.
 - D'importantes améliorations ont été apportées aux appels sécurisés, surtout dans le cas d'un appel de group à plus de 6 utilisateurs.
 - L'indicateur de message envoyé est plus robuste.
 - Si la version de l'app est obsolète, une alerte recommande de mettre à jour.
@@ -638,12 +685,12 @@
 - Meilleur design de l'écran permettant d'ajouter un contact (pour nos utilisateurs de l'annuaire d'entreprise).
 - Corrige un bug empêchant de voir une version agrandie de la photo de ses conctacts.
 - Le cercle à côté du nom d'un contact ne prenait pas en compte le pseudo pour déterminer la bonne initiale à afficher. C'est corrigé.
-- Corrige un crash potentiel au moment de la navigation vers un « deep link » juste après un retour dans l'app.
+- Corrige un crash potentiel au moment de la navigation vers un « deep link » juste après un retour dans l'app.
 - Corrige un problème relatif aux messages éphémères : le message statique n'était pas toujours supprimé à la fin d'une période d'existence.
 - Corrige un problème relatif aux messages éphémères : lorsque la lecture automatique était activée, elle était aussi appliquée aux messages dont l'éphéméralité était plus restrictive que celle de la discussion.
 - La paramètre de lecture automatique disponible au niveau de l'app n'était pas pris en compte. C'est corrigé.
 - Les accusés de lecture n'étaient pas toujours envoyés lorsque le paramètre de lecture automatique était activé. C'est corrigé.
-- Corrige un problème de la nouvelle vue de composition : après avoir attaché une pièce jointe, il était possible d'envoyer un emoji pouce en appuyant très rapidement sur le bouton « envoyer ». C'est corrigé.
+- Corrige un problème de la nouvelle vue de composition : après avoir attaché une pièce jointe, il était possible d'envoyer un emoji pouce en appuyant très rapidement sur le bouton « envoyer ». C'est corrigé.
 - Corrige un problème concernant le message système indiquant le nombre de nouveaux messages dans une discussion : au sortir de la discussion, il est maintenant bien mis à jour.
 - Corrige sans doute un bug pouvant entraîner un crash occasionnel en arrière-plan.
 - Corrige un problème de performance à l'affichage d'un message contenant beaucoup (disons, plus de 60) images.
@@ -651,7 +698,7 @@
 
 ## [0.9.12 (457)] - 2021-11-16
 
-- Les appels multiples sont disponibles ! Appelez un contact et ajoutez-en un autre pendant l'appel. Ou appeler tout un groupe en une fois !
+- Les appels multiples sont disponibles ! Appelez un contact et ajoutez-en un autre pendant l'appel. Ou appeler tout un groupe en une fois !
 - En plus du pseudo, il est maintenant possible d'ajouter une photo de profil personnalisée à n'importe quel contact.
 - À la réception d'un appel, Olvid vérifie si elle a le droit d'accéder au micro. Si ce n'est pas le cas, l'appel échoue et une notification est affichée à l'utilisateur.
 - Il est possible de lister et de nettoyer toutes les sauvegardes iCloud, directement depuis l'écran de paramétrage des sauvegardes.
@@ -757,10 +804,10 @@
 
 ## [0.9.3 (340)] - 2021-01-13
 
-- Les messages qui s'auto-détruisent sont arrivés ! Vous pouvez choisir/mixer trois variantes :
-- Parfum n.1 -> Lecture unique : Les messages et pièces jointes ne sont affichés qu'une seule fois. Ils sont supprimés au sortir de la discussion.
-- Parfum n.2 -> Durée de visibilité : Les messages et pièces jointes sont affichés pour une durée limitée après avoir été lus.
-- Parfum n.3 -> Durée d'existence : Les messages et pièces jointes sont automatiquement supprimés après une certaine durée, sur tous les téléphones.
+- Les messages qui s'auto-détruisent sont arrivés ! Vous pouvez choisir/mixer trois variantes :
+- Parfum n.1 -> Lecture unique : Les messages et pièces jointes ne sont affichés qu'une seule fois. Ils sont supprimés au sortir de la discussion.
+- Parfum n.2 -> Durée de visibilité : Les messages et pièces jointes sont affichés pour une durée limitée après avoir été lus.
+- Parfum n.3 -> Durée d'existence : Les messages et pièces jointes sont automatiquement supprimés après une certaine durée, sur tous les téléphones.
 - N'hésitez pas à jeter un œil à https://olvid.io/faq/ pour tout savoir.
 - L'envoi de message est encore plus rapide qu'avant !
 - Beaucoup moins de « Olvid requiert votre attention » ;-)
@@ -784,11 +831,11 @@
 - Les messages systèmes (comme par exemple celui qui s'affiche lorsque vous manquez un appel) peuvent être supprimés, comme n'importe quel autre message.
 - Les extraits affichés pour chaque discussion dans la liste des discussions sont beaucoup plus informatifs.
 - La mise a jour précédente avait introduit un bug empêchant l'affichage de certaines informations concernant un message envoyé dans un groupe. C'est corrigé.
-- Corrige un bug introduit par la mise à jour précédente qui entraînait parfois l'affichage de messages « vides » dans les discussions. C'est corrigé.
+- Corrige un bug introduit par la mise à jour précédente qui entraînait parfois l'affichage de messages « vides » dans les discussions. C'est corrigé.
 - Moins de notifications du type « Olvid requiert votre attention » ;-)
 - Corrige un bug qui pouvait empêcher le son de sonnerie en émission d'appel sécurisé.
 - Corrige le texte d'un dialogue qui proposait de toucher un bouton orange qui n'existe plus.
-- Corrige un bug qui empêchait certains messages d'être affichés comme « nouveaux » quand on quittait Olvid alors qu'on était sur l'écran de discussion.
+- Corrige un bug qui empêchait certains messages d'être affichés comme « nouveaux » quand on quittait Olvid alors qu'on était sur l'écran de discussion.
 
 ## [0.9.0 (328)] - 2020-12-16
 
@@ -815,13 +862,13 @@
 - Bienvenue aux achats in-app des fonctionnalités premium.
 - Il est maintenant possible de demander une période d'essai des fonctionnalités premium.
 - L'écran d'invitation s'affiche maintenant correctement sous iPhone SE (2016).
-- Correction de l'écran « Mon Id » (et autres) pour que tout se passe bien en mode paysage.
+- Correction de l'écran « Mon Id » (et autres) pour que tout se passe bien en mode paysage.
 - Plusieurs améliorations visuelles, y compris une nouvelle palette de couleurs et une meilleure disposition pour les écrans plus petits.
 
 ## [0.8.10 (298)] - 2020-10-26
 
-- La page « Mon Id » a été complètement repensée ! Elle est non seulement bien plus élégante, mais elle affiche plus d'informations.
-- La page d'édition de votre Id a elle aussi été repensée !
+- La page « Mon Id » a été complètement repensée ! Elle est non seulement bien plus élégante, mais elle affiche plus d'informations.
+- La page d'édition de votre Id a elle aussi été repensée !
 - On peut maintenant partager des éléments issus de l'application Wallet
 - Le processus de création de canal sécurisé est bien plus robuste qu'avant.
 - Plusieurs petites corrections au niveau des écrans d'invitation. Les utilisateurs sous iOS 13 ne devraient plus rencontrer de problème.
@@ -842,7 +889,7 @@
 
 ## [0.8.7 (290)] - 2020-10-10
 
-- Bienvenue à la nouvelle procédure d'invitation ! Inviter un contact est super intuitif maintenant. Appuyez simplement sur le bouton « + » au centre et laissez-vous guider !
+- Bienvenue à la nouvelle procédure d'invitation ! Inviter un contact est super intuitif maintenant. Appuyez simplement sur le bouton « + » au centre et laissez-vous guider !
 - Corrige un bug qui empêchait l'affichage du bouton d'activation des notifications utilisateur dans les paramètres d'Olvid.
 
 ## [0.8.6 (283)] - 2020-10-05
@@ -854,7 +901,7 @@
 - Il est maintenant possible de recevoir un appel alors qu'un autre appel est en cours : on peut alors rejeter l'appel entrant, ou raccrocher le précédent pour accepter le nouveau.
 - La nouvelle vue d'appel affiche l'indicateur de « micro coupé » du correspondant pendant un appel.
 - Si les sauvegardes automatiques sont activées, changer sa clé de sauvegarde entraîne immédiatement une nouvelle sauvegarde.
-- À partir d'aujourd'hui, les entrées de bases de données supprimées le sont de manière « sûre ».
+- À partir d'aujourd'hui, les entrées de bases de données supprimées le sont de manière « sûre ».
 - La suppression de contact entraîne la suppression des « tentatives » existantes d'envoi des messages à ce contact. Ceci implique que, si ce contact fait partie d'un groupe auquel on a envoyé un message alors qu'on n'avait pas de canal établi avec ce contact, la suppression du contact entraîne l'affichage du picto « envoyé » sur le message en question. Tout simple.
 - Amélioration du bandeau affiché au sommet de l'écran quand on navigue dans l'app alors qu'un appel est en cours.
 - Ajout d'une action rapide permettant d'accéder directement au scanner de code QR. Cette action est accessible directement depuis l'icône de l'app.

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,12 +19,13 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvEngine
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
 import ObvSettings
+import ObvAppTypes
 
 
 @objc(PersistedDiscussionSharedConfiguration)
@@ -336,26 +337,12 @@ extension PersistedDiscussionSharedConfiguration {
     }
     
     public func toDiscussionSharedConfigurationJSON() throws -> DiscussionSharedConfigurationJSON {
-        let expiration = self.toExpirationJSON()
-        switch try discussion?.kind {
-        case .oneToOne, .none:
-            guard let oneToOneIdentifier = try (discussion as? PersistedOneToOneDiscussion)?.oneToOneIdentifier else {
-                assertionFailure()
-                throw ObvUICoreDataError.couldNotDetermineOneToOneDiscussionIdentifier
-            }
-            return DiscussionSharedConfigurationJSON(
-                version: self.version,
-                expiration: expiration,
-                oneToOneIdentifier: oneToOneIdentifier)
-        case .groupV1(withContactGroup: let contactGroup):
-            guard let contactGroup = contactGroup else { throw ObvUICoreDataError.groupV1IsNil }
-            let groupV1Identifier = try contactGroup.getGroupId()
-            return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration, groupV1Identifier: groupV1Identifier)
-        case .groupV2(withGroup: let group):
-            guard let group = group else { throw ObvUICoreDataError.groupV2IsNil }
-            let groupV2Identifier = group.groupIdentifier
-            return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration, groupV2Identifier: groupV2Identifier)
+        guard let discussionIdentifier = try self.discussion?.discussionIdentifier else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotDetermineDiscussionIdentifier
         }
+        let expiration = self.toExpirationJSON()
+        return .init(discussionIdentifier: discussionIdentifier, version: self.version, expiration: expiration)
     }
     
 }

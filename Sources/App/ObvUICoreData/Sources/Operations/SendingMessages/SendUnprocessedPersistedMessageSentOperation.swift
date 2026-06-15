@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import OSLog
 import ObvEngine
 import OlvidUtils
 import ObvTypes
+import ObvAppTypes
 import ObvAppCoreConstants
 import ObvUICoreDataStructs
 
@@ -56,8 +57,6 @@ public final class SendUnprocessedPersistedMessageSentOperation: ContextualOpera
     /// Set if we reach the end of this operation. This is essentially used by the share extension in order to donate an intent
     public private(set) var messentSent: PersistedMessageSentStructure?
     
-    public private(set) var nonceOfReturnReceiptGeneratedOnCurrentDevice: Data?
-
     public init(messageSentPermanentID: MessageSentPermanentID, alsoPostToOtherOwnedDevices: Bool, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, callCompletionWhenMessageAndAttachmentsAreSent: Bool = false, completionHandler: (() -> Void)? = nil) {
         self.input = .messagePermanentID(messageSentPermanentID)
         self.obvEngine = obvEngine
@@ -180,11 +179,6 @@ public final class SendUnprocessedPersistedMessageSentOperation: ContextualOpera
                 Self.logger.fault("Failed to create persisted structure: \(error.localizedDescription)")
                 assertionFailure()
             }
-            
-            // We will save the nonce of the generated return receipt so, when receiving the return receipt back,
-            // we can process it with high priority
-
-            self.nonceOfReturnReceiptGeneratedOnCurrentDevice = returnReceiptElements.nonce
             
         } catch {
             return cancel(withReason: .coreDataError(error: error))

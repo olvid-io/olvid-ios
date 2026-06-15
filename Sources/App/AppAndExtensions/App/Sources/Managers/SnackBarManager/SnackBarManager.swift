@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -225,7 +225,6 @@ actor SnackBarManager {
         alreadyCheckedIdentities.insert(currentCryptoId)
 
         var ownedIdentityHasAtLeastOneContact: Bool = false
-        var ownedIdentityIsActive = true
         ObvStack.shared.performBackgroundTaskAndWait { context in
             do {
                 guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: currentCryptoId, within: context) else {
@@ -234,7 +233,6 @@ actor SnackBarManager {
                 }
                 
                 ownedIdentityHasAtLeastOneContact = !ownedIdentity.contacts.isEmpty
-                ownedIdentityIsActive = ownedIdentity.isActive
             } catch {
                 os_log("SnackBarManager error: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 assertionFailure()
@@ -242,15 +240,6 @@ actor SnackBarManager {
             }
         }
         
-        // If the owned identity (profile) is inactive, inform the user
-        
-        guard ownedIdentityIsActive else {
-            ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.ownedIdentityIsInactive)
-                .postOnDispatchQueue()
-            return
-        }
-
-
         // We never display a snackbar if the owned identity has no contact
 
         guard ownedIdentityHasAtLeastOneContact else {
@@ -267,20 +256,6 @@ actor SnackBarManager {
             if !didDismissSnackBarRecently {
                 if let latestBuildNumberAvailable = ObvMessengerSettings.AppVersionAvailable.latest, latestBuildNumberAvailable > ObvAppCoreConstants.bundleVersionAsInt {
                     ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.newerAppVersionAvailable)
-                        .postOnDispatchQueue()
-                    return
-                }
-            }
-        }
-
-        // If the user's device has an old iOS version, recommend upgrade
-
-        if !ObvAppCoreConstants.targetEnvironmentIsMacCatalyst {
-            let lastDisplayDate = OlvidSnackBarCategory.upgradeIOS.lastDisplayDate ?? Date.distantPast
-            let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(days: 7)
-            if !didDismissSnackBarRecently {
-                if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.supportedIOSVersion || ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.recommendedMinimumIOSVersion {
-                    ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.upgradeIOS)
                         .postOnDispatchQueue()
                     return
                 }

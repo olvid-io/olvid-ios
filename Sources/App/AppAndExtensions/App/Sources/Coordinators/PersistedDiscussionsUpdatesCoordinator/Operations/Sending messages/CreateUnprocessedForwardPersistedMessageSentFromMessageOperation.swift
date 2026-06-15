@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,25 +19,26 @@
 
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import OlvidUtils
 import ObvUICoreData
 import ObvAppCoreConstants
+import ObvAppTypes
 
 
 final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedForwardPersistedMessageSentFromMessageOperationOperationReasonForCancel>, @unchecked Sendable, UnprocessedPersistedMessageSentProvider {
 
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: CreateUnprocessedForwardPersistedMessageSentFromMessageOperation.self))
 
-    let messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>
-    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
+    let identifierOfMessageToForwad: ObvMessageAppIdentifier
+    let identifiersOfDiscussionWhereMessageShouldBeForwarded: ObvDiscussionIdentifier
 
     private(set) var messageSentPermanentID: MessageSentPermanentID?
 
-    init(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
-        self.messagePermanentID = messagePermanentID
-        self.discussionPermanentID = discussionPermanentID
+    init(identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionWhereMessageShouldBeForwarded: ObvDiscussionIdentifier) {
+        self.identifierOfMessageToForwad = identifierOfMessageToForwad
+        self.identifiersOfDiscussionWhereMessageShouldBeForwarded = identifiersOfDiscussionWhereMessageShouldBeForwarded
         super.init()
     }
 
@@ -45,13 +46,13 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
         
         do {
             // Find discussion
-            guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
+            guard let discussion = try PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: identifiersOfDiscussionWhereMessageShouldBeForwarded, within: obvContext.context) else {
                 assertionFailure()
                 return cancel(withReason: .couldNotFindDiscussionInDatabase)
             }
             
             // Find message to forward
-            guard let messageToForward = try PersistedMessage.getManagedObject(withPermanentID: messagePermanentID, within: obvContext.context) else {
+            guard let messageToForward = try PersistedMessage.getMessage(messageAppIdentifier: identifierOfMessageToForwad, within: obvContext.context) else {
                 assertionFailure()
                 return cancel(withReason: .couldNotFindMessageInDatabase)
             }
@@ -67,11 +68,11 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
             case .received:
                 forwarded = true
             case .sent:
-                // Do not mark the message as forwarded if the user forwards its own messages.
+                // Do not mark the message as forwarded if the user forwards their own messages.
                 forwarded = false
             case .none, .system:
-                forwarded = false
                 assertionFailure("It is not possible to forward a system message and none kind should be overridden in subclasses.")
+                return cancel(withReason: .cannotForwardMessage)
             }
             
             // Create message to send

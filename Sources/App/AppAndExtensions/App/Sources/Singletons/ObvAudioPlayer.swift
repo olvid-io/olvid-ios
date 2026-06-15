@@ -175,6 +175,11 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate, ObservableObject {
         if let time = time {
             audioPlayer.currentTime = time
         }
+        
+        // Before playing the audio, we re-apply the appropriate audio output
+        let shouldUseSpeaker = !isExternalOutputConnected
+        setSpeaker(to: shouldUseSpeaker)
+
         // Persist the desired output so route changes can react appropriately
         logger.info("🎵 Resume \(audioPlayer.url?.lastPathComponent ?? "nil", privacy: .public)")
         audioPlayer.play()
@@ -227,8 +232,10 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate, ObservableObject {
     }
 
     func setSpeaker(to value: Bool) {
-        guard value != isSpeakerEnable else { return }
         let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playAndRecord, options: [.allowBluetoothHFP, .allowBluetoothA2DP])
+        try? session.setMode(.default)
+        
         do {
             if value {
                 try session.overrideOutputAudioPort(.speaker)

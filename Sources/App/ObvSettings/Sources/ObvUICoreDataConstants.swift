@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -137,7 +137,7 @@ public struct ObvUICoreDataConstants {
             case .forDocuments:
                 return try! FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             case .forTempFiles:
-                return FileManager.default.temporaryDirectory
+                return Self.securityApplicationGroupURL.appendingPathComponent("tmp", isDirectory: true)
             case .forCache:
                 return Self.mainAppContainer.url.appendingPathComponent("Cache", isDirectory: true)
             case .forTrash:

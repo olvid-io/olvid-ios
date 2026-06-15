@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -17,53 +17,61 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import Foundation
+import SwiftUI
 import CoreData
 import ObvLocation
 import ObvDesignSystem
 import ObvUICoreData
 import ObvTypes
+import OlvidUtils
 
 
 
-@available(iOS 17.0, *)
 @MainActor
 final class ObvMapViewControllerAppDataSource {
     
-    private enum StreamManagerKind {
-        case forGivenMessage(ObvMapViewModelStreamManagerForGivenMessage)
-        case forGivenOwnedCryptoId(ObvMapViewModelStreamManagerForGivenOwnedCryptoIdentity)
+    private let viewContext: NSManagedObjectContext
+    private let backgroundContext: NSManagedObjectContext
+
+    init(viewContext: NSManagedObjectContext, backgroundContext: NSManagedObjectContext) {
+        assert(viewContext.concurrencyType == .mainQueueConcurrencyType)
+        assert(backgroundContext.concurrencyType == .privateQueueConcurrencyType)
+        self.viewContext = viewContext
+        self.backgroundContext = backgroundContext
     }
-    
-    private let streamManagerKind: StreamManagerKind
-    
-    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, viewContext: NSManagedObjectContext) throws {
-        let streamManager = try ObvMapViewModelStreamManagerForGivenMessage(messageObjectID: messageObjectID, viewContext: viewContext)
-        self.streamManagerKind = .forGivenMessage(streamManager)
-    }
-     
-    
-    init(ownedCryptoId: ObvCryptoId, viewContext: NSManagedObjectContext) {
-        let streamManager = ObvMapViewModelStreamManagerForGivenOwnedCryptoIdentity(ownedCryptoId: ownedCryptoId, viewContext: viewContext)
-        self.streamManagerKind = .forGivenOwnedCryptoId(streamManager)
-    }
-    
+
+    private var mapViewModelStreamManagerForGivenOwnedIdentityForStreamUUID = [UUID : ObvMapViewModelStreamManagerForGivenOwnedIdentity]()
+    private var mapViewModelStreamManagerForGivenMessage = [UUID : ObvMapViewModelStreamManagerForGivenMessage]()
+
 }
 
 
-@available(iOS 17.0, *)
-extension ObvMapViewControllerAppDataSource: ObvMapViewControllerDataSource {
+extension ObvMapViewControllerAppDataSource: ObvLocation.ObvMapViewDataSource {
     
-    func getAsyncStreamOfObvMapViewModel(_ vc: ObvMapViewController) throws -> AsyncStream<ObvMapViewModel> {
-        switch streamManagerKind {
-        case .forGivenMessage(let streamManager):
-            let (_, stream) = try streamManager.startStream()
-            return stream
-        case .forGivenOwnedCryptoId(let streamManager):
-            let (_, stream) = try streamManager.startStream()
-            return stream
+    func getAsyncStreamOfObvMapViewModel(_ view: some View,
+                                         kind: ObvLocation.ObvMapViewKind) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvMapViewModel>) {
+        switch kind {
+        case .forGivenMessage(let persistedMessageObjectID):
+            let manager = try ObvMapViewModelStreamManagerForGivenMessage(messageObjectID: .init(objectID: persistedMessageObjectID), viewContext: viewContext)
+            mapViewModelStreamManagerForGivenMessage[manager.streamUUID] = manager
+            return try await manager.startStream()
+        case .forGivenOwnedCryptoId(let ownedCryptoId):
+            let manager = try ObvMapViewModelStreamManagerForGivenOwnedIdentity(ownedCryptoId: ownedCryptoId, context: backgroundContext)
+            mapViewModelStreamManagerForGivenOwnedIdentityForStreamUUID[manager.streamUUID] = manager
+            return try await manager.startStream()
         }
     }
+    
+    
+    func finishAsyncStreamOfObvMapViewModel(_ view: some View, streamUUID: UUID) {
+        if let manager = mapViewModelStreamManagerForGivenOwnedIdentityForStreamUUID.removeValue(forKey: streamUUID) {
+            manager.finishStream()
+        }
+        if let manager = mapViewModelStreamManagerForGivenMessage.removeValue(forKey: streamUUID) {
+            manager.finishStream()
+        }
+    }
+    
     
 }
 
@@ -79,91 +87,78 @@ extension ObvMapViewControllerAppDataSource {
 
 // MARK: - Internal manager when an owned crypto was specified
 
-@available(iOS 17.0, *)
 extension ObvMapViewControllerAppDataSource {
     
-    private final class ObvMapViewModelStreamManagerForGivenOwnedCryptoIdentity: NSObject, NSFetchedResultsControllerDelegate {
+    private final class ObvMapViewModelStreamManagerForGivenOwnedIdentity: ObvDataSourceStreamManagerWithTwoFetchedResultsController<ObvLocation.ObvMapViewModel, PersistedLocationContinuous, PersistedObvOwnedDevice>, @unchecked Sendable {
+        
+        private let ownedCryptoId: ObvCryptoId
+        private var currentRefreshTask: Task<Void, any Error>?
 
-        let streamUUID = UUID()
-        let ownedCryptoId: ObvCryptoId
-        private let frcForCurrentOwnedDevice: NSFetchedResultsController<PersistedObvOwnedDevice>
-        private let frcForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice: NSFetchedResultsController<PersistedLocationContinuous>
-        private var stream: AsyncStream<ObvLocation.ObvMapViewModel>?
-        private var continuation: AsyncStream<ObvLocation.ObvMapViewModel>.Continuation?
-
-        @MainActor
-        init(ownedCryptoId: ObvCryptoId, viewContext: NSManagedObjectContext) {
-            assert(viewContext.concurrencyType == .mainQueueConcurrencyType)
+        init(ownedCryptoId: ObvCryptoId, context: NSManagedObjectContext) throws {
             self.ownedCryptoId = ownedCryptoId
-            self.frcForCurrentOwnedDevice = PersistedObvOwnedDevice.getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ownedCryptoId, within: viewContext)
-            self.frcForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice = PersistedLocationContinuous.getFetchedResultsControllerForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice(ownedCryptoId: ownedCryptoId, within: viewContext)
+            let frc1 = PersistedLocationContinuous.getFetchedResultsControllerForNotExpiredContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice(ownedCryptoId: ownedCryptoId, within: context)
+            let frc2 = PersistedObvOwnedDevice.getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ownedCryptoId, within: context)
+            super.init(frc1: frc1, frc2: frc2)
         }
         
         
-        @MainActor
-        func startStream() throws -> (streamUUID: UUID, stream: AsyncStream<ObvLocation.ObvMapViewModel>) {
-            if let stream {
-                return (streamUUID, stream)
-            }
-            frcForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice.delegate = self
-            frcForCurrentOwnedDevice.delegate = self
-            try frcForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice.performFetch()
-            try frcForCurrentOwnedDevice.performFetch()
-            let stream = AsyncStream(ObvLocation.ObvMapViewModel.self) { [weak self] (continuation: AsyncStream<ObvLocation.ObvMapViewModel>.Continuation) in
-                guard let self else { return }
-                self.continuation = continuation
-                do {
-                    let model = try createModel()
-                    continuation.yield(model)
-                } catch {
-                    assertionFailure()
-                }
-            }
-            self.stream = stream
-            return (streamUUID, stream)
-        }
+        override func createModel(fetchedObjects1: [PersistedLocationContinuous], fetchedObjects2: [PersistedObvOwnedDevice]) throws -> ObvMapViewModel {
 
-        func finishStream() {
-            continuation?.finish()
-        }
-     
-        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>, didChangeContentWith diff: CollectionDifference<NSManagedObjectID>) {
-            guard let continuation else { assertionFailure(); return }
-            do {
-                let model = try createModel()
-                continuation.yield(model)
-            } catch {
-                assertionFailure()
-            }
-        }
-
-        private func createModel() throws -> ObvLocation.ObvMapViewModel {
-            guard let persistedCurrentOwnedDevice = frcForCurrentOwnedDevice.fetchedObjects?.first else {
-                assertionFailure()
-                throw ObvError.couldNotFetchObjects
-            }
             // Note that we don't need to filter out the location from the current owned device, as the frc is configured to exclude it from the fetched objects.
-            guard let allContinousLocations = frcForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice.fetchedObjects else {
-                assertionFailure()
-                throw ObvError.couldNotFetchObjects
+            // The first fetch request filters out expired shared location, but only wrt the date when the request was created. So we must also filter out expired locations here.
+            
+            let locations = fetchedObjects1.filter { !$0.isSharingLocationExpired }
+            guard let persistedCurrentOwnedDevice = fetchedObjects2.first else { assertionFailure(); throw ObvError.couldNotFetchObjects }
+
+            // If one of the received continuous shared locations expires in the future, we should request a refresh in the future.
+            
+            if let minExpirationDate = locations.compactMap({ $0.sharingExpiration }).filter({ $0 > .now }).min() {
+                refresh(at: minExpirationDate)
             }
+
+            // Create an return the model
             
             let currentOwnedDevice = try ObvMapViewModel.CurrentOwnedDevice(currentOwnedDevice: persistedCurrentOwnedDevice)
-            let deviceLocations = try allContinousLocations.map { try ObvMapViewModel.DeviceLocation(continousLocation: $0) }
+            let deviceLocations = try locations.map { try ObvMapViewModel.DeviceLocation(continousLocation: $0) }
             
             let model = ObvLocation.ObvMapViewModel(
                 currentOwnedDevice: currentOwnedDevice,
                 deviceLocations: deviceLocations)
             
             return model
-            
+
+        }
+        
+        
+        private func createAndYieldModelIfNeeded() {
+            let context = frc1.managedObjectContext
+            context.perform { [weak self] in
+                guard let self else { return }
+                guard let fetchedObjects1 = self.frc1.fetchedObjects, let fetchedObjects2 = self.frc2.fetchedObjects else { return }
+                guard let model = try? createModel(fetchedObjects1: fetchedObjects1, fetchedObjects2: fetchedObjects2) else { assertionFailure(); return }
+                self.yieldModelIfNeeded(model: model, within: context)
+            }
         }
 
+        
+        /// Schedules a refresh at the earliest expiration date among all continuous locations.
+        ///
+        /// When continuous locations have expiration dates, this method receives the nearest
+        /// expiration and schedules a refresh to occur at that time, ensuring expired
+        /// locations are removed promptly.
+        private func refresh(at date: Date) {
+            let timeIntervalSinceNow = date.timeIntervalSinceNow
+            guard timeIntervalSinceNow > 0 else { return }
+            currentRefreshTask?.cancel()
+            currentRefreshTask = Task { [weak self] in
+                try await Task.sleep(seconds: timeIntervalSinceNow)
+                guard let self else { return }
+                createAndYieldModelIfNeeded()
+            }
+        }
+            
         enum ObvError: Error {
-            case messageNotFound
-            case discussionNotFound
             case couldNotFetchObjects
-            case ownedCryptoIdNotFound
         }
 
     }
@@ -173,16 +168,12 @@ extension ObvMapViewControllerAppDataSource {
 
 // MARK: - Internal manager when a message was specified
 
-@available(iOS 17.0, *)
 extension ObvMapViewControllerAppDataSource {
+
     
-    private final class ObvMapViewModelStreamManagerForGivenMessage: NSObject, NSFetchedResultsControllerDelegate {
+    private final class ObvMapViewModelStreamManagerForGivenMessage: ObvDataSourceStreamManagerWithTwoFetchedResultsController<ObvLocation.ObvMapViewModel, PersistedLocationContinuous, PersistedObvOwnedDevice>, @unchecked Sendable {
         
-        let streamUUID = UUID()
-        private let frcForPersistedLocationContinuous: NSFetchedResultsController<PersistedLocationContinuous>
-        private let frcForCurrentOwnedDevice: NSFetchedResultsController<PersistedObvOwnedDevice>
-        private var stream: AsyncStream<ObvLocation.ObvMapViewModel>?
-        private var continuation: AsyncStream<ObvLocation.ObvMapViewModel>.Continuation?
+        private var currentRefreshTask: Task<Void, any Error>?
 
         @MainActor
         init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, viewContext: NSManagedObjectContext) throws {
@@ -199,70 +190,68 @@ extension ObvMapViewControllerAppDataSource {
                 assertionFailure()
                 throw ObvError.ownedCryptoIdNotFound
             }
-            self.frcForPersistedLocationContinuous = try PersistedLocationContinuous.getFetchedResultsControllerForContinuousLocations(in: discussion)
-            self.frcForCurrentOwnedDevice = PersistedObvOwnedDevice.getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ownedCryptoId, within: viewContext)
-            super.init()
+            let frc1 = try PersistedLocationContinuous.getFetchedResultsControllerForContinuousLocations(in: discussion)
+            let frc2 = PersistedObvOwnedDevice.getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ownedCryptoId, within: viewContext)
+            super.init(frc1: frc1, frc2: frc2)
         }
+
         
-        
-        @MainActor
-        func startStream() throws -> (streamUUID: UUID, stream: AsyncStream<ObvLocation.ObvMapViewModel>) {
-            if let stream {
-                return (streamUUID, stream)
-            }
-            frcForPersistedLocationContinuous.delegate = self
-            frcForCurrentOwnedDevice.delegate = self
-            try frcForPersistedLocationContinuous.performFetch()
-            try frcForCurrentOwnedDevice.performFetch()
-            let stream = AsyncStream(ObvLocation.ObvMapViewModel.self) { [weak self] (continuation: AsyncStream<ObvLocation.ObvMapViewModel>.Continuation) in
-                guard let self else { return }
-                self.continuation = continuation
-                do {
-                    let model = try createModel()
-                    continuation.yield(model)
-                } catch {
-                    assertionFailure()
-                }
-            }
-            self.stream = stream
-            return (streamUUID, stream)
-        }
-
-        func finishStream() {
-            continuation?.finish()
-        }
-
-
-        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>, didChangeContentWith diff: CollectionDifference<NSManagedObjectID>) {
-            guard let continuation else { assertionFailure(); return }
-            do {
-                let model = try createModel()
-                continuation.yield(model)
-            } catch {
-                assertionFailure()
-            }
-        }
-
-        private func createModel() throws -> ObvLocation.ObvMapViewModel {
-            guard let persistedCurrentOwnedDevice = frcForCurrentOwnedDevice.fetchedObjects?.first else {
-                assertionFailure()
-                throw ObvError.couldNotFetchObjects
-            }
+        override func createModel(fetchedObjects1: [PersistedLocationContinuous], fetchedObjects2: [PersistedObvOwnedDevice]) throws -> ObvMapViewModel {
+            
+            // The first fetch request filters out expired shared location, but only wrt the date when the request was created. So we must also filter out expired locations here.
             // Note that we filter out the location from the current owned device, as the map knows how to locate the current device.
-            guard let allContinousLocations = frcForPersistedLocationContinuous.fetchedObjects?.filter({ ($0 as? PersistedLocationContinuousSent)?.ownedDevice?.objectID != persistedCurrentOwnedDevice.objectID }) else {
-                assertionFailure()
-                throw ObvError.couldNotFetchObjects
+
+            guard let persistedCurrentOwnedDevice = fetchedObjects2.first else { assertionFailure(); throw ObvError.couldNotFetchObjects }
+            let locations = fetchedObjects1
+                .filter({ !$0.isSharingLocationExpired })
+                .filter({ ($0 as? PersistedLocationContinuousSent)?.ownedDevice?.objectID != persistedCurrentOwnedDevice.objectID })
+
+            // If one of the received continuous shared locations expires in the future, we should request a refresh in the future.
+            
+            if let minExpirationDate = locations.compactMap({ $0.sharingExpiration }).filter({ $0 > .now }).min() {
+                refresh(at: minExpirationDate)
             }
+
+            // Create an return the model
             
             let currentOwnedDevice = try ObvMapViewModel.CurrentOwnedDevice(currentOwnedDevice: persistedCurrentOwnedDevice)
-            let deviceLocations = try allContinousLocations.map { try ObvMapViewModel.DeviceLocation(continousLocation: $0) }
+            let deviceLocations = try locations.map { try ObvMapViewModel.DeviceLocation(continousLocation: $0) }
             
             let model = ObvLocation.ObvMapViewModel(
                 currentOwnedDevice: currentOwnedDevice,
                 deviceLocations: deviceLocations)
             
             return model
+
             
+        }
+        
+        
+        private func createAndYieldModelIfNeeded() {
+            let context = frc1.managedObjectContext
+            context.perform { [weak self] in
+                guard let self else { return }
+                guard let fetchedObjects1 = self.frc1.fetchedObjects, let fetchedObjects2 = self.frc2.fetchedObjects else { return }
+                guard let model = try? createModel(fetchedObjects1: fetchedObjects1, fetchedObjects2: fetchedObjects2) else { assertionFailure(); return }
+                self.yieldModelIfNeeded(model: model, within: context)
+            }
+        }
+
+        
+        /// Schedules a refresh at the earliest expiration date among all continuous locations.
+        ///
+        /// When continuous locations have expiration dates, this method receives the nearest
+        /// expiration and schedules a refresh to occur at that time, ensuring expired
+        /// locations are removed promptly.
+        private func refresh(at date: Date) {
+            let timeIntervalSinceNow = date.timeIntervalSinceNow
+            guard timeIntervalSinceNow > 0 else { return }
+            currentRefreshTask?.cancel()
+            currentRefreshTask = Task { [weak self] in
+                try await Task.sleep(seconds: timeIntervalSinceNow)
+                guard let self else { return }
+                createAndYieldModelIfNeeded()
+            }
         }
 
         
@@ -272,7 +261,7 @@ extension ObvMapViewControllerAppDataSource {
             case couldNotFetchObjects
             case ownedCryptoIdNotFound
         }
-        
+
     }
     
 }

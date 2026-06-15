@@ -35,9 +35,10 @@ final class DataMigrationManagerForObvUserNotifications: DataMigrationManager<Ob
         case version1 = "ObvUserNotificationsDataModel-v1"
         case version2 = "ObvUserNotificationsDataModel-v2"
         case version3 = "ObvUserNotificationsDataModel-v3"
+        case version4 = "ObvUserNotificationsDataModel-v4"
 
         static var latest: ObvUserNotificationsDataModelVersion {
-            return .version3
+            return .version4
         }
 
         var identifier: String {
@@ -126,7 +127,8 @@ final class DataMigrationManagerForObvUserNotifications: DataMigrationManager<Ob
         switch sourceVersion {
         case .version1: migrationType = .lightweight; destinationVersion = .version2
         case .version2: migrationType = .lightweight; destinationVersion = .version3
-        case .version3: migrationType = .heavyweight; destinationVersion = .version3
+        case .version3: migrationType = .heavyweight; destinationVersion = .version4
+        case .version4: migrationType = .heavyweight; destinationVersion = .version4
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

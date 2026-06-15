@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,6 +26,7 @@ import MobileCoreServices
 import ObvSettings
 import ObvUICoreDataStructs
 import ObvAppTypes
+import ObvCrypto
 
 
 /// A message sent by an owned identity.
@@ -43,7 +44,7 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
 
     // MARK: Attributes
 
-    @NSManaged private(set) var messageIdentifierFromEngine: Data? // Only set for message sent from another device, always nil for messages sent from this device
+    @NSManaged public private(set) var messageIdentifierFromEngine: Data? // Only set for message sent from another device, always nil for messages sent from this device
     @NSManaged private var rawExistenceDuration: NSNumber?
     @NSManaged private(set) var senderThreadIdentifier: UUID
 
@@ -58,6 +59,8 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
 
     // MARK: Computed variables
     
+    private var isInsertedDuringHistoryTransfer = false
+
     public var isSentFromCurrentDevice: Bool {
         messageIdentifierFromEngine == nil
     }
@@ -189,21 +192,21 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
 //    }
     
     /// Called when the owned identity requests a message edition from the current device
-    override func replaceContentWith(newBody: String?, newMentions: Set<MessageJSON.UserMention>) throws {
+    override func replaceBodyAndMentions(with newBodyAndMentions: StringAndUserMentions?) throws {
         guard !self.isLocallyWiped && !self.isRemoteWiped else {
             throw ObvUICoreDataError.theTextBodyOfThisPersistedMessageSentCannotBeEditedNow
         }
         guard !self.isPoll else {
             throw ObvUICoreDataError.cannotEditPollMessage
         }
-        guard self.textBody != newBody else { return }
-        try super.replaceContentWith(newBody: newBody, newMentions: newMentions)
+        guard self.textBody != newBodyAndMentions?.body else { return }
+        try super.replaceBodyAndMentions(with: newBodyAndMentions)
         try deleteMetadataOfKind(.edited)
         try addMetadata(kind: .edited, date: Date.now)
     }
     
 
-    override func toMessageReferenceJSON() -> MessageReferenceJSON? {
+    public override func toMessageReferenceJSON() -> MessageReferenceJSON? {
         return toSentMessageReferenceJSON()
     }
 
@@ -342,7 +345,8 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
             self.setStatus(newValue: .sent)
         }
 
-        Self.logger.debug("🐇 N = \(N), n = \(n), ts = \(ts), td = \(td), tr = \(tr) | status = \(self.status.debugDescription)")
+        let statusDebugDescription = self.status.debugDescription
+        Self.logger.debug("🐇 N = \(N), n = \(n), ts = \(ts), td = \(td), tr = \(tr) | status = \(statusDebugDescription)")
 
     }
     
@@ -362,7 +366,10 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
     // MARK: - Updating a message
 
     /// Called when receiving a remote request from another owned device
-    func processUpdateSentMessageRequest(newTextBody: String?, newUserMentions: [MessageJSON.UserMention], newLocation: LocationJSON?, messageUploadTimestampFromServer: Date, requester: ObvCryptoId) throws {
+    func processUpdateSentMessageRequest(newBodyAndMentions: StringAndUserMentions?,
+                                         newLocation: LocationJSON?,
+                                         messageUploadTimestampFromServer: Date,
+                                         requester: ObvCryptoId) throws {
         guard let discussion else { throw ObvUICoreDataError.couldNotFindDiscussion }
         guard discussion.ownedIdentity?.cryptoId == requester else { assertionFailure(); throw ObvUICoreDataError.theRequesterIsNotTheOwnedIdentityWhoCreatedThePersistedMessageSent }
         guard !self.isLocallyWiped && !self.isRemoteWiped else {
@@ -386,7 +393,7 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
             }
         }
         
-        try super.processUpdateMessageRequest(newTextBody: newTextBody, newUserMentions: newUserMentions)
+        try super.replaceBodyAndMentions(with: newBodyAndMentions)
         try deleteMetadataOfKind(.edited)
         try addMetadata(kind: .edited, date: messageUploadTimestampFromServer)
     }
@@ -444,28 +451,23 @@ extension PersistedMessageSent {
     
     private func toUpdateMessageJSON() throws -> UpdateMessageJSON {
         
-        let newTextBody: String?
-        let userMentions: [MessageJSON.UserMention]
-        if let textBodyToSend = self.textBodyToSend {
-            newTextBody = textBodyToSend.isEmpty ? nil : textBodyToSend
-            userMentions = self
-                .mentions
-                .compactMap({ try? $0.userMention })
+        let bodyAndMentionsToSend: StringAndUserMentions?
+        if let textBodyToSend = self.textBodyToSend?.trimmingWhitespacesAndNewlines(), !textBodyToSend.isEmpty {
+            let mentions: [StringAndUserMentions.UserMention] = self.mentions.compactMap { try? $0.userMention }
+            bodyAndMentionsToSend = .init(body: textBodyToSend, mentions: mentions)
         } else {
-            newTextBody = nil
-            userMentions = []
+            bodyAndMentionsToSend = nil
         }
         
         let locationJSON = try self.toLocationJSON()
         
         return try UpdateMessageJSON(persistedMessageSentToEdit: self,
-                                     newTextBody: newTextBody,
-                                     userMentions: userMentions,
+                                     newBodyAndMentions: bodyAndMentionsToSend,
                                      locationJSON: locationJSON)
     }
     
     
-    private func toLocationJSON() throws -> LocationJSON? {
+    public func toLocationJSON() throws -> LocationJSON? {
         if let locationOneShotSent, locationOneShotSent.isDeleted {
             return try locationOneShotSent.toLocationJSON()
         } else if let locationContinuousSent, !locationContinuousSent.isDeleted {
@@ -536,7 +538,8 @@ extension PersistedMessageSent {
 
     }
 
-    private convenience init(body: String?,
+    
+    private convenience init(bodyAndMentions: StringAndUserMentions?,
                              replyTo: ReplyToType?,
                              fyleJoins: [FyleJoin],
                              discussion: PersistedDiscussion,
@@ -544,7 +547,6 @@ extension PersistedMessageSent {
                              visibilityDuration: TimeInterval?,
                              existenceDuration: TimeInterval?,
                              forwarded: Bool,
-                             mentions: [MessageJSON.UserMention],
                              location: SentLocation?,
                              poll: PersistedPoll?,
                              timestamp: Date,
@@ -589,27 +591,55 @@ extension PersistedMessageSent {
         
         let locationContinuousSent: PersistedLocationContinuousSent?
         let locationOneShotSent: PersistedLocationOneShotSent?
-        let locationBody: String?
+        let locationBody: StringAndUserMentions?
         var locationToRemoveMessage: PersistedLocationContinuousSent?
         if let sentLocation = location {
             switch sentLocation {
             case .continuous(location: let objectID, toStop: let endSharingDestination):
                 let persistedLocationContinuousSent = try PersistedLocationContinuousSent.getPersistedLocationContinuousSent(objectID: objectID, within: context)
                 
-                if let discussionIdentifier = try? discussion.discussionIdentifier, endSharingDestination == .all || discussionIdentifier == endSharingDestination?.discussionIdentifier {
+                let isEndSharingInCurrentDiscussion: Bool
+                if let endSharingDestination {
+                    switch endSharingDestination {
+                    case .all:
+                        isEndSharingInCurrentDiscussion = true
+                    case .discussion(let discussionIdentifier):
+                        let currentDiscussionIdentifier = try discussion.discussionIdentifier
+                        isEndSharingInCurrentDiscussion = (discussionIdentifier == currentDiscussionIdentifier)
+                    case .discussions(let discussionIdentifiers):
+                        let currentDiscussionIdentifier = try discussion.discussionIdentifier
+                        isEndSharingInCurrentDiscussion = discussionIdentifiers.contains(currentDiscussionIdentifier)
+                    }
+                } else {
+                    isEndSharingInCurrentDiscussion = false
+                }
+                
+                if isEndSharingInCurrentDiscussion {
                     locationContinuousSent = nil
                     locationOneShotSent = nil
                     locationToRemoveMessage = persistedLocationContinuousSent
-                    locationBody = persistedLocationContinuousSent?.legacyLocationMessageBody
+                    if let legacyBody = persistedLocationContinuousSent?.legacyLocationMessageBody {
+                        locationBody = .init(body: legacyBody, mentions: [])
+                    } else {
+                        locationBody = nil
+                    }
                 } else {
                     locationContinuousSent = persistedLocationContinuousSent
                     locationOneShotSent = nil
-                    locationBody = locationContinuousSent?.legacyLocationMessageBody
+                    if let legacyBody = locationContinuousSent?.legacyLocationMessageBody {
+                        locationBody = .init(body: legacyBody, mentions: [])
+                    } else {
+                        locationBody = nil
+                    }
                 }
             case .oneShot(location: let objectID):
                 locationOneShotSent = try PersistedLocationOneShotSent.getPersistedLocationOneShotSent(objectID: objectID, within: context)
                 locationContinuousSent = nil
-                locationBody = locationOneShotSent?.legacyLocationMessageBody
+                if let legacyBody = locationOneShotSent?.legacyLocationMessageBody {
+                    locationBody = .init(body: legacyBody, mentions: [])
+                } else {
+                    locationBody = nil
+                }
             }
         } else {
             locationBody = nil
@@ -617,8 +647,13 @@ extension PersistedMessageSent {
             locationOneShotSent = nil
         }
         
-        let pollBody: String? = poll?.legacyPollMessageBody
-                
+        let pollBody: StringAndUserMentions?
+        if let legacyBody = poll?.legacyPollMessageBody {
+            pollBody = .init(body: legacyBody, mentions: [])
+        } else {
+            pollBody = nil
+        }
+        
         let status: MessageStatus
         if infosFromOtherOwnedDevice != nil {
             status = .sentFromAnotherOwnedDevice
@@ -627,7 +662,7 @@ extension PersistedMessageSent {
         }
                 
         try self.init(timestamp: adjustedTimestamp,
-                      body: body ?? locationBody ?? pollBody,
+                      bodyAndUserMentions: bodyAndMentions ?? locationBody ?? pollBody,
                       rawStatus: status.rawValue,
                       senderSequenceNumber: senderSequenceNumberForThisMessage,
                       sortIndex: sortIndex,
@@ -636,9 +671,9 @@ extension PersistedMessageSent {
                       readOnce: readOnce,
                       visibilityDuration: visibilityDuration,
                       forwarded: forwarded,
-                      mentions: mentions,
                       isLocation: location != nil,
                       poll: poll,
+                      includesPendingChangesWhenComputingSectionIdentifier: false,
                       forEntityName: PersistedMessageSent.entityName)
 
         self.locationContinuousSent = locationContinuousSent
@@ -770,8 +805,7 @@ extension PersistedMessageSent {
     ///Called when the owned identity has refreshed its location
     func setBodyWithLocation() throws {
         let messageBody: String = (self.locationContinuousSent ?? self.locationOneShotSent)?.legacyLocationMessageBody ?? ""
-        
-        try self.replaceContentWith(newBody: messageBody, newMentions: [])
+        try self.replaceBodyAndMentions(with: StringAndUserMentions(body: messageBody, mentions: []))
     }
     
     static private func determineAppropriateSortIndexForMessageReceivedFromOtherOwnedDevice(forSenderSequenceNumber senderSequenceNumber: Int, senderThreadIdentifier: UUID, timestamp: Date, within discussion: PersistedDiscussion) throws -> (sortIndex: Double, adjustedTimestamp: Date) {
@@ -810,14 +844,16 @@ extension PersistedMessageSent {
 
 
     public static func createPersistedMessageSentFromDraft(_ draft: PersistedDraft) throws -> PersistedMessageSent {
+        
         let replyTo: ReplyToType?
         if let messageRepliedTo = draft.replyTo {
             replyTo = .message(messageRepliedTo: messageRepliedTo)
         } else {
             replyTo = nil
         }
+        
         let persistedMessageSent = try self.init(
-            body: draft.body,
+            bodyAndMentions: draft.bodyAndMentions,
             replyTo: replyTo,
             fyleJoins: draft.fyleJoins,
             discussion: draft.discussion,
@@ -825,7 +861,6 @@ extension PersistedMessageSent {
             visibilityDuration: draft.visibilityDuration,
             existenceDuration: draft.existenceDuration,
             forwarded: false,
-            mentions: draft.mentions.compactMap({ try? $0.userMention }),
             location: nil,
             poll: nil,
             timestamp: Date.now,
@@ -845,8 +880,15 @@ extension PersistedMessageSent {
     
     
     public static func createPersistedMessageSentFromShareExtension(body: String, fyleJoins: [FyleJoin], discussion: PersistedDiscussion) throws -> PersistedMessageSent {
+        let bodyAndMentions: StringAndUserMentions?
+        let trimmedBody = body.trimmingWhitespacesAndNewlines()
+        if !trimmedBody.isEmpty {
+            bodyAndMentions = .init(body: trimmedBody, mentions: [])
+        } else {
+            bodyAndMentions = nil
+        }
         let persistedMessageSent = try PersistedMessageSent(
-            body: body,
+            bodyAndMentions: bodyAndMentions,
             replyTo: nil,
             fyleJoins: fyleJoins,
             discussion: discussion,
@@ -854,7 +896,6 @@ extension PersistedMessageSent {
             visibilityDuration: nil,
             existenceDuration: nil,
             forwarded: false,
-            mentions: [],
             location: nil,
             poll: nil,
             timestamp: Date.now,
@@ -865,15 +906,27 @@ extension PersistedMessageSent {
     
     
     /// In addition to replying from a notification, this is also used to test (on a view context) whether it is possible to reply to a message.
-    public static func createPersistedMessageSentWhenReplyingFromTheNotificationExtensionNotification(body: String, discussion: PersistedDiscussion, effectiveReplyTo: PersistedMessageReceived?) throws -> PersistedMessageSent {
+    public static func createPersistedMessageSentWhenReplyingFromTheNotificationExtensionNotification(body: String,
+                                                                                                      discussion: PersistedDiscussion,
+                                                                                                      effectiveReplyTo: PersistedMessageReceived?) throws -> PersistedMessageSent {
+        
+        let bodyAndMentions: StringAndUserMentions?
+        let trimmedBody = body.trimmingWhitespacesAndNewlines()
+        if !trimmedBody.isEmpty {
+            bodyAndMentions = .init(body: trimmedBody, mentions: [])
+        } else {
+            bodyAndMentions = nil
+        }
+        
         let replyTo: ReplyToType?
         if let effectiveReplyTo {
             replyTo = .message(messageRepliedTo: effectiveReplyTo)
         } else {
             replyTo = nil
         }
+        
         let persistedMessageSent = try PersistedMessageSent(
-            body: body,
+            bodyAndMentions: bodyAndMentions,
             replyTo: replyTo,
             fyleJoins: [],
             discussion: discussion,
@@ -881,20 +934,21 @@ extension PersistedMessageSent {
             visibilityDuration: nil,
             existenceDuration: nil,
             forwarded: false,
-            mentions: [],
             location: nil,
             poll: nil,
             timestamp: Date.now,
             messageIdentifierFromEngine: nil, // since this message is sent from the current device
             infosFromOtherOwnedDevice: nil)
         return persistedMessageSent
+        
     }
 
 
     
     public static func createPersistedMessageSentWhenForwardingAMessage(messageToForward: PersistedMessage, discussion: PersistedDiscussion, forwarded: Bool) throws -> PersistedMessageSent {
+        
         let persistedMessageSent = try PersistedMessageSent(
-            body: messageToForward.textBody,
+            bodyAndMentions: messageToForward.stringAndUserMentions?.removingMentions, // We don't forward mentions
             replyTo: nil,
             fyleJoins: messageToForward.fyleMessageJoinWithStatus ?? [],
             discussion: discussion,
@@ -902,7 +956,6 @@ extension PersistedMessageSent {
             visibilityDuration: nil,
             existenceDuration: nil,
             forwarded: forwarded,
-            mentions: messageToForward.mentions.compactMap({ try? $0.userMention }),
             location: nil,
             poll: nil,
             timestamp: Date.now,
@@ -914,7 +967,7 @@ extension PersistedMessageSent {
     
     public static func createPersistedMessageSentForSharingLocation(discussion: PersistedDiscussion, location: SentLocation) throws -> PersistedMessageSent {
         let persistedMessageSent = try PersistedMessageSent(
-            body: nil,
+            bodyAndMentions: nil,
             replyTo: nil,
             fyleJoins: [],
             discussion: discussion,
@@ -922,7 +975,6 @@ extension PersistedMessageSent {
             visibilityDuration: nil,
             existenceDuration: nil,
             forwarded: false,
-            mentions: [],
             location: location,
             poll: nil,
             timestamp: Date.now,
@@ -933,7 +985,7 @@ extension PersistedMessageSent {
     
     public static func createPersistedMessageSentForPoll(discussion: PersistedDiscussion, poll: PersistedPoll) throws -> PersistedMessageSent {
         let persistedMessageSent = try PersistedMessageSent(
-            body: nil,
+            bodyAndMentions: nil,
             replyTo: nil,
             fyleJoins: [],
             discussion: discussion,
@@ -941,7 +993,6 @@ extension PersistedMessageSent {
             visibilityDuration: nil,
             existenceDuration: nil,
             forwarded: false,
-            mentions: [],
             location: nil,
             poll: poll,
             timestamp: Date.now,
@@ -1001,14 +1052,14 @@ extension PersistedMessageSent {
                 assertionFailure()
                 throw ObvUICoreDataError.noContext
             }
-            let obvPoll = try pollJSON.toObvPoll()
+            let obvPoll = pollJSON.toObvPoll()
             poll = try PersistedPoll(obvPoll: obvPoll, within: context)
         } else {
             poll = nil
         }
         
         let message = try self.init(
-            body: messageJSON.body,
+            bodyAndMentions: messageJSON.bodyAndMentions,
             replyTo: replyTo,
             fyleJoins: fyleJoins,
             discussion: discussion,
@@ -1016,7 +1067,6 @@ extension PersistedMessageSent {
             visibilityDuration: visibilityDuration,
             existenceDuration: existenceDuration,
             forwarded: messageJSON.forwarded,
-            mentions: messageJSON.userMentions,
             location: sentLocation,
             poll: poll,
             timestamp: messageUploadTimestampFromServer,
@@ -1086,6 +1136,135 @@ extension PersistedMessageSent {
 
     }
 
+}
+
+
+// MARK: - History transfer
+
+extension PersistedMessageSent {
+    
+    static func createSentDuringHistoryTransfer(
+        _ historyReceivedMessage: ObvAppTypes.ObvHistoryReceivedMessage,
+        within context: NSManagedObjectContext) throws -> PersistedMessageSent {
+            return try self.init(historyReceivedMessage: historyReceivedMessage, within: context)
+    }
+
+    private convenience init(historyReceivedMessage hrm: ObvAppTypes.ObvHistoryReceivedMessage, within context: NSManagedObjectContext) throws {
+        
+        let discussion: PersistedDiscussion
+        if let _discussion = try PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: hrm.discussionIdentifier, within: context) {
+            discussion = _discussion
+        } else {
+            // The discussion does not exist. We create one in a "locked" state.
+            // This can happen if, e.g., we had a locked discussion on the source that was, at some point, deleted from this destination device.
+            // This can also occur for a group discusstion on the source, yet to be known by this destination device. In that specific case, as soon
+            // as we will enter the group, the discussion that we create here will be "unlocked"
+            switch hrm.discussionIdentifier {
+            case .oneToOne(id: let contactIdentifier):
+                discussion = try PersistedOneToOneDiscussion.createLockedDiscussionDuringHistoryTransferOnThisDestinationDevice(contactIdentifier: contactIdentifier, suggestedTitle: hrm.suggestedDiscussionTitle, within: context)
+            case .groupV1(id: let groupV1Identifier):
+                discussion = try PersistedGroupDiscussion.createLockedDiscussionDuringHistoryTransferOnThisDestinationDevice(groupV1Identifier: groupV1Identifier, suggestedTitle: hrm.suggestedDiscussionTitle, within: context)
+            case .groupV2(id: let groupV2Identifier):
+                discussion = try PersistedGroupV2Discussion.createLockedDiscussionDuringHistoryTransferOnThisDestinationDevice(groupV2Identifier: groupV2Identifier, suggestedTitle: hrm.suggestedDiscussionTitle, within: context)
+            }
+        }
+
+        let endToEndEncryptedSystemMessageWasUpdated = try discussion.insertOrAdjustSystemMessagesIfDiscussionDuringHistoryTransfer(messageTimestamp: hrm.timestamp)
+
+        let messageIdentifier: ObvMessageSentAppIdentifier
+        let status: MessageStatus
+        switch hrm.kind {
+        case .received:
+            assertionFailure()
+            throw ObvUICoreDataError.unexpectedMessageKind
+        case .sent(messageIdentifier: let id, status: let _status):
+            messageIdentifier = id
+            status = .init(_status)
+        }
+
+        let (sortIndex, adjustedTimestamp) = try Self.determineAppropriateSortIndexForMessageReceivedFromOtherOwnedDevice(
+            forSenderSequenceNumber: messageIdentifier.senderSequenceNumber,
+            senderThreadIdentifier: messageIdentifier.senderThreadIdentifier,
+            timestamp: hrm.timestamp,
+            within: discussion)
+
+        let replyTo: ReplyToType?
+        if let replyToJSON = hrm.replyTo {
+            replyTo = .json(replyToJSON: replyToJSON)
+        } else {
+            replyTo = nil
+        }
+
+        try self.init(timestamp: adjustedTimestamp,
+                      bodyAndUserMentions: hrm.bodyAndMentions,
+                      rawStatus: status.rawValue,
+                      senderSequenceNumber: messageIdentifier.senderSequenceNumber,
+                      sortIndex: sortIndex,
+                      replyTo: replyTo,
+                      discussion: discussion,
+                      readOnce: false, // Read once message are never part of a history transfer
+                      visibilityDuration: nil, // Messages with limited visibility are never part of a history transfer
+                      forwarded: hrm.forwarded,
+                      isLocation: hrm.location != nil,
+                      poll: nil, // The poll is created in PersistedMessage.createDuringHistoryTransfer(...) if appropriate
+                      includesPendingChangesWhenComputingSectionIdentifier: endToEndEncryptedSystemMessageWasUpdated,
+                      forEntityName: PersistedMessageSent.entityName)
+        
+        self.isInsertedDuringHistoryTransfer = true
+        
+        // Attributes
+        
+        switch hrm.messageIdentifierFromEngine {
+        case .unknown:
+            self.messageIdentifierFromEngine = try UID.deterministicUID(messageAppIdentifier: hrm.messageIdentifier).raw
+        case .known(let data):
+            self.messageIdentifierFromEngine = data
+        }
+        self.existenceDuration = hrm.expirationLimitedExistence
+        self.senderThreadIdentifier = messageIdentifier.senderThreadIdentifier
+        
+        // Relationships
+        
+        if let expirationLimitedExistence = hrm.expirationLimitedExistence {
+            self.expirationForSentLimitedExistence =  PersistedExpirationForSentMessageWithLimitedExistence(
+                messageSentWithLimitedExistence: self,
+                existenceDuration: expirationLimitedExistence)
+        } else {
+            self.expirationForSentLimitedExistence = nil
+        }
+        self.expirationForSentLimitedVisibility = nil
+        
+        if let locationJSON = hrm.location {
+            switch locationJSON.type {
+            case .SEND:
+                self.locationContinuousSent = nil
+                self.locationOneShotSent = PersistedLocationOneShotSent(locationData: locationJSON.locationData, within: context)
+            case .SHARING:
+                // The SHARING case should never happen. In all cases, we treat it as an .END_SHARING.
+                // Note the fact that ObvHistoryReceivedMessage contains a location JSON is transmitted to the PersitedMessage.
+                self.locationContinuousSent = nil
+                self.locationOneShotSent = nil
+            case .END_SHARING:
+                self.locationContinuousSent = nil
+                self.locationOneShotSent = nil
+            }
+        } else {
+            self.locationContinuousSent = nil
+            self.locationOneShotSent = nil
+        }
+
+        self.unsortedFyleMessageJoinWithStatuses = Set<SentFyleMessageJoinWithStatus>() // Attachments are created below
+
+        for attachment in hrm.attachments {
+            try SentFyleMessageJoinWithStatus.createSentDuringHistoryTransfer(sentMessage: self, attachment: attachment)
+        }
+
+        self.unsortedRecipientsInfos = Set<PersistedMessageSentRecipientInfos>()
+        
+        // The reactions and votes are processed by the calling method
+
+    }
+    
 }
 
 
@@ -1376,6 +1555,14 @@ extension PersistedMessageSent {
             return nil
         }
         
+        let bodyAndMentionsToSend: StringAndUserMentions?
+        if let textBodyToSend = self.textBodyToSend {
+            let mentions = self.mentions.compactMap({ try? $0.userMention })
+            bodyAndMentionsToSend = .init(body: textBodyToSend, mentions: mentions)
+        } else {
+            bodyAndMentionsToSend = nil
+        }
+
         switch discussionKind {
             
         case .oneToOne(withContactIdentity: let contactIdentity):
@@ -1392,13 +1579,12 @@ extension PersistedMessageSent {
 
             return MessageJSON(senderSequenceNumber: self.senderSequenceNumber,
                                senderThreadIdentifier: self.senderThreadIdentifier,
-                               body: self.textBodyToSend,
+                               bodyAndMentions: bodyAndMentionsToSend,
                                oneToOneIdentifier: oneToOneIdentifier,
                                replyTo: replyToJSON,
                                expiration: self.expirationJSON,
                                location: self.locationJSON,
                                forwarded: self.forwarded,
-                               userMentions: mentions.compactMap({try? $0.userMention}),
                                poll: self.pollJSON)
 
         case .groupV1(withContactGroup: let contactGroup):
@@ -1424,16 +1610,15 @@ extension PersistedMessageSent {
                 return nil
             }
             let groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
-            
+                        
             return MessageJSON(senderSequenceNumber: self.senderSequenceNumber,
                                senderThreadIdentifier: self.senderThreadIdentifier,
-                               body: self.textBodyToSend,
+                               bodyAndMentions: bodyAndMentionsToSend,
                                groupV1Identifier: groupV1Identifier,
                                replyTo: replyToJSON,
                                expiration: self.expirationJSON,
                                location: self.locationJSON,
                                forwarded: self.forwarded,
-                               userMentions: mentions.compactMap({try? $0.userMention}),
                                poll: self.pollJSON)
 
         case .groupV2(withGroup: let group):
@@ -1447,14 +1632,13 @@ extension PersistedMessageSent {
             
             return MessageJSON(senderSequenceNumber: self.senderSequenceNumber,
                                senderThreadIdentifier: self.senderThreadIdentifier,
-                               body: self.textBodyToSend,
+                               bodyAndMentions: bodyAndMentionsToSend,
                                groupV2Identifier: groupV2Identifier,
                                replyTo: replyToJSON,
                                expiration: self.expirationJSON,
                                location: self.locationJSON,
                                forwarded: self.forwarded,
                                originalServerTimestamp: originalServerTimestamp,
-                               userMentions: mentions.compactMap({try? $0.userMention}),
                                poll:self.pollJSON)
 
         }
@@ -1520,7 +1704,7 @@ extension PersistedMessageSent {
     }
 
     var shareActionCanBeMadeAvailableForSentMessage: Bool {
-        return !isWiped && !isEphemeralMessageWithLimitedVisibility && !isLocationMessage && !isPoll
+        return !isWiped && !isEphemeralMessageWithLimitedVisibility && !isLocationMessage && !isPoll && self.fyleMessageJoinWithStatuses.allSatisfy({ $0.status == .complete })
     }
     
     var forwardActionCanBeMadeAvailableForSentMessage: Bool {
@@ -1613,6 +1797,15 @@ extension PersistedMessageSent {
                 ]),
             ])
         }
+        static var isSensitive: NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                PersistedMessage.Predicate.readOnce,
+                Self.expiresForSentLimitedVisibility,
+            ])
+        }
+        static var isNotSensitive: NSPredicate {
+            NSCompoundPredicate(notPredicateWithSubpredicate: isSensitive)
+        }
         static func withinDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
             PersistedMessage.Predicate.withinDiscussion(discussion)
         }
@@ -1649,7 +1842,7 @@ extension PersistedMessageSent {
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(withObjectID: objectID)
         }
-        static func withMessageWriterIdentifier(_ identifier:  MessageWriterIdentifier) -> NSPredicate {
+        static func withMessageWriterIdentifier(_ identifier:  MessageIdentifierInDiscussion) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 PersistedMessage.Predicate.withOwnedIdentityIdentity(identifier.senderIdentifier),
                 PersistedMessage.Predicate.withSenderSequenceNumberEqualTo(identifier.senderSequenceNumber),
@@ -1664,6 +1857,43 @@ extension PersistedMessageSent {
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageSent> {
         return NSFetchRequest<PersistedMessageSent>(entityName: PersistedMessageSent.entityName)
+    }
+    
+    
+    public static func filterKnownMessages(discussionIdentifier: ObvDiscussionIdentifier, messagesAvailableOnSource: [ObvMessageAppIdentifier], within context: NSManagedObjectContext) throws -> [ObvMessageAppIdentifier] {
+        guard messagesAvailableOnSource.allSatisfy({ $0.isSent }) else { assertionFailure(); throw ObvUICoreDataError.unexpectedMessageKind }
+        guard messagesAvailableOnSource.allSatisfy({ $0.discussionIdentifier == discussionIdentifier }) else { assertionFailure(); throw ObvUICoreDataError.unexpectedMessageKind }
+        let messagesAvailableOnDestination: [ObvMessageAppIdentifier] = try Self.getMessageIdenfiersOfAllNonSensitiveSentMessages(in: discussionIdentifier, within: context)
+        let knownMessages = Set(messagesAvailableOnSource).intersection(messagesAvailableOnDestination)
+        return Array(knownMessages)
+    }
+
+    
+    public static func getMessageIdenfiersOfAllNonSensitiveSentMessages(in discussionIdentifier: ObvDiscussionIdentifier, within context: NSManagedObjectContext) throws -> [ObvMessageAppIdentifier] {
+        guard let discussionObjectID = try PersistedDiscussion.getPersistedDiscussionObjectID(discussionIdentifier: discussionIdentifier, within: context) else {
+            // If the discussion cannot be found, we might be in the situation where the source has a locked discussion that we deleted, at some point, from this destination device.
+            // In that case, we return an empty list of known message identifiers. The messages will eventually be sent to us, and we will create a locked discussion to store them.
+            return []
+        }
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: PersistedMessageSent.entityName)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withinDiscussionWithObjectID(discussionObjectID.objectID),
+            Predicate.isNotSensitive,
+        ])
+        request.resultType = .dictionaryResultType
+        request.propertiesToFetch = [
+            Predicate.Key.senderThreadIdentifier.rawValue,
+            PersistedMessage.Predicate.Key.senderSequenceNumber.rawValue,
+        ]
+        let results = try context.fetch(request) as? [[String: AnyObject]] ?? []
+
+        var identifiers = [ObvMessageAppIdentifier]()
+        for result in results {
+            guard let senderThreadIdentifier = result["senderThreadIdentifier"] as? UUID else { assertionFailure(); continue }
+            guard let senderSequenceNumber = result["senderSequenceNumber"] as? Int else { assertionFailure(); continue }
+            identifiers.append(.sent(discussionIdentifier: discussionIdentifier, senderThreadIdentifier: senderThreadIdentifier, senderSequenceNumber: senderSequenceNumber))
+        }
+        return identifiers
     }
     
     
@@ -1940,7 +2170,7 @@ extension PersistedMessageSent {
     }
 
     
-    /// This method is exclusively called from ``ConsolidateLegacyTimestampsOfPersistedMessageSentRecipientInfosOperation``.
+    /// This method is exclusively called from ``UpdateLegacyStatusesOfSentMessagesOperation``.
     /// It makes sure the statuses of all sent messages are appropriate, and reflect the new statuses introduced in version 3.1.
     public static func updateLegacyStatuses(within context: NSManagedObjectContext, maxNumberOfChanges: Int) throws {
         
@@ -2046,7 +2276,13 @@ extension PersistedMessageSent {
     
     public override func didSave() {
         super.didSave()
-        defer { changedKeys.removeAll() }
+
+        defer {
+            changedKeys.removeAll()
+            self.isInsertedDuringHistoryTransfer = false
+        }
+        
+        guard !self.isInsertedDuringHistoryTransfer else { return }
         
         // When a readOnce message is sent, we notify. This is catched by the coordinator that checks whether the user is in the message's discussion or not. If this is the case, nothing happens. Otherwise the coordiantor deletes this readOnce message.
         if let discussion, let objectPermanentID = try? self.objectPermanentID, changedKeys.contains(PersistedMessage.Predicate.Key.rawStatus.rawValue), self.status == .sent, self.readOnce {
@@ -2104,6 +2340,26 @@ private actor PersistedMessageSentObserversHolder: PersistedMessageSentObserver 
     func aPersistedMessageSentWasInserted(messageSent: PersistedMessageSentStructure) async {
         for observer in observers {
             await observer.aPersistedMessageSentWasInserted(messageSent: messageSent)
+        }
+    }
+    
+}
+
+
+// MARK: Private helpers for history transfer
+
+extension PersistedMessageSent.MessageStatus {
+    
+    init(_ status: ObvHistoryReceivedMessage.Kind.SentMessageStatus) {
+        switch status {
+        case .sentFromAnotherOwnedDevice: self = .sentFromAnotherOwnedDevice
+        case .sent: self = .sent
+        case .partiallyDeliveredNotRead: self = .partiallyDeliveredNotRead
+        case .partiallyDeliveredAndPartiallyRead: self = .partiallyDeliveredAndPartiallyRead
+        case .couldNotBeSentToOneOrMoreRecipients: self = .couldNotBeSentToOneOrMoreRecipients
+        case .fullyDeliveredAndNotRead: self = .fullyDeliveredAndNotRead
+        case .fullyDeliveredAndPartiallyRead: self = .fullyDeliveredAndPartiallyRead
+        case .fullyDeliveredAndFullyRead: self = .fullyDeliveredAndFullyRead
         }
     }
     

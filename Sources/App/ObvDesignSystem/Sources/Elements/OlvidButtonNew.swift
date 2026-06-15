@@ -101,8 +101,60 @@ private struct ObvButtonStyle: ViewModifier {
 
 extension View {
     
-    func buttonStyleObv(style: OlvidButtonStyle) -> some View {
+    public func buttonStyleObv(style: OlvidButtonStyle) -> some View {
         self.modifier(ObvButtonStyle(style: style))
+    }
+    
+}
+
+
+public enum OlvidButtonBorderShape {
+    case automatic
+    case capsule
+    case circle
+    case roundedRectangle
+    case roundedRectangleWithRadius(CGFloat)
+    case buttonBorder
+}
+
+private struct ObvButtonBorderShape: ViewModifier {
+    
+    let shape: OlvidButtonBorderShape
+    
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            switch shape {
+            case .automatic:
+                content
+                    .buttonBorderShape(.automatic)
+            case .capsule:
+                content
+                    .buttonBorderShape(.capsule)
+            case .circle:
+                content
+                    .buttonBorderShape(.circle)
+            case .roundedRectangle:
+                content
+                    .buttonBorderShape(.roundedRectangle)
+            case .roundedRectangleWithRadius(let radius):
+                content
+                    .buttonBorderShape(.roundedRectangle(radius: radius))
+            case .buttonBorder:
+                content
+                    .buttonBorderShape(.buttonBorder)
+            }
+        } else {
+            content
+        }
+    }
+    
+}
+
+
+extension View {
+    
+    public func buttonBorderShapeObv(_ shape: OlvidButtonBorderShape) -> some View {
+        self.modifier(ObvButtonBorderShape(shape: shape))
     }
     
 }
@@ -121,6 +173,14 @@ extension View {
         OlvidButtonNew(action: {}, style: .borderless) {
             Label(title: { Text(verbatim: "Button title") }, icon: { Image(systemIcon: .airpods) })
         }
+        // Rounded button
+        Button(action: {}) {
+            Image(systemIcon: .trash)
+                .padding()
+        }
+        .tint(.red)
+        .buttonStyleObv(style: .glassOrBorderedProminent)
+        .buttonBorderShapeObv(.circle)
     }
     .padding()
 }

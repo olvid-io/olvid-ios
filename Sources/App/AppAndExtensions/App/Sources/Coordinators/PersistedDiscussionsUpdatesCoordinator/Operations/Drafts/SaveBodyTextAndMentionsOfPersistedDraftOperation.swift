@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import OlvidUtils
 import OSLog
 import CoreData
 import ObvUICoreData
+import ObvAppTypes
 
 
 /// Operation that saves the body and the mentions of a given draft.
@@ -30,15 +31,12 @@ final class SaveBodyTextAndMentionsOfPersistedDraftOperation: ContextualOperatio
 
     /// The draft's permamnt object ID
     private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
-    /// The draft's new body to save
-    private let bodyText: String
-    /// A collection of mentions to add to the draft
-    private let mentions: Set<MessageJSON.UserMention>
+    /// The draft's new body to save with mentions associated with the ComposeMentionTextAttribute
+    private let bodyText: AttributedString
 
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, bodyText: String, mentions: Set<MessageJSON.UserMention>) {
+    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, bodyText: AttributedString) {
         self.draftObjectID = draftObjectID
         self.bodyText = bodyText
-        self.mentions = Set(mentions)
         super.init()
     }
 
@@ -49,8 +47,7 @@ final class SaveBodyTextAndMentionsOfPersistedDraftOperation: ContextualOperatio
                 return cancel(withReason: .couldNotFindDraftInDatabase)
             }
             
-            draft.replaceContentWith(newBody: bodyText, newMentions: mentions)
-            
+            draft.replaceContentWith(newBody: bodyText)            
         } catch {
             return cancel(withReason: .coreDataError(error: error))
         }

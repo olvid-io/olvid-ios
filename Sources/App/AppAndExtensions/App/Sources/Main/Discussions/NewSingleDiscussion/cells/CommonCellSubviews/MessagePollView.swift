@@ -368,9 +368,9 @@ struct MessagePollContentView: View {
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true) // Used to force text to display in multiline
                             Spacer()
-                                Text("\(Int(candidate.totalPercent))%")
-                                    .font(.footnote)
-                                    .foregroundStyle(textColor.opacity(0.75))
+                            Text(verbatim: "\(Int(candidate.totalPercent))%")
+                                .font(.footnote)
+                                .foregroundStyle(textColor.opacity(0.75))
                         }
                         
                         ProgressView(value: candidate.totalPercent, total: 100.0)

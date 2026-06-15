@@ -62,20 +62,20 @@ final class ArchiveDiscussionOperation: ContextualOperationWithSpecificReasonFor
                 switch discussionIdentifier {
                 case .oneToOne(contactCryptoId: let contactCryptoId):
                     let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-                    guard let contact = try? PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .oneToOne, within: obvContext.context) else {
+                    guard let oneToOneDiscussion = try? PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: .oneToOne(id: contactIdentifier), within: obvContext.context) else {
                         return
                     }
-                    discussion = contact.oneToOneDiscussion
+                    discussion = oneToOneDiscussion
                 case .groupV1(groupIdentifier: let groupIdentifier):
-                    guard let groupV1 = try? PersistedContactGroup.getContactGroup(groupIdentifier: groupIdentifier, ownedCryptoId: ownedCryptoId, within: obvContext.context) else {
+                    guard let groupV1Discussion = try? PersistedGroupDiscussion.getPersistedDiscussion(ownedCryptoId: ownedCryptoId, discussionId: .groupV1(id: .groupV1Identifier(groupV1Identifier: groupIdentifier)), within: obvContext.context) else {
                         return
                     }
-                    discussion = groupV1.discussion
+                    discussion = groupV1Discussion
                 case .groupV2(groupIdentifier: let groupIdentifier):
-                    guard let groupV2 = try? PersistedGroupV2.get(ownIdentity: ownedCryptoId, appGroupIdentifier: groupIdentifier, within: obvContext.context) else {
-                        return
-                    }
-                    discussion =  groupV2.discussion
+                    guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupIdentifier) else { assertionFailure(); return }
+                    let obvGroupV2Identifier = ObvGroupV2Identifier(ownedCryptoId: ownedCryptoId, identifier: identifier)
+                    guard let groupV2Discussion = try? PersistedGroupV2Discussion.getPersistedDiscussion(discussionIdentifier: .groupV2(id: obvGroupV2Identifier), within: obvContext.context) else { assertionFailure(); return }
+                    discussion = groupV2Discussion
                 }
             }
             
@@ -117,17 +117,18 @@ final class ArchiveDiscussionOperation: ContextualOperationWithSpecificReasonFor
     private func getObvSyncAtomDiscussionIdentifierFrom(persistedDiscussion: PersistedDiscussion) -> ObvSyncAtom.DiscussionIdentifier? {
         guard let discussionKind = try? persistedDiscussion.kind else { assertionFailure(); return nil }
         switch discussionKind {
-        case .oneToOne(withContactIdentity: let persistedContact):
-            guard let persistedContact else { assertionFailure(); return nil }
-            return .oneToOne(contactCryptoId: persistedContact.cryptoId)
-        case .groupV1(withContactGroup: let groupV1):
-            guard let groupV1 else { assertionFailure(); return nil }
-            guard let groupId = try? groupV1.getGroupId() else { assertionFailure(); return nil }
-            return .groupV1(groupIdentifier: groupId)
-        case .groupV2(withGroup: let groupV2):
-            guard let groupV2 else { assertionFailure(); return nil }
-            return .groupV2(groupIdentifier: groupV2.groupIdentifier)
+        case .oneToOne(withContactIdentity: _):
+            guard let oneToOneDiscussion = persistedDiscussion as? PersistedOneToOneDiscussion else { assertionFailure(); return nil }
+            guard let contactCryptoId = oneToOneDiscussion.contactCryptoId else { assertionFailure(); return nil }
+            return .oneToOne(contactCryptoId: contactCryptoId)
+        case .groupV1(withContactGroup: _):
+            guard let groupV1Discussion = persistedDiscussion as? PersistedGroupDiscussion else { assertionFailure(); return nil }
+            guard let groupId = groupV1Discussion.groupIdentifier else { assertionFailure(); return nil }
+            return .groupV1(groupIdentifier: groupId.groupV1Identifier)
+        case .groupV2(withGroup: _):
+            guard let groupV2Discussion = persistedDiscussion as? PersistedGroupV2Discussion else { assertionFailure(); return nil }
+            guard let groupId = groupV2Discussion.obvGroupIdentifier else { assertionFailure(); return nil }
+            return .groupV2(groupIdentifier: groupId.identifier.appGroupIdentifier)
         }
-
     }
 }

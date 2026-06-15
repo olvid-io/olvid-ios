@@ -99,6 +99,30 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvIdentifiabl
     }
 
     
+    /// Exclusively called during a history transfer, to this destination device, when the message transferred does not exist on this device. In that case, we create a locked discussion to store the message.
+    static func createLockedDiscussionDuringHistoryTransferOnThisDestinationDevice(groupV1Identifier: ObvGroupV1Identifier, suggestedTitle: String?, within context: NSManagedObjectContext) throws -> PersistedGroupDiscussion {
+        
+        guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: groupV1Identifier.ownedCryptoId, within: context) else {
+            assertionFailure()
+            throw ObvUICoreDataError.couldNotFindOwnedIdentity
+        }
+
+        let discussion = try PersistedGroupDiscussion(
+            title: suggestedTitle ?? String(localizedInThisBundle: "LOCKED_DISCUSSION"),
+            ownedIdentity: ownedIdentity,
+            forEntityName: PersistedGroupDiscussion.entityName,
+            status: .locked,
+            shouldApplySharedConfigurationFromGlobalSettings: true,
+            isRestoringSyncSnapshotOrBackup: true)
+        
+        discussion.rawGroupUID = groupV1Identifier.groupV1Identifier.groupUid.raw
+        discussion.rawOwnerIdentityIdentity = groupV1Identifier.groupV1Identifier.groupOwner.getIdentity()
+
+        return discussion
+        
+    }
+    
+    
     // MARK: - Status management
     
     public override func setStatus(to newStatus: PersistedDiscussion.Status) throws {

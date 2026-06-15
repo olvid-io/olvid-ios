@@ -22,6 +22,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.Shared.obvTypes,
         .Olvid.Shared.olvidUtils,
         .Olvid.Engine.obvJWS,
+        .Olvid.Engine.obvEncoder,
         .Olvid.Shared.obvNetworkStatus,
     ])
 
@@ -29,10 +30,5 @@ private let frameworkTarget = Target.makeFrameworkTarget(
 // MARK: - Project
 
 let project = Project.createProjectForFramework(
-    packages: [
-        //.remote(url: "https://github.com/olvid-io/AppAuth-iOS-for-Olvid", requirement: .branch("targetfix")),
-        //.remote(url: "https://github.com/openid/AppAuth-iOS", requirement: .exact(.init(1, 7, 5))),
-        .remote(url: "https://github.com/openid/AppAuth-iOS", requirement: .exact(.init(2, 0, 0))),
-    ],
     frameworkTarget: frameworkTarget,
     frameworkTestsTarget: nil)

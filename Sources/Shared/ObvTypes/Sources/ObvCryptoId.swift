@@ -31,12 +31,20 @@ public struct ObvCryptoId: @unchecked Sendable {
         self.cryptoIdentity = cryptoIdentity
     }
     
+    public init(cryptoId: ObvCryptoId) {
+        self = cryptoId
+    }
+    
     public func belongsTo(serverURL: URL) -> Bool {
         return cryptoIdentity.serverURL == serverURL
     }
     
     private static func makeError(message: String, code: Int = 0) -> Error {
         NSError(domain: "ObvCryptoId", code: code, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+    
+    public var serverURL: URL {
+        self.cryptoIdentity.serverURL
     }
 
 }

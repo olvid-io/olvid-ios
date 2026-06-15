@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvMetaManager
 import ObvServerInterface
 import ObvTypes
@@ -78,7 +78,7 @@ final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: Context
 
             for attachment in attachmentsToDownload {
 
-                guard let attachmentId = attachment.attachmentId else {
+                guard let attachmentId = try? attachment.attachmentId else {
                     assertionFailure()
                     continue
                 }
@@ -120,7 +120,7 @@ final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: Context
                 if let existingSession = attachment.session {
                     inboxAttachmentSession = existingSession
                 } else {
-                    os_log("📄 No OutboxAttachmentSession exists for attachment %{public}@. We create one with a new session identifier.", log: log, type: .info, attachment.attachmentId.debugDescription)
+                    os_log("📄 No OutboxAttachmentSession exists for attachment %{public}@. We create one with a new session identifier.", log: log, type: .info, attachmentId.debugDescription)
                     guard let newOutboxAttachmentSession = attachment.createSession() else {
                         return cancel(withReason: .failedToCreateInboxAttachmentSession)
                     }

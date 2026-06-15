@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,36 +20,54 @@
 import SwiftUI
 import ObvAppTypes
 
-enum SharingLocationExpirationMode: String, CaseIterable {
+public enum SharingLocationExpirationMode: String, CaseIterable {
     
+    case liveForTwoMinutes
     case anHour
     case infinity
     
-    var expirationDate: ObvLocationSharingExpirationDate {
+    public var expirationDate: ObvLocationSharingExpirationDate {
         switch self {
         case .infinity:
             return .never
         case .anHour:
             let date = Date.now.addingTimeInterval(.init(hours: 1))
             return .after(date: date)
+        case .liveForTwoMinutes:
+            let date = Date.now.addingTimeInterval(.init(minutes: 2))
+            return .after(date: date)
         }
     }
     
-    var text: Text {
+    public var isLiveSharing: Bool {
         switch self {
-        case .infinity:
-            return Text("SHARE_TIME_INDEFINITELY")
-        case .anHour:
-            return Text("SHARE_TIME_ONE_HOUR")
+        case .liveForTwoMinutes: return true
+        case .anHour: return false
+        case .infinity: return false
         }
     }
     
-    var image: Image {
+    @ViewBuilder
+    var text: some View {
         switch self {
         case .infinity:
-            return Image(systemIcon: .infinity)
+            Text("SHARE_TIME_INDEFINITELY")
         case .anHour:
-            return Image(systemIcon: .clock)
+            Text("SHARE_TIME_ONE_HOUR")
+        case .liveForTwoMinutes:
+            Text("SHARE_TIME_LIVE_TWO_MINUTES")
+        }
+    }
+    
+    @ViewBuilder
+    var image: some View {
+        switch self {
+        case .infinity:
+            Image(systemIcon: .infinity)
+        case .anHour:
+            Image(systemIcon: .clock)
+        case .liveForTwoMinutes:
+            Image(systemIcon: .locationViewfinder)
         }
     }
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,18 +52,22 @@ class AllSettingsTableViewController: UITableViewController {
         case interface
         case discussions
         case privacy
-        case backup
         case voip
-
+        
         // Section 1
+        case backup
+        case historyTransfer
+
+        // Section 2
         case about
         case advanced
 
         private var section: Int {
             // Please follow Setting declaration order
             switch self {
-            case .contactsAndGroups, .downloads, .interface, .discussions, .privacy, .backup, .voip: return 0
-            case .about, .advanced: return 1
+            case .contactsAndGroups, .downloads, .interface, .discussions, .privacy, .voip: return 0
+            case .backup, .historyTransfer: return 1
+            case .about, .advanced: return 2
             }
         }
 
@@ -89,6 +93,7 @@ class AllSettingsTableViewController: UITableViewController {
             case .advanced: return CommonString.Word.Advanced
             case .backup: return CommonString.Word.Backup
             case .voip: return CommonString.Word.VoIP
+            case .historyTransfer: return String(localized: "SETTINGS_TITLE_HISTORY_TRANSFER")
             }
         }
         
@@ -112,6 +117,8 @@ class AllSettingsTableViewController: UITableViewController {
                 return UIImage(systemIcon: .infoCircle)
             case .advanced:
                 return UIImage(systemIcon: .hammerCircle)
+            case .historyTransfer:
+                return UIImage(systemIcon: .repeatCircle)
             }
         }
         
@@ -134,7 +141,24 @@ class AllSettingsTableViewController: UITableViewController {
             case .about:
                 return .systemIndigo
             case .advanced:
+                return .systemRed
+            case .historyTransfer:
                 return .systemOrange
+            }
+        }
+        
+        var reuseIdentifier: String {
+            switch self {
+            case .contactsAndGroups: return "AllSettingsTableViewController.contactsAndGroups"
+            case .downloads: return "AllSettingsTableViewController.downloads"
+            case .interface: return "AllSettingsTableViewController.interface"
+            case .discussions: return "AllSettingsTableViewController.discussions"
+            case .privacy: return "AllSettingsTableViewController.privacy"
+            case .voip: return "AllSettingsTableViewController.voip"
+            case .backup: return "AllSettingsTableViewController.backup"
+            case .historyTransfer: return "AllSettingsTableViewController.historyTransfer"
+            case .about: return "AllSettingsTableViewController.about"
+            case .advanced: return "AllSettingsTableViewController.advanced"
             }
         }
         
@@ -164,14 +188,21 @@ extension AllSettingsTableViewController {
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "AllSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AllSettingsTableViewControllerCell")
-        cell.accessoryType = .disclosureIndicator
-        if let setting = Setting.forIndexPath(indexPath) {
-            cell.textLabel?.text = setting.title
-            cell.imageView?.image = setting.image
-            cell.imageView?.tintColor = setting.imageColor
+
+        guard let setting = Setting.forIndexPath(indexPath) else {
+            assertionFailure()
+            return UITableViewCell(style: .value1, reuseIdentifier: "AllSettingsTableViewControllerCell")
         }
+
+        let cell = tableView.dequeueReusableCell(withIdentifier: setting.reuseIdentifier) ?? UITableViewCell(style: .value1, reuseIdentifier: setting.reuseIdentifier)
+        var configuration = UIListContentConfiguration.valueCell()
+        configuration.text = setting.title
+        configuration.image = setting.image
+        configuration.imageProperties.tintColor = setting.imageColor
+        cell.contentConfiguration = configuration
+        cell.accessoryType = .disclosureIndicator
         return cell
+
     }
     
     

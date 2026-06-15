@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import SwiftUI
+import CoreData
 import MapKit
 import OSLog
 import ObvTypes
@@ -67,15 +68,26 @@ enum ObvMapViewDataSourceKind {
     case discussion(discussionIdentifier: ObvDiscussionIdentifier)
 }
 
+
+/// Note that we don't explicitely use `ObvMapView` as a first argument, as it is only available from iOS 17, and we don't want to restrict
+/// the datasource protocol to iOS 17 for simplicity.
 @MainActor
-protocol ObvMapViewDataSource {
-    func getAsyncStreamOfObvMapViewModel() throws -> AsyncStream<ObvMapViewModel>
+public protocol ObvMapViewDataSource {
+    func getAsyncStreamOfObvMapViewModel(_ mapView: some View, kind: ObvMapViewKind) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvMapViewModel>)
+    func finishAsyncStreamOfObvMapViewModel(_ mapView: some View, streamUUID: UUID)
 }
 
 @MainActor
 protocol ObvMapViewActionsProtocol: AnyObject {
     func userWantsToDismissObvMapView()
 }
+
+
+public enum ObvMapViewKind: Sendable {
+    case forGivenMessage(persistedMessageObjectID: NSManagedObjectID)
+    case forGivenOwnedCryptoId(ownedCryptoId: ObvCryptoId)
+}
+
 
 /// This view displays a map allowing to consult the locations shared with the current device.
 /// It is up to the `ObvMapViewDataSource` to decide which locations are actually shown on the map.
@@ -90,8 +102,14 @@ public struct ObvMapView: View {
     let dataSource: any ObvMapViewDataSource
     let avatarViewDataSource: ObvAvatarViewDataSource
     let actions: any ObvMapViewActionsProtocol
+    let kind: ObvMapViewKind
     
-    init(dataSource: any ObvMapViewDataSource, avatarViewDataSource: ObvAvatarViewDataSource, actions: any ObvMapViewActionsProtocol, initialDeviceIdentifierToSelect: ObvDeviceIdentifier? = nil) {
+    init(kind: ObvMapViewKind,
+         dataSource: any ObvMapViewDataSource,
+         avatarViewDataSource: ObvAvatarViewDataSource,
+         actions: any ObvMapViewActionsProtocol,
+         initialDeviceIdentifierToSelect: ObvDeviceIdentifier? = nil) {
+        self.kind = kind
         self.initialDeviceIdentifierToSelect = initialDeviceIdentifierToSelect
         self.dataSource = dataSource
         self.avatarViewDataSource = avatarViewDataSource
@@ -108,7 +126,7 @@ public struct ObvMapView: View {
     
     private func onTask() async {
         do {
-            let stream = try dataSource.getAsyncStreamOfObvMapViewModel()
+            let (streamUUID, stream) = try await dataSource.getAsyncStreamOfObvMapViewModel(self, kind: kind)
             for await receivedModel in stream {
                 
                 let settingModelForFirstTime: Bool = (self.model == nil)
@@ -131,6 +149,7 @@ public struct ObvMapView: View {
                     }
                 }
             }
+            dataSource.finishAsyncStreamOfObvMapViewModel(self, streamUUID: streamUUID)
         } catch {
             assertionFailure()
         }
@@ -535,8 +554,9 @@ private struct SystemIconInCircleView: View {
 
 #if DEBUG
 
+@available(iOS 17.0, *)
 private final class DataSourceForPreviews: ObvMapViewDataSource, ObvAvatarViewDataSource {
-    
+        
     func fetchAvatar(_ view: ObvAvatarView, photoURL: URL, avatarSize: ObvAvatarSize) async throws -> UIImage? {
         return UIImage.avatarForURL(url: photoURL)
     }
@@ -545,7 +565,7 @@ private final class DataSourceForPreviews: ObvMapViewDataSource, ObvAvatarViewDa
         return nil
     }
     
-    func getAsyncStreamOfObvMapViewModel() throws -> AsyncStream<ObvMapViewModel> {
+    func getAsyncStreamOfObvMapViewModel(_ view: some View, kind: ObvMapViewKind) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvMapViewModel>) {
         let stream = AsyncStream(ObvMapViewModel.self) { (continuation: AsyncStream<ObvMapViewModel>.Continuation) in
             Task {
 //                try! await Task.sleep(seconds: 2)
@@ -560,7 +580,11 @@ private final class DataSourceForPreviews: ObvMapViewDataSource, ObvAvatarViewDa
 //                continuation.yield(ObvMapViewModel.sampleDatas[1])
             }
         }
-        return stream
+        return (UUID(), stream)
+    }
+    
+    func finishAsyncStreamOfObvMapViewModel(_ view: some View, streamUUID: UUID) {
+        // Nothing to finish in previews
     }
     
 }
@@ -576,6 +600,7 @@ private final class ActionsForPreviews: ObvMapViewActionsProtocol {
     
 }
 
+@available(iOS 17.0, *)
 @MainActor
 private let dataSourceForPreviews = DataSourceForPreviews()
 
@@ -584,12 +609,19 @@ private let actionsForPreviews = ActionsForPreviews()
 
 @available(iOS 17.0, *)
 #Preview {
-    ObvMapView(dataSource: dataSourceForPreviews, avatarViewDataSource: dataSourceForPreviews, actions: actionsForPreviews)
+    ObvMapView(kind: .forGivenOwnedCryptoId(ownedCryptoId: .sampleDatas[0]),
+               dataSource: dataSourceForPreviews,
+               avatarViewDataSource: dataSourceForPreviews,
+               actions: actionsForPreviews)
 }
 
 @available(iOS 17.0, *)
 #Preview("With initial value") {
-    ObvMapView(dataSource: dataSourceForPreviews, avatarViewDataSource: dataSourceForPreviews, actions: actionsForPreviews, initialDeviceIdentifierToSelect: ObvDeviceIdentifier.sampleDatasOfContactDevices[0])
+    ObvMapView(kind: .forGivenMessage(persistedMessageObjectID: NSManagedObjectID()),
+               dataSource: dataSourceForPreviews,
+               avatarViewDataSource: dataSourceForPreviews,
+               actions: actionsForPreviews,
+               initialDeviceIdentifierToSelect: ObvDeviceIdentifier.sampleDatasOfContactDevices[0])
 }
 
 

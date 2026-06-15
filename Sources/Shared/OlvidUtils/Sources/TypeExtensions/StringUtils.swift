@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,8 +24,9 @@ import UIKit
 public extension String {
     
     func extractURLs() -> [URL] {
-        if let url = URL(string: self.trimmingWhitespacesAndNewlines()) {
-            // On rare occasions (which we encountered while extraction invitations URLs), the data detector failed to extract a full
+        let trimmed = self.trimmingWhitespacesAndNewlines()
+        if !trimmed.isEmpty, trimmed.allSatisfy({ !$0.isWhitespace }), let url = URL(string: self.trimmingWhitespacesAndNewlines()) {
+            // On rare occasions (which we encountered while extracting invitations URLs), the data detector failed to extract a full
             // URL. For this reason, we try this simpler method first.
             return [url]
         } else {
@@ -51,30 +52,60 @@ public extension String {
     func mapToNilIfZeroLength() -> String? {
         return self.isEmpty ? nil : self
     }
-
     
-    /// Returns a new string made by removing from both ends of the String white spaces and news lines. Given a set of ranges in the original string, also returns a new set of equivalent ranges in the new string.
-    func trimmingWhitespacesAndNewlines(updating ranges: [Range<String.Index>]) -> (trimmedString: String, rangesInTrimmedString: [Range<String.Index>]) {
-        let trimmedString = self.trimmingWhitespacesAndNewlines()
-        let rangesInTrimmedString: [Range<String.Index>]
-        if trimmedString == self {
-            rangesInTrimmedString = ranges
-        } else if !trimmedString.isEmpty {
-            let trimmedStringRangeInSelf = self.range(of: trimmedString)!
-            let trimmedStringOffset = self.distance(from: self.startIndex, to: trimmedStringRangeInSelf.lowerBound)
-            assert(trimmedStringOffset >= 0)
-            rangesInTrimmedString = ranges.map { range in
-                let updatedLowerBound = range.lowerBound.utf16Offset(in: self) - trimmedStringOffset
-                let updatedUpperBound = range.upperBound.utf16Offset(in: self) - trimmedStringOffset
-                let updatedStartIndex = String.Index(utf16Offset: updatedLowerBound, in: trimmedString)
-                let updatedEndIndex = String.Index(utf16Offset: updatedUpperBound, in: trimmedString)
-                let updatedRange = Range<String.Index>(uncheckedBounds: (updatedStartIndex, updatedEndIndex))
-                return updatedRange
-            }
-        } else {
-            rangesInTrimmedString = []
+}
+
+
+public extension AttributedString {
+    
+    func trimmingWhitespacesAndNewlines() -> Self {
+        var mutableSelf = self
+        while mutableSelf.fistCharacterIsWhiteSpaceOrNewLine {
+            let nextIndex = mutableSelf.index(afterCharacter: mutableSelf.startIndex)
+            mutableSelf = AttributedString(mutableSelf[nextIndex...])
         }
-        return (trimmedString, rangesInTrimmedString)
+        while mutableSelf.lastCharacterIsWhiteSpaceOrNewLine {
+            let previousIndex = mutableSelf.index(beforeCharacter: mutableSelf.endIndex)
+            mutableSelf = AttributedString(mutableSelf[..<previousIndex])
+        }
+        return mutableSelf
+    }
+
+    private var fistCharacterIsWhiteSpaceOrNewLine: Bool {
+        self.characters.first?.isWhitespace == true
+    }
+    
+    private var lastCharacterIsWhiteSpaceOrNewLine: Bool {
+        self.characters.last?.isWhitespace == true
+    }
+
+}
+
+
+public extension AttributedString {
+    
+    func trimWhitespacesAndNewlinesAndDropTrailingURL(_ urlToRemove: URL?) -> Self? {
+        
+        let trimmed = self.trimmingWhitespacesAndNewlines()
+        guard !trimmed.characters.isEmpty else { return nil }
+        guard let urlToRemove else { return trimmed }
+        
+        let urlString = urlToRemove.absoluteString
+        guard self.characters.count >= urlString.count else { return trimmed }
+        
+        let candidateStartIndex = self.index(self.endIndex, offsetByCharacters: -urlString.count)
+        guard candidateStartIndex >= self.startIndex else { assertionFailure(); return trimmed }
+        
+        if String(self.characters[candidateStartIndex..<self.endIndex]) == urlString {
+            let stringToReturn = AttributedString(self[self.startIndex..<candidateStartIndex]).trimmingWhitespacesAndNewlines()
+            guard !stringToReturn.characters.isEmpty else {
+                return nil
+            }
+            return stringToReturn
+        } else {
+            return trimmed
+        }
+
     }
     
 }

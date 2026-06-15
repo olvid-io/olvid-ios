@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,8 @@ import ObvAppTypes
 import ObvAppBackup
 import ObvCrypto
 import ObvDesignSystem
+import ObvHistoryTransfer
+import ObvSettings
 
 
 final class SettingsFlowViewController: KeyboardNavigationController {
@@ -38,9 +40,19 @@ final class SettingsFlowViewController: KeyboardNavigationController {
     private weak var settingsFlowViewControllerDelegate: SettingsFlowViewControllerDelegate?
 
     private var backupSettingsRouter: ObvAppBackupSettingsRouter? // Set whenever the user navigates to the backup settings
-    
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate, appBackupDelegate: AppBackupDelegate, settingsFlowViewControllerDelegate: SettingsFlowViewControllerDelegate) {
+
+    private let dataSources: HistoryTransferNavigationStack.DataSources
+
+    init(ownedCryptoId: ObvCryptoId,
+         obvEngine: ObvEngine,
+         createPasscodeDelegate: CreatePasscodeDelegate,
+         localAuthenticationDelegate: LocalAuthenticationDelegate,
+         appBackupDelegate: AppBackupDelegate,
+         settingsFlowViewControllerDelegate: SettingsFlowViewControllerDelegate,
+         dataSources: HistoryTransferNavigationStack.DataSources) {
+        
         let allSettingsTableViewController = AllSettingsTableViewController(ownedCryptoId: ownedCryptoId)
+        self.dataSources = dataSources
 
         super.init(rootViewController: allSettingsTableViewController)
 
@@ -97,7 +109,7 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
         case .downloads:
             settingViewController = DownloadsSettingsTableViewController()
         case .interface:
-            settingViewController = InterfaceSettingsTableViewController(ownedCryptoId: ownedCryptoId)
+            settingViewController = InterfaceSettingsTableViewController(ownedCryptoId: ownedCryptoId, actions: self)
         case .discussions:
             settingViewController = DiscussionsDefaultSettingsHostingViewController(ownedCryptoId: ownedCryptoId)
         case .privacy:
@@ -142,6 +154,20 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
             settingViewController = AdvancedSettingsViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, delegate: self)
         case .voip:
             settingViewController = VoIPSettingsTableViewController()
+        case .historyTransfer:
+            // We present a stack for the history transfer, as the navigation is managed by SwiftUI.
+            // Eventually, we will refactor this view to migrate to a full SwiftUI navigation for the settings.
+            let vc = HistoryTransferNavigationStackHostingView(
+                currentOwnedCryptoId: ownedCryptoId,
+                temporaryDirectory: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
+                dataSources: self.dataSources,
+                actions: self)
+            self.presentOnTop(vc, animated: true) {
+                if let tableView, let indexPath {
+                    tableView.deselectRow(at: indexPath, animated: true)
+                }
+            }
+            return
         }
         settingViewController.navigationItem.largeTitleDisplayMode = .never
         
@@ -152,6 +178,89 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
         } else {
             pushViewController(settingViewController, animated: true)
         }
+    }
+    
+}
+
+
+// MARK: - Implementing HistoryTransferNavigationStackActions
+
+extension SettingsFlowViewController: HistoryTransferNavigationStackActions {
+    
+    func userRequiresMessageHistoryTransferService(_ view: ObvHistoryTransfer.LocalNetworkImportView) async throws -> any ObvHistoryTransfer.TransferServiceForLocalNetworkImportView {
+        guard let settingsFlowViewControllerDelegate else { assertionFailure(); throw ObvError.settingsFlowViewControllerDelegateIsNil }
+        return try await settingsFlowViewControllerDelegate.userRequiresMessageHistoryTransferService(self)
+    }
+    
+        
+    func userRequiresMessageHistoryTransferService(_ view: ObvHistoryTransfer.LocalNetworkExportView) async throws -> any ObvHistoryTransfer.TransferServiceForLocalNetworkExportView {
+        guard let settingsFlowViewControllerDelegate else { assertionFailure(); throw ObvError.settingsFlowViewControllerDelegateIsNil }
+        return try await settingsFlowViewControllerDelegate.userRequiresMessageHistoryTransferService(self)
+    }
+
+    
+    /// Called on the source device when using the WebRTC (Wifi) method to transfer history. This method should eventually send a message to the other owned device (the destination), allowing it to show a confirmation screen to the user, allowing them
+    /// to start or cancel the transfer. This method is highly asynchronous as it returns this decision.
+    func historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(
+        _ view: ObvHistoryTransfer.LocalNetworkExportView,
+        transferId: String,
+        otherOwnedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier
+    ) async throws -> ObvHistoryTransfer.DestinationOwnedDeviceDecision {
+        guard let settingsFlowViewControllerDelegate else { assertionFailure(); throw ObvError.settingsFlowViewControllerDelegateIsNil }
+        return try await settingsFlowViewControllerDelegate.historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(self, transferId: transferId, otherOwnedDeviceIdentifier: otherOwnedDeviceIdentifier)
+    }
+    
+    
+    func userWantsToDismissView(_ view: LocalNetworkExportView) {
+        (self.presentedViewController as? HistoryTransferNavigationStackHostingView)?.dismiss(animated: true)
+    }
+
+    
+    func userWantsToDismissHistoryTransferNavigationStack(_ view: HistoryTransferNavigationStack) {
+        (self.presentedViewController as? HistoryTransferNavigationStackHostingView)?.dismiss(animated: true)
+    }
+    
+    
+    func userWantsToDismissView(_ view: ObvHistoryTransfer.LocalNetworkImportView) {
+        (self.presentedViewController as? HistoryTransferNavigationStackHostingView)?.dismiss(animated: true)
+    }
+
+}
+
+
+extension SettingsFlowViewController: ZipExportViewActions {
+    
+    func userRequiresMessageHistoryTransferService(_ view: ObvHistoryTransfer.ZipExportView) async throws -> any ObvHistoryTransfer.TransferServiceForZipExportView {
+        guard let settingsFlowViewControllerDelegate else { assertionFailure(); throw ObvError.settingsFlowViewControllerDelegateIsNil }
+        return try await settingsFlowViewControllerDelegate.userRequiresMessageHistoryTransferService(self)
+    }
+    
+}
+
+
+extension SettingsFlowViewController: ZipImportViewActions {
+    
+    func userRequiresMessageHistoryTransferService(_ view: ObvHistoryTransfer.ZipImportView) async throws -> any ObvHistoryTransfer.TransferServiceForZipImportView {
+        guard let settingsFlowViewControllerDelegate else { assertionFailure(); throw ObvError.settingsFlowViewControllerDelegateIsNil }
+        return try await settingsFlowViewControllerDelegate.userRequiresMessageHistoryTransferService(self)
+    }
+
+    func userWantsToDismissView(_ view: ZipImportView) {
+        (self.presentedViewController as? HistoryTransferNavigationStackHostingView)?.dismiss(animated: true)
+    }
+    
+}
+
+// MARK: - Implementing InterfaceSettingsTableViewControllerActions
+
+extension SettingsFlowViewController: InterfaceSettingsTableViewControllerActions {
+    
+    func userWantsToUpdateDiscussionLocalConfiguration(
+        _ vc: InterfaceSettingsTableViewController,
+        value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue,
+        localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws {
+            guard let settingsFlowViewControllerDelegate else { assertionFailure(); throw ObvError.settingsFlowViewControllerDelegateIsNil }
+            try await settingsFlowViewControllerDelegate.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
     }
     
 }
@@ -382,17 +491,18 @@ extension SettingsFlowViewController: BackupTableViewControllerDelegate {
 
 // MARK: - SettingsFlowViewControllerProtocol
 
+@MainActor
 protocol SettingsFlowViewControllerDelegate: AnyObject {
     func userRequestedAppDatabaseSyncWithEngine(settingsFlowViewController: SettingsFlowViewController) async throws
-    @MainActor func userWantsToConfigureNewBackups(_ settingsFlowViewController: SettingsFlowViewController, context: ObvAppBackupSetupContext)
-    @MainActor func usersWantsToGetBackupParameterIsSynchronizedWithICloud(_ settingsFlowViewController: SettingsFlowViewController) async throws -> Bool
-    @MainActor func usersWantsToChangeBackupParameterIsSynchronizedWithICloud(_ settingsFlowViewController: SettingsFlowViewController, newIsSynchronizedWithICloud: Bool) async throws
-    @MainActor func userWantsToEraseAndGenerateNewDeviceBackupSeed(_ settingsFlowViewController: SettingsFlowViewController) async throws -> ObvCrypto.BackupSeed
-    @MainActor func userWantsToPerformBackupNow(_ settingsFlowViewController: SettingsFlowViewController) async throws
-    @MainActor func userWantsToFetchDeviceBakupFromServer(_ settingsFlowViewController: SettingsFlowViewController) async throws -> AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind>
-    @MainActor func userWantsToUseDeviceBackupSeed(_ settingsFlowViewController: SettingsFlowViewController, deviceBackupSeed: BackupSeed) async throws -> ObvListOfDeviceBackupProfiles
-    @MainActor func userWantsToFetchAllProfileBackupsFromServer(_ settingsFlowViewController: SettingsFlowViewController, profileCryptoId: ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvProfileBackupFromServer]
-    @MainActor func restoreProfileBackupFromServerNow(_ settingsFlowViewController: SettingsFlowViewController, profileBackupFromServerToRestore: ObvTypes.ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos
+    func userWantsToConfigureNewBackups(_ settingsFlowViewController: SettingsFlowViewController, context: ObvAppBackupSetupContext)
+    func usersWantsToGetBackupParameterIsSynchronizedWithICloud(_ settingsFlowViewController: SettingsFlowViewController) async throws -> Bool
+    func usersWantsToChangeBackupParameterIsSynchronizedWithICloud(_ settingsFlowViewController: SettingsFlowViewController, newIsSynchronizedWithICloud: Bool) async throws
+    func userWantsToEraseAndGenerateNewDeviceBackupSeed(_ settingsFlowViewController: SettingsFlowViewController) async throws -> ObvCrypto.BackupSeed
+    func userWantsToPerformBackupNow(_ settingsFlowViewController: SettingsFlowViewController) async throws
+    func userWantsToFetchDeviceBakupFromServer(_ settingsFlowViewController: SettingsFlowViewController) async throws -> AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind>
+    func userWantsToUseDeviceBackupSeed(_ settingsFlowViewController: SettingsFlowViewController, deviceBackupSeed: BackupSeed) async throws -> ObvListOfDeviceBackupProfiles
+    func userWantsToFetchAllProfileBackupsFromServer(_ settingsFlowViewController: SettingsFlowViewController, profileCryptoId: ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvProfileBackupFromServer]
+    func restoreProfileBackupFromServerNow(_ settingsFlowViewController: SettingsFlowViewController, profileBackupFromServerToRestore: ObvTypes.ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos
     func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(_ settingsFlowViewController: SettingsFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data
     func userWantsToSubscribeOlvidPlus(_ settingsFlowViewController: SettingsFlowViewController)
     func userWantsToAddDevice(_ settingsFlowViewController: SettingsFlowViewController)
@@ -402,4 +512,7 @@ protocol SettingsFlowViewControllerDelegate: AnyObject {
     func getDeviceDeactivationConsequencesOfRestoringBackup(_ settingsFlowViewController: SettingsFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
     func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ settingsFlowViewController: SettingsFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
     func userWantsToBeRemindedToWriteDownBackupKey(_ settingsFlowViewController: SettingsFlowViewController) async
+    func userRequiresMessageHistoryTransferService(_ settingsFlowViewController: SettingsFlowViewController) async throws -> TransferService
+    func userWantsToUpdateDiscussionLocalConfiguration(_ vc: SettingsFlowViewController, value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) async throws
+    func historySourceDeviceWantsToSendTransferConfirmationRequestToDestinationOwnedDevice(_ vc: SettingsFlowViewController, transferId: String, otherOwnedDeviceIdentifier: ObvTypes.ObvOwnedDeviceIdentifier) async throws -> ObvHistoryTransfer.DestinationOwnedDeviceDecision
 }

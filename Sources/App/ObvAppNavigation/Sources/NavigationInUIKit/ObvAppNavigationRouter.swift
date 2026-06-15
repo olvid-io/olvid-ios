@@ -250,7 +250,7 @@ extension ObvAppNavigationRouter: ObvPresentedNavigationStackNavigation {
     }
     
     public func userWantsToCreateNewGroupWithContact(_ view: ObvPresentedNavigationStack, contactIdentifier: ObvTypes.ObvContactIdentifier) async throws {
-        currentlyPresentingViewController?.dismiss(animated: true)
+        await currentlyPresentingViewController?.dismissAndAwaitCompletion(animated: true)
         currentlyPresentingViewController = nil
         try await navigation.userWantsToCreateNewGroupWithContact(self, contactIdentifier: contactIdentifier)
     }

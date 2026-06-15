@@ -71,18 +71,21 @@ final class BackgroundTaskCoordinator: SimpleBackgroundTaskDelegate, BackgroundT
 extension BackgroundTaskCoordinator {
     
     private func getCurrentExpectationsWithinFlow(flowId: FlowIdentifier, logger: Logger) -> (expectations: Set<Expectation>, backgroundTaskId: UIBackgroundTaskIdentifier, completionHander: (() -> Void)?)? {
-        logger.info("[\(self.debugUUID)] Call to getCurrentExpectationsWithinFlow")
+        let debugUUID = self.debugUUID
+        logger.info("[\(debugUUID)] Call to getCurrentExpectationsWithinFlow")
         return _currentExpectationsWithinFlow[flowId]
     }
 
     private func setCurrentExpectationsWithinFlow(flowId: FlowIdentifier, logger: Logger, to newValues: (expectations: Set<Expectation>, backgroundTaskId: UIBackgroundTaskIdentifier, completionHander: (() -> Void)?)) {
-        logger.info("[\(self.debugUUID)] Call to setCurrentExpectationsWithinFlow")
+        let debugUUID = self.debugUUID
+        logger.info("[\(debugUUID)] Call to setCurrentExpectationsWithinFlow")
         _currentExpectationsWithinFlow[flowId] = newValues
     }
     
     private func removeCurrentExpectationsWithinFlow(flowId: FlowIdentifier, logger: Logger) -> (expectations: Set<Expectation>, backgroundTaskId: UIBackgroundTaskIdentifier, completionHander: (() -> Void)?)? {
         let removedValue = _currentExpectationsWithinFlow.removeValue(forKey: flowId)
-        logger.info("[\(self.debugUUID)] Call to removeCurrentExpectationsWithinFlow (removing value \(removedValue.debugDescription)")
+        let debugUUID = self.debugUUID
+        logger.info("[\(debugUUID)] Call to removeCurrentExpectationsWithinFlow (removing value \(removedValue.debugDescription)")
         return removedValue
     }
     
@@ -114,8 +117,9 @@ extension BackgroundTaskCoordinator {
             setCurrentExpectationsWithinFlow(flowId: flowId, logger: logger, to: (expectations, backgroundTaskId, completionHandler))
         }
         
-        logger.info("[\(self.debugUUID)] Starting flow \(flowId.debugDescription, privacy: .public) associated with background task \(backgroundTaskId.rawValue)")
-        logger.info("[\(self.debugUUID)] Initial expectations of flow \(flowId.debugDescription, privacy: .public): \(Expectation.description(of: expectations), privacy: .public)")
+        let debugUUID = self.debugUUID
+        logger.info("[\(debugUUID)] Starting flow \(flowId.debugDescription, privacy: .public) associated with background task \(backgroundTaskId.rawValue)")
+        logger.info("[\(debugUUID)] Initial expectations of flow \(flowId.debugDescription, privacy: .public): \(Expectation.description(of: expectations), privacy: .public)")
 
         return flowId
     }
@@ -134,9 +138,10 @@ extension BackgroundTaskCoordinator {
             
             guard let (expectations, backgroundTaskId, completionHandler) = getCurrentExpectationsWithinFlow(flowId: flowId, logger: logger) else { return }
             
-            logger.info("[\(self.debugUUID)] Expectations of background activity associated with flow \(flowId.debugDescription, privacy: .public) before update: \(Expectation.description(of: expectations), privacy: .public)")
+            let debugUUID = self.debugUUID
+            logger.info("[\(debugUUID)] Expectations of background activity associated with flow \(flowId.debugDescription, privacy: .public) before update: \(Expectation.description(of: expectations), privacy: .public)")
             let newExpectations = expectations.subtracting(expectationsToRemove).union(expectationsToAdd)
-            logger.info("[\(self.debugUUID)] Expectations of background activity associated with flowId \(flowId.debugDescription, privacy: .public) after update: \(Expectation.description(of: expectations), privacy: .public)")
+            logger.info("[\(debugUUID)] Expectations of background activity associated with flowId \(flowId.debugDescription, privacy: .public) after update: \(Expectation.description(of: expectations), privacy: .public)")
             
             setCurrentExpectationsWithinFlow(flowId: flowId, logger: logger, to: (newExpectations, backgroundTaskId, completionHandler))
             
@@ -168,13 +173,14 @@ extension BackgroundTaskCoordinator {
             })
             
             let currentNumberOfFlows = _currentExpectationsWithinFlow.count
-            logger.info("[\(self.debugUUID)] Among the \(currentNumberOfFlows, privacy: .public) flows, there are \(flowsToUpdate.count) flows to update")
+            let debugUUID = self.debugUUID
+            logger.info("[\(debugUUID)] Among the \(currentNumberOfFlows, privacy: .public) flows, there are \(flowsToUpdate.count) flows to update")
             
             for flowId in flowsToUpdate {
                 guard let value = getCurrentExpectationsWithinFlow(flowId: flowId, logger: logger) else { assertionFailure(); continue }
-                logger.info("[\(self.debugUUID)] Expectations of background activity associated with flow \(flowId.debugDescription, privacy: .public) before update: \(Expectation.description(of: value.expectations), privacy: .public)")
+                logger.info("[\(debugUUID)] Expectations of background activity associated with flow \(flowId.debugDescription, privacy: .public) before update: \(Expectation.description(of: value.expectations), privacy: .public)")
                 let newExpectations = value.expectations.subtracting(expectationsToRemove)
-                logger.info("[\(self.debugUUID)] Expectations of background activity associated with flowId \(flowId.debugDescription, privacy: .public) after update: \(Expectation.description(of: newExpectations), privacy: .public)")
+                logger.info("[\(debugUUID)] Expectations of background activity associated with flowId \(flowId.debugDescription, privacy: .public) after update: \(Expectation.description(of: newExpectations), privacy: .public)")
                 setCurrentExpectationsWithinFlow(flowId: flowId, logger: logger, to: (newExpectations, value.backgroundTaskId, value.completionHander))
             }
             
@@ -219,12 +225,13 @@ extension BackgroundTaskCoordinator {
             guard let (expectations, _, _) = getCurrentExpectationsWithinFlow(flowId: flowId, logger: logger) else { return }
             backgroundActivityHasNoMoreExpectations = expectations.isEmpty
         }
+        let debugUUID = self.debugUUID
         if backgroundActivityHasNoMoreExpectations {
-            logger.info("[\(self.debugUUID)] Will end flow \(flowId.debugDescription, privacy: .public) as it has no more expectations")
+            logger.info("[\(debugUUID)] Will end flow \(flowId.debugDescription, privacy: .public) as it has no more expectations")
             endBackgroundActivityAssociatedWithFlow(withId: flowId)
         } else {
-            logger.info("[\(self.debugUUID)] Not ending flow \(flowId.debugDescription, privacy: .public) as it still has expectations")
-            logger.info("[\(self.debugUUID)] Debug \(numberOfExpectationsLeft) expectations left")
+            logger.info("[\(debugUUID)] Not ending flow \(flowId.debugDescription, privacy: .public) as it still has expectations")
+            logger.info("[\(debugUUID)] Debug \(numberOfExpectationsLeft) expectations left")
         }
         
     }
@@ -241,7 +248,8 @@ extension BackgroundTaskCoordinator {
         let logger = Logger(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            logger.fault("[\(self.debugUUID)] The notification delegate is not set")
+            let debugUUID = self.debugUUID
+            logger.fault("[\(debugUUID)] The notification delegate is not set")
             return
         }
         

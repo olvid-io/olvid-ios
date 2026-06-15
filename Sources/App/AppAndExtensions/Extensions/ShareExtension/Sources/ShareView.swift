@@ -235,7 +235,7 @@ struct ShareView: View {
     }
     
     private var ownedIdentityChooserView: some View {
-        OwnedIdentityChooserView(
+        OwnedIdentityChooserNavigationStack(
             currentOwnedCryptoId: model.selectedOwnedIdentity.cryptoId,
             actions: model,
             dataSource: OwnedIdentityChooserViewAppDataSource(viewContext: model.viewContext, anyContext: model.viewContext),
@@ -263,9 +263,9 @@ struct ShareView: View {
 
 // MARK: - Implementing OwnedIdentityChooserViewActionsProtocol
 
-extension ShareViewModel: OwnedIdentityChooserViewActionsProtocol {
+extension ShareViewModel: OwnedIdentityChooserNavigationStackActions {
     
-    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
+    func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
         guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: chosenOwnedCryptoId, within: viewContext) else {
             Self.logger.error("Could not find owned identity")
             return
@@ -278,11 +278,11 @@ extension ShareViewModel: OwnedIdentityChooserViewActionsProtocol {
         }
     }
     
-    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
+    func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
         assertionFailure("Unexpected as we configured the OwnedIdentityChooserView in selectProfile mode")
     }
     
-    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserView) async {
+    func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack) async {
         assertionFailure("Unexpected as we configured the OwnedIdentityChooserView in selectProfile mode")
     }
     

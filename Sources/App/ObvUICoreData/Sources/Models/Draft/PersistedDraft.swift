@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,8 @@ import Foundation
 import CoreData
 import OlvidUtils
 import UniformTypeIdentifiers
+import ObvAppTypes
+import ObvTypes
 
 @objc(PersistedDraft)
 public final class PersistedDraft: NSManagedObject, ObvIdentifiableManagedObject {
@@ -28,8 +30,8 @@ public final class PersistedDraft: NSManagedObject, ObvIdentifiableManagedObject
     public static let entityName = "PersistedDraft"
 
     // MARK: Attributes
-    
-    @NSManaged public private(set) var body: String?
+
+    @NSManaged private var body: String?
     @NSManaged private var permanentUUID: UUID
     @NSManaged private var rawExistenceDuration: NSNumber?
     @NSManaged private var rawVisibilityDuration: NSNumber?
@@ -45,6 +47,31 @@ public final class PersistedDraft: NSManagedObject, ObvIdentifiableManagedObject
 
     // MARK: Computed Properties
     
+    var bodyAndMentions: StringAndUserMentions? {
+        
+        guard let body = self.body, !body.isEmpty else { return nil }
+                
+        var mentions = [StringAndUserMentions.UserMention]()
+        for mention in self.mentions {
+            do {
+                let userMention = try mention.userMention
+                mentions.append(userMention)
+            } catch {
+                assertionFailure() // In production, continue with the next mention
+            }
+        }
+        
+        let stringAndUserMentions = StringAndUserMentions(body: body, mentions: mentions)
+
+        return stringAndUserMentions
+        
+    }
+    
+    public var attributedBody: AttributedString? {
+        return bodyAndMentions?.attributedString
+    }
+    
+
     /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
     public var objectPermanentID: ObvManagedObjectPermanentID<PersistedDraft> {
         get throws {
@@ -69,6 +96,12 @@ public final class PersistedDraft: NSManagedObject, ObvIdentifiableManagedObject
             .sorted(by: { $0.index < $1.index })
     }
 
+    public var fyleJoinsAudio: [FyleJoin] {
+        unsortedDraftFyleJoins
+            .filter { $0.contentType == UTType.audio }
+            .sorted(by: { $0.index < $1.index })
+    }
+    
     // MARK: Other variables
     
     private var changedKeys = Set<String>()
@@ -191,6 +224,7 @@ extension PersistedDraft {
         
     }
 
+    
     private func resetExpiration() {
         self.readOnce = false
         self.existenceDuration = nil
@@ -198,36 +232,40 @@ extension PersistedDraft {
         assert(!hasSomeExpiration)
     }
     
-    public func replaceContentWith(newBody: String, newMentions: Set<MessageJSON.UserMention>) {
+    
+    public func replaceContentWith(newBody: AttributedString) {
 
-        let (trimmedBody, mentionsInTrimmedBody) = newBody.trimmingWhitespacesAndNewlines(updating: Array(newMentions))
+        let messageBodyWithUserMentions = newBody.trimmingWhitespacesAndNewlines().messageBodyWithUserMentions
         
-        if self.body != trimmedBody {
-            self.body = trimmedBody
+        if self.body != messageBodyWithUserMentions.body {
+            self.body = messageBodyWithUserMentions.body
             if let resultingBody = self.body, !resultingBody.isEmpty {
-                self.discussion.resetSortDateIfCurrentValueIsEarlierThan(Date())
-//                self.discussion.unarchive()
+                self.discussion.resetSortDateIfCurrentValueIsEarlierThan(Date.now)
             }
         }
         
         deleteAllAssociatedMentions()
-        mentionsInTrimmedBody.forEach { mention in
-            _ = try? PersistedUserMentionInDraft(mention: mention, draft: self)
+        messageBodyWithUserMentions.mentions.forEach { mention in
+            do {
+                try PersistedUserMentionInDraft.createPersistedUserMentionInDraft(mention: mention, draft: self)
+            } catch {
+                assertionFailure()
+            }
         }
         
     }
-    
 
-    public func appendContentToBody(_ content: String) {
-        guard !content.isEmpty else { return }
-        if self.body == nil {
-            self.body = ""
-        }
-        self.body?.append(content)
-        // We don't need to reset the mentions since we are only appending characters to the existing body.
-        self.discussion.resetSortDateIfCurrentValueIsEarlierThan(Date())
-//        self.discussion.unarchive()
-    }
+    
+//    public func appendContentToBody(_ content: String) {
+//        guard !content.isEmpty else { return }
+//        if self.body == nil {
+//            self.body = ""
+//        }
+//        self.body?.append(content)
+//        // We don't need to reset the mentions since we are only appending characters to the existing body.
+//        self.discussion.resetSortDateIfCurrentValueIsEarlierThan(Date())
+////        self.discussion.unarchive()
+//    }
 
     public var hasSomeExpiration: Bool {
         readOnce == true || existenceDuration != nil || visibilityDuration != nil
@@ -269,6 +307,7 @@ extension PersistedDraft {
     
     struct Predicate {
         enum Key: String {
+            case body = "body"
             case permanentUUID = "permanentUUID"
             case discussion = "discussion"
             case replyTo = "replyTo"
@@ -278,6 +317,9 @@ extension PersistedDraft {
         }
         static func forDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
             NSPredicate(Key.discussion, equalTo: discussion)
+        }
+        static func forDiscussionObjectID(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
+            NSPredicate(Key.discussion, equalToObjectWithObjectID: discussionObjectID.objectID)
         }
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedDraft>) -> NSPredicate {
             NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
@@ -314,7 +356,43 @@ extension PersistedDraft {
         request.fetchBatchSize = 1
         return try context.fetch(request).first
     }
+
     
+    public static func getPersistedDraft(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) throws -> PersistedDraft? {
+        let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
+        request.predicate = Predicate.forDiscussionObjectID(discussionObjectID)
+        request.fetchBatchSize = 1
+        return try context.fetch(request).first
+    }
+    
+    
+    public static func getBodyOfPersistedDraft(objectID: TypeSafeManagedObjectID<PersistedDraft>, within context: NSManagedObjectContext) throws -> String? {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: PersistedDraft.entityName)
+        request.resultType = .dictionaryResultType
+        request.predicate = Predicate.persistedDraft(withObjectID: objectID)
+        request.propertiesToFetch = [Predicate.Key.body.rawValue]
+        request.includesPendingChanges = true
+        request.fetchLimit = 1
+        guard let results = try context.fetch(request) as? [[String: String?]] else { assertionFailure(); throw ObvUICoreDataError.couldNotCastFetchedResult }
+
+        let valueToReturn = try results
+            .compactMap { dict in
+                guard let body = dict[Predicate.Key.body.rawValue] else { assertionFailure(); throw ObvUICoreDataError.couldNotCastFetchedResult }
+                return body
+            }
+            .first
+        
+        return valueToReturn
+    }
+    
+    
+    public static func getPersistedDraft(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, within context: NSManagedObjectContext) throws -> PersistedDraft? {
+        guard let discussionObjectID = try PersistedDiscussion.getPersistedDiscussionObjectID(discussionIdentifier: discussionIdentifier, within: context) else {
+            return nil
+        }
+        return try getPersistedDraft(discussionObjectID: discussionObjectID, within: context)
+    }
+
     
     public static func getObjectIDsOfAllDraftsReplyingTo(message: PersistedMessage) throws -> Set<TypeSafeManagedObjectID<PersistedDraft>> {
         let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
@@ -325,4 +403,42 @@ extension PersistedDraft {
         let drafts = try context.fetch(request)
         return Set(drafts.map({ $0.typedObjectID }))
     }
+    
+    public static func getFetchedResultsControllerForPersistedDraft(of discussion: PersistedDiscussion, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDraft> {
+        let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
+        request.predicate = Predicate.forDiscussion(discussion)
+        request.fetchBatchSize = 1
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.permanentUUID.rawValue, ascending: true)]
+        
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: request,
+                                                                  managedObjectContext: context,
+                                                                  sectionNameKeyPath: nil,
+                                                                  cacheName: nil)
+        return fetchedResultsController
+    }
+
+    public static func getFetchedResultsControllerForPersistedDraft(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDraft> {
+        let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
+        request.predicate = Predicate.forDiscussionObjectID(discussionObjectID)
+        request.fetchBatchSize = 1
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.permanentUUID.rawValue, ascending: true)]
+        
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: request,
+                                                                  managedObjectContext: context,
+                                                                  sectionNameKeyPath: nil,
+                                                                  cacheName: nil)
+        return fetchedResultsController
+    }
+
+
+    /// Since this method performs a fetch, we ensure it performs it on the appropriate thread. This is required as this method is often called from the main thread, but with a background context.
+    public static func getFetchedResultsControllerForPersistedDraft(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, within context: NSManagedObjectContext) async throws -> NSFetchedResultsController<PersistedDraft> {
+        try await context.perform {
+            guard let discussionObjectID = try PersistedDiscussion.getPersistedDiscussionObjectID(discussionIdentifier: discussionIdentifier, within: context) else {
+                throw ObvUICoreDataError.couldNotFindDiscussion
+            }
+            return getFetchedResultsControllerForPersistedDraft(discussionObjectID: discussionObjectID, within: context)
+        }
+    }
+
 }

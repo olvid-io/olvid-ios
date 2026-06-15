@@ -20,7 +20,7 @@
 import Foundation
 import os.log
 import ObvEncoder
-
+import ObvAppTypes
 
 /// Used in discussions cells for decoding and caching sent or received "link previews".
 final class CachedObvLinkMetadataManager {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 import CoreData
 import ObvSettings
-import os.log
+import OSLog
 import OlvidUtils
 import ObvTypes
 import ObvAppTypes
@@ -99,28 +99,43 @@ public class PersistedLocation: NSManagedObject {
         }
     }
     
-//    public var snapshotFilename: String? {
-//        let filename: String
-//        if let address = address {
-//            filename = address
-//        } else {
-//            filename = "\(latitude)-\(longitude)"
-//        }
-//        
-//        let filenameForArchiving = "map_snapshot_\(filename)"
-//        
-//        guard let filenameData = filenameForArchiving.data(using: .utf8) else { return nil }
-//        
-//        let digest = SHA256.hash(data: filenameData)
-//        let digestString = digest.map { String(format: "%02hhx", $0) }.joined()
-//        return [digestString, "png"].joined(separator: ".")
-//    }
     
     struct PredicateForPersistedLocation {
         enum Key: String {
             // Attributes
+            case sharingExpiration = "sharingExpiration"
             case timestamp = "timestamp"
         }
+                
+        private static var withNilSharingExpiration: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.sharingExpiration)
+        }
+
+        private static var withNonNilSharingExpiration: NSPredicate {
+            NSCompoundPredicate(notPredicateWithSubpredicate: withNilSharingExpiration)
+        }
+        
+        fileprivate static var expiringButNotExpiredYet: NSPredicate {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withNonNilSharingExpiration,
+                NSPredicate(Key.sharingExpiration, laterThan: .now)
+            ])
+        }
+
+        static var doesNotExpireOrIsNotYetExpired: NSPredicate {
+            return NSCompoundPredicate(orPredicateWithSubpredicates: [
+                withNilSharingExpiration,
+                expiringButNotExpiredYet,
+            ])
+        }
+        
+        static var expired: NSPredicate {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withNonNilSharingExpiration,
+                NSPredicate(Key.sharingExpiration, earlierThan: .now)
+            ])
+        }
+        
     }
     
 }
@@ -193,7 +208,7 @@ extension PersistedLocation {
     }
     
     
-    func toLocationJSON() throws -> LocationJSON {
+    public func toLocationJSON() throws -> LocationJSON {
 
         let sharingType: LocationJSON.LocationSharingType
         switch try continuousOrOneShot {
@@ -440,11 +455,14 @@ extension PersistedLocationContinuous {
     }
     
     
-    public static func getFetchRequestForLocationsSharedFromContactOrOtherOwnedDevice(ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedLocationContinuous> {
+    private static func getFetchRequestForNotExpiredLocationsSharedFromContactOrOtherOwnedDevice(ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedLocationContinuous> {
         
         let request: NSFetchRequest<PersistedLocationContinuous> = PersistedLocationContinuous.fetchRequest()
 
-        request.predicate = Predicate.sharedFromContactDeviceOrOtherOwnedDevice(ownedCryptoId)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.sharedFromContactDeviceOrOtherOwnedDevice(ownedCryptoId),
+            PredicateForPersistedLocation.doesNotExpireOrIsNotYetExpired,
+        ])
         
         request.includesSubentities = true
         
@@ -467,8 +485,8 @@ extension PersistedLocationContinuous {
     }
 
     
-    public static func getFetchedResultsControllerForContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedLocationContinuous> {
-        let fetchRequest: NSFetchRequest<PersistedLocationContinuous> = getFetchRequestForLocationsSharedFromContactOrOtherOwnedDevice(ownedCryptoId: ownedCryptoId)
+    public static func getFetchedResultsControllerForNotExpiredContinuousLocationsSharedByContactDeviceOrOtherOwnedDevice(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedLocationContinuous> {
+        let fetchRequest: NSFetchRequest<PersistedLocationContinuous> = getFetchRequestForNotExpiredLocationsSharedFromContactOrOtherOwnedDevice(ownedCryptoId: ownedCryptoId)
         return NSFetchedResultsController(fetchRequest: fetchRequest,
                                           managedObjectContext: context,
                                           sectionNameKeyPath: nil,
@@ -507,6 +525,17 @@ public final class PersistedLocationContinuousReceived: PersistedLocationContinu
         self.receivedMessages = Set() // Set later
         
     }
+    
+    
+    // MARK: Observers
+    
+    nonisolated(unsafe) private static var observersHolder = PersistedLocationContinuousReceivedObserversHolder()
+    
+    public static func addPersistedLocationContinuousReceivedObserver(_ newObserver: PersistedLocationContinuousReceivedObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
+    // MARK: Fetch requests
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedLocationContinuousReceived> {
         return NSFetchRequest<PersistedLocationContinuousReceived>(entityName: PersistedLocationContinuousReceived.entityName)
@@ -564,6 +593,37 @@ public final class PersistedLocationContinuousReceived: PersistedLocationContinu
     }
     
     
+    /// Discards (by calling `receivedLocationNoLongerNeeded`) all `PersistedLocationContinuousReceived` that are expired.
+    public static func discardExpiredPersistedLocationContinuousReceived(within context: NSManagedObjectContext) throws {
+        let fetchRequest: NSFetchRequest<PersistedLocationContinuousReceived> = PersistedLocationContinuousReceived.fetchRequest()
+        fetchRequest.predicate = PersistedLocation.PredicateForPersistedLocation.expired
+        fetchRequest.fetchBatchSize = 50
+        let expiredLocationContinuousReceived = try context.fetch(fetchRequest)
+        for expiredLocation in expiredLocationContinuousReceived {
+            do {
+                for message in expiredLocation.receivedMessages {
+                    try expiredLocation.receivedLocationNoLongerNeeded(by: message)
+                }
+                try expiredLocation.deleteIfReceivedMessagesIsEmpty() // In case receivedMessages was empty
+            } catch {
+                assertionFailure()
+                continue
+            }
+        }
+    }
+    
+    
+    public static func getEarliestExpirationDateAfterNow(within context: NSManagedObjectContext) throws -> Date? {
+        let fetchRequest: NSFetchRequest<PersistedLocationContinuousReceived> = PersistedLocationContinuousReceived.fetchRequest()
+        fetchRequest.predicate = PersistedLocation.PredicateForPersistedLocation.expiringButNotExpiredYet
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedLocation.Predicate.Key.sharingExpiration.rawValue, ascending: true)]
+        fetchRequest.fetchLimit = 1
+        fetchRequest.propertiesToFetch = [PersistedLocation.Predicate.Key.sharingExpiration.rawValue]
+        let item = try context.fetch(fetchRequest).first
+        return item?.sharingExpiration
+    }
+    
+    
     // MARK: Deleting a PersistedLocationContinuousReceived
     
     func receivedLocationNoLongerNeeded(by receivedMessage: PersistedMessageReceived) throws {
@@ -604,6 +664,18 @@ public final class PersistedLocationContinuousReceived: PersistedLocationContinu
 
     }
     
+    
+    public override func didSave() {
+        super.didSave()
+        
+        if isInserted {
+            Task {
+                await PersistedLocationContinuousReceived.observersHolder.aPersistedLocationContinuousReceivedWasInserted()
+            }
+        }
+        
+    }
+    
 }
 
 
@@ -637,7 +709,15 @@ public final class PersistedLocationContinuousSent: PersistedLocationContinuous 
         
     }
     
+    // MARK: Observers
+    
+    nonisolated(unsafe) private static var observersHolder = PersistedLocationContinuousSentObserversHolder()
+    
+    public static func addPersistedLocationContinuousSentObserver(_ newObserver: PersistedLocationContinuousSentObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
 
+    
     @nonobjc public static func fetchRequest() -> NSFetchRequest<PersistedLocationContinuousSent> {
         return NSFetchRequest<PersistedLocationContinuousSent>(entityName: PersistedLocationContinuousSent.entityName)
     }
@@ -688,11 +768,52 @@ public final class PersistedLocationContinuousSent: PersistedLocationContinuous 
             ])
         }
 
+        static var fromAnotherOwnedDeviceOfAnyOwnedIdentity: NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Self.nonNilOwnedDevice,
+                NSCompoundPredicate(notPredicateWithSubpredicate: Self.ownedDeviceIsCurrentDevice),
+            ])
+        }
+
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(withObjectID: objectID)
         }
     }
     
+    
+    /// Discards (by calling `receivedLocationNoLongerNeeded`) all `PersistedLocationContinuousSent` from other owned devices that are expired.
+    public static func discardExpiredPersistedLocationContinuousSentFromOtherOwnedDevices(within context: NSManagedObjectContext) throws {
+        let fetchRequest: NSFetchRequest<PersistedLocationContinuousSent> = PersistedLocationContinuousSent.fetchRequest()
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            PersistedLocation.PredicateForPersistedLocation.expired,
+            Predicate.fromAnotherOwnedDeviceOfAnyOwnedIdentity,
+        ])
+        fetchRequest.fetchBatchSize = 50
+        let expiredLocationContinuousReceived = try context.fetch(fetchRequest)
+        for expiredLocation in expiredLocationContinuousReceived {
+            do {
+                _ = try expiredLocation.sentLocationNoLongerNeededByAnyDiscussion()
+            } catch {
+                assertionFailure()
+                continue
+            }
+        }
+    }
+
+    
+    public static func getEarliestExpirationDateFromOtherOwnedDevicesAfterNow(within context: NSManagedObjectContext) throws -> Date? {
+        let fetchRequest: NSFetchRequest<PersistedLocationContinuousSent> = PersistedLocationContinuousSent.fetchRequest()
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            PersistedLocation.PredicateForPersistedLocation.expiringButNotExpiredYet,
+            Predicate.fromAnotherOwnedDeviceOfAnyOwnedIdentity,
+        ])
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedLocation.Predicate.Key.sharingExpiration.rawValue, ascending: true)]
+        fetchRequest.fetchLimit = 1
+        fetchRequest.propertiesToFetch = [PersistedLocation.Predicate.Key.sharingExpiration.rawValue]
+        let item = try context.fetch(fetchRequest).first
+        return item?.sharingExpiration
+    }
+
     
     /// This `NSFetchedResultsController` returns 0 or 1 `PersistedLocationContinuousSent`. It restricts to locations sent from the current **physical** device, without considering a specific owned identity.
     /// It is used to decide whether we should display a cell at the top of the list of recent discussions, indicating that we are currently sharing the location of the current physical device from one of our profiles.
@@ -834,7 +955,7 @@ public final class PersistedLocationContinuousSent: PersistedLocationContinuous 
         for sentMessage in sentMessages {
             try sentLocationNoLongerNeeded(by: sentMessage)
         }
-        // The location is deleted in the will save method
+        // The location is deleted in the `willSave` method
         return sentMessagesToReturn
     }
     
@@ -847,6 +968,18 @@ public final class PersistedLocationContinuousSent: PersistedLocationContinuous 
             try? self.deletePersistedLocation()
         }
         
+    }
+    
+    
+    public override func didSave() {
+        super.didSave()
+        
+        if isInserted {
+            Task {
+                await PersistedLocationContinuousSent.observersHolder.aPersistedLocationContinuousSentWasInserted()
+            }
+        }
+
     }
         
 }
@@ -961,5 +1094,75 @@ public enum ReceivedLocation {
 
 public enum SentLocation {
     case oneShot(location: TypeSafeManagedObjectID<PersistedLocationOneShotSent>)
-    case continuous(location: TypeSafeManagedObjectID<PersistedLocationContinuousSent>, toStop: ObvLocation.EndSharingDestination?)
+    case continuous(location: TypeSafeManagedObjectID<PersistedLocationContinuousSent>, toStop: ObvLocation.SharingDestination?)
+}
+
+
+// MARK: - PersistedLocationContinuousReceived observers
+
+public protocol PersistedLocationContinuousReceivedObserver: AnyObject, Sendable {
+    func aPersistedLocationContinuousReceivedWasInserted() async
+}
+
+
+private actor PersistedLocationContinuousReceivedObserversHolder: PersistedLocationContinuousReceivedObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PersistedLocationContinuousReceivedObserver?
+        init(value: PersistedLocationContinuousReceivedObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: PersistedLocationContinuousReceivedObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+    
+    // Implementing PersistedLocationContinuousReceivedObserversHolder
+    
+    func aPersistedLocationContinuousReceivedWasInserted() async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedLocationContinuousReceivedWasInserted() }
+            }
+        }
+    }
+
+}
+
+
+// MARK: - PersistedLocationContinuousSent observers
+
+public protocol PersistedLocationContinuousSentObserver: AnyObject, Sendable {
+    func aPersistedLocationContinuousSentWasInserted() async
+}
+
+
+private actor PersistedLocationContinuousSentObserversHolder: PersistedLocationContinuousSentObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PersistedLocationContinuousSentObserver?
+        init(value: PersistedLocationContinuousSentObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: PersistedLocationContinuousSentObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+    
+    // Implementing PersistedLocationContinuousSentObserversHolder
+    
+    func aPersistedLocationContinuousSentWasInserted() async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedLocationContinuousSentWasInserted() }
+            }
+        }
+    }
+
 }
