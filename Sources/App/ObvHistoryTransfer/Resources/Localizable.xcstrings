@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "大约还有 %@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaklaşık %@ kaldı"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "大约还剩 %1$@ (%2$@)"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaklaşık %1$@ kaldı (%2$@)"
           }
         }
       }
@@ -438,6 +450,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "没有需要添加的附件。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zip'e bir eklenti ekledim."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zip dosyasına %lld eklentileri eklendi."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eklenecek ek yok."
                 }
               }
             }
@@ -734,6 +770,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zip'e bir eklenti ekleniyor."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zip dosyasına %lld eklentileri ekleniyor."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eklenecek ek yok."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -809,6 +869,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加附件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ek ekleme"
           }
         }
       }
@@ -886,6 +952,12 @@
             "state": "translated",
             "value": "已添加附件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekler eklendi"
+          }
         }
       }
     },
@@ -961,6 +1033,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在添加消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesaj ekleme"
           }
         }
       }
@@ -1038,6 +1116,12 @@
             "state": "translated",
             "value": "已添加消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesajlar eklendi"
+          }
         }
       }
     },
@@ -1114,6 +1198,12 @@
             "state": "translated",
             "value": "返回"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
+          }
         }
       }
     },
@@ -1189,6 +1279,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
           }
         }
       }
@@ -1268,6 +1364,12 @@
             "state": "translated",
             "value": "正在取消…"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal ediliyor…"
+          }
         }
       }
     },
@@ -1343,6 +1445,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "继续传输"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarmaya devam et"
           }
         }
       }
@@ -1422,6 +1530,12 @@
             "state": "translated",
             "value": "导出"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İhracat"
+          }
         }
       }
     },
@@ -1500,6 +1614,12 @@
             "state": "translated",
             "value": "导入"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İthalat"
+          }
         }
       }
     },
@@ -1576,6 +1696,12 @@
             "state": "translated",
             "value": "中断传输"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarımı kes"
+          }
         }
       }
     },
@@ -1651,6 +1777,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "开始传输"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarımı başlat"
           }
         }
       }
@@ -1730,6 +1862,12 @@
             "state": "translated",
             "value": "取消"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
         }
       }
     },
@@ -1808,6 +1946,12 @@
             "state": "translated",
             "value": "选择要转移聊天记录的设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinin aktarılacağı cihazı seçin"
+          }
         }
       }
     },
@@ -1883,6 +2027,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "要迁移哪个个人资料的聊天记录？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hangi profilin sohbet geçmişi aktarılacak?"
           }
         }
       }
@@ -1960,6 +2110,12 @@
             "state": "translated",
             "value": "您在此设备上的个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki profilleriniz"
+          }
         }
       }
     },
@@ -2036,6 +2192,12 @@
             "state": "translated",
             "value": "双方设备均需运行 iOS 26 或 iPadOS 26（或更高版本）。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her iki cihazda da iOS 26 veya iPadOS 26 (veya üzeri) gerekir."
+          }
         }
       }
     },
@@ -2111,6 +2273,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "在 iPhone 或 iPad 之间传输"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone'lar veya iPad'ler arasında aktarım"
           }
         }
       }
@@ -2190,6 +2358,12 @@
             "state": "translated",
             "value": "选择转账方式"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarım yöntemini seçin"
+          }
         }
       }
     },
@@ -2265,6 +2439,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "你想做什么？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne yapmak istiyorsun?"
           }
         }
       }
@@ -2342,6 +2522,12 @@
             "state": "translated",
             "value": "两台设备都必须连接到同一 Wi-Fi 网络。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her iki cihazın da aynı Wi-Fi ağına bağlı olması gerekir."
+          }
         }
       }
     },
@@ -2417,6 +2603,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "通过 Wi-Fi 传输"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi aracılığıyla aktarım"
           }
         }
       }
@@ -2496,6 +2688,12 @@
             "state": "translated",
             "value": "导入您在其他设备上创建的 .zip 文件。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir cihazınızda oluşturulan bir .zip dosyasını içe aktarın."
+          }
         }
       }
     },
@@ -2573,6 +2771,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "创建一个 .zip 文件，然后将其传输到您的新设备。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir .zip dosyası oluşturun ve bunu yeni cihazınıza aktarın."
           }
         }
       }
@@ -2652,6 +2856,12 @@
             "state": "translated",
             "value": "导入一个 .zip 文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir .zip dosyasını içe aktar"
+          }
         }
       }
     },
@@ -2730,6 +2940,12 @@
             "state": "translated",
             "value": "导出 .zip 文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir .zip dosyasını dışa aktarın"
+          }
         }
       }
     },
@@ -2806,6 +3022,12 @@
             "state": "translated",
             "value": "你想发送什么内容？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neyi aktarmak istiyorsunuz?"
+          }
         }
       }
     },
@@ -2881,6 +3103,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "创建 .zip 文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ".zip dosyası oluştur"
           }
         }
       }
@@ -2959,6 +3187,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "将您的聊天记录导出为压缩文件。稍后，您可以在任何设备上导入它，前提是您的个人资料存在于该设备上。您也可以解压缩此文件，以便在网页中查看您的聊天记录。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi zip dosyası olarak dışa aktarın. Profilinizin mevcut olması koşuluyla daha sonra herhangi bir cihazınıza aktarabilirsiniz. Ayrıca sohbet geçmişinizi bir web sayfasında görüntülemek için bu dosyayı açabilirsiniz."
           }
         }
       }
@@ -3252,6 +3486,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 tartışma"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tartışmalar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "tartışma yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -3534,6 +3792,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "파일 없음"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 dosya"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld dosyalar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Dosya yok"
                 }
               }
             }
@@ -3830,6 +4112,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 mesaj"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajlar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "mesaj yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -3905,6 +4211,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "总大小：%@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toplam boyut: %@"
           }
         }
       }
@@ -3984,6 +4296,12 @@
             "state": "translated",
             "value": "导出 .zip 文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir .zip dosyasını dışa aktar"
+          }
         }
       }
     },
@@ -4059,6 +4377,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "准备好转移您的聊天记录了吗？\n\n您的另一台设备想要将聊天记录转移到此设备。请放心，传输过程已进行端到端加密。\n\n您可以随时暂停和恢复。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi aktarmaya hazır mısınız?\n\nCihazlarınızdan başka biri sohbet geçmişinizi bu cihaza aktarmak istiyor. Endişelenmeyin, aktarım uçtan uca şifrelenmiştir.\n\nİstediğiniz zaman duraklatabilir ve devam ettirebilirsiniz."
           }
         }
       }
@@ -4136,6 +4460,12 @@
             "state": "translated",
             "value": "准备好传输您的聊天记录吗？\n\n您的 %@ 想要将您的聊天记录传输到此设备。请放心，传输过程采用端到端加密。\n\n您可以随时暂停和恢复。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi aktarmaya hazır mısınız?\n\n%@ cihazınız bu cihazdaki sohbet geçmişinizi bu cihaza aktarmak istiyor. Endişelenmeyin, aktarım uçtan uca şifrelenmiştir.\n\nİstediğiniz zaman duraklatabilir ve devam ettirebilirsiniz."
+          }
         }
       }
     },
@@ -4211,6 +4541,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "继续"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam et"
           }
         }
       }
@@ -4290,6 +4626,12 @@
             "state": "translated",
             "value": "返回"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
+          }
         }
       }
     },
@@ -4367,6 +4709,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您无法使用所选的传输方式，但您仍然可以使用压缩文件或在 iPhone 或 iPad 之间进行传输来从此设备传输消息。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçilen aktarım yöntemini kullanamazsınız ancak yine de bu cihazdaki mesajları bir zip dosyası kullanarak veya iPhone'lar veya iPad'ler arasında aktarım kullanarak aktarabilirsiniz."
           }
         }
       }
@@ -4446,6 +4794,12 @@
             "state": "translated",
             "value": "您选择的资料在当前设备上已停用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçilen profil bu cihazda etkin değil"
+          }
         }
       }
     },
@@ -4521,6 +4875,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "未知设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilinmeyen cihaz"
           }
         }
       }
@@ -4599,6 +4959,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reddet"
           }
         }
       }
@@ -4820,6 +5186,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek gönderilemedi."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ekler gönderilemedi."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -4895,6 +5279,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "传输中断。您可以随时恢复。已发送的项目无需再次传输。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer kesintiye uğradı. İstediğiniz zaman devam ettirebilirsiniz. Zaten gönderilmiş olan öğelerin tekrar aktarılmasına gerek kalmayacaktır."
           }
         }
       }
@@ -4972,6 +5362,12 @@
             "state": "translated",
             "value": "传输失败。您可以随时重新开始。已发送的项目无需再次传输。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarım başarısız oldu. İstediğiniz zaman devam ettirebilirsiniz. Zaten gönderilmiş olan öğelerin tekrar aktarılmasına gerek kalmayacaktır."
+          }
         }
       }
     },
@@ -5047,6 +5443,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请检查您的目标设备，确认所有内容是否已安全送达。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her şeyin güvenli bir şekilde ulaştığından emin olmak için hedef cihazınızı kontrol edin."
           }
         }
       }
@@ -5124,6 +5526,12 @@
             "state": "translated",
             "value": "传输已中断"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer kesintiye uğradı"
+          }
         }
       }
     },
@@ -5200,6 +5608,12 @@
             "state": "translated",
             "value": "传输失败"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarım başarısız oldu"
+          }
         }
       }
     },
@@ -5275,6 +5689,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此端已完成传输！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu tarafta transfer tamamlandı!"
           }
         }
       }
@@ -5496,6 +5916,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek içe aktarılamadı."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ekler içe aktarılamadı."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -5571,6 +6009,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "传输已中断。您可以随时恢复。已发送的项目无需再次传输。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer kesintiye uğradı. İstediğiniz zaman devam ettirebilirsiniz. Zaten gönderilmiş olan öğelerin tekrar aktarılmasına gerek kalmayacaktır."
           }
         }
       }
@@ -5648,6 +6092,12 @@
             "state": "translated",
             "value": "传输失败。您可以随时恢复。已发送的项目将不再需要重新传输。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarım başarısız oldu. İstediğiniz zaman devam ettirebilirsiniz. Zaten gönderilmiş olan öğelerin tekrar aktarılmasına gerek kalmayacaktır."
+          }
         }
       }
     },
@@ -5723,6 +6173,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您选择的个人资料与用于创建此聊天记录的个人资料不匹配。请确保在两台设备上都选择相同的个人资料，或者在导入聊天记录文件时选择正确的个人资料。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçtiğiniz profil, bu geçmişi oluşturmak için kullanılan profille eşleşmiyor. Lütfen her iki cihazda da aynı profili seçtiğinizden emin olun veya bir geçmiş dosyasını içe aktarırken doğru profili seçin."
           }
         }
       }
@@ -5800,6 +6256,12 @@
             "state": "translated",
             "value": "所有内容已安全地保存到位。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her şey güvenli bir şekilde yerli yerinde."
+          }
         }
       }
     },
@@ -5875,6 +6337,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "传输已中断"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer kesintiye uğradı"
           }
         }
       }
@@ -5952,6 +6420,12 @@
             "state": "translated",
             "value": "传输失败"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarım başarısız oldu"
+          }
         }
       }
     },
@@ -6027,6 +6501,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "资料不匹配"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil Uyuşmazlığı"
           }
         }
       }
@@ -6104,6 +6584,12 @@
             "state": "translated",
             "value": "任务完成！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görev tamamlandı!"
+          }
         }
       }
     },
@@ -6179,6 +6665,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "用户已取消压缩导出"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dışa aktarımı kullanıcı tarafından iptal edildi"
           }
         }
       }
@@ -6256,6 +6748,12 @@
             "state": "translated",
             "value": "压缩导出失败"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dışa aktarımı başarısız oldu"
+          }
         }
       }
     },
@@ -6331,6 +6829,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的压缩文件已准备就绪！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip'iniz hazır!"
           }
         }
       }
@@ -6410,6 +6914,12 @@
             "state": "translated",
             "value": "请勿离开"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrılma"
+          }
         }
       }
     },
@@ -6488,6 +6998,12 @@
             "state": "translated",
             "value": "请勿打扰"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sözünü kesme"
+          }
         }
       }
     },
@@ -6564,6 +7080,12 @@
             "state": "translated",
             "value": "请勿打扰"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sözünü kesme"
+          }
         }
       }
     },
@@ -6639,6 +7161,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "聊天记录迁移"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişi aktarımı"
           }
         }
       }
@@ -6718,6 +7246,12 @@
             "state": "translated",
             "value": "导出您的聊天记录"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi dışa aktarın"
+          }
         }
       }
     },
@@ -6793,6 +7327,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "如果您的聊天记录是从此设备**转移**而来，请选择此选项。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi bu cihazdan** aktarıyorsanız bu seçeneği kullanın."
           }
         }
       }
@@ -6872,6 +7412,12 @@
             "state": "translated",
             "value": "导出状态"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dışa aktarma durumu"
+          }
         }
       }
     },
@@ -6947,6 +7493,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在此设备上扫描附件..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki ekler taranıyor..."
           }
         }
       }
@@ -7236,6 +7788,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "在此设备上未找到附件。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda bir ek bulundu."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda %1$lld ek bulundu (toplam %2$@)."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda ek bulunamadı."
                 }
               }
             }
@@ -7532,6 +8108,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda bir ek bulundu."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda %1$lld ekleri bulundu."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda ek bulunamadı."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -7608,6 +8208,12 @@
             "state": "translated",
             "value": "正在扫描此设备上的附件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki ekler taranıyor"
+          }
         }
       }
     },
@@ -7683,6 +8289,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已扫描附件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekler tarandı"
           }
         }
       }
@@ -7978,6 +8590,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazla ilgili bir tartışma bulundu."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda %lld tartışmaları bulundu."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda tartışma bulunamadı."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -8053,6 +8689,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在此设备上搜索对话..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki tartışmalar aranıyor..."
           }
         }
       }
@@ -8132,6 +8774,12 @@
             "state": "translated",
             "value": "正在扫描此设备上的对话"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki tartışmalar taranıyor"
+          }
         }
       }
     },
@@ -8207,6 +8855,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已扫描的对话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taranan tartışmalar"
           }
         }
       }
@@ -8286,6 +8940,12 @@
             "state": "translated",
             "value": "正在扫描压缩文件中的讨论"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dosyasındaki tartışmalar taranıyor"
+          }
         }
       }
     },
@@ -8362,6 +9022,12 @@
             "state": "translated",
             "value": "找到的讨论"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışmalar bulundu"
+          }
         }
       }
     },
@@ -8437,6 +9103,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此功能可让您**安全地**在您的两个设备之间**传输**聊天记录。\n\n在开始操作之前，您的个人资料需要在这两个设备上都**存在**。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu özellik, sohbet geçmişinizi iki cihazınız arasında **güvenli bir şekilde aktarmanıza** olanak tanır.\n\nBaşlamadan önce profilinizin **bu cihazların her ikisinde de mevcut olması** gerekir."
           }
         }
       }
@@ -8516,6 +9188,12 @@
             "state": "translated",
             "value": "导入您的聊天记录"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi içe aktarın"
+          }
         }
       }
     },
@@ -8592,6 +9270,12 @@
             "state": "translated",
             "value": "如果您的聊天记录是**从**其他设备转移到此设备，请选择此选项。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi bu cihaza** aktarıyorsanız bu seçeneği kullanın."
+          }
         }
       }
     },
@@ -8667,6 +9351,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "导入状态"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İçe aktarma durumu"
           }
         }
       }
@@ -8746,6 +9436,12 @@
             "state": "translated",
             "value": "从zip文件中导入您的聊天记录。您选择的个人资料必须与zip文件中聊天记录的个人资料匹配。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi bir zip dosyasından içe aktarın. Seçtiğiniz profil, zip dosyasının sohbet geçmişinden biriyle eşleşmelidir."
+          }
         }
       }
     },
@@ -8823,6 +9519,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "导入 .zip 文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir .zip dosyasını içe aktar"
           }
         }
       }
@@ -8902,6 +9604,12 @@
             "state": "translated",
             "value": "正在进行中…"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam ediyor…"
+          }
         }
       }
     },
@@ -8980,6 +9688,12 @@
             "state": "translated",
             "value": "正在连接目标设备..."
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hedef cihaza bağlanılıyor…"
+          }
         }
       }
     },
@@ -9055,6 +9769,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在连接源设备…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaynak cihaza bağlanılıyor…"
           }
         }
       }
@@ -9132,6 +9852,12 @@
             "state": "translated",
             "value": "如果尚未操作，请在另一台设备上执行以下操作：\n1. 打开“聊天记录传输”设置。\n2. 选择“导出”。\n3. 选择与本设备相同的帐户。\n4. 选择“在 iPhone 或 iPad 之间传输”。\n5. 选择要传输的内容。\n6. 在配对设备列表中选择本设备。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz yapmadıysanız bunu diğer cihazda yapın:\n1. **Sohbet geçmişi aktarma** ayarlarını açın.\n2. **Dışa Aktar**'ı seçin.\n3. **Bu cihazdakiyle aynı profili** seçin.\n4. **iPhone'lar veya iPad'ler arasında aktarım** seçeneğini seçin.\n5. Neyin aktarılacağını seçin.\n6. Eşleştirilen cihazlar listesinden bu cihazı seçin."
+          }
         }
       }
     },
@@ -9207,6 +9933,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "如果您尚未执行此操作，请在您的 %@ 上执行以下操作：\n1. 打开“聊天记录传输”设置。\n2. 选择“导出”。\n3. 选择与此设备相同的资料。\n4. 选择“在 iPhone 或 iPad 之间传输”。\n5. 选择要传输的内容。\n6. 在配对的设备列表中选择此设备。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz yapmadıysanız bunu %@ cihazınızda yapın:\n1. **Sohbet geçmişi aktarma** ayarlarını açın.\n2. **Dışa Aktar**'ı seçin.\n3. **Bu cihazdakiyle aynı profili** seçin.\n4. **iPhone'lar veya iPad'ler arasında aktarım** seçeneğini seçin.\n5. Neyin aktarılacağını seçin.\n6. Eşleştirilen cihazlar listesinden bu cihazı seçin."
           }
         }
       }
@@ -9284,6 +10016,12 @@
             "state": "translated",
             "value": "如果尚未操作，请在另一台设备上执行以下操作：\n1. 打开“聊天记录传输”设置。\n2. 选择“导入”。\n3. 选择与本设备相同的资料。\n4. 选择“在 iPhone 或 iPad 之间传输”。\n5. 在配对的设备列表中选择本设备。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz yapmadıysanız bunu diğer cihazda yapın:\n1. **Sohbet geçmişi aktarma** ayarlarını açın.\n2. **İçe Aktar**'ı seçin.\n3. **Bu cihazdakiyle aynı profili** seçin.\n4. **iPhone'lar veya iPad'ler arasında aktarım** seçeneğini seçin.\n5. Eşleştirilmiş cihazlar listesinden bu cihazı seçin."
+          }
         }
       }
     },
@@ -9359,6 +10097,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "如果您尚未执行此操作，请在您的 %@ 上执行以下操作：\n1. 打开“聊天记录传输”设置。\n2. 选择“导入”。\n3. 选择与此设备相同的帐户。\n4. 选择“在 iPhone 或 iPad 之间传输”。\n5. 在配对设备列表中选择此设备。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz yapmadıysanız bunu %@ cihazınızda yapın:\n1. **Sohbet geçmişi aktarma** ayarlarını açın.\n2. **İçe Aktar**'ı seçin.\n3. **Bu cihazdakiyle aynı profili** seçin.\n4. **iPhone'lar veya iPad'ler arasında aktarım** seçeneğini seçin.\n5. Eşleştirilmiş cihazlar listesinden bu cihazı seçin."
           }
         }
       }
@@ -9438,6 +10182,12 @@
             "state": "translated",
             "value": "已连接到目标设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hedef cihaza bağlanıldı"
+          }
         }
       }
     },
@@ -9513,6 +10263,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已连接到源设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaynak cihaza bağlandı"
           }
         }
       }
@@ -9590,6 +10346,12 @@
             "state": "translated",
             "value": "已连接"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlı"
+          }
         }
       }
     },
@@ -9665,6 +10427,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已初始化"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlatıldı"
           }
         }
       }
@@ -9742,6 +10510,12 @@
             "state": "translated",
             "value": "已初始化"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlatıldı"
+          }
         }
       }
     },
@@ -9817,6 +10591,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已解压缩"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sıkıştırılmış"
           }
         }
       }
@@ -9896,6 +10676,12 @@
             "state": "translated",
             "value": "正在初始化"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlatılıyor"
+          }
         }
       }
     },
@@ -9973,6 +10759,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在初始化"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlatılıyor"
           }
         }
       }
@@ -10052,6 +10844,12 @@
             "state": "translated",
             "value": "正在初始化"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlatılıyor"
+          }
         }
       }
     },
@@ -10130,6 +10928,12 @@
             "state": "translated",
             "value": "正在解压缩"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sıkıştırmayı açma"
+          }
         }
       }
     },
@@ -10205,6 +11009,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "中断传输？您可以稍后恢复。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarımı kesintiye uğratmak mı istiyorsunuz? Daha sonra devam ettirebilirsiniz."
           }
         }
       }
@@ -10282,6 +11092,12 @@
             "state": "translated",
             "value": "中断传输？您可以稍后恢复。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarımı kesintiye uğratmak mı istiyorsunuz? Daha sonra devam ettirebilirsiniz."
+          }
         }
       }
     },
@@ -10357,6 +11173,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "中断传输，稍后继续"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarımı yarıda kesip daha sonra devam edin"
           }
         }
       }
@@ -10436,6 +11258,12 @@
             "state": "translated",
             "value": "中断 ZIP 导出"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dışa aktarımını kes"
+          }
         }
       }
     },
@@ -10514,6 +11342,12 @@
             "state": "translated",
             "value": "您确定要中断压缩导出操作吗？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dışa aktarımını durdurmak istediğinizden emin misiniz?"
+          }
         }
       }
     },
@@ -10589,6 +11423,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "中断 ZIP 导入"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip içe aktarmayı kes"
           }
         }
       }
@@ -10666,6 +11506,12 @@
             "state": "translated",
             "value": "您确定要中断压缩文件导入吗？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip içe aktarmayı durdurmak istediğinizden emin misiniz?"
+          }
         }
       }
     },
@@ -10741,6 +11587,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "聊天记录迁移"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişi aktarımı"
           }
         }
       }
@@ -10818,6 +11670,12 @@
             "state": "translated",
             "value": "识别要传输的消息和附件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarılacak mesajları ve ekleri belirleme"
+          }
         }
       }
     },
@@ -10893,6 +11751,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已识别的消息和附件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanımlanan mesajlar ve ekler"
           }
         }
       }
@@ -10972,6 +11836,12 @@
             "state": "translated",
             "value": "识别需要传输的消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarılacak mesajları belirleme"
+          }
         }
       }
     },
@@ -11047,6 +11917,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已识别的消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanımlanan mesajlar"
           }
         }
       }
@@ -11336,6 +12212,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "没有附件"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "bir eklenti (%2$@)"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$lld ekler (%2$@ toplam)"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "ek yok"
                 }
               }
             }
@@ -11632,6 +12532,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "bir mesaj"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajlar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "mesaj yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -11710,6 +12634,12 @@
             "state": "translated",
             "value": "将传输什么内容："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neler aktarılacak:"
+          }
         }
       }
     },
@@ -11786,6 +12716,12 @@
             "state": "translated",
             "value": "确定需要传输的内容"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neyin aktarılacağının belirlenmesi"
+          }
         }
       }
     },
@@ -11861,6 +12797,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已同意转账计划"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer planı kabul edildi"
           }
         }
       }
@@ -11939,6 +12881,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在进行中..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam ediyor…"
           }
         }
       }
@@ -12230,6 +13178,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "没有需要传输的附件。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ekin aktarılması gerekiyor (%2$@)."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$lld eklerin aktarılması gerekir (%2$@ toplam)."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hiçbir ekin aktarılmasına gerek yoktur."
                 }
               }
             }
@@ -12528,6 +13500,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir mesajın aktarılması gerekiyor."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajların aktarılması gerekiyor."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hiçbir mesajın aktarılmasına gerek yoktur."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -12605,6 +13601,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "返回"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
           }
         }
       }
@@ -12684,6 +13686,12 @@
             "state": "translated",
             "value": "如果您的个人资料在另一台（已停用）设备上存在，您仍然可以使用 zip 文件或在 iPhone 或 iPad 之间进行传输，从而将消息从该设备传输过来。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz başka bir (etkin olmayan) cihazda mevcutsa, yine de bu cihazdaki mesajları bir zip dosyası kullanarak veya iPhone'lar veya iPad'ler arasında aktarabilirsiniz."
+          }
         }
       }
     },
@@ -12762,6 +13770,12 @@
             "state": "translated",
             "value": "未找到可用设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktif cihaz bulunamadı"
+          }
         }
       }
     },
@@ -12838,6 +13852,12 @@
             "state": "translated",
             "value": "与附近的设备配对，以便无线传输聊天记录。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi ikisi arasında kablosuz olarak aktarmak için yakındaki bir cihazla eşleştirin."
+          }
         }
       }
     },
@@ -12913,6 +13933,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚未配对任何设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz eşleştirilmiş cihaz yok"
           }
         }
       }
@@ -12992,6 +14018,12 @@
             "state": "translated",
             "value": "好的"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
         }
       }
     },
@@ -13067,6 +14099,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "1. 打开“聊天记录传输”设置。\n2. 选择“导出”。\n3. 选择与此设备上相同的帐户。\n4. 选择“iPhone 或 iPad 之间的传输”。\n5. 选择要传输的内容。\n6. 点击“配对新设备”。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1. **Sohbet geçmişi aktarma** ayarlarını açın.\n2. **Dışa Aktar**'ı seçin.\n3. **Bu cihazdakiyle aynı profili** seçin.\n4. **iPhone'lar veya iPad'ler arasında aktarım** seçeneğini seçin.\n5. Neyin aktarılacağını seçin.\n6. **Yeni bir cihaz eşleştir**'e dokunun."
           }
         }
       }
@@ -13144,6 +14182,12 @@
             "state": "translated",
             "value": "在另一台设备上：\n1. 打开“聊天记录传输”设置。\n2. 选择“导入”。\n3. 选择与本设备相同的帐户。\n4. 选择“在 iPhone 或 iPad 之间传输”。\n5. 点击“配对新设备”。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diğer cihazda:\n1. **Sohbet geçmişi aktarma** ayarlarını açın.\n2. **İçe Aktar**'ı seçin.\n3. **Bu cihazdakiyle aynı profili** seçin.\n4. **iPhone'lar veya iPad'ler arasında aktarım** seçeneğini seçin.\n5. **Yeni bir cihaz eşleştir**'e dokunun."
+          }
         }
       }
     },
@@ -13219,6 +14263,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "然后，在此设备上，点击下方“配对新设备”。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ardından, bu cihazda aşağıda **Yeni bir cihaz eşleştir**'e dokunun."
           }
         }
       }
@@ -13296,6 +14346,12 @@
             "state": "translated",
             "value": "配对新设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni bir cihazı eşleştirin"
+          }
         }
       }
     },
@@ -13371,6 +14427,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择一个压缩文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir zip dosyası seçin"
           }
         }
       }
@@ -13590,6 +14652,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "有 %lld 个附件无法传输。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek aktarılamadı."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ekler aktarılamadı."
                 }
               }
             }
@@ -13886,6 +14966,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek aldınız."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld eklerini aldınız."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hiçbir eklenti alınmadı."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -14106,6 +15210,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek alınıyor…"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ekleri alınıyor…"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -14182,6 +15304,12 @@
             "state": "translated",
             "value": "正在接收附件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekler alınıyor"
+          }
         }
       }
     },
@@ -14257,6 +15385,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已接收附件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alınan ekler"
           }
         }
       }
@@ -14335,6 +15469,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "在源设备上找到："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaynak cihazda bulundu:"
           }
         }
       }
@@ -14554,6 +15694,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%1$lld 个附件 (%2$@ 个)"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "bir eklenti (%2$@)"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$lld ekler (%2$@ toplam)"
                 }
               }
             }
@@ -14850,6 +16008,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir tartışma"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tartışmalar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tartışma yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -14928,6 +16110,12 @@
             "state": "translated",
             "value": "在压缩文件中找到:"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dosyasında bulundu:"
+          }
         }
       }
     },
@@ -15004,6 +16192,12 @@
             "state": "translated",
             "value": "正在进行中..."
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam ediyor…"
+          }
         }
       }
     },
@@ -15079,6 +16273,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "开始…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlıyor…"
           }
         }
       }
@@ -15296,6 +16496,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "正在接收 %lld 条消息…"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir mesaj alınıyor…"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajları alınıyor…"
                 }
               }
             }
@@ -15520,6 +16738,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir mesaj aktarılamadı."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajlar aktarılamadı."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -15740,6 +16976,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir mesaj aldım."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajları aldınız."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -15816,6 +17070,12 @@
             "state": "translated",
             "value": "正在接收消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesaj alma"
+          }
         }
       }
     },
@@ -15891,6 +17151,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已接收的消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alınan mesajlar"
           }
         }
       }
@@ -16108,6 +17374,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "有 %lld 个附件无法发送。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek gönderilemedi."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ekler gönderilemedi."
                 }
               }
             }
@@ -16332,6 +17616,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek gönderildi."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lldekler gönderildi."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -16552,6 +17854,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek gönderiliyor…"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ekler gönderiliyor…"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -16630,6 +17950,12 @@
             "state": "translated",
             "value": "正在发送附件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekler gönderiliyor"
+          }
         }
       }
     },
@@ -16705,6 +18031,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已发送的附件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekler gönderildi"
           }
         }
       }
@@ -16783,6 +18115,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "开始…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlıyor…"
           }
         }
       }
@@ -17072,6 +18410,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "没有需要添加的消息。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zip'e bir mesaj ekleme."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zip dosyasına %lld mesajları ekleniyor."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eklenecek mesaj yok."
                 }
               }
             }
@@ -17370,6 +18732,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir mesaj gönderiliyor…"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajları gönderiliyor…"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Gönderilecek mesaj yok."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -17588,6 +18974,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "有 %lld 条消息无法发送。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir mesaj gönderilemedi."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajlar gönderilemedi."
                 }
               }
             }
@@ -17884,6 +19288,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zip'e bir mesaj eklendi."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajlar zip'e eklendi."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eklenecek mesaj yok."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -18106,6 +19534,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir mesaj gönderildi."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mesajlar gönderildi."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -18184,6 +19630,12 @@
             "state": "translated",
             "value": "正在发送消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesaj gönderme"
+          }
         }
       }
     },
@@ -18259,6 +19711,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已发送的消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gönderilen mesajlar"
           }
         }
       }
@@ -18336,6 +19794,12 @@
             "state": "translated",
             "value": "分享你的压缩文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dosyanızı paylaşın"
+          }
         }
       }
     },
@@ -18411,6 +19875,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在启动…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlıyor…"
           }
         }
       }
@@ -18490,6 +19960,12 @@
             "state": "translated",
             "value": "第一步：在另一台设备上"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1. Adım: Diğer cihazda"
+          }
         }
       }
     },
@@ -18568,6 +20044,12 @@
             "state": "translated",
             "value": "步骤 2：在此设备上"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2. Adım: Bu cihazda"
+          }
         }
       }
     },
@@ -18643,6 +20125,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的聊天记录迁移请求在您的其他设备上被拒绝。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzak cihazınızda sohbet geçmişi aktarma isteğiniz reddedildi."
           }
         }
       }
@@ -18720,6 +20208,12 @@
             "state": "translated",
             "value": "完成传输。包括短信和所有附件（速度较慢）。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transferi tamamlayın. Kısa mesajları ve tüm ekleri içerir (daha yavaş)."
+          }
         }
       }
     },
@@ -18795,6 +20289,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "传输消息和附件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesajları ve ekleri aktarma"
           }
         }
       }
@@ -18872,6 +20372,12 @@
             "state": "translated",
             "value": "传输速度更快。仅包含文本消息（速度更快）。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha hızlı aktarım. Yalnızca kısa mesajlar dahil edilecektir (daha hızlı)."
+          }
         }
       }
     },
@@ -18947,6 +20453,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "仅传输消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yalnızca mesajları aktar"
           }
         }
       }
@@ -19024,6 +20536,12 @@
             "state": "translated",
             "value": "请在您的其他设备上确认转账"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktarımı diğer cihazınızda onaylayın"
+          }
         }
       }
     },
@@ -19099,6 +20617,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请在您的 %@ 上确认转账"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ cihazınızda aktarımı onaylayın"
           }
         }
       }
@@ -19176,6 +20700,12 @@
             "state": "translated",
             "value": "在您的 %@ 上打开 Olvid，并按照说明操作以批准传输。确认后，您的消息将开始传输。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ cihazınızda Olvid'i açın ve aktarımı onaylamak için talimatları izleyin. Onaylandıktan sonra mesajlarınız aktarılmaya başlayacaktır."
+          }
         }
       }
     },
@@ -19251,6 +20781,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "在目标设备上打开 Olvid，然后按照说明批准传输。确认后，您的消息将开始传输。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hedef cihazda Olvid'i açın ve aktarımı onaylamak için talimatları izleyin. Onaylandıktan sonra mesajlarınız aktarılmaya başlayacaktır."
           }
         }
       }
@@ -19330,6 +20866,12 @@
             "state": "translated",
             "value": "继续"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam et"
+          }
         }
       }
     },
@@ -19405,6 +20947,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "前往“迁移聊天记录”设置，然后选择“导出”。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Sohbet geçmişinizi aktarın” ayarına gidin ve “Dışa aktar”ı seçin."
           }
         }
       }
@@ -19484,6 +21032,12 @@
             "state": "translated",
             "value": "请确保此设备和您的其他设备连接到同一 Wi-Fi 网络。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın ve diğer cihazınızın aynı Wi-Fi ağına bağlı olduğundan emin olun."
+          }
         }
       }
     },
@@ -19561,6 +21115,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请确保此设备和您的 %@ 连接到同一个 Wi-Fi 网络。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın ve %@ cihazınızın aynı Wi-Fi ağına bağlı olduğundan emin olun."
           }
         }
       }
@@ -19640,6 +21200,12 @@
             "state": "translated",
             "value": "请打开您的其他设备。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diğer cihazınızı açın."
+          }
         }
       }
     },
@@ -19717,6 +21283,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请打开您的 %@。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@’nizi açın."
           }
         }
       }
@@ -19796,6 +21368,12 @@
             "state": "translated",
             "value": "请在您的其他设备上按照以下步骤操作。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen diğer cihazınızda bu talimatları izleyin."
+          }
         }
       }
     },
@@ -19874,6 +21452,12 @@
             "state": "translated",
             "value": "请按照以下步骤在您的 %@ 上操作。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen %@ cihazınızdaki bu talimatları izleyin."
+          }
         }
       }
     },
@@ -19950,6 +21534,12 @@
             "state": "translated",
             "value": "如果列表中没有找到您要连接的设备，请先点击下面的按钮进行配对。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aradığınız cihaz listede görünmüyorsa önce eşleştirmek için aşağıdaki düğmeye dokunun."
+          }
         }
       }
     },
@@ -20025,6 +21615,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "如果列表中没有显示您要查找的设备，请先点击下面的按钮进行配对。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aradığınız cihaz listede görünmüyorsa önce eşleştirmek için aşağıdaki düğmeye dokunun."
           }
         }
       }
@@ -20104,6 +21700,12 @@
             "state": "translated",
             "value": "设备间传输需要在两台设备上都安装 iOS 26 或 iPadOS 26（或更高版本）。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazdan cihaza aktarım için her iki cihazda da iOS 26 veya iPadOS 26 (veya üzeri) gerekir."
+          }
         }
       }
     },
@@ -20181,6 +21783,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "设备间传输不可用"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazdan Cihaza Aktarım Mevcut Değil"
           }
         }
       }
@@ -20260,6 +21868,12 @@
             "state": "translated",
             "value": "广告服务不可用。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reklam mevcut değil."
+          }
         }
       }
     },
@@ -20338,6 +21952,12 @@
             "state": "translated",
             "value": "不支持。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desteklenmiyor."
+          }
         }
       }
     },
@@ -20413,6 +22033,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择要从中获取聊天记录的设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi alacağınız cihazı seçin"
           }
         }
       }
@@ -20490,6 +22116,12 @@
             "state": "translated",
             "value": "选择要迁移聊天记录的设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi aktaracağınız cihazı seçin"
+          }
         }
       }
     },
@@ -20565,6 +22197,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在压缩"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sıkıştırma"
           }
         }
       }
@@ -20644,6 +22282,12 @@
             "state": "translated",
             "value": "正在解压缩文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosyanın sıkıştırılması"
+          }
         }
       }
     },
@@ -20721,6 +22365,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在解压缩文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosyanın sıkıştırılması"
           }
         }
       }
@@ -20800,6 +22450,12 @@
             "state": "translated",
             "value": "文件已成功解压缩。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya başarıyla açıldı."
+          }
         }
       }
     },
@@ -20875,6 +22531,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "压缩文件不会受到保护"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dosyası korunmayacaktır"
           }
         }
       }
@@ -20954,6 +22616,12 @@
             "state": "translated",
             "value": "此压缩文件已设置密码保护。请输入您在导出聊天记录时设置的密码。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu zip dosyası şifre korumalıdır. Sohbet geçmişinizi dışa aktarırken seçtiğiniz şifreyi girin."
+          }
         }
       }
     },
@@ -21031,6 +22699,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "密码"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifre"
           }
         }
       }
@@ -21110,6 +22784,12 @@
             "state": "translated",
             "value": "需要密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifre gerekli"
+          }
         }
       }
     },
@@ -21187,6 +22867,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您输入的密码不正确。请重试。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Girdiğiniz şifre hatalı. Lütfen tekrar deneyin."
           }
         }
       }
@@ -21266,6 +22952,12 @@
             "state": "translated",
             "value": "密码错误"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanlış şifre"
+          }
         }
       }
     },
@@ -21341,6 +23033,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "立即创建压缩文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdi zip dosyası oluştur"
           }
         }
       }
@@ -21418,6 +23116,12 @@
             "state": "translated",
             "value": "跳过密码，继续"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifre olmadan devam et"
+          }
         }
       }
     },
@@ -21493,6 +23197,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择密码"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şifre seçin"
           }
         }
       }
@@ -21570,6 +23280,12 @@
             "state": "translated",
             "value": "生成密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şifre oluştur"
+          }
         }
       }
     },
@@ -21645,6 +23361,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "你有没有把它记下来或者复制下来？这是你最后一次可以查看的机会了。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yazdın mı yoksa kopyaladın mı? Bu onu görmek için son şansın."
           }
         }
       }
@@ -21722,6 +23444,12 @@
             "state": "translated",
             "value": "重要提示：请立即保存您的密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önemli: Şifrenizi şimdi kaydedin"
+          }
         }
       }
     },
@@ -21797,6 +23525,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制到剪贴板"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çalışma alanına kopyala"
           }
         }
       }
@@ -21874,6 +23608,12 @@
             "state": "translated",
             "value": "选择密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şifre seçin"
+          }
         }
       }
     },
@@ -21949,6 +23689,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "密码"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifre"
           }
         }
       }
@@ -22026,6 +23772,12 @@
             "state": "translated",
             "value": "选择密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şifre seçin"
+          }
         }
       }
     },
@@ -22101,6 +23853,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "生成的密码"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oluşturulan şifre"
           }
         }
       }
@@ -22178,6 +23936,12 @@
             "state": "translated",
             "value": "为了您的安全，我们建议您使用密码保护您的导出内容。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenliğiniz için dışa aktarma işleminizi bir parola ile korumanızı öneririz."
+          }
         }
       }
     },
@@ -22254,6 +24018,12 @@
             "state": "translated",
             "value": "保护您的导出内容"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İhracatınızı koruyun"
+          }
         }
       }
     },
@@ -22329,6 +24099,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用密码保护的压缩文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip şifreyle korunuyor"
           }
         }
       }
@@ -22408,6 +24184,12 @@
             "state": "translated",
             "value": "删除压缩文件并返回"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dosyasını silin ve geri dönün"
+          }
         }
       }
     },
@@ -22485,6 +24267,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的压缩文件将被永久删除。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zip dosyanız kalıcı olarak silinecek."
           }
         }
       }

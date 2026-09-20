@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "%@ 邀请您进行私聊。如果您接受，此用户将被添加到您的联系人中。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sizi özel bir tartışmaya davet ediyor. Kabul ederseniz bu kullanıcı kişilerinize eklenecektir."
+          }
         }
       }
     },
@@ -360,6 +366,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ek"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ekler"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ek yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -435,6 +465,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "视频通话已开始"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video görüşmesi başlatıldı"
           }
         }
       }
@@ -513,6 +549,12 @@
             "state": "translated",
             "value": "发送"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gönder"
+          }
         }
       }
     },
@@ -588,6 +630,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已编辑"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düzenlendi"
           }
         }
       }
@@ -665,6 +713,12 @@
             "state": "translated",
             "value": "阅后即焚消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçici mesaj"
+          }
         }
       }
     },
@@ -740,6 +794,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "与 %@ 交换您的代码。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kodlarınızı %@ ile değiştirin."
           }
         }
       }
@@ -817,6 +877,12 @@
             "state": "translated",
             "value": "您的其他设备可以将聊天记录传输到此设备。点击了解更多信息。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir cihazınız sohbet geçmişinizi bu cihaza aktarabilir. Daha fazlasını öğrenmek için dokunun."
+          }
         }
       }
     },
@@ -892,6 +958,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "将您的聊天记录转移到此设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişinizi bu cihaza aktarın"
           }
         }
       }
@@ -969,6 +1041,12 @@
             "state": "translated",
             "value": "我想向您介绍 %@。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sizi %@ ile tanıştırmak istiyorum."
+          }
         }
       }
     },
@@ -1044,6 +1122,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "邀请加入群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir gruba katılma daveti"
           }
         }
       }
@@ -1337,6 +1421,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Başka bir katılımcıyla cevapsız grup araması"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld diğer katılımcıyla cevapsız grup araması"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Cevapsız arama"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1413,6 +1521,12 @@
             "state": "translated",
             "value": "在开启“请勿打扰”模式期间，有未接来电"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Rahatsız Etmeyin” modu açıkken cevapsız çağrı"
+          }
         }
       }
     },
@@ -1488,6 +1602,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "新联系人！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni kişi!"
           }
         }
       }
@@ -1566,6 +1686,12 @@
             "state": "translated",
             "value": "接受"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabul et"
+          }
         }
       }
     },
@@ -1642,6 +1768,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "回电"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri ara"
           }
         }
       }
@@ -1720,6 +1852,12 @@
             "state": "translated",
             "value": "拒绝"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reddet"
+          }
         }
       }
     },
@@ -1796,6 +1934,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "标记为已读"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okundu olarak işaretle"
           }
         }
       }
@@ -1874,6 +2018,12 @@
             "state": "translated",
             "value": "将讨论设置为静音一小时"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışmayı bir saatliğine sessize alın"
+          }
         }
       }
     },
@@ -1950,6 +2100,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "回复"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanıtla"
           }
         }
       }
@@ -2028,6 +2184,12 @@
             "state": "translated",
             "value": "发送消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesaj gönder"
+          }
         }
       }
     },
@@ -2103,6 +2265,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "新的邀请！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni Davet!"
           }
         }
       }
@@ -2180,6 +2348,12 @@
             "state": "translated",
             "value": "新邀请"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni davetiye"
+          }
         }
       }
     },
@@ -2255,6 +2429,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "新消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni mesaj"
           }
         }
       }
@@ -2332,6 +2512,12 @@
             "state": "translated",
             "value": "最后一步！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son bir adım!"
+          }
         }
       }
     },
@@ -2407,6 +2593,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Olvid 需要您的关注。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in dikkatine ihtiyacı var."
           }
         }
       }
@@ -2484,6 +2676,12 @@
             "state": "translated",
             "value": "对您的一条消息进行了 %1$@ 反应。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesajlarınızdan birine %1$@ tepki gösterdiniz."
+          }
         }
       }
     },
@@ -2559,6 +2757,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "对 %2$@ 进行了 %1$@ 反应"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ şuna tepki gösterdi: %2$@"
           }
         }
       }
@@ -2636,6 +2840,12 @@
             "state": "translated",
             "value": "由于 Olvid 未获得麦克风访问权限，因此拒绝了来电。为了今后不再错过任何来电，请前往“设置”并授予 Olvid 访问麦克风的权限。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in Mikrofona erişmesine izin verilmediğinden gelen çağrı reddedildi. Bir daha hiçbir çağrıyı kaçırmamak için lütfen Ayarlar'a gidin ve Olvid'in mikrofona erişmesine izin verin."
+          }
         }
       }
     },
@@ -2711,6 +2921,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "要接收来电，您需要允许 Olvid 访问麦克风。请点击此通知以允许 Olvid 访问麦克风。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir çağrı almak için Olvid'in mikrofona erişmesine izin vermeniz gerekir. Olvid'in mikrofona erişmesine izin vermek için lütfen bu bildirime dokunun."
           }
         }
       }
@@ -2788,6 +3004,12 @@
             "state": "translated",
             "value": "分享了一个地点"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bir yer paylaştı"
+          }
         }
       }
     },
@@ -2863,6 +3085,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已开始共享位置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "konum paylaşmaya başladı"
           }
         }
       }
@@ -2940,6 +3168,12 @@
             "state": "translated",
             "value": "停止共享位置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "konum paylaşımı durduruldu"
+          }
         }
       }
     },
@@ -3015,6 +3249,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "点击查看参与者的视频"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "👉 Katılımcının videosunu görüntülemek için dokunun"
           }
         }
       }
@@ -3092,6 +3332,12 @@
             "state": "translated",
             "value": "点击查看邀请函。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daveti görmek için dokunun."
+          }
         }
       }
     },
@@ -3167,6 +3413,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "点击查看消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesajı görmek için dokunun."
           }
         }
       }
@@ -3244,6 +3496,12 @@
             "state": "translated",
             "value": "您被邀请加入由 %@ 创建的群组。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tarafından oluşturulan bir gruba katılmaya davetlisiniz."
+          }
         }
       }
     },
@@ -3320,6 +3578,12 @@
             "state": "translated",
             "value": "%@ 现在已添加到您的联系人中。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ artık kişilerinizin bir parçası."
+          }
         }
       }
     },
@@ -3395,6 +3659,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 想和你聊聊。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sizinle görüşmek istiyorum."
           }
         }
       }

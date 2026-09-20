@@ -20,6 +20,12 @@
             "state": "translated",
             "value": ""
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          }
         }
       },
       "shouldTranslate": false
@@ -309,6 +315,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "未找到已备份的资料"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Yedeklenmiş bir profil bulundu"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld yedeklenmiş profiller bulundu"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Yedeklenmiş profil bulunamadı"
                 }
               }
             }
@@ -605,6 +635,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir yedek bulundu"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld yedekler bulundu"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Yedek bulunamadı"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -881,6 +935,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "연락처 없음"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tek kişi"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld kişiler"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kişi yok"
                 }
               }
             }
@@ -1171,6 +1249,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir grup"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld gruplar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grup yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1246,6 +1348,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "启用自动备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik yedeklemeleri etkinleştir"
           }
         }
       }
@@ -1323,6 +1431,12 @@
             "state": "translated",
             "value": "添加设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz ekle"
+          }
         }
       }
     },
@@ -1398,6 +1512,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "高级设置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelişmiş ayarlar"
           }
         }
       }
@@ -1475,6 +1595,12 @@
             "state": "translated",
             "value": "发生错误"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir hata oluştu"
+          }
         }
       }
     },
@@ -1550,6 +1676,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请验证身份以查看您的备份密钥。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen kimliğinizi doğrulayın, yedek anahtarınızı görün."
           }
         }
       }
@@ -1627,6 +1759,12 @@
             "state": "translated",
             "value": "备份已成功启用！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeler başarıyla etkinleştirildi!"
+          }
         }
       }
     },
@@ -1702,6 +1840,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "可用于此密钥的可用备份资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu anahtar için mevcut yedeklenmiş profiller"
           }
         }
       }
@@ -1779,6 +1923,12 @@
             "state": "translated",
             "value": "已备份的个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklenen profiller"
+          }
         }
       }
     },
@@ -1854,6 +2004,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "跨设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlar arasında"
           }
         }
       }
@@ -1931,6 +2087,12 @@
             "state": "translated",
             "value": "每个设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz başına"
+          }
         }
       }
     },
@@ -2006,6 +2168,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme"
           }
         }
       }
@@ -2083,6 +2251,12 @@
             "state": "translated",
             "value": "备份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeler"
+          }
         }
       }
     },
@@ -2158,6 +2332,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此设备上的个人资料将自动备份。备份内容经过加密后存储在 Olvid 的服务器上。加密密钥保存在 iCloud 钥匙串中，并在您的所有设备上同步。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazda bulunan profiller otomatik olarak yedeklenir. Yedeklemeler şifrelenir ve Olvid'in sunucularında saklanır. Şifreleme anahtarı iCloud anahtar zincirine kaydedilir ve aygıtlarınız arasında senkronize edilir."
           }
         }
       }
@@ -2235,6 +2415,12 @@
             "state": "translated",
             "value": "此设备上的个人资料将自动备份。备份将被加密，然后存储在 Olvid 的服务器上。您需要记下加密密钥并将其保存在安全的地方。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazda bulunan profiller otomatik olarak yedeklenir. Yedeklemeler şifrelenir ve Olvid'in sunucularında saklanır. Şifreleme anahtarını bir yere yazıp güvenli bir yerde saklamanız gerekecektir."
+          }
         }
       }
     },
@@ -2310,6 +2496,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此设备上的资料永远不会备份。因此，如果丢失了对该设备的访问权限，可能会导致资料永久丢失。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazda bulunan profiller hiçbir zaman yedeklenmez. Sonuç olarak, bu cihaza erişimin kaybedilmesi, profillerin kesin olarak kaybolmasıyla sonuçlanabilir."
           }
         }
       }
@@ -2387,6 +2579,12 @@
             "state": "translated",
             "value": "自动备份和密钥管理"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik yedeklemeler ve anahtar yönetimi"
+          }
         }
       }
     },
@@ -2462,6 +2660,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "自动备份，但密钥管理为手动"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik yedeklemeler ancak manuel anahtar yönetimi"
           }
         }
       }
@@ -2539,6 +2743,12 @@
             "state": "translated",
             "value": "没有备份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme yok"
+          }
         }
       }
     },
@@ -2614,6 +2824,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "备份到 iCloud 钥匙串（推荐）"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Anahtar Zincirine Yedekleme (önerilir)"
           }
         }
       }
@@ -2907,6 +3123,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda %1$@ profilinizi geri yüklediğinizde eski cihazınız devre dışı bırakılacak:"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda %1$@ profilinizi geri yüklediğinizde %2$lld eski cihazınız devre dışı bırakılacak:"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda %1$@ profilinizi geri yüklediğinizde eski cihazınız devre dışı bırakılacak:"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -2982,6 +3222,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
           }
         }
       }
@@ -3059,6 +3305,12 @@
             "state": "translated",
             "value": "默认情况下，备份将自动管理。请探索高级设置，以选择其他选项。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan olarak yedeklemeler otomatik olarak yönetilecektir. Başka bir seçenek seçmek için lütfen gelişmiş ayarları inceleyin."
+          }
         }
       }
     },
@@ -3134,6 +3386,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "默认情况下，系统会自动执行备份（无需再手动记录备份密钥）。请在高级设置中选择其他选项。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan olarak yedeklemeler otomatik olarak gerçekleştirilecektir (artık bir yedekleme anahtarı yazmanıza gerek yoktur). Başka bir seçenek seçmek için lütfen gelişmiş ayarları inceleyin."
           }
         }
       }
@@ -3211,6 +3469,12 @@
             "state": "translated",
             "value": "您确定吗？此操作不可撤销。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emin misin? Bu işlem geri döndürülemez."
+          }
         }
       }
     },
@@ -3286,6 +3550,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制密钥"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarı kopyala"
           }
         }
       }
@@ -3363,6 +3633,12 @@
             "state": "translated",
             "value": "复制错误到剪贴板"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hatayı panoya kopyala"
+          }
         }
       }
     },
@@ -3438,6 +3714,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sil"
           }
         }
       }
@@ -3515,6 +3797,12 @@
             "state": "translated",
             "value": "正在删除…"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siliniyor…"
+          }
         }
       }
     },
@@ -3590,6 +3878,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我的备份密钥"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedek anahtarım"
           }
         }
       }
@@ -3667,6 +3961,12 @@
             "state": "translated",
             "value": "输入备份密钥"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir yedek anahtar girin"
+          }
         }
       }
     },
@@ -3742,6 +4042,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "输入备份密钥"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir yedek anahtar girin"
           }
         }
       }
@@ -3819,6 +4125,12 @@
             "state": "translated",
             "value": "输入备份密钥"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedek anahtarı girin"
+          }
         }
       }
     },
@@ -3894,6 +4206,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "如果您认为此设备的备份密钥被盗用或遭到破坏，但尚未被恶意利用，您可以将其清除并生成新的密钥。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz yedekleme anahtarının çalındığını veya ele geçirildiğini ancak henüz kötüye kullanılmadığını düşünüyorsanız onu silebilir ve yeni bir anahtar oluşturabilirsiniz."
           }
         }
       }
@@ -3971,6 +4289,12 @@
             "state": "translated",
             "value": "删除并生成新的密钥"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silin ve yeni bir anahtar oluşturun"
+          }
         }
       }
     },
@@ -4046,6 +4370,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您确定要删除并生成新的密钥吗？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silip yeni bir anahtar oluşturmak istediğinizden emin misiniz?"
           }
         }
       }
@@ -4123,6 +4453,12 @@
             "state": "translated",
             "value": "重置全部操作失败：%@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümü sıfırlanamadı: %@"
+          }
         }
       }
     },
@@ -4198,6 +4534,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "来自 *%@*"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "*%@*'dan itibaren"
           }
         }
       }
@@ -4275,6 +4617,12 @@
             "state": "translated",
             "value": "此设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz"
+          }
         }
       }
     },
@@ -4350,6 +4698,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "提示"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İpucu"
           }
         }
       }
@@ -4427,6 +4781,12 @@
             "state": "translated",
             "value": "iCloud 钥匙串使用端到端加密来保护您的信息。[了解更多…](_)"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Anahtar Zinciri, bilgilerinizi uçtan uca şifrelemeyle korur. [Daha fazlasını öğrenin…](_)"
+          }
         }
       }
     },
@@ -4502,6 +4862,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已激活"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaten aktif"
           }
         }
       }
@@ -4579,6 +4945,12 @@
             "state": "translated",
             "value": "已记录在案"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerektiği gibi not edildi"
+          }
         }
       }
     },
@@ -4654,6 +5026,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用 Olvid+ 保存所有消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hepsini Olvid+'da tutun"
           }
         }
       }
@@ -4731,6 +5109,12 @@
             "state": "translated",
             "value": "了解更多"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha fazlasını öğrenin"
+          }
         }
       }
     },
@@ -4806,6 +5190,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "可用的备份资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanılabilir yedeklenmiş profiller"
           }
         }
       }
@@ -4883,6 +5273,12 @@
             "state": "translated",
             "value": "你好，Olvid！\n\n我无法恢复我的个人资料。你能帮忙查看一下这个问题吗？错误信息如下：\n\n%@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merhaba Olvid!\n\nProfilimi geri yükleyemedim. Lütfen bu konuyu inceleyebilir misiniz? İşte hata:\n\n%@"
+          }
         }
       }
     },
@@ -4958,6 +5354,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我无法恢复我的个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi geri yükleyemedim"
           }
         }
       }
@@ -5035,6 +5437,12 @@
             "state": "translated",
             "value": "立即备份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdi yedekle"
+          }
         }
       }
     },
@@ -5110,6 +5518,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "管理备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeleri yönet"
           }
         }
       }
@@ -5187,6 +5601,12 @@
             "state": "translated",
             "value": "在多个设备上使用 Olvid。您可以从其他设备恢复您的帐户，而无需使用密钥。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'i birden fazla cihazda kullanın. Hesabınızı diğer cihazlarınızdan anahtarsız olarak geri yükleyebilirsiniz."
+          }
         }
       }
     },
@@ -5262,6 +5682,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "在多个设备上使用 Olvid。您可以从其他设备恢复您的帐户，而无需使用密钥。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'i birden fazla cihazda kullanın. Hesabınızı diğer cihazlarınızdan anahtarsız olarak geri yükleyebilirsiniz."
           }
         }
       }
@@ -5339,6 +5765,12 @@
             "state": "translated",
             "value": "在多个设备上使用 Olvid。您可以从其他设备恢复您的帐户，而无需密钥。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'i birden fazla cihazda kullanın. Hesabınızı diğer cihazlarınızdan anahtarsız olarak geri yükleyebilirsiniz."
+          }
         }
       }
     },
@@ -5414,6 +5846,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "未找到备份。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedek bulunamadı."
           }
         }
       }
@@ -5491,6 +5929,12 @@
             "state": "translated",
             "value": "好的"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
         }
       }
     },
@@ -5566,6 +6010,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请稍等…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir dakika lütfen…"
           }
         }
       }
@@ -5643,6 +6093,12 @@
             "state": "translated",
             "value": "打开此资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profili aç"
+          }
         }
       }
     },
@@ -5718,6 +6174,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "个人资料已由其他设备备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir cihaz tarafından yedeklenen profiller"
           }
         }
       }
@@ -5795,6 +6257,12 @@
             "state": "translated",
             "value": "我们正在查找您的备份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklerinizi arıyoruz"
+          }
         }
       }
     },
@@ -5870,6 +6338,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们正在恢复您的个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizi geri yüklüyoruz"
           }
         }
       }
@@ -5947,6 +6421,12 @@
             "state": "translated",
             "value": "请稍后再试。如果问题仍然存在，请将以下错误信息发送到[%@](mailto:%@)。我们会尽力帮助您！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen tekrar deneyin. Sorun devam ederse lütfen aşağıdaki hatayı [%@](mailto:%@) adresine gönderin. Size yardımcı olmak için elimizden geleni yapacağız!"
+          }
         }
       }
     },
@@ -6022,6 +6502,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "但请重试"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ama lütfen tekrar deneyin"
           }
         }
       }
@@ -6099,6 +6585,12 @@
             "state": "translated",
             "value": "我们无法恢复您的个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizi geri yükleyemedik"
+          }
         }
       }
     },
@@ -6174,6 +6666,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的个人资料已恢复！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz geri yüklendi!"
           }
         }
       }
@@ -6251,6 +6749,12 @@
             "state": "translated",
             "value": "推荐"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önerilen"
+          }
         }
       }
     },
@@ -6326,6 +6830,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "稍后提醒"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha sonra hatırlat"
           }
         }
       }
@@ -6403,6 +6913,12 @@
             "state": "translated",
             "value": "重置所有"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümünü sıfırla"
+          }
         }
       }
     },
@@ -6478,6 +6994,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "将此设备的备份配置重置为初始状态。将执行以下步骤："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın yedekleme yapılandırmasını başlangıç durumuna sıfırlar. Aşağıdaki adımlar gerçekleştirilecektir:"
           }
         }
       }
@@ -6555,6 +7077,12 @@
             "state": "translated",
             "value": "删除此设备的备份密钥（如果存在，则将其从 iCloud 钥匙链中移除）"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın yedekleme anahtarını silin (ve varsa iCloud anahtar zincirinden kaldırın)."
+          }
         }
       }
     },
@@ -6630,6 +7158,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除此设备在云端所做的所有加密备份。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz tarafından yapılan tüm şifrelenmiş yedeklemeleri buluttan silin."
           }
         }
       }
@@ -6707,6 +7241,12 @@
             "state": "translated",
             "value": "恢复"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri yükle"
+          }
         }
       }
     },
@@ -6782,6 +7322,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "恢复另一个个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir profili geri yükle"
           }
         }
       }
@@ -6859,6 +7405,12 @@
             "state": "translated",
             "value": "自动从 iCloud 钥匙串恢复"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Anahtar Zincirinden otomatik olarak geri yükleme"
+          }
         }
       }
     },
@@ -6934,6 +7486,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "恢复我的个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi geri yükle"
           }
         }
       }
@@ -7011,6 +7569,12 @@
             "state": "translated",
             "value": "让我们恢复您之前备份的文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklerinizden birini geri yükleyelim"
+          }
         }
       }
     },
@@ -7086,6 +7650,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "恢复此旧备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu eski yedeği geri yükleyin"
           }
         }
       }
@@ -7163,6 +7733,12 @@
             "state": "translated",
             "value": "正在恢复……"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri yükleniyor…"
+          }
         }
       }
     },
@@ -7238,6 +7814,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "手动搜索备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeyi manuel olarak arayın"
           }
         }
       }
@@ -7315,6 +7897,12 @@
             "state": "translated",
             "value": "安全"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenlik"
+          }
         }
       }
     },
@@ -7390,6 +7978,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的个人资料备份已加密。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil yedeklemeleriniz şifrelenir."
           }
         }
       }
@@ -7467,6 +8061,12 @@
             "state": "translated",
             "value": "通过电子邮件发送错误报告"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hatayı e-postayla gönder"
+          }
         }
       }
     },
@@ -7542,6 +8142,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示我的密钥"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarımı göster"
           }
         }
       }
@@ -7619,6 +8225,12 @@
             "state": "translated",
             "value": "显示我的新密钥"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni anahtarımı göster"
+          }
         }
       }
     },
@@ -7694,6 +8306,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "太好了！您可以安全地恢复您的个人资料 %@。您之前的所有设备将继续像以前一样正常工作。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mükemmel! Profilinizi güvenle geri yükleyebilirsiniz %@. Önceki tüm cihazlarınız eskisi gibi çalışmaya devam edecektir."
           }
         }
       }
@@ -7771,6 +8389,12 @@
             "state": "translated",
             "value": "密钥被盗或泄露"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çalınan veya ele geçirilen anahtar"
+          }
         }
       }
     },
@@ -7846,6 +8470,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "订阅 Olvid+"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'e abone ol+"
           }
         }
       }
@@ -7923,6 +8553,12 @@
             "state": "translated",
             "value": "稍后您还可以在设置中找到该密钥。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıca anahtarı daha sonra ayarlarınızda da bulabileceksiniz."
+          }
         }
       }
     },
@@ -7998,6 +8634,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "如果您希望将此设备的个人资料还原到无法访问 iCloud 钥匙链的设备上，或者永久丢失对 iCloud 帐户的访问权限，则需要此密钥。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın profillerini iCloud Anahtar Zinciri'ne erişimi olmayan bir cihaza geri yüklemek isterseniz veya iCloud hesabınıza erişimi kalıcı olarak kaybederseniz bu anahtar gerekecektir."
           }
         }
       }
@@ -8075,6 +8717,12 @@
             "state": "translated",
             "value": "此设备备份的个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz tarafından yedeklenen profiller"
+          }
         }
       }
     },
@@ -8150,6 +8798,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请稍后再试"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen daha sonra tekrar deneyin"
           }
         }
       }
@@ -8227,6 +8881,12 @@
             "state": "translated",
             "value": "验证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğrula"
+          }
         }
       }
     },
@@ -8302,6 +8962,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们无法激活您的备份。请稍后再试。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemelerinizi etkinleştiremedik. Lütfen daha sonra tekrar deneyin."
           }
         }
       }
@@ -8379,6 +9045,12 @@
             "state": "translated",
             "value": "我们无法更改“备份到 iCloud 钥匙串”设置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"iCloud Anahtar Zincirine Yedekle\" ayarını değiştiremedik"
+          }
         }
       }
     },
@@ -8454,6 +9126,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们无法停用您的备份。请稍后重试。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemelerinizi devre dışı bırakamadık. Lütfen daha sonra tekrar deneyin"
           }
         }
       }
@@ -8531,6 +9209,12 @@
             "state": "translated",
             "value": "我们无法删除此备份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu yedeği silemedik"
+          }
         }
       }
     },
@@ -8606,6 +9290,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们无法找到与您提供的备份密钥关联的备份。请确保您输入了正确的备份密钥，然后重试。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sağlanan yedek anahtarla ilişkili bir yedekleme bulamadık. Lütfen doğru yedek anahtarı girdiğinizden emin olun ve tekrar deneyin."
           }
         }
       }
@@ -8683,6 +9373,12 @@
             "state": "translated",
             "value": "我们无法找到与您提供的备份密钥关联的备份。请确保您已输入正确的备份密钥并重试。您也可以尝试[从旧版备份恢复](_)。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sağlanan yedek anahtarla ilişkili bir yedekleme bulamadık. Lütfen doğru yedek anahtarı girdiğinizden emin olun ve tekrar deneyin. Ayrıca [eski bir yedekten geri yüklemeyi](_) de deneyebilirsiniz."
+          }
         }
       }
     },
@@ -8758,6 +9454,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们无法恢复您的个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizi geri yükleyemedik"
           }
         }
       }
@@ -8835,6 +9537,12 @@
             "state": "translated",
             "value": "您想恢复哪个备份？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hangi yedeği geri yüklemek istiyorsunuz?"
+          }
         }
       }
     },
@@ -8910,6 +9618,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeleriniz"
           }
         }
       }
@@ -8987,6 +9701,12 @@
             "state": "translated",
             "value": "备份功能可让您恢复个人资料和联系人，即使您无法访问您的设备。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeler, cihazınıza erişimi kaybetseniz bile profillerinizi ve kişilerinizi geri yüklemenize olanak tanır."
+          }
         }
       }
     },
@@ -9062,6 +9782,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请注意，消息和附件**不会备份**，因此**无法恢复**。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen mesajların ve eklerin **yedeklenmediğini** ve **geri yüklenmeyeceğini** unutmayın."
           }
         }
       }
@@ -9139,6 +9865,12 @@
             "state": "translated",
             "value": "您的密钥"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarınız"
+          }
         }
       }
     },
@@ -9215,6 +9947,12 @@
             "state": "translated",
             "value": "恢复完成后，您可以在个人资料设置中选择要保持活跃的设备。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restorasyon sonrasında profil ayarlarınızdan hangi cihazın aktif kalacağını seçebileceksiniz."
+          }
         }
       }
     },
@@ -9290,6 +10028,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "注意，有更新的备份可用！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dikkat, daha yeni bir yedekleme mevcut!"
           }
         }
       }

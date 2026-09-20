@@ -76,6 +76,12 @@
             "state": "translated",
             "value": "激活新许可证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni lisansı etkinleştir"
+          }
         }
       }
     },
@@ -153,6 +159,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们目前无法激活您的新许可证。请稍后重试。如果问题仍然存在，请联系支持人员寻求帮助。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu anda yeni lisansınızı etkinleştiremedik. Lütfen daha sonra tekrar deneyin. Sorun devam ederse yardım için desteğe başvurun."
           }
         }
       }
@@ -232,6 +244,12 @@
             "state": "translated",
             "value": "此资料受益于另一个资料的授权。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profil başka bir profilin lisansından yararlanmaktadır."
+          }
         }
       }
     },
@@ -309,6 +327,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "账单宽限期"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faturalandırma Ek Süre"
           }
         }
       }
@@ -388,6 +412,12 @@
             "state": "translated",
             "value": "取消"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
         }
       }
     },
@@ -465,6 +495,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们无法获取与 API 密钥关联的权限。请检查您的网络连接，然后重试。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API anahtarıyla ilişkili izinleri alamadık. Lütfen ağ bağlantınızı kontrol edip tekrar deneyin."
           }
         }
       }
@@ -544,6 +580,12 @@
             "state": "translated",
             "value": "当前授权状态"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mevcut lisans durumu"
+          }
         }
       }
     },
@@ -621,6 +663,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "创建群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar oluştur"
           }
         }
       }
@@ -700,6 +748,12 @@
             "state": "translated",
             "value": "已过期，时间为 %@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tarihinden itibaren süresi doldu"
+          }
         }
       }
     },
@@ -777,6 +831,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "免费试用期已于 %@ 结束"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ücretsiz deneme süresi %@ tarihinde sona erdi"
           }
         }
       }
@@ -856,6 +916,12 @@
             "state": "translated",
             "value": "免费试用期已结束"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ücretsiz deneme süresi doldu"
+          }
         }
       }
     },
@@ -933,6 +999,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "免费功能"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ücretsiz özellikler"
           }
         }
       }
@@ -1012,6 +1084,12 @@
             "state": "translated",
             "value": "宽限期已结束"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ek süre sona erdi"
+          }
         }
       }
     },
@@ -1089,6 +1167,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "유예 기간이 %@에 종료되었습니다."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ek süre %@ tarihinde sona erdi"
           }
         }
       }
@@ -1168,6 +1252,12 @@
             "state": "translated",
             "value": "宽限期结束于 %@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ek süre %@ tarihinde sona eriyor"
+          }
         }
       }
     },
@@ -1245,6 +1335,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "无效的订阅"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçersiz abonelik"
           }
         }
       }
@@ -1324,6 +1420,12 @@
             "state": "translated",
             "value": "正在查找新的许可证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni lisansı arıyorum"
+          }
         }
       }
     },
@@ -1401,6 +1503,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用 iPhone 和 iPad 进行安全的通话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone ve iPad ile güvenli aramalar yapın"
           }
         }
       }
@@ -1480,6 +1588,12 @@
             "state": "translated",
             "value": "许可证管理"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lisans yönetimi"
+          }
         }
       }
     },
@@ -1557,6 +1671,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "多设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çoklu cihaz"
           }
         }
       }
@@ -1636,6 +1756,12 @@
             "state": "translated",
             "value": "新的许可证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni lisans"
+          }
         }
       }
     },
@@ -1713,6 +1839,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "没有有效的订阅"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktif abonelik yok"
           }
         }
       }
@@ -1792,6 +1924,12 @@
             "state": "translated",
             "value": "好的"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
         }
       }
     },
@@ -1869,6 +2007,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请联系您的管理员以获取更多详细信息。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha fazla ayrıntı için lütfen yöneticinizle iletişime geçin."
           }
         }
       }
@@ -1948,6 +2092,12 @@
             "state": "translated",
             "value": "高级功能"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium özellikler"
+          }
         }
       }
     },
@@ -2025,6 +2175,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "高级功能仅在限定时间内可用。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium özellikler sınırlı bir süre için kullanılabilir."
           }
         }
       }
@@ -2104,6 +2260,12 @@
             "state": "translated",
             "value": "高级功能现可免费使用，截止日期为 %@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium özellikler şu tarihe kadar ücretsiz olarak sunulmaktadır: %@"
+          }
         }
       }
     },
@@ -2181,6 +2343,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "免费提供高级功能"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ücretsiz olarak sunulan premium özellikler"
           }
         }
       }
@@ -2260,6 +2428,12 @@
             "state": "translated",
             "value": "高级功能可用至 %@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium özellikler şu tarihe kadar mevcuttur: %@"
+          }
         }
       }
     },
@@ -2337,6 +2511,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "高级功能免费试用"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium özellikler ücretsiz deneme"
           }
         }
       }
@@ -2416,6 +2596,12 @@
             "state": "translated",
             "value": "试用高级功能"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium özelliklerin denemesi"
+          }
         }
       }
     },
@@ -2493,6 +2679,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "通过 iPhone、iPad 和 Mac 安全地接收通话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone, iPad ve Mac ile güvenli aramalar alın"
           }
         }
       }
@@ -2572,6 +2764,12 @@
             "state": "translated",
             "value": "刷新状态"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durumu yenile"
+          }
         }
       }
     },
@@ -2649,6 +2847,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "查看订阅方案"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik planlarına bakın"
           }
         }
       }
@@ -2728,6 +2932,12 @@
             "state": "translated",
             "value": "发送和接收消息以及附件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesaj ve ek gönderme ve alma"
+          }
         }
       }
     },
@@ -2805,6 +3015,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "订阅已过期"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aboneliğin süresi doldu"
           }
         }
       }
@@ -2884,6 +3100,12 @@
             "state": "translated",
             "value": "此订阅已与另一用户关联"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu abonelik zaten başka bir kullanıcıyla ilişkilendirilmiş"
+          }
         }
       }
     },
@@ -2961,6 +3183,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的个人资料当前由贵公司的身份提供商管理。您无法手动激活 Olvid 许可证。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz şu anda şirketinizin kimlik sağlayıcısı tarafından yönetiliyor. Olvid lisansını manuel olarak etkinleştiremezsiniz."
           }
         }
       }
@@ -3040,6 +3268,12 @@
             "state": "translated",
             "value": "与您的个人资料关联的消息分发服务器与许可证中指定的服务器不兼容。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizle ilişkili mesaj dağıtım sunucusu, lisansta belirtilen sunucuyla uyumlu değil."
+          }
         }
       }
     },
@@ -3117,6 +3351,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您在此设备上的个人资料处于非活跃状态。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz bu cihazda etkin değil."
           }
         }
       }
@@ -3196,6 +3436,12 @@
             "state": "translated",
             "value": "无法激活许可证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lisans etkinleştirilemiyor"
+          }
         }
       }
     },
@@ -3274,6 +3520,12 @@
             "state": "translated",
             "value": "有效的许可证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçerli lisans"
+          }
         }
       }
     },
@@ -3351,6 +3603,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "有效期至 %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tarihine kadar geçerlidir"
           }
         }
       }

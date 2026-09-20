@@ -76,6 +76,12 @@
             "state": "translated",
             "value": "通讯录"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiler"
+          }
         }
       }
     },
@@ -153,6 +159,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "讨论"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışmalar"
           }
         }
       }
@@ -232,6 +244,12 @@
             "state": "translated",
             "value": "群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
+          }
         }
       }
     },
@@ -307,6 +325,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "邀请"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetiyeler"
           }
         }
       }

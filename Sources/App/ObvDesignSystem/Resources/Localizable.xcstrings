@@ -2,7 +2,15 @@
   "sourceLanguage": "en",
   "strings": {
     "": {
-      "shouldTranslate": false
+      "shouldTranslate": false,
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          }
+        }
+      }
     },
     "BUTTON_CALL": {
       "localizations": {
@@ -76,6 +84,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "通话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ara"
           }
         }
       }
@@ -153,6 +167,12 @@
             "state": "translated",
             "value": "聊天"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet"
+          }
         }
       }
     },
@@ -228,6 +248,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请检查拼写或尝试新的搜索。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yazımı kontrol edin veya yeni bir arama yapmayı deneyin."
           }
         }
       }
@@ -305,6 +331,12 @@
             "state": "translated",
             "value": "没有结果"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonuç Yok"
+          }
         }
       }
     },
@@ -380,6 +412,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
           }
         }
       }
@@ -457,6 +495,12 @@
             "state": "translated",
             "value": "好的"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
         }
       }
     },
@@ -533,6 +577,12 @@
             "state": "translated",
             "value": "个人笔记"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişisel not"
+          }
         }
       }
     },
@@ -608,6 +658,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已选择"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçildi"
           }
         }
       }
@@ -829,6 +885,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "İptal etmek için tıklayın"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "İptal etmek için dokunun"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -904,6 +978,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "在此处输入个人备注..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buraya kişisel bir not yazın..."
           }
         }
       }
@@ -981,6 +1061,12 @@
             "state": "translated",
             "value": "已取消选择"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçim kaldırıldı"
+          }
         }
       }
     },
@@ -1056,6 +1142,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已复制"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Değer kopyalandı"
           }
         }
       }

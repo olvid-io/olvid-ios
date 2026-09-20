@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "你是在开玩笑吗？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şaka mı yapıyorsun?"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "低音大管"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fagot"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "铃声"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çan"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "红衣主教"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kardinal"
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "科基"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coqui"
+          }
         }
       }
     },
@@ -453,6 +483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "乌鸦"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karga"
           }
         }
       }
@@ -530,6 +566,12 @@
             "state": "translated",
             "value": "布谷鸟"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guguk kuşu"
+          }
         }
       }
     },
@@ -605,6 +647,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "鸭子"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ördek"
           }
         }
       }
@@ -682,6 +730,12 @@
             "state": "translated",
             "value": "鸭子嘎嘎叫"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ördek şarlatanları"
+          }
         }
       }
     },
@@ -757,6 +811,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "鹰"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kartal"
           }
         }
       }
@@ -834,6 +894,12 @@
             "state": "translated",
             "value": "森林中的鸟"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ormandaki kuş"
+          }
         }
       }
     },
@@ -909,6 +975,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "喜鹊"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saksağan"
           }
         }
       }
@@ -986,6 +1058,12 @@
             "state": "translated",
             "value": "角鸮"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boynuzlu baykuş"
+          }
         }
       }
     },
@@ -1061,6 +1139,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "棕色猫头鹰"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alaca baykuş"
           }
         }
       }
@@ -1138,6 +1222,12 @@
             "state": "translated",
             "value": "鸟鸣"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kuş Tweeti"
+          }
         }
       }
     },
@@ -1213,6 +1303,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "猎鹰"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şahin"
           }
         }
       }
@@ -1290,6 +1386,12 @@
             "state": "translated",
             "value": "屏蔽"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blok"
+          }
         }
       }
     },
@@ -1365,6 +1467,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "黄铜"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pirinç"
           }
         }
       }
@@ -1442,6 +1550,12 @@
             "state": "translated",
             "value": "制造话题"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dramayı getir"
+          }
         }
       }
     },
@@ -1517,6 +1631,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "忙"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meşgul"
           }
         }
       }
@@ -1594,6 +1714,12 @@
             "state": "translated",
             "value": "平静"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sakin"
+          }
         }
       }
     },
@@ -1669,6 +1795,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "鸡"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tavuk"
           }
         }
       }
@@ -1746,6 +1878,12 @@
             "state": "translated",
             "value": "Rooster 1"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horoz 1"
+          }
         }
       }
     },
@@ -1821,6 +1959,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "公鸡 2"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horoz 2"
           }
         }
       }
@@ -1898,6 +2042,12 @@
             "state": "translated",
             "value": "提示音"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zil"
+          }
         }
       }
     },
@@ -1973,6 +2123,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "蝉"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ağustosböceği"
           }
         }
       }
@@ -2050,6 +2206,12 @@
             "state": "translated",
             "value": "马戏团小丑喇叭"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sirk palyaço kornası"
+          }
         }
       }
     },
@@ -2125,6 +2287,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "单簧管"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klarnet"
           }
         }
       }
@@ -2202,6 +2370,12 @@
             "state": "translated",
             "value": "烤箱"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kemençe"
+          }
         }
       }
     },
@@ -2277,6 +2451,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "库拉"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cura"
           }
         }
       }
@@ -2354,6 +2534,12 @@
             "state": "translated",
             "value": "云端"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bulut"
+          }
         }
       }
     },
@@ -2429,6 +2615,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "奶牛"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnek"
           }
         }
       }
@@ -2506,6 +2698,12 @@
             "state": "translated",
             "value": "大象"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fil"
+          }
         }
       }
     },
@@ -2581,6 +2779,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "别再说了"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeter artık konuş"
           }
         }
       }
@@ -2658,6 +2862,12 @@
             "state": "translated",
             "value": "长笛"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flüt"
+          }
         }
       }
     },
@@ -2733,6 +2943,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "狂热"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çılgınlık"
           }
         }
       }
@@ -2810,6 +3026,12 @@
             "state": "translated",
             "value": "青蛙"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kurbağa"
+          }
         }
       }
     },
@@ -2885,6 +3107,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "有趣的欢呼声"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komik tantana"
           }
         }
       }
@@ -2962,6 +3190,12 @@
             "state": "translated",
             "value": "钟琴"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glockenspiel"
+          }
         }
       }
     },
@@ -3037,6 +3271,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "山羊"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keçi"
           }
         }
       }
@@ -3114,6 +3354,12 @@
             "state": "translated",
             "value": "竖琴"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arp"
+          }
         }
       }
     },
@@ -3189,6 +3435,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "嘿，小家伙"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hey şampiyon"
           }
         }
       }
@@ -3266,6 +3518,12 @@
             "state": "translated",
             "value": "雾角"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sis kornası"
+          }
         }
       }
     },
@@ -3341,6 +3599,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "公交车喇叭声"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otobüs kornası"
           }
         }
       }
@@ -3418,6 +3682,12 @@
             "state": "translated",
             "value": "汽车喇叭"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Araba kornası"
+          }
         }
       }
     },
@@ -3493,6 +3763,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "1916年的汽车喇叭"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1916 araba kornası"
           }
         }
       }
@@ -3570,6 +3846,12 @@
             "state": "translated",
             "value": "出租车喇叭"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taksi kornası"
+          }
         }
       }
     },
@@ -3645,6 +3927,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "火车喇叭 1"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tren kornası 1"
           }
         }
       }
@@ -3722,6 +4010,12 @@
             "state": "translated",
             "value": "火车鸣笛声 2"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tren kornası 2"
+          }
         }
       }
     },
@@ -3797,6 +4091,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "马"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At"
           }
         }
       }
@@ -3874,6 +4174,12 @@
             "state": "translated",
             "value": "琴"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koto"
+          }
         }
       }
     },
@@ -3949,6 +4255,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "模块化"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modüler"
           }
         }
       }
@@ -4026,6 +4338,12 @@
             "state": "translated",
             "value": "雏鸟"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yavru"
+          }
         }
       }
     },
@@ -4101,6 +4419,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "剪得真好"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güzel kesim"
           }
         }
       }
@@ -4178,6 +4502,12 @@
             "state": "translated",
             "value": "闹钟"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarmlar"
+          }
         }
       }
     },
@@ -4253,6 +4583,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "动物"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayvanlar"
           }
         }
       }
@@ -4330,6 +4666,12 @@
             "state": "translated",
             "value": "中立"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nötr"
+          }
         }
       }
     },
@@ -4405,6 +4747,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "玩具"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyuncaklar"
           }
         }
       }
@@ -4483,6 +4831,12 @@
             "state": "translated",
             "value": "无"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yok"
+          }
         }
       }
     },
@@ -4558,6 +4912,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "双簧管"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obua"
           }
         }
       }
@@ -4635,6 +4995,12 @@
             "state": "translated",
             "value": "真的吗？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ah gerçekten"
+          }
         }
       }
     },
@@ -4710,6 +5076,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "原始"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oring"
           }
         }
       }
@@ -4787,6 +5159,12 @@
             "state": "translated",
             "value": "美洲豹"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panthera"
+          }
         }
       }
     },
@@ -4862,6 +5240,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "疑神疑鬼"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paranoyak"
           }
         }
       }
@@ -4939,6 +5323,12 @@
             "state": "translated",
             "value": "钢琴"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piyano"
+          }
         }
       }
     },
@@ -5014,6 +5404,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "琵琶"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipa"
           }
         }
       }
@@ -5091,6 +5487,12 @@
             "state": "translated",
             "value": "礼貌"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kibar"
+          }
         }
       }
     },
@@ -5166,6 +5568,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "小狗"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "köpek yavrusu"
           }
         }
       }
@@ -5243,6 +5651,12 @@
             "state": "translated",
             "value": "萨克索"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sakso"
+          }
         }
       }
     },
@@ -5318,6 +5732,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "绵羊"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koyun"
           }
         }
       }
@@ -5395,6 +5815,12 @@
             "state": "translated",
             "value": "声呐"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonar"
+          }
         }
       }
     },
@@ -5470,6 +5896,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "弹性"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaylı"
           }
         }
       }
@@ -5547,6 +5979,12 @@
             "state": "translated",
             "value": "划掉"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grev"
+          }
         }
       }
     },
@@ -5622,6 +6060,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "字符串"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dizeler"
           }
         }
       }
@@ -5699,6 +6143,12 @@
             "state": "translated",
             "value": "合成飞艇"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentetik Zeplin"
+          }
         }
       }
     },
@@ -5774,6 +6224,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "合成和弦"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth Akor"
           }
         }
       }
@@ -5851,6 +6307,12 @@
             "state": "translated",
             "value": "合成宇宙"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentetik Kozmik"
+          }
         }
       }
     },
@@ -5926,6 +6388,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "合成音滴"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentetik Damlacıklar"
           }
         }
       }
@@ -6003,6 +6471,12 @@
             "state": "translated",
             "value": "合成情感"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentetik Duygusal"
+          }
         }
       }
     },
@@ -6078,6 +6552,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "合成 FM"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentetik FM"
           }
         }
       }
@@ -6155,6 +6635,12 @@
             "state": "translated",
             "value": "合成器华丽琶音"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synth LushArp"
+          }
         }
       }
     },
@@ -6231,6 +6717,12 @@
             "state": "translated",
             "value": "合成打击乐"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentetik Vurmalı"
+          }
         }
       }
     },
@@ -6306,6 +6798,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "合成量化器"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentez Niceleyici"
           }
         }
       }
@@ -6384,6 +6882,12 @@
             "state": "translated",
             "value": "系统声音"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sistem sesi"
+          }
         }
       }
     },
@@ -6459,6 +6963,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "老虎"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaplan"
           }
         }
       }
@@ -6536,6 +7046,12 @@
             "state": "translated",
             "value": "土耳其"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Türkiye"
+          }
         }
       }
     },
@@ -6611,6 +7127,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "火鸡"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hindiler"
           }
         }
       }
@@ -6688,6 +7210,12 @@
             "state": "translated",
             "value": "泰然自若"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aşamasız"
+          }
         }
       }
     },
@@ -6763,6 +7291,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "未连接"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gergin değil"
           }
         }
       }
@@ -6840,6 +7374,12 @@
             "state": "translated",
             "value": "奇怪"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garip"
+          }
         }
       }
     },
@@ -6915,6 +7455,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "木刻版"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tahta blok"
           }
         }
       }

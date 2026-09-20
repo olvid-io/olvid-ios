@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "要录制语音消息，请在设备的设置中允许 Olvid 访问您的麦克风。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesli mesaj kaydetmek için cihaz ayarlarınızda Olvid'in mikrofonunuza erişmesine izin verin."
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "附加文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya ekle"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "照片和视频库"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf ve video kütüphanesi"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "自定义"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özelleştir"
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "创建投票"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anket oluştur"
+          }
         }
       }
     },
@@ -453,6 +483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "阅后即焚的消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçici mesaj"
           }
         }
       }
@@ -532,6 +568,12 @@
             "state": "translated",
             "value": "向 %@ 介绍..."
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi şununla tanıştırın:"
+          }
         }
       }
     },
@@ -608,6 +650,12 @@
             "state": "translated",
             "value": "介绍"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tanıtın"
+          }
         }
       }
     },
@@ -683,6 +731,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "粘贴文本/附件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metni/Eki Yapıştır"
           }
         }
       }
@@ -762,6 +816,12 @@
             "state": "translated",
             "value": "按住录制语音消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesli mesaj kaydetmek için basılı tutun"
+          }
         }
       }
     },
@@ -837,6 +897,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "扫描文档"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir belgeyi tarayın"
           }
         }
       }
@@ -914,6 +980,12 @@
             "state": "translated",
             "value": "分享你的位置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu paylaşın"
+          }
         }
       }
     },
@@ -989,6 +1061,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "相机"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera"
           }
         }
       }

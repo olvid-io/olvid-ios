@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "显示"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Göster"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "双击以显示答案"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanıtları göstermek için iki kez dokunun"
           }
         }
       }
@@ -226,11 +238,25 @@
             "state": "translated",
             "value": "尚未回复"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "henüz cevap vermiyor"
+          }
         }
       }
     },
     "Count": {
-      "shouldTranslate": false
+      "shouldTranslate": false,
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sayım"
+          }
+        }
+      }
     },
     "LOADING_IN_PROGRESS": {
       "localizations": {
@@ -304,6 +330,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在加载"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yükleme devam ediyor"
           }
         }
       }
@@ -381,6 +413,12 @@
             "state": "translated",
             "value": "以上皆非"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yukarıdakilerin hiçbiri"
+          }
         }
       }
     },
@@ -456,6 +494,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "回复 %lld"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cevap %lld"
           }
         }
       }
@@ -533,6 +577,12 @@
             "state": "translated",
             "value": "已禁用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı"
+          }
         }
       }
     },
@@ -608,6 +658,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已启用"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etkinleştirildi"
           }
         }
       }
@@ -895,6 +951,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld cevap"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld cevaplar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "cevap yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -970,6 +1050,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "默认"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan"
           }
         }
       }
@@ -1047,6 +1133,12 @@
             "state": "translated",
             "value": "回复数量"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanıt sayısı"
+          }
         }
       }
     },
@@ -1122,6 +1214,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapat"
           }
         }
       }
@@ -1199,6 +1297,12 @@
             "state": "translated",
             "value": "发送"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gönder"
+          }
         }
       }
     },
@@ -1274,6 +1378,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekle"
           }
         }
       }
@@ -1351,6 +1461,12 @@
             "state": "translated",
             "value": "添加过期日期"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son kullanma tarihi ekleyin"
+          }
         }
       }
     },
@@ -1426,6 +1542,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "允许多个答案"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Birden fazla cevaba izin verir"
           }
         }
       }
@@ -1503,6 +1625,12 @@
             "state": "translated",
             "value": "至少需要两个答案"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En az iki cevap gerekli"
+          }
         }
       }
     },
@@ -1578,6 +1706,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "回复"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cevaplar"
           }
         }
       }
@@ -1655,6 +1789,12 @@
             "state": "translated",
             "value": "提一个问题"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir soru sor"
+          }
         }
       }
     },
@@ -1730,6 +1870,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
           }
         }
       }
@@ -1807,6 +1953,12 @@
             "state": "translated",
             "value": "结束"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitiş"
+          }
         }
       }
     },
@@ -1882,6 +2034,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加选项 « 无以上选项 »"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçenek ekle « Yukarıdakilerin hiçbiri »"
           }
         }
       }
@@ -1959,6 +2117,12 @@
             "state": "translated",
             "value": "此答案已存在"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cevap zaten mevcut"
+          }
         }
       }
     },
@@ -2034,6 +2198,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "问题"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soru"
           }
         }
       }
@@ -2111,6 +2281,12 @@
             "state": "translated",
             "value": "创建投票"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anket oluştur"
+          }
         }
       }
     },
@@ -2186,6 +2362,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "按排序"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sıralama kriteri:"
           }
         }
       }
@@ -2263,6 +2445,12 @@
             "state": "translated",
             "value": "回复"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cevaplar"
+          }
         }
       }
     },
@@ -2338,6 +2526,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "回复 (%lld)"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cevaplar (%lld)"
           }
         }
       }
@@ -2415,11 +2609,25 @@
             "state": "translated",
             "value": "等待回复"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir cevap bekliyorum"
+          }
         }
       }
     },
     "Responses": {
-      "shouldTranslate": false
+      "shouldTranslate": false,
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanıtlar"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

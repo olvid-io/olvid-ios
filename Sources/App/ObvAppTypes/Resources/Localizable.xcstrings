@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "8 小时"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "8 saat"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "永久"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Süresiz olarak"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "1 小时"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 saat"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "7天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 gün"
           }
         }
       }

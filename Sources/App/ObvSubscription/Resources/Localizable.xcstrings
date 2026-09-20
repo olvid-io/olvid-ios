@@ -220,6 +220,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ay ücretsiz"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ay ücretsiz"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -296,6 +314,12 @@
             "state": "translated",
             "value": "检查订阅状态"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik durumunu kontrol edin"
+          }
         }
       }
     },
@@ -371,6 +395,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "呼叫联系人"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir kişiyi arayın"
           }
         }
       }
@@ -450,6 +480,12 @@
             "state": "translated",
             "value": "稍后提醒"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha sonra hatırlat"
+          }
         }
       }
     },
@@ -525,6 +561,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "免费试用 30 天的安全通话功能"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli aramaları 30 gün boyunca ücretsiz deneyin"
           }
         }
       }
@@ -604,6 +646,12 @@
             "state": "translated",
             "value": "订阅"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abone ol"
+          }
         }
       }
     },
@@ -681,6 +729,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们无法加载订阅列表。请检查您的网络连接，然后重试。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik listesini yükleyemedik. İnternet bağlantınızı kontrol edip tekrar deneyin."
           }
         }
       }
@@ -760,6 +814,12 @@
             "state": "translated",
             "value": "没有可用的订阅"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik Yok"
+          }
         }
       }
     },
@@ -837,6 +897,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "设置 Apple 家庭共享，并将 Olvid+ 赠送给您的五位家庭成员。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Aile Paylaşımı'nı kurun ve Olvid+'ı ailenizin beş üyesine hediye edin."
           }
         }
       }
@@ -916,6 +982,12 @@
             "state": "translated",
             "value": "您的消息会在所有设备上保持同步。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesajlarınız tüm cihazlarınızda senkronize halde kalır."
+          }
         }
       }
     },
@@ -993,6 +1065,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "进行端到端加密的语音和视频通话。可以呼叫任何 Olvid 用户，即使他们没有订阅 Olvid+。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uçtan uca şifreli sesli ve görüntülü görüşmeler yapın. Olvid+ olmasa bile herhangi bir Olvid kullanıcısını arayın."
           }
         }
       }
@@ -1072,6 +1150,12 @@
             "state": "translated",
             "value": "您的订阅支持一种可持续且透明的模式，让 Olvid 始终保持免费，没有广告或隐藏费用。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aboneliğiniz, Olvid'in reklamlar veya gizli maliyetler olmadan herkes için ücretsiz olmasını sağlayan sürdürülebilir ve dürüst bir modeli desteklemektedir."
+          }
         }
       }
     },
@@ -1149,6 +1233,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "家庭共享"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aile Paylaşımı"
           }
         }
       }
@@ -1228,6 +1318,12 @@
             "state": "translated",
             "value": "多设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çoklu cihaz"
+          }
         }
       }
     },
@@ -1305,6 +1401,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "安全通话和视频"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli Aramalar ve Video"
           }
         }
       }
@@ -1384,6 +1486,12 @@
             "state": "translated",
             "value": "支持真正免费的应用程序"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerçekten Ücretsiz Bir Uygulamayı Destekleyin"
+          }
         }
       }
     },
@@ -1461,6 +1569,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "该套餐将在您取消之前自动续订，续订周期为 %@。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal edilene kadar %@ için otomatik yenileme planlayın."
           }
         }
       }
@@ -1540,6 +1654,12 @@
             "state": "translated",
             "value": "升级到 Olvid+ 以获得完整的应用体验"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tam Uygulama deneyimi için Olvid+'a yükseltin"
+          }
         }
       }
     },
@@ -1616,6 +1736,12 @@
             "state": "translated",
             "value": "要进行安全的音频和视频通话，您需要订阅 Olvid 服务。\n\n接收来电始终是免费的。\n\n请访问您的个人资料，查看您的订阅计划或进行订阅。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli sesli ve görüntülü aramalar yapabilmek için Olvid aboneliği gereklidir.\n\nÇağrı almak her zaman ücretsizdir.\n\nPlanınızı kontrol etmek veya abone olmak için profilinizi ziyaret edin."
+          }
         }
       }
     },
@@ -1691,6 +1817,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您请求的功能需要订阅。\n\n请访问您的个人资料，查看您的套餐或订阅。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İstenilen özellik abonelik gerektirir.\n\nPlanınızı kontrol etmek veya abone olmak için profilinizi ziyaret edin."
           }
         }
       }
@@ -1770,6 +1902,12 @@
             "state": "translated",
             "value": "订阅 Olvid+"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+'a abone olun"
+          }
         }
       }
     },
@@ -1847,6 +1985,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "每月"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aylık"
           }
         }
       }
@@ -1926,6 +2070,12 @@
             "state": "translated",
             "value": "每年"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "yıllık"
+          }
         }
       }
     },
@@ -2003,6 +2153,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此购买请求正在等待审批。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu satın alma işlemi onay bekliyor."
           }
         }
       }
@@ -2082,6 +2238,12 @@
             "state": "translated",
             "value": "兑换码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kodu kullan"
+          }
         }
       }
     },
@@ -2158,6 +2320,12 @@
             "state": "translated",
             "value": "您的 30 天免费试用期已激活。安心体验安全可靠的语音和视频通话功能，试用期结束后不会产生任何费用。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 günlük ücretsiz deneme süreniz aktif. Güvenli sesli ve görüntülü aramaları gönül rahatlığıyla keşfedin; deneme süresi sona erdiğinde hiçbir ücret uygulanmayacaktır."
+          }
         }
       }
     },
@@ -2233,6 +2401,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "享受 30 天免费试用期，即可免费进行安全的音频和视频通话。无需支付任何费用，试用期结束后，您的账户将自动停止使用。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 günlük deneme süresiyle ücretsiz, güvenli sesli ve görüntülü aramaların keyfini çıkarın. Ödeme yapmanıza gerek yoktur; deneme süreniz 30 gün sonra sona erecektir."
           }
         }
       }
@@ -2312,6 +2486,12 @@
             "state": "translated",
             "value": "我们无法加载可用的订阅。请检查您的互联网连接，稍后重试。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mevcut abonelikleri yükleyemedik. Lütfen internet bağlantınızı kontrol edin ve daha sonra tekrar deneyin."
+          }
         }
       }
     },
@@ -2389,6 +2569,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法加载订阅"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelikler Yüklenemiyor"
           }
         }
       }
@@ -2468,6 +2654,12 @@
             "state": "translated",
             "value": "联系客服"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destek Ekibiyle İletişime Geçin"
+          }
         }
       }
     },
@@ -2545,6 +2737,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "目前您的操作系统版本不支持 Olvid 应用程序内的订阅功能。如果您无法更新您的设备，请联系我们，我们将尽力帮助您找到最佳解决方案。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid için Uygulama İçi Abonelikler şu anda işletim sistemi sürümünüzde desteklenmemektedir. Cihazınızı güncelleyemiyorsanız lütfen bizimle iletişime geçin; en iyi çözümü bulmanıza yardımcı olmak için buradayız."
           }
         }
       }
@@ -2624,6 +2822,12 @@
             "state": "translated",
             "value": "您好，Olvid 团队：\n\n我无法在我的设备上访问应用内订阅。能否请您指导我如何订阅？\n感谢您的支持！\n\n此致，\n"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merhaba Olvid Ekibi,\n\nCihazımda Uygulama İçi Aboneliklere erişemiyorum. Nasıl abone olacağım konusunda bana yol gösterebilir misiniz?\nDesteğiniz için teşekkür ederiz!\n\nSaygılarımla"
+          }
         }
       }
     },
@@ -2701,6 +2905,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "关于 Olvid 应用内订阅的帮助"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid Uygulama İçi Aboneliklerle İlgili Yardım"
           }
         }
       }
@@ -2780,6 +2990,12 @@
             "state": "translated",
             "value": "此设备不支持应用内订阅"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uygulama İçi Abonelikler Bu Cihazda Mevcut Değil"
+          }
         }
       }
     },
@@ -2858,6 +3074,12 @@
             "state": "translated",
             "value": "订阅周期"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik Dönemi"
+          }
         }
       }
     },
@@ -2933,6 +3155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要订阅"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik gerekli"
           }
         }
       }
@@ -3012,6 +3240,12 @@
             "state": "translated",
             "value": "保存 %@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydet %@"
+          }
         }
       }
     },
@@ -3089,6 +3323,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "最高可节省 %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'ye kadar tasarruf edin"
           }
         }
       }
@@ -3324,6 +3564,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ay ücretsiz!"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ay ücretsiz!"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -3401,6 +3659,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的套餐"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planınız"
           }
         }
       }

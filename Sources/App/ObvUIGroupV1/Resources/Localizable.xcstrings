@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "复制此群"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubu klonla"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制此群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubu klonla"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "解散此群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubu dağıtın"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "编辑自定义名称和照片"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel adı ve fotoğrafı düzenleyin"
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "编辑个人备注"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişisel notu düzenle"
+          }
         }
       }
     },
@@ -453,6 +483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此群组不支持设置多位管理员。但是，您可以将此群组克隆到一个新的群组，然后设置新的管理员！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grup birden fazla yöneticiyi desteklememektedir. Ancak bu grubu, 🚀 yapacak yeni bir gruba klonlayabilirsiniz!"
           }
         }
       }
@@ -530,6 +566,12 @@
             "state": "translated",
             "value": "群组管理"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup yönetimi"
+          }
         }
       }
     },
@@ -605,6 +647,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您已被从该群组中移除。如果您认为这是一个错误，请联系群组管理员寻求帮助。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu gruptan çıkarıldınız. Bunun bir hata olduğunu düşünüyorsanız lütfen yardım için grup yöneticilerinden biriyle iletişime geçin."
           }
         }
       }
@@ -682,6 +730,12 @@
             "state": "translated",
             "value": "群聊已不可用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup artık mevcut değil"
+          }
         }
       }
     },
@@ -757,6 +811,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "退出此群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu gruptan ayrıl"
           }
         }
       }
@@ -834,6 +894,12 @@
             "state": "translated",
             "value": "群组名称和头像"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adı ve resmi"
+          }
         }
       }
     },
@@ -909,6 +975,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "成员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeler"
           }
         }
       }
@@ -986,6 +1058,12 @@
             "state": "translated",
             "value": "请注意，此操作不可逆。 如果您确认，此群组将被删除，所有成员都将无法访问。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen bu işlemin geri alınamayacağını unutmayın. Onaylarsanız bu grup tüm üyelerden silinecektir."
+          }
         }
       }
     },
@@ -1061,6 +1139,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请注意！您确定要解散此群组吗？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dikkat! Gerçekten bu grubu dağıtmak istiyor musun?"
           }
         }
       }
@@ -1138,6 +1222,12 @@
             "state": "translated",
             "value": "请注意，此操作不可逆（除非群管理员稍后决定再次邀请您）。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen bu işlemin geri alınamayacağını unutmayın (bir grup yöneticisi sizi daha sonra tekrar davet etmeye karar vermediği sürece)."
+          }
         }
       }
     },
@@ -1214,6 +1304,12 @@
             "state": "translated",
             "value": "你确定要退出这个群组吗？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerçekten bu gruptan ayrılmak istiyor musun?"
+          }
         }
       }
     },
@@ -1289,6 +1385,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "管理成员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeleri yönet"
           }
         }
       }

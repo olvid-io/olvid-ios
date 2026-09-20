@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "附加文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya ekle"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "照片和视频库"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf ve video kütüphanesi"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "自定义"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özelleştir"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "投票"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anket"
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "阅后即焚消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçici mesaj"
+          }
         }
       }
     },
@@ -453,6 +483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "介绍"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tanıtın"
           }
         }
       }
@@ -530,6 +566,12 @@
             "state": "translated",
             "value": "粘贴文本/附件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metni/Eki Yapıştır"
+          }
         }
       }
     },
@@ -605,6 +647,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "扫描文档"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir belgeyi tarayın"
           }
         }
       }
@@ -682,6 +730,12 @@
             "state": "translated",
             "value": "分享您的位置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu paylaşın"
+          }
         }
       }
     },
@@ -757,6 +811,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "相机"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera"
           }
         }
       }
@@ -835,6 +895,12 @@
             "state": "translated",
             "value": "始终"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her zaman"
+          }
         }
       }
     },
@@ -912,6 +978,12 @@
             "state": "translated",
             "value": "默认 (%1$@)"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan (%1$@)"
+          }
         }
       }
     },
@@ -988,6 +1060,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "永不"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asla"
           }
         }
       }

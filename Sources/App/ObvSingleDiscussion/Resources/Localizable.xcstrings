@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "添加到收藏夹"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorilere ekle"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "移除您的表情"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tepkinizi kaldırın"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "从收藏夹中移除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorilerden kaldır"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "双击消息以进行反应。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tepki vermek için bir mesaja çift tıklayın."
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "双击消息以进行反应。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tepki vermek için bir mesaja iki kez dokunun."
+          }
         }
       }
     },
@@ -453,6 +483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "表情"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tepkiler"
           }
         }
       }
@@ -530,6 +566,12 @@
             "state": "translated",
             "value": "右键单击任何表情符号，以查看更多选项。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha fazla seçenek için herhangi bir reaksiyona sağ tıklayın."
+          }
         }
       }
     },
@@ -605,6 +647,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "滑动任何表情以查看更多选项。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha fazla seçenek için herhangi bir reaksiyonu kaydırın."
           }
         }
       }

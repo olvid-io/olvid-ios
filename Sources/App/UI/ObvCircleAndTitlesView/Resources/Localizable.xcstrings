@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "%@，图片可用。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, görüntü mevcut."
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@，没有图片"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, görüntü yok."
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosyalar"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "照片库"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf kitaplığı"
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "删除照片"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğrafı kaldır"
+          }
         }
       }
     },
@@ -453,6 +483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "拍照"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf çek"
           }
         }
       }
@@ -530,6 +566,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "点击以显示图片"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resmi göstermek için dokunun"
           }
         }
       }
