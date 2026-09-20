@@ -76,6 +76,12 @@
             "state": "translated",
             "value": "激活此设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazı etkinleştir"
+          }
         }
       }
     },
@@ -151,6 +157,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz ekle"
           }
         }
       }
@@ -228,6 +240,12 @@
             "state": "translated",
             "value": "添加个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil ekle"
+          }
         }
       }
     },
@@ -303,6 +321,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的昵称仅供您自己使用，可帮助您轻松区分不同的个人资料。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma adınız yalnızca sizin görmeniz içindir ve profillerinizi birbirinden kolayca ayırt edebilmenizi sağlar."
           }
         }
       }
@@ -382,6 +406,12 @@
             "state": "translated",
             "value": "编辑我的昵称"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma adımı düzenle"
+          }
         }
       }
     },
@@ -460,6 +490,12 @@
             "state": "translated",
             "value": "API 密钥"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API Anahtarı"
+          }
         }
       }
     },
@@ -536,6 +572,12 @@
             "state": "translated",
             "value": "您必须至少有一个可见的个人资料。由于此个人资料是您唯一的个人资料，因此您无法隐藏它。但是，您可以创建一个新的个人资料，然后再次尝试。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En az bir görünür profiliniz olmalıdır. Bu profil sahip olduğunuz tek profil olduğundan onu gizleyemezsiniz. Yine de yeni bir profil oluşturup tekrar deneyebilirsiniz."
+          }
         }
       }
     },
@@ -611,6 +653,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "目前无法隐藏此个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profil şu anda gizlenemez"
           }
         }
       }
@@ -690,6 +738,12 @@
             "state": "translated",
             "value": "活跃"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktif"
+          }
         }
       }
     },
@@ -767,6 +821,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "返回"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
           }
         }
       }
@@ -846,6 +906,12 @@
             "state": "translated",
             "value": "发布我的个人资料更新"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil güncellememi yayınla"
+          }
         }
       }
     },
@@ -923,6 +989,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
           }
         }
       }
@@ -1002,6 +1074,12 @@
             "state": "translated",
             "value": "功能"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yetenekler"
+          }
         }
       }
     },
@@ -1079,6 +1157,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群组 v2"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar v2"
           }
         }
       }
@@ -1158,6 +1242,12 @@
             "state": "translated",
             "value": "一对一联系人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One2One kişileri"
+          }
         }
       }
     },
@@ -1232,6 +1322,12 @@
           }
         },
         "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP v2"
+          }
+        },
+        "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "VoIP v2"
@@ -1314,6 +1410,12 @@
             "state": "translated",
             "value": "由身份验证提供商认证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcı tarafından onaylı"
+          }
         }
       }
     },
@@ -1390,6 +1492,12 @@
             "state": "translated",
             "value": "选择一张个人资料照片"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir profil fotoğrafı seçin"
+          }
         }
       }
     },
@@ -1465,6 +1573,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择设备名称"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir cihaz adı seçin"
           }
         }
       }
@@ -1544,6 +1658,12 @@
             "state": "translated",
             "value": "选择密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şifre seçin"
+          }
         }
       }
     },
@@ -1619,6 +1739,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "清除所有设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazları temizle"
           }
         }
       }
@@ -1696,6 +1822,12 @@
             "state": "translated",
             "value": "清除所有设备会重置与这些设备建立的所有安全连接，然后重新扫描设备，并重新建立所有安全连接。 尽管所有这些步骤都是自动完成的，但可能需要一些时间。 重新建立安全连接需要其他设备处于在线状态。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazların temizlenmesi, bu cihazlardaki tüm güvenli kanalları sıfırlayacak, cihazlarınızın yeni bir keşfini gerçekleştirecek ve ardından tüm güvenli kanalları onlarla yeniden oluşturacaktır. Tüm bu adımlar otomatik olsa da biraz zaman gerektirebilir. Güvenli kanalları yeniden oluşturmak, diğer cihazlarınızın çevrimiçi olmasını gerektirir."
+          }
         }
       }
     },
@@ -1771,6 +1903,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "清除所有设备？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazlar temizlensin mi?"
           }
         }
       }
@@ -1850,6 +1988,12 @@
             "state": "translated",
             "value": "确认密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifreyi onayla"
+          }
         }
       }
     },
@@ -1927,6 +2071,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "创建密码"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifre oluştur"
           }
         }
       }
@@ -2006,6 +2156,12 @@
             "state": "translated",
             "value": "此设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz"
+          }
         }
       }
     },
@@ -2084,6 +2240,12 @@
             "state": "translated",
             "value": "(此设备)"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(bu cihaz)"
+          }
         }
       }
     },
@@ -2159,6 +2321,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "停用 %1$@ 并启用 %2$@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@'yi devre dışı bırakın ve %2$@'yi etkinleştirin"
           }
         }
       }
@@ -2238,6 +2406,12 @@
             "state": "translated",
             "value": "停用选定的设备，并启用此设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçilen cihazı devre dışı bırakın ve bunu etkinleştirin"
+          }
         }
       }
     },
@@ -2313,6 +2487,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在停用…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırakılıyor…"
           }
         }
       }
@@ -2390,6 +2570,12 @@
             "state": "translated",
             "value": "已删除的个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silinen profil"
+          }
         }
       }
     },
@@ -2465,6 +2651,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此设备上不再存在此个人资料。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profil artık bu cihazda mevcut değil."
           }
         }
       }
@@ -2544,6 +2736,12 @@
             "state": "translated",
             "value": "删除此个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profili sil"
+          }
         }
       }
     },
@@ -2621,6 +2819,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "由身份提供者签名的详细信息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcı tarafından imzalanan ayrıntılar"
           }
         }
       }
@@ -2700,6 +2904,12 @@
             "state": "translated",
             "value": "设备 %lld"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz %lld"
+          }
         }
       }
     },
@@ -2775,6 +2985,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已停用"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırakıldı"
           }
         }
       }
@@ -2854,6 +3070,12 @@
             "state": "translated",
             "value": "停用 %@"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırakma %@"
+          }
         }
       }
     },
@@ -2931,6 +3153,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "上次在线 %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son çevrimiçi %@"
           }
         }
       }
@@ -3010,6 +3238,12 @@
             "state": "translated",
             "value": "尚未计划停用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırakma planlanmadı"
+          }
         }
       }
     },
@@ -3085,6 +3319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的个人资料当前由贵公司的身份验证提供程序管理。您即将切换到普通的、未管理的个人资料。\n\n如果继续，您将无法再无缝地将贵公司的联系人添加到 Olvid 中。请联系您的管理员以获取更多信息。\n\n您是否要继续？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz şu anda şirketinizin kimlik sağlayıcısı tarafından yönetiliyor. Normal, yönetilmeyen bir profile geçmek üzeresiniz.\n\nDevam ederseniz artık şirketinizdeki kişileri Olvid'e sorunsuz bir şekilde ekleyemeyeceksiniz. Daha fazla ayrıntı için lütfen yöneticinizle iletişime geçin.\n\nDevam etmek istiyor musunuz?"
           }
         }
       }
@@ -3164,6 +3404,12 @@
             "state": "translated",
             "value": "关闭"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapat"
+          }
         }
       }
     },
@@ -3241,6 +3487,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "详情"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıntılar"
           }
         }
       }
@@ -3320,6 +3572,12 @@
             "state": "translated",
             "value": "设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlar"
+          }
         }
       }
     },
@@ -3396,6 +3654,12 @@
             "state": "translated",
             "value": "编辑我的个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi düzenle"
+          }
         }
       }
     },
@@ -3471,6 +3735,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "编辑我的昵称"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma adımı düzenle"
           }
         }
       }
@@ -3550,6 +3820,12 @@
             "state": "translated",
             "value": "输入密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şifre girin"
+          }
         }
       }
     },
@@ -3625,6 +3901,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "上面的姓名是从您的身份验证提供程序处获取的，无法更改。您可以选择个人资料图片。这些信息绝不会发送到 Olvid 的服务器。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yukarıdaki ad Kimlik sağlayıcınızdan alınmıştır ve değiştirilemez. Yine de bir profil resmi seçebilirsiniz. Bu ayrıntılar asla Olvid'in sunucularına gönderilmeyecektir."
           }
         }
       }
@@ -3704,6 +3986,12 @@
             "state": "translated",
             "value": "公司"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şirket"
+          }
         }
       }
     },
@@ -3781,6 +4069,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "名"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ad"
           }
         }
       }
@@ -3860,6 +4154,12 @@
             "state": "translated",
             "value": "姓"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyadı"
+          }
         }
       }
     },
@@ -3935,6 +4235,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "昵称"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma ad"
           }
         }
       }
@@ -4014,6 +4320,12 @@
             "state": "translated",
             "value": "位置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozisyon"
+          }
         }
       }
     },
@@ -4091,6 +4403,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "隐藏的资料受到密码保护，在您输入密码之前，它们不会出现在您的资料列表中。\n访问隐藏的资料需要长按每个标签页左上角显示的按钮。\n如果您忘记了密码，您将永久失去访问此资料的权限 😱！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gizli profiller bir şifre ile korunur ve siz bu şifreyi girene kadar profil listenizde görünmez.\nGizli bir profile erişmek, her sekmede gösterilen sol üst düğmeye uzun basmayı gerektirir.\nBu şifreyi unutursanız, bu profile erişiminizi kalıcı olarak kaybedersiniz 😱!"
           }
         }
       }
@@ -4170,6 +4488,12 @@
             "state": "translated",
             "value": "隐藏此个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profili gizle"
+          }
         }
       }
     },
@@ -4245,6 +4569,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的个人资料在此设备上未激活，但您可以立即重新激活。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz bu cihazda etkin değil ancak şimdi yeniden etkinleştirebilirsiniz."
           }
         }
       }
@@ -4324,6 +4654,12 @@
             "state": "translated",
             "value": "资料传输已受限制"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil aktarımı kısıtlandı"
+          }
         }
       }
     },
@@ -4402,6 +4738,12 @@
             "state": "translated",
             "value": "身份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik"
+          }
         }
       }
     },
@@ -4477,6 +4819,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "保持设备活跃中…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz etkin tutuluyor…"
           }
         }
       }
@@ -4554,6 +4902,12 @@
             "state": "translated",
             "value": "您似乎没有订阅多设备功能，该功能允许您同时在多个设备上使用 Olvid。保持设备 %@ 处于活跃状态意味着设备 %@ 将被停用。如果您希望所有设备都保持活跃状态，请查看订阅计划。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in aynı anda birden fazla cihazda kullanılmasına izin veren çoklu cihaz özelliğine abone olmadığınız anlaşılıyor. Cihazın %@ aktif tutulması, bunun yerine cihazın %@ devre dışı bırakılacağı anlamına gelir. Tüm cihazlarınızın aktif kalmasını istiyorsanız lütfen abonelik planlarını inceleyin."
+          }
         }
       }
     },
@@ -4629,6 +4983,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "保持活跃"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktif kal"
           }
         }
       }
@@ -4708,6 +5068,12 @@
             "state": "translated",
             "value": "Keycloak ID"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarlık Kimliği"
+          }
         }
       }
     },
@@ -4786,6 +5152,12 @@
             "state": "translated",
             "value": "稍后再说"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belki daha sonra"
+          }
         }
       }
     },
@@ -4862,6 +5234,12 @@
             "state": "translated",
             "value": "我的设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlarım"
+          }
         }
       }
     },
@@ -4937,6 +5315,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我的个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilim"
           }
         }
       }
@@ -5016,6 +5400,12 @@
             "state": "translated",
             "value": "设备激活"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz aktivasyonu"
+          }
         }
       }
     },
@@ -5094,6 +5484,12 @@
             "state": "translated",
             "value": "编辑我的个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi düzenle"
+          }
         }
       }
     },
@@ -5169,6 +5565,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlarınız"
           }
         }
       }
@@ -5248,6 +5650,12 @@
             "state": "translated",
             "value": "没有"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayır"
+          }
         }
       }
     },
@@ -5326,6 +5734,12 @@
             "state": "translated",
             "value": "无"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yok"
+          }
         }
       }
     },
@@ -5401,6 +5815,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "好的"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
           }
         }
       }
@@ -5480,6 +5900,12 @@
             "state": "translated",
             "value": "相册"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf kitaplığı"
+          }
         }
       }
     },
@@ -5557,6 +5983,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya"
           }
         }
       }
@@ -5636,6 +6068,12 @@
             "state": "translated",
             "value": "删除照片"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğrafı kaldır"
+          }
         }
       }
     },
@@ -5713,6 +6151,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "恢复已发布的照片"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yayınlanan fotoğrafı geri yükle"
           }
         }
       }
@@ -5792,6 +6236,12 @@
             "state": "translated",
             "value": "拍照"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf çek"
+          }
         }
       }
     },
@@ -5869,6 +6319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "关于您管理的资料的其他信息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetilen profilinizle ilgili diğer bilgiler"
           }
         }
       }
@@ -5948,6 +6404,12 @@
             "state": "translated",
             "value": "由于您已订阅高级多设备功能 😎，您可以安全地重新激活此设备。您是否要执行此操作？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium çoklu cihaz özelliğine 😎 geçerli bir aboneliğiniz olduğundan, bu cihazı artık güvenli bir şekilde yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musun?"
+          }
         }
       }
     },
@@ -6025,6 +6487,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此设备现在可以重新激活了 🙌"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz şimdi yeniden etkinleştirilebilir 🙌"
           }
         }
       }
@@ -6104,6 +6572,12 @@
             "state": "translated",
             "value": "您似乎当前没有激活的设备。您可以安全地重新激活此设备。您是否希望这样做？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu anda aktif bir cihazınız yok gibi görünüyor. Artık bu cihazı güvenli bir şekilde yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musun?"
+          }
         }
       }
     },
@@ -6181,6 +6655,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此设备现在可以重新激活了 🙌"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz şimdi yeniden etkinleştirilebilir 🙌"
           }
         }
       }
@@ -6476,6 +6956,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zaten bir etkin cihazınız var. Gelecekte devre dışı bırakılacağı için bu cihazı şimdi güvenle yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musunuz?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zaten %lld etkin cihazınız var. Gelecekte devre dışı bırakılacakları için bu cihazı şimdi güvenle yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musunuz?"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda etkin cihazınız yok gibi görünüyor. Bu cihazı şimdi güvenle yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musunuz?"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -6554,6 +7058,12 @@
             "state": "translated",
             "value": "此设备现在可以重新激活了 🙌"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz şimdi yeniden etkinleştirilebilir 🙌"
+          }
         }
       }
     },
@@ -6629,6 +7139,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您似乎没有订阅多设备功能，该功能允许您同时在多个设备上使用 Olvid。激活此设备需要停用您拥有的其他设备。\n\n如果您希望这样做，请从下面的列表中选择您想要停用的设备。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in aynı anda birden fazla cihazda kullanılmasına izin veren çoklu cihaz özelliğine abone olmadığınız anlaşılıyor. Bu cihazın etkinleştirilmesi, başka bir cihazının devre dışı bırakılmasını gerektirir.\n\nBunu yapmak istiyorsanız lütfen aşağıdaki listeden devre dışı bırakmak istediğiniz cihazı seçin."
           }
         }
       }
@@ -6708,6 +7224,12 @@
             "state": "translated",
             "value": "选择要停用的设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırakılacak cihazı seçin"
+          }
         }
       }
     },
@@ -6783,6 +7305,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "保持当前设备活跃状态并停用其他设备？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz etkin tutulsun ve diğer cihaz devre dışı bırakılsın mı?"
           }
         }
       }
@@ -6862,6 +7390,12 @@
             "state": "translated",
             "value": "请稍候，我们正在检查您的设备“%@”是否可以重新激活……"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%@\" cihazınızın yeniden etkinleştirilip etkinleştirilemeyeceğini kontrol ederken lütfen bekleyin..."
+          }
         }
       }
     },
@@ -6939,6 +7473,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "该设备已可联系"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaza zaten ulaşılabilir"
           }
         }
       }
@@ -7018,6 +7558,12 @@
             "state": "translated",
             "value": "为了连接到此设备，需要一个安全的通道"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaza ulaşmak için güvenli bir kanal gereklidir"
+          }
         }
       }
     },
@@ -7093,6 +7639,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "在此设备上重新激活我的个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi bu cihazda yeniden etkinleştir"
           }
         }
       }
@@ -7170,6 +7722,12 @@
             "state": "translated",
             "value": "重新创建安全通道"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanalı yeniden oluşturun"
+          }
         }
       }
     },
@@ -7245,6 +7803,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新创建安全通道..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal yeniden oluşturuluyor…"
           }
         }
       }
@@ -7322,6 +7886,12 @@
             "state": "translated",
             "value": "移除身份验证提供程序"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcıyı kaldır"
+          }
         }
       }
     },
@@ -7397,6 +7967,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "立即停用"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdi devre dışı bırak"
           }
         }
       }
@@ -7476,6 +8052,12 @@
             "state": "translated",
             "value": "重命名"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden adlandır"
+          }
         }
       }
     },
@@ -7554,6 +8136,12 @@
             "state": "translated",
             "value": "更换个人资料照片"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil fotoğrafını değiştir"
+          }
         }
       }
     },
@@ -7630,6 +8218,12 @@
             "state": "translated",
             "value": "保存"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydet"
+          }
         }
       }
     },
@@ -7705,6 +8299,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "搜索丢失的设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksik cihazları arayın"
           }
         }
       }
@@ -7784,6 +8384,12 @@
             "state": "translated",
             "value": "安全通道已创建"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturuldu"
+          }
         }
       }
     },
@@ -7862,6 +8468,12 @@
             "state": "translated",
             "value": "正在创建安全通道"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturma işlemi devam ediyor"
+          }
         }
       }
     },
@@ -7937,6 +8549,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz"
           }
         }
       }
@@ -8016,6 +8634,12 @@
             "state": "translated",
             "value": "无法获取安全通道状态。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal durumu mevcut değil."
+          }
         }
       }
     },
@@ -8093,6 +8717,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil bilgilerini göster"
           }
         }
       }
@@ -8172,6 +8802,12 @@
             "state": "translated",
             "value": "签名日期"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İmza tarihi"
+          }
         }
       }
     },
@@ -8247,6 +8883,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "订阅状态"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik durumu"
           }
         }
       }
@@ -8324,6 +8966,12 @@
             "state": "translated",
             "value": "支持基于 ID 的身份验证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik tabanlı kimlik doğrulama desteklenir"
+          }
         }
       }
     },
@@ -8399,6 +9047,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "查看订阅方案"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik planlarına bakın"
           }
         }
       }
@@ -8478,6 +9132,12 @@
             "state": "translated",
             "value": "公司"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şirket"
+          }
         }
       }
     },
@@ -8555,6 +9215,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "名"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ad"
           }
         }
       }
@@ -8634,6 +9300,12 @@
             "state": "translated",
             "value": "姓"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyadı"
+          }
         }
       }
     },
@@ -8711,6 +9383,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "位置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozisyon"
           }
         }
       }
@@ -8790,6 +9468,12 @@
             "state": "translated",
             "value": "请勿取消隐藏"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gösterme"
+          }
         }
       }
     },
@@ -8867,6 +9551,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消隐藏"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Göster"
           }
         }
       }
@@ -8946,6 +9636,12 @@
             "state": "translated",
             "value": "您即将取消隐藏一个个人资料。如果这样做，该个人资料将系统地显示在个人资料切换器中，无需特定的密码。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir profili göstermek üzeresiniz. Bunu yaparsanız profil, belirli bir şifreye gerek kalmadan profil değiştiricide sistematik olarak gösterilecektir."
+          }
         }
       }
     },
@@ -9023,6 +9719,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消隐藏此个人资料？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profil gösterilsin mi?"
           }
         }
       }
@@ -9102,6 +9804,12 @@
             "state": "translated",
             "value": "取消隐藏此个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profili göster"
+          }
         }
       }
     },
@@ -9179,6 +9887,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "是"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
           }
         }
       }
@@ -9474,6 +10188,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Diğer cihazınız"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Diğer %lld cihazlarınız"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Başka cihaz yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -9551,6 +10289,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的个人资料现在已设置为隐藏状态。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz artık gizli."
           }
         }
       }
@@ -9844,6 +10588,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir cihazınız var"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld cihazlarınız var"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Cihazınız yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -9919,6 +10687,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "是"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
           }
         }
       }

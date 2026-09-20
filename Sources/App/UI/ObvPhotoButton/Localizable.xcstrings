@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "相册"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf kitaplığı"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "移除照片"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğrafı kaldır"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "拍照"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf çek"
           }
         }
       }

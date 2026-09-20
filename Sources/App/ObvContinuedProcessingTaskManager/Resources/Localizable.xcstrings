@@ -76,6 +76,12 @@
             "state": "translated",
             "value": "点击查看详细进度。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıntılı ilerlemeyi görmek için dokunun."
+          }
         }
       }
     },
@@ -153,6 +159,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在传输聊天记录"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişini aktarma"
           }
         }
       }

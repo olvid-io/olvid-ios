@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "取消"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal et"
+          }
         }
       }
     },
@@ -152,6 +158,12 @@
             "state": "translated",
             "value": "接受"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabul et"
+          }
         }
       }
     },
@@ -227,6 +239,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您确定要从您的联系人中移除 %@ 吗？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi kişilerinizden kaldırmak istediğinizden emin misiniz?"
           }
         }
       }
@@ -304,6 +322,12 @@
             "state": "translated",
             "value": "您确定要永久从您的帐户中删除 %@ 吗？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi hesabınızdan kalıcı olarak silmek istediğinizden emin misiniz?"
+          }
         }
       }
     },
@@ -380,6 +404,12 @@
             "state": "translated",
             "value": "至少有一个频道建立失败，无法重启"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanal kurulumundan en az biri yeniden başlatılamadı"
+          }
         }
       }
     },
@@ -455,6 +485,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "返回"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
           }
         }
       }
@@ -534,6 +570,12 @@
             "state": "translated",
             "value": "取消"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
         }
       }
     },
@@ -609,6 +651,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您无法删除用户 %@，因为你们都属于一些共同的群组。您需要先退出这些群组才能继续操作。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her ikiniz de bazı ortak gruplara ait olduğunuz için %@ kullanıcısını silemezsiniz. Devam etmek için bu gruplardan ayrılmanız gerekecek."
           }
         }
       }
@@ -686,6 +734,12 @@
             "state": "translated",
             "value": "联系人目前无法删除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi şimdilik silinemiyor"
+          }
         }
       }
     },
@@ -761,6 +815,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "功能"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yetenekler"
           }
         }
       }
@@ -838,6 +898,12 @@
             "state": "translated",
             "value": "群组 v2"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar v2"
+          }
         }
       }
     },
@@ -914,6 +980,12 @@
             "state": "translated",
             "value": "一对一联系人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One2One kişileri"
+          }
         }
       }
     },
@@ -986,6 +1058,12 @@
           }
         },
         "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP v2"
+          }
+        },
+        "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "VoIP v2"
@@ -1066,6 +1144,12 @@
             "state": "translated",
             "value": "已通过身份验证提供商的认证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcı tarafından onaylı"
+          }
         }
       }
     },
@@ -1141,6 +1225,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "频道建立过程已重新启动"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanal kurulumu yeniden başlatıldı"
           }
         }
       }
@@ -1219,6 +1309,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "共享群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaşılan gruplar"
           }
         }
       }
@@ -1514,6 +1610,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ bir cihaza sahip"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ %2$lld cihazlara sahiptir"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ cihazı yok"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1590,6 +1710,12 @@
             "state": "translated",
             "value": "将 %@ 与您网络中的某人连接。他们只需接受邀请即可开始聊天——无需二维码或代码。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi ağınızdaki bir kişiye bağlayın. Sohbete başlamak için yalnızca daveti kabul etmeleri gerekecek; QR koduna veya koda gerek yok."
+          }
         }
       }
     },
@@ -1665,6 +1791,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "介绍 %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi tanıtın"
           }
         }
       }
@@ -1744,6 +1876,12 @@
             "state": "translated",
             "value": "此联系人已被您公司的身份提供者撤销。他们的 Olvid ID 可能已遭到泄露，因此无法保证您通信的安全性。\n\n如果您确信您的联系人的 Olvid ID 绝未遭到泄露，您可以手动取消阻止。\n请联系您的管理员以获取更多详细信息。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu iletişim şirketinizin kimlik sağlayıcısı tarafından iptal edildi. Olvid Kimlikleri ele geçirilmiş olabilir ve iletişiminizin güvenliği garanti edilemez.\n\nKişinizin Olvid kimliğinin hiçbir zaman ele geçirilmediğinden eminseniz onların engellemesini manuel olarak kaldırabilirsiniz.\nDaha fazla ayrıntı için lütfen yöneticinizle iletişime geçin."
+          }
         }
       }
     },
@@ -1821,6 +1959,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的公司身份验证服务已撤销该联系人。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi, şirketinizin kimlik sağlayıcısı tarafından iptal edildi"
           }
         }
       }
@@ -1900,6 +2044,12 @@
             "state": "translated",
             "value": "看起来，此联系人已经有一段时间没有使用 Olvid 了。我们无法保证消息能够正确发送给他们。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu bağlantının Olvid'i uzun süredir kullanmadığı anlaşılıyor. Mesajların onlara düzgün bir şekilde iletileceğini garanti edemeyiz."
+          }
         }
       }
     },
@@ -1977,6 +2127,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "联系人已离线较长时间"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzun bir süre çevrimdışı iletişim kurun"
           }
         }
       }
@@ -2056,6 +2212,12 @@
             "state": "translated",
             "value": "创建一个包含 %@ 的群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ile bir grup oluşturun"
+          }
         }
       }
     },
@@ -2132,6 +2294,12 @@
             "state": "translated",
             "value": "此联系人已不再存在于您的通讯录中。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişi artık adres defterinizde mevcut değil."
+          }
         }
       }
     },
@@ -2207,6 +2375,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "联系人已删除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi Silindi"
           }
         }
       }
@@ -2286,6 +2460,12 @@
             "state": "translated",
             "value": "删除联系人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiyi sil"
+          }
         }
       }
     },
@@ -2364,6 +2544,12 @@
             "state": "translated",
             "value": "删除此用户"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kullanıcıyı sil"
+          }
         }
       }
     },
@@ -2439,6 +2625,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "设备 %lld"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz %lld"
           }
         }
       }
@@ -2518,6 +2710,12 @@
             "state": "translated",
             "value": "设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlar"
+          }
         }
       }
     },
@@ -2595,6 +2793,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "从联系人中移除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişilerden kaldır"
           }
         }
       }
@@ -2674,6 +2878,12 @@
             "state": "translated",
             "value": "编辑自定义名称和照片"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel adı ve fotoğrafı düzenleyin"
+          }
         }
       }
     },
@@ -2751,6 +2961,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "编辑个人备注"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişisel notu düzenle"
           }
         }
       }
@@ -2830,6 +3046,12 @@
             "state": "translated",
             "value": "正在建立安全的讨论频道"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli bir tartışma kanalı oluşturmak"
+          }
         }
       }
     },
@@ -2907,6 +3129,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "目前正在创建一个安全的讨论频道。如果双方都在线，此过程应该只需几秒钟。\n\n如果您认为出现问题，可以重新开始频道创建。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu anda güvenli bir tartışma kanalı oluşturuluyor. Hem siz hem de kişiniz çevrimiçiyse bu işlem birkaç saniye sürecektir.\n\nBir şeylerin ters gittiğini düşünüyorsanız kanal oluşturma işlemini yeniden başlatabilirsiniz."
           }
         }
       }
@@ -2986,6 +3214,12 @@
             "state": "translated",
             "value": "此联系人已被贵公司的身份提供商撤销。他们的 Olvid ID 可能已被泄露，无法保证您通信的安全性。\n\n您之前已决定手动取消阻止他们。如果您对自己的决定不确定，建议您重新阻止此联系人。请联系您的管理员以获取更多详细信息。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu iletişim şirketinizin kimlik sağlayıcısı tarafından iptal edildi. Olvid Kimlikleri ele geçirilmiş olabilir ve iletişiminizin güvenliği garanti edilemez.\n\nDaha önce bunların engellemesini manuel olarak kaldırmaya karar vermiştiniz. Kararınızdan emin değilseniz bu kişiyi yeniden engellemeniz önerilir.\nDaha fazla ayrıntı için lütfen yöneticinizle iletişime geçin."
+          }
         }
       }
     },
@@ -3061,6 +3295,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "活跃"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktif"
           }
         }
       }
@@ -3138,6 +3378,12 @@
             "state": "translated",
             "value": "公司"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şirket"
+          }
         }
       }
     },
@@ -3213,6 +3459,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "名"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ad"
           }
         }
       }
@@ -3290,6 +3542,12 @@
             "state": "translated",
             "value": "身份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik"
+          }
         }
       }
     },
@@ -3365,6 +3623,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "姓"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyadı"
           }
         }
       }
@@ -3442,6 +3706,12 @@
             "state": "translated",
             "value": "昵称"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma ad"
+          }
         }
       }
     },
@@ -3517,6 +3787,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "位置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozisyon"
           }
         }
       }
@@ -3594,6 +3870,12 @@
             "state": "translated",
             "value": "已加入的群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Katılan gruplar"
+          }
         }
       }
     },
@@ -3669,6 +3951,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您管理的群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönettiğiniz gruplar"
           }
         }
       }
@@ -3748,6 +4036,12 @@
             "state": "translated",
             "value": "选择一个联系人进行介绍"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanıtılacak Kişiyi Seçin"
+          }
         }
       }
     },
@@ -3826,6 +4120,12 @@
             "state": "translated",
             "value": "邀请"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet et"
+          }
         }
       }
     },
@@ -3901,6 +4201,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要邀请"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetiye gerekli"
           }
         }
       }
@@ -3978,6 +4284,12 @@
             "state": "translated",
             "value": "群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
+          }
         }
       }
     },
@@ -4053,6 +4365,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "包含 %@ 的群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ olan gruplar"
           }
         }
       }
@@ -4130,6 +4448,12 @@
             "state": "translated",
             "value": "否"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayır"
+          }
         }
       }
     },
@@ -4205,6 +4529,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "无"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yok"
           }
         }
       }
@@ -4282,6 +4612,12 @@
             "state": "translated",
             "value": "你邀请了 %@ 加入私聊。请等待对方接受邀请 🤞。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi özel bir tartışmaya davet ettiniz. Lütfen kabul edene kadar bekleyin 🤞."
+          }
         }
       }
     },
@@ -4357,6 +4693,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "要与 %@ 进行私密对话并将他们添加到您的联系人中，请点击“邀请”。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ile özel bir görüşme yapmak ve onu kişilerinize eklemek için \"Davet Et\" seçeneğine dokunun."
           }
         }
       }
@@ -4436,6 +4778,12 @@
             "state": "translated",
             "value": "重新阻止联系人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiyi yeniden engelle"
+          }
         }
       }
     },
@@ -4513,6 +4861,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "你真的想重新阻止该联系人吗？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiyi gerçekten yeniden engellemek istiyor musunuz?"
           }
         }
       }
@@ -4592,6 +4946,12 @@
             "state": "translated",
             "value": "重新启动安全通道创建"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturmayı yeniden başlatın"
+          }
         }
       }
     },
@@ -4670,6 +5030,12 @@
             "state": "translated",
             "value": "重新启动"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden başlat"
+          }
         }
       }
     },
@@ -4745,6 +5111,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "搜索群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup arayın"
           }
         }
       }
@@ -4822,6 +5194,12 @@
             "state": "translated",
             "value": "详情"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıntılar"
+          }
         }
       }
     },
@@ -4897,6 +5275,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已创建安全频道"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturuldu"
           }
         }
       }
@@ -4974,6 +5358,12 @@
             "state": "translated",
             "value": "正在创建安全通道"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturma işlemi devam ediyor"
+          }
         }
       }
     },
@@ -5049,6 +5439,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法获取安全通道状态。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal durumu mevcut değil."
           }
         }
       }
@@ -5266,6 +5662,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grubu görüntüle"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld gruplarını görüntüle"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -5344,6 +5758,12 @@
             "state": "translated",
             "value": "显示所有联系人详细信息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm iletişim ayrıntılarını göster"
+          }
         }
       }
     },
@@ -5420,6 +5840,12 @@
             "state": "translated",
             "value": "同步"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senkronizasyon"
+          }
         }
       }
     },
@@ -5495,6 +5921,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已发送同步请求"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senkronizasyon isteği gönderildi"
           }
         }
       }
@@ -5574,6 +6006,12 @@
             "state": "translated",
             "value": "联系人的姓名已更新："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı güncellendi:"
+          }
         }
       }
     },
@@ -5651,6 +6089,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "联系人的名字和头像已更新："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı ve fotoğrafı güncellendi:"
           }
         }
       }
@@ -5730,6 +6174,12 @@
             "state": "translated",
             "value": "联系人的姓名和照片已更新："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı ve fotoğrafı güncellendi:"
+          }
         }
       }
     },
@@ -5807,6 +6257,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "联系人的名字已更新："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı güncellendi:"
           }
         }
       }
@@ -5886,6 +6342,12 @@
             "state": "translated",
             "value": "联系人的姓氏和照片已更新："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin soyadı ve fotoğrafı güncellendi:"
+          }
         }
       }
     },
@@ -5963,6 +6425,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "联系人的姓氏已更新："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin soyadı güncellendi:"
           }
         }
       }
@@ -6042,6 +6510,12 @@
             "state": "translated",
             "value": "联系人的姓名、描述或照片已更新："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı, açıklaması veya fotoğrafı güncellendi:"
+          }
         }
       }
     },
@@ -6119,6 +6593,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "联系人的照片已更新："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin fotoğrafı güncellendi:"
           }
         }
       }
@@ -6198,6 +6678,12 @@
             "state": "translated",
             "value": "为了使这些更新在您的设备上生效，请接受它们。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu güncellemelerin cihazınızda etkili olması için lütfen kabul edin."
+          }
         }
       }
     },
@@ -6275,6 +6761,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "信任来源"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güven kökenleri"
           }
         }
       }
@@ -6354,6 +6846,12 @@
             "state": "translated",
             "value": "解除对联系人的屏蔽"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin engellemesini kaldır"
+          }
         }
       }
     },
@@ -6432,6 +6930,12 @@
             "state": "translated",
             "value": "需要验证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğrulama gerekli"
+          }
         }
       }
     },
@@ -6507,6 +7011,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "最近是否在线？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yakın zamanda çevrimiçi miydiniz?"
           }
         }
       }
@@ -6586,6 +7096,12 @@
             "state": "translated",
             "value": "是"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
+          }
         }
       }
     },
@@ -6661,6 +7177,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您和%1$@共有%2$@个群"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sizin ve %1$@ kişisinin ortak %2$@ grubu var"
           }
         }
       }
@@ -6884,6 +7406,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Siz ve %1$@ birlikte bir gruptasınız."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Siz ve %1$@ birlikte %2$lld gruptasınız."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -6961,6 +7501,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您和%@目前还没有共同加入任何群组。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siz ve %@ henüz birlikte hiçbir grupta değilsiniz."
           }
         }
       }
@@ -7040,6 +7586,12 @@
             "state": "translated",
             "value": "在 %@ 加入您的通讯录之前，您无法与其进行私聊。您现在是否要邀请他们？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişilerinizin bir parçası olana kadar %@ ile özel bir görüşme yapamazsınız. Onları şimdi davet etmek ister misiniz?"
+          }
         }
       }
     },
@@ -7117,6 +7669,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "是"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
           }
         }
       }

@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "-"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "-"
+          }
         }
       },
       "shouldTranslate": false
@@ -152,6 +158,12 @@
             "state": "translated",
             "value": "归档"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşiv"
+          }
         }
       }
     },
@@ -228,6 +240,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal et"
           }
         }
       }
@@ -306,6 +324,12 @@
             "state": "translated",
             "value": "关于"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hakkında"
+          }
         }
       }
     },
@@ -382,6 +406,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "接受"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabul et"
           }
         }
       }
@@ -460,6 +490,12 @@
             "state": "translated",
             "value": "操作"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eylemler"
+          }
         }
       }
     },
@@ -536,6 +572,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "活跃"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktif"
           }
         }
       }
@@ -614,6 +656,12 @@
             "state": "translated",
             "value": "添加表情"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir tepki ekleyin"
+          }
         }
       }
     },
@@ -690,6 +738,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "管理员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetici"
           }
         }
       }
@@ -768,6 +822,12 @@
             "state": "translated",
             "value": "高级"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelişmiş"
+          }
         }
       }
     },
@@ -844,6 +904,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "之后"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonra"
           }
         }
       }
@@ -922,6 +988,12 @@
             "state": "translated",
             "value": "始终"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her zaman"
+          }
         }
       }
     },
@@ -999,6 +1071,12 @@
             "state": "translated",
             "value": "身份验证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik doğrulama"
+          }
         }
       }
     },
@@ -1074,6 +1152,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "身份验证"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik doğrulama"
           }
         }
       }
@@ -1152,6 +1236,12 @@
             "state": "translated",
             "value": "返回"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
+          }
         }
       }
     },
@@ -1228,6 +1318,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme"
           }
         }
       }
@@ -1306,6 +1402,12 @@
             "state": "translated",
             "value": "回电"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri ara"
+          }
         }
       }
     },
@@ -1382,6 +1484,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "更改我的反应"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tepkimi değiştir"
           }
         }
       }
@@ -1675,6 +1783,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "biri seçildi"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld seçildi"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "seç"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1751,6 +1883,12 @@
             "state": "translated",
             "value": "%@ 的副本"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kopyası"
+          }
         }
       }
     },
@@ -1826,6 +1964,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭公开的隐藏资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açık gizli profili kapat"
           }
         }
       }
@@ -1904,6 +2048,12 @@
             "state": "translated",
             "value": "联系人和群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiler ve Gruplar"
+          }
         }
       }
     },
@@ -1980,6 +2130,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "联系人排序方式"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi sıralama düzeni"
           }
         }
       }
@@ -2058,6 +2214,12 @@
             "state": "translated",
             "value": "通话"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ara"
+          }
         }
       }
     },
@@ -2134,6 +2296,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "相机"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera"
           }
         }
       }
@@ -2212,6 +2380,12 @@
             "state": "translated",
             "value": "取消"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
         }
       }
     },
@@ -2288,6 +2462,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "聊天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet"
           }
         }
       }
@@ -2366,6 +2546,12 @@
             "state": "translated",
             "value": "清除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temiz"
+          }
         }
       }
     },
@@ -2442,6 +2628,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "完全"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamamen"
           }
         }
       }
@@ -2520,6 +2712,12 @@
             "state": "translated",
             "value": "确认"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onay"
+          }
         }
       }
     },
@@ -2596,6 +2794,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "联系人"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiler"
           }
         }
       }
@@ -2674,6 +2878,12 @@
             "state": "translated",
             "value": "复制"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopyala"
+          }
         }
       }
     },
@@ -2750,6 +2960,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制文本"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metni kopyala"
           }
         }
       }
@@ -2828,6 +3044,12 @@
             "state": "translated",
             "value": "创建"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oluştur"
+          }
         }
       }
     },
@@ -2904,6 +3126,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "日期"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarih"
           }
         }
       }
@@ -2982,6 +3210,12 @@
             "state": "translated",
             "value": "停用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırak"
+          }
         }
       }
     },
@@ -3058,6 +3292,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "来自我所有设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazlarımdan"
           }
         }
       }
@@ -3136,6 +3376,12 @@
             "state": "translated",
             "value": "来自我所有的设备以及其他成员的设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazlarımdan ve diğer üyelerin cihazlarından"
+          }
         }
       }
     },
@@ -3212,6 +3458,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "来自我所有的设备以及我联系人的设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazlarımdan ve kişimin cihazlarından"
           }
         }
       }
@@ -3290,6 +3542,12 @@
             "state": "translated",
             "value": "来自此设备以及其他群组成员的设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdan ve diğer grup üyelerinin cihazlarından"
+          }
         }
       }
     },
@@ -3366,6 +3624,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "从我的设备和联系人的设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdan ve kişimin cihazlarından"
           }
         }
       }
@@ -3444,6 +3708,12 @@
             "state": "translated",
             "value": "来自此设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdan"
+          }
         }
       }
     },
@@ -3520,6 +3790,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除我的表情"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tepkimi sil"
           }
         }
       }
@@ -3598,6 +3874,12 @@
             "state": "translated",
             "value": "讨论设置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışma ayarları"
+          }
         }
       }
     },
@@ -3674,6 +3956,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "调试"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hata ayıklama"
           }
         }
       }
@@ -3752,6 +4040,12 @@
             "state": "translated",
             "value": "拒绝"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reddet"
+          }
         }
       }
     },
@@ -3828,6 +4122,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "默认"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan"
           }
         }
       }
@@ -3906,6 +4206,12 @@
             "state": "translated",
             "value": "删除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sil"
+          }
         }
       }
     },
@@ -3982,6 +4288,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grubu sil"
           }
         }
       }
@@ -4060,6 +4372,12 @@
             "state": "translated",
             "value": "已删除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silindi"
+          }
         }
       }
     },
@@ -4136,6 +4454,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已送达"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "teslim edildi"
           }
         }
       }
@@ -4214,6 +4538,12 @@
             "state": "translated",
             "value": "详情"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıntılar"
+          }
         }
       }
     },
@@ -4290,6 +4620,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlar"
           }
         }
       }
@@ -4368,6 +4704,12 @@
             "state": "translated",
             "value": "目录"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rehber"
+          }
         }
       }
     },
@@ -4444,6 +4786,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "舍弃"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At"
           }
         }
       }
@@ -4522,6 +4870,12 @@
             "state": "translated",
             "value": "放弃更改"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Değişiklikleri sil"
+          }
         }
       }
     },
@@ -4598,6 +4952,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "讨论"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışma"
           }
         }
       }
@@ -4676,6 +5036,12 @@
             "state": "translated",
             "value": "讨论"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışmalar"
+          }
         }
       }
     },
@@ -4752,6 +5118,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "文档"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belgeler"
           }
         }
       }
@@ -4830,6 +5202,12 @@
             "state": "translated",
             "value": "文件尚未下载 😕"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya henüz indirilmedi 😕"
+          }
         }
       }
     },
@@ -4906,6 +5284,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "下载"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İndirilenler"
           }
         }
       }
@@ -4984,6 +5368,12 @@
             "state": "translated",
             "value": "启用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etkinleştir"
+          }
         }
       }
     },
@@ -5059,6 +5449,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "输入您的密码"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifrenizi girin"
           }
         }
       }
@@ -5137,6 +5533,12 @@
             "state": "translated",
             "value": "错误"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hata"
+          }
         }
       }
     },
@@ -5213,6 +5615,12 @@
             "state": "translated",
             "value": "这个群组不支持多位管理员。但您可以将此群组克隆到一个新的群组中，然后添加管理员！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grup birden fazla yöneticiyi desteklememektedir. Ancak bu grubu, 🚀 yapacak yeni bir gruba klonlayabilirsiniz!"
+          }
         }
       }
     },
@@ -5288,6 +5696,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "以下用户尚未添加到您的通讯录中，因此您无法与他们进行私聊。但是，您可以轻松地邀请他们！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aşağıdaki kullanıcılar (henüz) kişilerinizin bir parçası değil, dolayısıyla onlarla özel bir tartışma yapamazsınız. Ancak onları kolayca davet edebilirsiniz 🚀!"
           }
         }
       }
@@ -5366,6 +5780,12 @@
             "state": "translated",
             "value": "编辑"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düzenle"
+          }
         }
       }
     },
@@ -5442,6 +5862,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已编辑"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düzenlendi"
           }
         }
       }
@@ -5520,6 +5946,12 @@
             "state": "translated",
             "value": "所有人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herkes"
+          }
         }
       }
     },
@@ -5596,6 +6028,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "排除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hariç tut"
           }
         }
       }
@@ -5674,6 +6112,12 @@
             "state": "translated",
             "value": "有效期"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son kullanma tarihi"
+          }
         }
       }
     },
@@ -5750,6 +6194,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已过期"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Süresi dolmuş"
           }
         }
       }
@@ -5828,6 +6278,12 @@
             "state": "translated",
             "value": "导出到文件应用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya Uygulamasına Aktar"
+          }
         }
       }
     },
@@ -5905,6 +6361,12 @@
             "state": "translated",
             "value": "已转发"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İletilen"
+          }
         }
       }
     },
@@ -5981,6 +6443,12 @@
             "state": "translated",
             "value": "打开 App Store"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Store'u açın"
+          }
         }
       }
     },
@@ -6056,6 +6524,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要身份验证"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik doğrulama gerektir"
           }
         }
       }
@@ -6134,6 +6608,12 @@
             "state": "translated",
             "value": "在 %@ 之后"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'den sonra"
+          }
         }
       }
     },
@@ -6210,6 +6690,12 @@
             "state": "translated",
             "value": "允许访问麦克风"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofon erişimine izin ver"
+          }
         }
       }
     },
@@ -6285,6 +6771,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "前往设置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar'a gidin"
           }
         }
       }
@@ -6363,6 +6855,12 @@
             "state": "translated",
             "value": "相册"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Galeri"
+          }
         }
       }
     },
@@ -6439,6 +6937,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
           }
         }
       }
@@ -6517,6 +7021,12 @@
             "state": "translated",
             "value": "身份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik"
+          }
         }
       }
     },
@@ -6593,6 +7103,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "立即"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hemen"
           }
         }
       }
@@ -6671,6 +7187,12 @@
             "state": "translated",
             "value": "界面"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arayüz"
+          }
         }
       }
     },
@@ -6747,6 +7269,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "介绍"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tanıtın"
           }
         }
       }
@@ -6825,6 +7353,12 @@
             "state": "translated",
             "value": "向 %@ 介绍..."
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi şununla tanıştırın:"
+          }
         }
       }
     },
@@ -6901,6 +7435,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "邀请加入群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir gruba katılma daveti"
           }
         }
       }
@@ -6979,6 +7519,12 @@
             "state": "translated",
             "value": "邀请"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetiyeler"
+          }
         }
       }
     },
@@ -7056,6 +7602,12 @@
             "state": "translated",
             "value": "邀请"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet et"
+          }
         }
       }
     },
@@ -7132,6 +7684,12 @@
             "state": "translated",
             "value": "由于多次输入错误的密码，Olvid已被锁定。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid, çok sayıda yanlış şifre denemesinden sonra kilitlendi."
+          }
         }
       }
     },
@@ -7207,6 +7765,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已锁定 "
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şunun için kilitlendi:"
           }
         }
       }
@@ -7285,6 +7849,12 @@
             "state": "translated",
             "value": "稍后"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha sonra"
+          }
         }
       }
     },
@@ -7361,6 +7931,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "退出群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruptan ayrıl"
           }
         }
       }
@@ -7439,6 +8015,12 @@
             "state": "translated",
             "value": "链接"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlantılar"
+          }
         }
       }
     },
@@ -7515,6 +8097,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在加载"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yükleniyor"
           }
         }
       }
@@ -7593,6 +8181,12 @@
             "state": "translated",
             "value": "标记为已读"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okundu olarak işaretle"
+          }
         }
       }
     },
@@ -7668,6 +8262,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "我的资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profillerim"
           }
         }
       }
@@ -7746,6 +8346,12 @@
             "state": "translated",
             "value": "媒体"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medyalar"
+          }
         }
       }
     },
@@ -7822,6 +8428,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesaj"
           }
         }
       }
@@ -7900,6 +8512,12 @@
             "state": "translated",
             "value": "元数据"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meta veriler"
+          }
         }
       }
     },
@@ -7976,6 +8594,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "静音"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessiz"
           }
         }
       }
@@ -8054,6 +8678,12 @@
             "state": "translated",
             "value": "我的个人资料"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilim"
+          }
         }
       }
     },
@@ -8130,6 +8760,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示所有联系人"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm kişileri göster"
           }
         }
       }
@@ -8208,6 +8844,12 @@
             "state": "translated",
             "value": "前往讨论"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışmaya git"
+          }
         }
       }
     },
@@ -8284,6 +8926,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示所有群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm grupları göster"
           }
         }
       }
@@ -8362,6 +9010,12 @@
             "state": "translated",
             "value": "显示邀请"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetiyeleri göster"
+          }
         }
       }
     },
@@ -8438,6 +9092,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示最新对话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En son tartışmaları göster"
           }
         }
       }
@@ -8516,6 +9176,12 @@
             "state": "translated",
             "value": "永不"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asla"
+          }
         }
       }
     },
@@ -8592,6 +9258,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "新的建议介绍"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni Önerilen Giriş"
           }
         }
       }
@@ -8670,6 +9342,12 @@
             "state": "translated",
             "value": "新联系人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni kişi"
+          }
         }
       }
     },
@@ -8746,6 +9424,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "下一步"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonraki"
           }
         }
       }
@@ -8824,6 +9508,12 @@
             "state": "translated",
             "value": "否"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayır"
+          }
         }
       }
     },
@@ -8900,6 +9590,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "没有人"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiç kimse"
           }
         }
       }
@@ -8978,6 +9674,12 @@
             "state": "translated",
             "value": "无"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yok"
+          }
         }
       }
     },
@@ -9054,6 +9756,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "通知"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildirimler"
           }
         }
       }
@@ -9132,6 +9840,12 @@
             "state": "translated",
             "value": "现在"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdi"
+          }
         }
       }
     },
@@ -9208,6 +9922,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapalı"
           }
         }
       }
@@ -9286,6 +10006,12 @@
             "state": "translated",
             "value": "好的"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
         }
       }
     },
@@ -9362,6 +10088,12 @@
             "state": "translated",
             "value": "密码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifre"
+          }
         }
       }
     },
@@ -9434,6 +10166,12 @@
           }
         },
         "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PIN"
+          }
+        },
+        "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "PIN"
@@ -9514,6 +10252,12 @@
             "state": "translated",
             "value": "请启动 Olvid 应用程序，以便可以共享内容。😉"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İçerik paylaşabilmek için lütfen Olvid Uygulamasını başlatın 😉."
+          }
         }
       }
     },
@@ -9589,6 +10333,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请启动 Olvid 应用以完成其更新 🚀。完成更新后，您将能够共享内容 😉。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güncellemeyi tamamlamak için lütfen Olvid Uygulamasını başlatın 🚀. Bu işlem tamamlandıktan sonra içerik paylaşabileceksiniz 😉."
           }
         }
       }
@@ -9667,6 +10417,12 @@
             "state": "translated",
             "value": "部分"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kısmen"
+          }
         }
       }
     },
@@ -9743,6 +10499,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "粘贴"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yapıştır"
           }
         }
       }
@@ -9821,6 +10583,12 @@
             "state": "translated",
             "value": "待处理"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beklemede"
+          }
         }
       }
     },
@@ -9897,6 +10665,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "执行删除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silme işlemini gerçekleştirin"
           }
         }
       }
@@ -9975,6 +10749,12 @@
             "state": "translated",
             "value": "对所有用户执行删除操作"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silme işlemini tüm kullanıcılar için gerçekleştirin"
+          }
         }
       }
     },
@@ -10052,6 +10832,12 @@
             "state": "translated",
             "value": "置顶"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sabitle"
+          }
         }
       }
     },
@@ -10127,6 +10913,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请先验证身份，然后启动 Olvid"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen Olvid'i başlatmak için kimlik doğrulaması yapın"
           }
         }
       }
@@ -10205,6 +10997,12 @@
             "state": "translated",
             "value": "隐私"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gizlilik"
+          }
         }
       }
     },
@@ -10281,6 +11079,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "继续"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam et"
           }
         }
       }
@@ -10359,6 +11163,12 @@
             "state": "translated",
             "value": "处理中"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İşleme"
+          }
         }
       }
     },
@@ -10435,6 +11245,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "发布"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yayınla"
           }
         }
       }
@@ -10513,6 +11329,12 @@
             "state": "translated",
             "value": "二维码"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR kodu"
+          }
         }
       }
     },
@@ -10588,6 +11410,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "稍后提醒"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha sonra hatırlat"
           }
         }
       }
@@ -10666,6 +11494,12 @@
             "state": "translated",
             "value": "已读"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oku"
+          }
         }
       }
     },
@@ -10742,6 +11576,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "拒绝"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reddet"
           }
         }
       }
@@ -10820,6 +11660,12 @@
             "state": "translated",
             "value": "移除昵称"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma adı kaldır"
+          }
         }
       }
     },
@@ -10896,6 +11742,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "回复"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yanıtla"
           }
         }
       }
@@ -10974,6 +11826,12 @@
             "state": "translated",
             "value": "重置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sıfırla"
+          }
         }
       }
     },
@@ -11050,6 +11908,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "恢复"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri yükle"
           }
         }
       }
@@ -11128,6 +11992,12 @@
             "state": "translated",
             "value": "恢复备份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir yedeği geri yükleme"
+          }
         }
       }
     },
@@ -11205,6 +12075,12 @@
             "state": "translated",
             "value": "发送消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesaj gönder"
+          }
         }
       }
     },
@@ -11280,6 +12156,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil"
           }
         }
       }
@@ -11357,6 +12239,12 @@
             "state": "translated",
             "value": "您错过了一个来电！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir çağrıyı kaçırdınız!"
+          }
         }
       }
     },
@@ -11432,6 +12320,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您错过了来电！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir çağrıyı kaçırdınız!"
           }
         }
       }
@@ -11509,6 +12403,12 @@
             "state": "translated",
             "value": "Olvid 有新版本可用！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in yeni bir sürümü mevcut 🥳!"
+          }
         }
       }
     },
@@ -11584,6 +12484,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bana göster"
           }
         }
       }
@@ -11661,6 +12567,12 @@
             "state": "translated",
             "value": "显示给我"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bana göster"
+          }
         }
       }
     },
@@ -11736,6 +12648,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "信息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilgi"
           }
         }
       }
@@ -11813,6 +12731,12 @@
             "state": "translated",
             "value": "为了接收来电，您需要允许 Olvid 访问麦克风。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir çağrı almak için Olvid'in mikrofona erişmesine izin vermeniz gerekir."
+          }
         }
       }
     },
@@ -11888,6 +12812,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "要接收来电，您需要允许 Olvid 访问麦克风。为了不再错过任何来电，请前往设置并授予 Olvid 访问麦克风的权限。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir çağrı almak için Olvid'in mikrofona erişmesine izin vermeniz gerekir. Bir daha hiçbir çağrıyı kaçırmamak için lütfen Ayarlar'a gidin ve Olvid'in mikrofona erişmesine izin verin."
           }
         }
       }
@@ -11965,6 +12895,12 @@
             "state": "translated",
             "value": "Olvid 的新版本已在 App Store 上提供。您错过了许多令人惊叹的新功能！我们建议您立即更新。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in yeni bir sürümü App Store'da mevcut. Harika yeni özellikleri kaçırıyorsunuz 🤓! Şimdi yükseltmenizi öneririz 🚀."
+          }
         }
       }
     },
@@ -12040,6 +12976,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您错过了一个电话，因为 Olvid 没有被允许访问麦克风"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in mikrofona erişmesine izin verilmediğinden bir çağrıyı kaçırdınız"
           }
         }
       }
@@ -12117,6 +13059,12 @@
             "state": "translated",
             "value": "您错过了来电，因为 Olvid 未获得麦克风访问权限"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in mikrofona erişmesine izin verilmediğinden bir çağrıyı kaçırdınız"
+          }
         }
       }
     },
@@ -12193,6 +13141,12 @@
             "state": "translated",
             "value": "Olvid 的新版本已发布！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in yeni bir sürümü mevcut 🥳!"
+          }
         }
       }
     },
@@ -12268,6 +13222,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "请选择要添加到此群组中的成员。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen bu gruba kimlerin ekleneceğini seçin."
           }
         }
       }
@@ -12346,6 +13306,12 @@
             "state": "translated",
             "value": "存储管理"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depolama yönetimi"
+          }
         }
       }
     },
@@ -12422,6 +13388,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "保存"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydet"
           }
         }
       }
@@ -12500,6 +13472,12 @@
             "state": "translated",
             "value": "保存更改"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Değişiklikleri kaydet"
+          }
         }
       }
     },
@@ -12576,6 +13554,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "扫描文档"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belgeyi tara"
           }
         }
       }
@@ -12654,6 +13638,12 @@
             "state": "translated",
             "value": "搜索"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ara"
+          }
         }
       }
     },
@@ -12730,6 +13720,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seç"
           }
         }
       }
@@ -12808,6 +13804,12 @@
             "state": "translated",
             "value": "发送"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gönder"
+          }
         }
       }
     },
@@ -12884,6 +13886,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "发送已读回执"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okundu Bilgilerini Gönder"
           }
         }
       }
@@ -12962,6 +13970,12 @@
             "state": "translated",
             "value": "已发送"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gönderildi"
+          }
         }
       }
     },
@@ -13038,6 +14052,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "设置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar"
           }
         }
       }
@@ -13116,6 +14136,12 @@
             "state": "translated",
             "value": "分享"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaş"
+          }
         }
       }
     },
@@ -13192,6 +14218,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Göster"
           }
         }
       }
@@ -13270,6 +14302,12 @@
             "state": "translated",
             "value": "大小"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boyut"
+          }
         }
       }
     },
@@ -13346,6 +14384,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "扬声器"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoparlör"
           }
         }
       }
@@ -13424,6 +14468,12 @@
             "state": "translated",
             "value": "已存储"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saklandı"
+          }
         }
       }
     },
@@ -13499,6 +14549,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "当 Olvid 进入后台时，关闭隐藏的个人资料..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid arka plana girdiğinde gizli profili kapat..."
           }
         }
       }
@@ -13577,6 +14633,12 @@
             "state": "translated",
             "value": "计时器"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamanlayıcı"
+          }
         }
       }
     },
@@ -13653,6 +14715,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "点击返回通话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aramaya geri dönmek için dokunun"
           }
         }
       }
@@ -13731,6 +14799,12 @@
             "state": "translated",
             "value": "取消归档"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşivden kaldır"
+          }
         }
       }
     },
@@ -13807,6 +14881,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "不可用"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanılamıyor"
           }
         }
       }
@@ -13885,6 +14965,12 @@
             "state": "translated",
             "value": "无限"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sınırsız"
+          }
         }
       }
     },
@@ -13961,6 +15047,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消置顶"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sabitlemeyi kaldır"
           }
         }
       }
@@ -14039,6 +15131,12 @@
             "state": "translated",
             "value": "未处理"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "işlenmemiş"
+          }
         }
       }
     },
@@ -14115,6 +15213,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "未读"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okunmamış"
           }
         }
       }
@@ -14193,6 +15297,12 @@
             "state": "translated",
             "value": "更新"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güncelleme"
+          }
         }
       }
     },
@@ -14269,6 +15379,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用应用程序默认设置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uygulama varsayılanını kullan"
           }
         }
       }
@@ -14347,6 +15463,12 @@
             "state": "translated",
             "value": "版本"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sürüm"
+          }
         }
       }
     },
@@ -14420,6 +15542,12 @@
           }
         },
         "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP"
+          }
+        },
+        "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "VoIP"
@@ -14501,6 +15629,12 @@
             "state": "translated",
             "value": "已清除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silindi"
+          }
         }
       }
     },
@@ -14576,6 +15710,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的消息..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesajınız..."
           }
         }
       }
@@ -14654,6 +15794,12 @@
             "state": "translated",
             "value": "是"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
+          }
         }
       }
     },
@@ -14730,6 +15876,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "哎呀..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "😧 Ah..."
           }
         }
       }

@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "取消"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择一个或多个对话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir veya daha fazla tartışma seçin"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "15天"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 gün"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "5 年"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 yıl"
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "请按住 Command 键，一次选择多个对话。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aynı anda birden fazla tartışmayı seçmek için lütfen Komut tuşunu basılı tutun."
+          }
         }
       }
     },
@@ -453,6 +483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "90 天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 gün"
           }
         }
       }
@@ -530,6 +566,12 @@
             "state": "translated",
             "value": "1 天"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 gün"
+          }
         }
       }
     },
@@ -605,6 +647,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "180天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 gün"
           }
         }
       }
@@ -682,6 +730,12 @@
             "state": "translated",
             "value": "1 年"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 yıl"
+          }
         }
       }
     },
@@ -757,6 +811,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "7天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 gün"
           }
         }
       }
@@ -834,6 +894,12 @@
             "state": "translated",
             "value": "6 小时"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 saat"
+          }
         }
       }
     },
@@ -909,6 +975,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "30天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 gün"
           }
         }
       }
@@ -986,6 +1058,12 @@
             "state": "translated",
             "value": "3 年"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 yıl"
+          }
         }
       }
     },
@@ -1061,6 +1139,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "12 小时"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 saat"
           }
         }
       }
@@ -1138,6 +1222,12 @@
             "state": "translated",
             "value": "2 天"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 gün"
+          }
         }
       }
     },
@@ -1214,6 +1304,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "无限"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sınırsız"
           }
         }
       }
@@ -1503,6 +1599,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "无参与者"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "bir katılımcıyla"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld katılımcılarla"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "katılımcı olmadan"
                 }
               }
             }

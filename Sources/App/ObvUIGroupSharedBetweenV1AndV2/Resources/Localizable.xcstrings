@@ -20,6 +20,12 @@
             "state": "translated",
             "value": ""
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          }
         }
       },
       "shouldTranslate": false
@@ -241,6 +247,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grup üyelerinden biri henüz kişilerinizin parçası değil."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grup üyelerinden %lld'si henüz kişilerinizin parçası değil."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -457,6 +481,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "群组成员中有 %lld 位不是您的联系人。当他们接受群组邀请后，您可以一键邀请他们加入您的联系人。☝️"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grup üyelerinden biri kişilerinizin parçası değil. Grup davetini kabul ettiklerinde, onları tek dokunuşla kişilerinize katılmaya davet edebileceksiniz ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grup üyelerinden %lld kişi listenizde değil. Grup davetini kabul ettiklerinde, onları tek dokunuşla kişilerinize katılmaya davet edebileceksiniz ☝️."
                 }
               }
             }
@@ -693,6 +735,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grup üyelerinden biri henüz kişileriniz arasında değil ancak onları tek dokunuşla davet edebilirsiniz ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld grup üyeleri henüz kişileriniz arasında değil ancak onları tek dokunuşla davet edebilirsiniz ☝️."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -768,6 +828,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "接受"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabul et"
           }
         }
       }
@@ -1057,6 +1123,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "创建一个没有其他成员的群组"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu kullanıcıyla bir grup oluşturun"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu %lld kullanıcılarla bir grup oluşturun"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Başka üyesi olmayan bir grup oluşturun"
                 }
               }
             }
@@ -1353,6 +1443,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kullanıcıyı gruba ekleyin"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld kullanıcılarını gruba ekleyin"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Lütfen gruba eklenecek kullanıcıyı seçin"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1428,6 +1542,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "将群组成员添加到您的通讯录"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup üyelerini kişilerinize ekleyin"
           }
         }
       }
@@ -1505,6 +1625,12 @@
             "state": "translated",
             "value": "添加成员"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üye ekle"
+          }
         }
       }
     },
@@ -1580,6 +1706,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "管理员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetici"
           }
         }
       }
@@ -1657,6 +1789,12 @@
             "state": "translated",
             "value": "管理员"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yöneticiler"
+          }
         }
       }
     },
@@ -1732,6 +1870,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "全部"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hepsi"
           }
         }
       }
@@ -1809,6 +1953,12 @@
             "state": "translated",
             "value": "群组中的所有成员都已经存在于您的通讯录中。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm grup üyeleri zaten kişilerinizin bir parçası."
+          }
         }
       }
     },
@@ -1885,6 +2035,12 @@
             "state": "translated",
             "value": "您的所有联系人已经在这个群组中☺️。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm kişileriniz zaten bu grubun parçası☺️."
+          }
         }
       }
     },
@@ -1960,6 +2116,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您想取消此邀请吗？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu daveti iptal etmek istiyor musunuz?"
           }
         }
       }
@@ -2177,6 +2339,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "您确定要将这些 %lld 位成员从群组中移除吗？"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu üyeyi gruptan çıkarmak istediğinizden emin misiniz?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu %lld üyeleri gruptan çıkarmak istediğinizden emin misiniz?"
                 }
               }
             }
@@ -2401,6 +2581,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu kullanıcıyı davet etmek istediğinizden emin misiniz?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu %lld kullanıcılarını davet etmek istediğinizden emin misiniz?"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -2476,6 +2674,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "邀请已发送"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetiye gönderildi"
           }
         }
       }
@@ -2553,6 +2757,12 @@
             "state": "translated",
             "value": "邀请"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet et"
+          }
         }
       }
     },
@@ -2628,6 +2838,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消邀请"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daveti iptal et"
           }
         }
       }
@@ -2705,6 +2921,12 @@
             "state": "translated",
             "value": "选择群组照片"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir grup fotoğrafı seçin"
+          }
         }
       }
     },
@@ -2780,6 +3002,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "编辑群组详情"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup ayrıntılarını düzenle"
           }
         }
       }
@@ -2857,6 +3085,12 @@
             "state": "translated",
             "value": "新的名称和描述"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni ad ve açıklama"
+          }
         }
       }
     },
@@ -2932,6 +3166,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群组描述"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup açıklaması"
           }
         }
       }
@@ -3009,6 +3249,12 @@
             "state": "translated",
             "value": "添加成员"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üye ekle"
+          }
         }
       }
     },
@@ -3084,6 +3330,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "移除成员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeleri kaldır"
           }
         }
       }
@@ -3161,6 +3413,12 @@
             "state": "translated",
             "value": "群组成员（%lld）"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup üyeleri (%lld)"
+          }
         }
       }
     },
@@ -3236,6 +3494,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "你目前是该群组的唯一成员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubun tek üyesi sensin"
           }
         }
       }
@@ -3313,6 +3577,12 @@
             "state": "translated",
             "value": "群组名称"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adı"
+          }
         }
       }
     },
@@ -3388,6 +3658,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此群组正在更新中。请等待更新完成后再进行其他修改。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubun güncellenmesi devam ediyor. Daha fazla değişiklik yapmak için lütfen işlemin tamamlanmasını bekleyin."
           }
         }
       }
@@ -3465,6 +3741,12 @@
             "state": "translated",
             "value": "正在更新"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güncelleme devam ediyor"
+          }
         }
       }
     },
@@ -3540,6 +3822,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "图片"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resim"
           }
         }
       }
@@ -3617,6 +3905,12 @@
             "state": "translated",
             "value": "邀请所有人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hepsini davet et"
+          }
         }
       }
     },
@@ -3692,6 +3986,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "管理员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetici"
           }
         }
       }
@@ -3769,6 +4069,12 @@
             "state": "translated",
             "value": "不是管理员"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetici değil"
+          }
         }
       }
     },
@@ -3844,6 +4150,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "未找到联系人。🥲"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi bulunamadı 🥲."
           }
         }
       }
@@ -3921,6 +4233,12 @@
             "state": "translated",
             "value": "照片库"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf kitaplığı"
+          }
         }
       }
     },
@@ -3996,6 +4314,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "文件"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya"
           }
         }
       }
@@ -4073,6 +4397,12 @@
             "state": "translated",
             "value": "删除照片"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğrafı kaldır"
+          }
         }
       }
     },
@@ -4148,6 +4478,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "恢复已发布的照片"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yayınlanan fotoğrafı geri yükle"
           }
         }
       }
@@ -4225,6 +4561,12 @@
             "state": "translated",
             "value": "拍照"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf çek"
+          }
         }
       }
     },
@@ -4300,6 +4642,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "待处理"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beklemede"
           }
         }
       }
@@ -4377,6 +4725,12 @@
             "state": "translated",
             "value": "发布更改"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Değişiklikleri yayınla"
+          }
         }
       }
     },
@@ -4452,6 +4806,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "发布群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grubu yayınla"
           }
         }
       }
@@ -4745,6 +5105,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Üyeyi kaldır"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld üyelerini kaldırın"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Seçilen üyeleri kaldır"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -4821,6 +5205,12 @@
             "state": "translated",
             "value": "移除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaldır"
+          }
         }
       }
     },
@@ -4896,6 +5286,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "更换群组照片"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup fotoğrafını değiştirin"
           }
         }
       }
@@ -5117,6 +5513,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Daveti gönder"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld davetiyelerini gönderin"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -5192,6 +5606,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示全部"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümünü göster"
           }
         }
       }
@@ -5269,6 +5689,12 @@
             "state": "translated",
             "value": "显示所有群组成员，或仅显示管理员"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm grup üyelerini göster veya yöneticilerle kısıtla"
+          }
         }
       }
     },
@@ -5344,6 +5770,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示给我"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bana göster"
           }
         }
       }
@@ -5421,6 +5853,12 @@
             "state": "translated",
             "value": "搜索"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ara"
+          }
         }
       }
     },
@@ -5496,6 +5934,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "点击以接受"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabul etmek için dokunun"
           }
         }
       }
@@ -5729,6 +6173,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki grup üyesi zaten kişilerinizin bir parçası."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki %lld grup üyeleri zaten kişilerinizin bir parçası."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -5945,6 +6407,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "以下 %lld 位群组成员不在您的通讯录中。他们在接受群组邀请后，您就可以一键邀请他们加入您的通讯录 ☝️."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki grup üyesi kişilerinizin bir parçası değil. Grup davetini kabul ettiklerinde, onları tek dokunuşla kişilerinize katılmaya davet edebileceksiniz ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki %lld grup üyeleri kişilerinizin parçası değil. Grup davetini kabul ettiklerinde, onları tek dokunuşla kişilerinize katılmaya davet edebileceksiniz ☝️."
                 }
               }
             }
@@ -6169,6 +6649,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki grup üyesi henüz kişileriniz arasında değil ancak onları tek dokunuşla davet edebilirsiniz ☝️. Sadece davetinizi kabul etmeleri yeterli, kod alışverişine gerek yok 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki %lld grup üyeleri henüz kişileriniz arasında değil ancak onları tek dokunuşla davet edebilirsiniz ☝️. Sadece davetinizi kabul etmeleri yeterli, kod alışverişine gerek yok 😉."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -6244,6 +6742,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群组描述和照片已更新，如下所示："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup açıklamasında ve fotoğrafında aşağıdaki güncellemeler yapıldı:"
           }
         }
       }
@@ -6321,6 +6825,12 @@
             "state": "translated",
             "value": "群组描述已更新，更新内容如下："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup açıklamasında aşağıdaki güncelleme yapıldı:"
+          }
         }
       }
     },
@@ -6396,6 +6906,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群组名称和描述已更新，具体如下："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adında ve açıklamasında aşağıdaki güncellemeler yapıldı:"
           }
         }
       }
@@ -6473,6 +6989,12 @@
             "state": "translated",
             "value": "群组名称和照片已更新，具体如下："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adı ve fotoğrafında aşağıdaki güncellemeler yapıldı:"
+          }
         }
       }
     },
@@ -6548,6 +7070,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群组名称、描述和照片已更新，具体如下："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adında, açıklamasında ve fotoğrafında aşağıdaki güncellemeler yapıldı:"
           }
         }
       }
@@ -6625,6 +7153,12 @@
             "state": "translated",
             "value": "以下是对群组所做的更改："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupta aşağıdaki güncellemeler yapıldı:"
+          }
         }
       }
     },
@@ -6701,6 +7235,12 @@
             "state": "translated",
             "value": "群组名称已更新，详情如下："
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adında aşağıdaki güncelleme yapıldı:"
+          }
         }
       }
     },
@@ -6776,6 +7316,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群组头像已更新，详情如下："
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup fotoğrafında aşağıdaki güncelleme yapıldı:"
           }
         }
       }
@@ -6997,6 +7543,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Geriye kalan kişinin onları davet edebilmeniz için grup davetini kabul etmesi gerekir."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Geriye kalan %lld'nin onları davet edebilmeniz için grup davetini kabul etmesi gerekir."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -7072,6 +7636,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加成员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üye ekle"
           }
         }
       }
@@ -7149,6 +7719,12 @@
             "state": "translated",
             "value": "群组成员"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup üyeleri"
+          }
         }
       }
     },
@@ -7224,6 +7800,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "管理群成员"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeleri yönet"
           }
         }
       }
@@ -7301,6 +7883,12 @@
             "state": "translated",
             "value": "移除成员"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeleri kaldır"
+          }
         }
       }
     },
@@ -7376,6 +7964,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "为了使这些更新在您的设备上生效，请接受它们。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu güncellemelerin cihazınızda etkili olması için lütfen kabul edin."
           }
         }
       }
@@ -7453,6 +8047,12 @@
             "state": "translated",
             "value": "需要验证"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğrulama gerekli"
+          }
         }
       }
     },
@@ -7528,6 +8128,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "你"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sen"
           }
         }
       }
@@ -7749,6 +8355,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu üyelerden birini zaten davet ettiniz."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu üyelerden %lld tanesini zaten davet ettiniz."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -7825,6 +8449,12 @@
             "state": "translated",
             "value": "您已经邀请了所有这些成员。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu üyelerin hepsini zaten davet ettiniz."
+          }
         }
       }
     },
@@ -7900,6 +8530,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您已经邀请过此成员。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu üyeyi zaten davet ettiniz."
           }
         }
       }
@@ -8117,6 +8753,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "您可以一键邀请其中 %lld 位加入您的联系人。☝️"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tek dokunuşla içlerinden birini kişilerinize katılmaya davet edebilirsiniz ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tek dokunuşla %lld tanesini kişilerinize katılmaya davet edebilirsiniz ☝️."
                 }
               }
             }

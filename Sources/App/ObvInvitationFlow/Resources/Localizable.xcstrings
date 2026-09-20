@@ -2,7 +2,15 @@
   "sourceLanguage": "en",
   "strings": {
     "": {
-      "shouldTranslate": false
+      "shouldTranslate": false,
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          }
+        }
+      }
     },
     "%@ invites you to discuss on Olvid": {
       "localizations": {
@@ -76,6 +84,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 想要在 Olvid 上与您讨论"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sizinle Olvid hakkında görüşmek istiyorum"
           }
         }
       }
@@ -153,6 +167,12 @@
             "state": "translated",
             "value": "%@ 邀请您在 Olvid 上进行讨论。如需接受，请点击附件中的链接。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sizi Olvid hakkında tartışmaya davet ediyor. Kabul etmek için lütfen ekteki bağlantıya tıklayın."
+          }
         }
       }
     },
@@ -228,6 +248,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "还有 %lld 个额外的搜索结果。请优化您的搜索。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ek arama sonuçları mevcuttur. Lütfen aramanızı hassaslaştırın."
           }
         }
       }
@@ -307,6 +333,12 @@
             "state": "translated",
             "value": "与另一用户连接"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir kullanıcıyla bağlantı kurun"
+          }
         }
       }
     },
@@ -382,6 +414,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "邀请"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet et"
           }
         }
       }
@@ -459,6 +497,12 @@
             "state": "translated",
             "value": "讨论"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartış"
+          }
         }
       }
     },
@@ -534,6 +578,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "移除邀请"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daveti kaldır"
           }
         }
       }
@@ -613,6 +663,12 @@
             "state": "translated",
             "value": "这是您的专属邀请链接。您可以将其分享给其他 Olvid 用户，以便他们可以远程邀请您。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu sizin kendi davet bağlantınızdır. Sizi uzaktan davet edebilmeleri için bunu diğer Olvid kullanıcılarıyla paylaşabilirsiniz."
+          }
         }
       }
     },
@@ -691,6 +747,12 @@
             "state": "translated",
             "value": "无法邀请自己"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kendinizi davet edemiyorsunuz"
+          }
         }
       }
     },
@@ -766,6 +828,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "新联系人"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni kişi"
           }
         }
       }
@@ -843,6 +911,12 @@
             "state": "translated",
             "value": "新建群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni grup"
+          }
         }
       }
     },
@@ -919,6 +993,12 @@
             "state": "translated",
             "value": "用户"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanıcılar"
+          }
         }
       }
     },
@@ -994,6 +1074,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "专业目录"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profesyonel dizin"
           }
         }
       }
@@ -1073,6 +1159,12 @@
             "state": "translated",
             "value": "群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
+          }
         }
       }
     },
@@ -1149,6 +1241,12 @@
             "state": "translated",
             "value": "来自…的新消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni mesaj…"
+          }
         }
       }
     },
@@ -1224,6 +1322,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "没有可用联系人"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi bulunamadı"
           }
         }
       }
@@ -1303,6 +1407,12 @@
             "state": "translated",
             "value": "尚未添加任何联系人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz kişi yok"
+          }
         }
       }
     },
@@ -1380,6 +1490,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Olvid不会在未经您同意的情况下添加任何人。您可以决定邀请谁，无论是亲自邀请还是远程邀请。点击“新联系人”开始。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid, sizin seçiminiz olmadan kimseyi eklemez. Kimi davet edeceğinize şahsen veya uzaktan siz karar verirsiniz. Başlamak için 'Yeni kişi'ye dokunun."
           }
         }
       }
@@ -1459,6 +1575,12 @@
             "state": "translated",
             "value": "已复制！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopyalandı!"
+          }
         }
       }
     },
@@ -1534,6 +1656,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "将我的邀请链接复制到剪贴板"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetiye bağlantımı panoya kopyala"
           }
         }
       }
@@ -1613,6 +1741,12 @@
             "state": "translated",
             "value": "联系我们"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İletişim kurun"
+          }
         }
       }
     },
@@ -1690,6 +1824,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "通过远程方式进行联系"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzaktan iletişim kurun"
           }
         }
       }
@@ -1769,6 +1909,12 @@
             "state": "translated",
             "value": "您想如何添加此联系人？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişiyi nasıl eklemek istersiniz?"
+          }
         }
       }
     },
@@ -1847,6 +1993,12 @@
             "state": "translated",
             "value": "请让 %@ 扫描此二维码以立即建立联系。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hemen iletişim kurmak için %@ kişisinin bu QR kodunu taramasını sağlayın."
+          }
         }
       }
     },
@@ -1922,6 +2074,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "登录"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giriş yap"
           }
         }
       }
@@ -1999,6 +2157,12 @@
             "state": "translated",
             "value": "为了查找和连接其他用户，请重新登录。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başkalarını bulmak ve onlarla bağlantı kurmak için lütfen tekrar giriş yapın."
+          }
         }
       }
     },
@@ -2074,6 +2238,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "是时候重新连接了！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden bağlanma zamanı!"
           }
         }
       }
@@ -2151,6 +2321,12 @@
             "state": "translated",
             "value": "稍后"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha sonra"
+          }
         }
       }
     },
@@ -2226,6 +2402,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加联系人的其他方法"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi eklemek için ek yöntemler."
           }
         }
       }
@@ -2305,6 +2487,12 @@
             "state": "translated",
             "value": "好的"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tamam"
+          }
         }
       }
     },
@@ -2382,6 +2570,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "选项 1：面对面"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçenek 1: yüz yüze"
           }
         }
       }
@@ -2461,6 +2655,12 @@
             "state": "translated",
             "value": "选项 2：远程"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçenek 2: uzaktan"
+          }
         }
       }
     },
@@ -2536,6 +2736,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您粘贴的内容似乎不是 Olvid ID 🧐"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yapıştırdığınız şey bir Olvid kimliği gibi görünmüyor 🧐"
           }
         }
       }
@@ -2613,6 +2819,12 @@
             "state": "translated",
             "value": "从剪贴板粘贴 Olvid 链接"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panodan bir Olvid bağlantısı yapıştırın"
+          }
         }
       }
     },
@@ -2688,6 +2900,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopyala"
           }
         }
       }
@@ -2765,6 +2983,12 @@
             "state": "translated",
             "value": "下载"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İndir"
+          }
         }
       }
     },
@@ -2840,6 +3064,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "分享"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaş"
           }
         }
       }
@@ -2917,6 +3147,12 @@
             "state": "translated",
             "value": "使用其他方法"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diğer yöntemleri kullanın"
+          }
         }
       }
     },
@@ -2992,6 +3228,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "远程邀请"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzaktan davet et"
           }
         }
       }
@@ -3069,6 +3311,12 @@
             "state": "translated",
             "value": "无法扫描吗？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarama yapamıyor musunuz?"
+          }
         }
       }
     },
@@ -3144,6 +3392,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的联系人无法扫描吗？"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiniz tarayamıyor mu?"
           }
         }
       }
@@ -3221,6 +3475,12 @@
             "state": "translated",
             "value": "扫描对方的二维码以进行连接"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlanmak için birbirinizin QR kodunu tarayın"
+          }
         }
       }
     },
@@ -3296,6 +3556,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已扫描二维码！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod tarandı!"
           }
         }
       }
@@ -3375,6 +3641,12 @@
             "state": "translated",
             "value": "正在添加联系人……"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi ekleniyor…"
+          }
         }
       }
     },
@@ -3452,6 +3724,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您重新上线后，您的联系人将被添加。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrar çevrimiçi olduğunuzda kişiniz eklenecektir."
           }
         }
       }
@@ -3531,6 +3809,12 @@
             "state": "translated",
             "value": "%@ 现在已在您的联系人中。现在就开始聊天吧！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ artık rehberinizde. Şimdi sohbete başlayın!"
+          }
         }
       }
     },
@@ -3606,6 +3890,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "现在轮到对方扫描你的二维码了。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR kodunuzu tarama sırası onlarda."
           }
         }
       }
@@ -3685,6 +3975,12 @@
             "state": "translated",
             "value": "搜索用户和群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanıcıları ve grupları arayın"
+          }
         }
       }
     },
@@ -3760,6 +4056,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "分享你的个人资料"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizi paylaşın"
           }
         }
       }
@@ -3837,6 +4139,12 @@
             "state": "translated",
             "value": "远程"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzaktan"
+          }
         }
       }
     },
@@ -3912,6 +4220,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "面对面"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yüz yüze"
           }
         }
       }
@@ -3989,6 +4303,12 @@
             "state": "translated",
             "value": "嗯，好像没成功"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hımm, bu işe yaramadı"
+          }
         }
       }
     },
@@ -4064,6 +4384,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Olvid 无法访问相机。要扫描二维码，请在设备设置中启用相机访问权限。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid kameraya erişemiyor. QR kodlarını taramak için cihaz ayarlarınızdan kamera erişimini etkinleştirin."
           }
         }
       }
@@ -4141,6 +4467,12 @@
             "state": "translated",
             "value": "相机访问被拒绝"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera Erişimi Reddedildi"
+          }
         }
       }
     },
@@ -4216,6 +4548,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "由于设备限制，Olvid 无法访问摄像头。要扫描二维码，请检查您的设备设置，并确保允许本应用访问摄像头。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid, cihaz kısıtlamaları nedeniyle kameraya erişemiyor. QR kodlarını taramak için cihaz ayarlarınızı kontrol edin ve bu uygulamanın kamera erişimine izin verdiğinden emin olun."
           }
         }
       }
@@ -4293,6 +4631,12 @@
             "state": "translated",
             "value": "相机访问受限"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera Erişimi Kısıtlı"
+          }
         }
       }
     },
@@ -4368,6 +4712,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法将您的邀请链接复制到剪贴板，请稍后再试。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetiye bağlantınız panoya kopyalanamadı 🥲. Lütfen tekrar deneyin."
           }
         }
       }
@@ -4445,6 +4795,12 @@
             "state": "translated",
             "value": "您的邀请链接已复制到剪贴板"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetiye bağlantınız panoya kopyalandı"
+          }
         }
       }
     },
@@ -4521,6 +4877,12 @@
             "state": "translated",
             "value": "使用上方的“创建新群组”按钮来创建您的第一个群组！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İlk grubunuzu oluşturmak için yukarıdaki 'Yeni grup' düğmesini kullanın!"
+          }
         }
       }
     },
@@ -4596,6 +4958,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您还没有任何群组。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz herhangi bir grubunuz yok."
           }
         }
       }

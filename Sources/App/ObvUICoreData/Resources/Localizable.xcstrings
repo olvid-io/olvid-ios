@@ -75,6 +75,12 @@
             "state": "translated",
             "value": "%@ 已加入本群"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ bu gruba katıldı"
+          }
         }
       }
     },
@@ -151,6 +157,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 已加入此群组 - %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ bu gruba katıldı - %@"
           }
         }
       }
@@ -229,6 +241,12 @@
             "state": "translated",
             "value": "%@ 离开了这个群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ bu gruptan ayrıldı"
+          }
         }
       }
     },
@@ -305,6 +323,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 离开了这个群组 - %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ bu gruptan ayrıldı - %@"
           }
         }
       }
@@ -384,6 +408,12 @@
             "state": "translated",
             "value": "已删除的联系人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi silindi"
+          }
         }
       }
     },
@@ -459,6 +489,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "来电"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelen arama"
           }
         }
       }
@@ -536,6 +572,12 @@
             "state": "translated",
             "value": "拨出通话"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giden çağrı"
+          }
         }
       }
     },
@@ -611,6 +653,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "以及其他 %@ 人"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ve %@ diğerleri"
           }
         }
       }
@@ -688,6 +736,12 @@
             "state": "translated",
             "value": "以及另外一人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ve bir diğeri"
+          }
         }
       }
     },
@@ -763,6 +817,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "另一设备已接听"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arama başka bir cihazda kabul edildi"
           }
         }
       }
@@ -840,6 +900,12 @@
             "state": "translated",
             "value": "有来电..."
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelen çağrı..."
+          }
         }
       }
     },
@@ -915,6 +981,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在拨打电话..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giden arama..."
           }
         }
       }
@@ -992,6 +1064,12 @@
             "state": "translated",
             "value": "正在进行其他通话"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meşgul giden arama"
+          }
         }
       }
     },
@@ -1067,6 +1145,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 再次成为您的联系人，您可以从中断的地方继续之前的对话 🤗。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ yine rehberiniz arasına girdi, görüşmenize kaldığınız yerden devam edebilirsiniz 🤗."
           }
         }
       }
@@ -1144,6 +1228,12 @@
             "state": "translated",
             "value": "%@ 截取了包含敏感信息的聊天内容的屏幕截图。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hassas bir mesajın ekran görüntüsünü aldı."
+          }
         }
       }
     },
@@ -1220,6 +1310,12 @@
             "state": "translated",
             "value": "一位参与者截取了包含敏感信息的聊天内容。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir katılımcı hassas bir mesajın ekran görüntüsünü aldı."
+          }
         }
       }
     },
@@ -1295,6 +1391,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的公司身份验证服务已撤销该联系人"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi, şirketinizin kimlik sağlayıcısı tarafından iptal edildi"
           }
         }
       }
@@ -1373,6 +1475,12 @@
             "state": "translated",
             "value": "选择"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seç"
+          }
         }
       }
     },
@@ -1450,6 +1558,12 @@
             "state": "translated",
             "value": "关闭"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapat"
+          }
         }
       }
     },
@@ -1525,6 +1639,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群聊共享设置已更新"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışma paylaşılan ayarları güncellendi"
           }
         }
       }
@@ -1602,6 +1722,12 @@
             "state": "translated",
             "value": "默认"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan"
+          }
         }
       }
     },
@@ -1677,6 +1803,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "阅后即焚消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçici mesaj"
           }
         }
       }
@@ -1755,6 +1887,12 @@
             "state": "translated",
             "value": "已编辑"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düzenlendi"
+          }
         }
       }
     },
@@ -1830,6 +1968,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "15 天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 gün"
           }
         }
       }
@@ -1907,6 +2051,12 @@
             "state": "translated",
             "value": "5年"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 yıl"
+          }
         }
       }
     },
@@ -1982,6 +2132,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "来自 %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'den itibaren"
           }
         }
       }
@@ -2060,6 +2216,12 @@
             "state": "translated",
             "value": "转发"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İleri"
+          }
         }
       }
     },
@@ -2135,6 +2297,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "没有名称的群组 😅"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İsimsiz grup 😅"
           }
         }
       }
@@ -2212,6 +2380,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "最后一条消息已被远程删除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son mesaj uzaktan silindi"
           }
         }
       }
@@ -2291,6 +2465,12 @@
             "state": "translated",
             "value": "讨论已锁定"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışma kilitlendi"
+          }
         }
       }
     },
@@ -2368,6 +2548,12 @@
             "state": "translated",
             "value": "最新"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En son"
+          }
         }
       }
     },
@@ -2443,6 +2629,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "群组成员已更新。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup üyeleri güncellendi."
           }
         }
       }
@@ -2521,6 +2713,12 @@
             "state": "translated",
             "value": "最后一条消息已被删除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son mesaj silindi 🧹"
+          }
         }
       }
     },
@@ -2597,6 +2795,12 @@
             "state": "translated",
             "value": "未接来电"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cevapsız Arama"
+          }
         }
       }
     },
@@ -2672,6 +2876,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您处于“专注”模式时，有一通电话未接。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"Odaklanma\" modundayken cevapsız çağrı."
           }
         }
       }
@@ -2750,6 +2960,12 @@
             "state": "translated",
             "value": "标记所有消息为已读"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümünü okundu olarak işaretle"
+          }
         }
       }
     },
@@ -2825,6 +3041,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此对话已进行端到端身份验证和端到端加密。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu tartışma uçtan uca doğrulanmıştır ve uçtan uca şifrelenmiştir."
           }
         }
       }
@@ -2903,6 +3125,12 @@
             "state": "translated",
             "value": "在此讨论中发布的消息受到端到端加密的保护。通过密码学技术，可以保证消息的机密性、真实性和发送者的身份。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🔒 Bu tartışmaya gönderilen mesajlar uçtan uca şifreleme kullanılarak korunmaktadır. Bunların gizliliği, orijinalliği ve gönderenin kimliği kriptografiyle garanti altına alınır."
+          }
         }
       }
     },
@@ -2979,6 +3207,12 @@
             "state": "translated",
             "value": "90天"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 gün"
+          }
         }
       }
     },
@@ -3054,6 +3288,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您不再是此群组的成员，原因可能是您已退出、管理员已将您移除，或者群组已被删除。🥲"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artık bu grubun bir parçası değilsiniz; ya gruptan ayrılmışsınızdır, ya da bir yönetici sizi çıkarmıştır, ya da grup silinmiştir 🥲."
           }
         }
       }
@@ -3132,6 +3372,12 @@
             "state": "translated",
             "value": "尚未发送任何消息。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz mesaj yok."
+          }
         }
       }
     },
@@ -3207,6 +3453,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 gün"
           }
         }
       }
@@ -3284,6 +3536,12 @@
             "state": "translated",
             "value": "180天"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 gün"
+          }
         }
       }
     },
@@ -3359,6 +3617,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 年"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 yıl"
           }
         }
       }
@@ -3436,6 +3700,12 @@
             "state": "translated",
             "value": "选择一个或多个答案"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir veya daha fazla yanıt seçin"
+          }
         }
       }
     },
@@ -3511,6 +3781,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "拒绝来电"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reddedilen gelen arama"
           }
         }
       }
@@ -3732,6 +4008,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda arama almamayı seçtiğiniz için gelen güvenli arama otomatik olarak reddedildi. Ayarı göstermek için bu mesaja tıklayın."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu cihazda arama almamayı seçtiğiniz için gelen güvenli arama otomatik olarak reddedildi. Ayarı göstermek için bu mesaja dokunun."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -3807,6 +4101,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "由于 Olvid 未被授权访问麦克风，因此拒绝了来电。为了不再错过任何来电，请前往“设置”并授予 Olvid 访问麦克风的权限。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in Mikrofona erişmesine izin verilmediğinden gelen çağrı reddedildi. Bir daha hiçbir çağrıyı kaçırmamak için lütfen Ayarlar'a gidin ve Olvid'in mikrofona erişmesine izin verin."
           }
         }
       }
@@ -3884,6 +4184,12 @@
             "state": "translated",
             "value": "由于 Olvid 未获得麦克风访问权限，因此拒绝了来电。幸运的是，此权限已授予。您不会再错过任何来电了！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in Mikrofona erişmesine izin verilmediğinden gelen çağrı reddedildi. Neyse ki o zamandan beri bu yetki verildi. Artık hiçbir çağrıyı kaçırmayacaksınız 🥳!"
+          }
         }
       }
     },
@@ -3959,6 +4265,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "由于 Olvid 未获得麦克风访问权限，因此拒绝了来电。请点击此消息以允许 Olvid 访问麦克风。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'in mikrofona erişmesine izin verilmediğinden gelen çağrı reddedildi. Olvid'in Mikrofona erişmesine izin vermek için lütfen bu mesaja dokunun."
           }
         }
       }
@@ -4036,6 +4348,12 @@
             "state": "translated",
             "value": "在另一台设备上拒绝了通话"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arama başka bir cihazda reddedildi"
+          }
         }
       }
     },
@@ -4112,6 +4430,12 @@
             "state": "translated",
             "value": "您的联系人不可用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiniz mevcut değil"
+          }
         }
       }
     },
@@ -4187,6 +4511,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "你再次加入了该群组✌️."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yine bu grubun bir parçasısınız ✌️."
           }
         }
       }
@@ -4265,6 +4595,12 @@
             "state": "translated",
             "value": "已读"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oku"
+          }
         }
       }
     },
@@ -4340,6 +4676,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已远程擦除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzaktan silindi"
           }
         }
       }
@@ -4417,6 +4759,12 @@
             "state": "translated",
             "value": "7 天"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 gün"
+          }
         }
       }
     },
@@ -4492,6 +4840,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "6 小时"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 saat"
           }
         }
       }
@@ -4570,6 +4924,12 @@
             "state": "translated",
             "value": "某人"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "birisi"
+          }
         }
       }
     },
@@ -4646,6 +5006,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 分享了一个地点"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ bir yer paylaştı"
           }
         }
       }
@@ -4724,6 +5090,12 @@
             "state": "translated",
             "value": "%@ 开始共享位置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ konum paylaşımına başlandı"
+          }
         }
       }
     },
@@ -4801,6 +5173,12 @@
             "state": "translated",
             "value": "%@ 停止共享位置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ konum paylaşımı durduruldu"
+          }
         }
       }
     },
@@ -4876,6 +5254,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "30天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 gün"
           }
         }
       }
@@ -4953,6 +5337,12 @@
             "state": "translated",
             "value": "3 年"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 yıl"
+          }
         }
       }
     },
@@ -5029,6 +5419,12 @@
             "state": "translated",
             "value": "12 小时"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 saat"
+          }
         }
       }
     },
@@ -5104,6 +5500,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "2 天"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 gün"
           }
         }
       }
@@ -5182,6 +5584,12 @@
             "state": "translated",
             "value": "此联系人已从您的 Olvid 联系人列表中删除，原因可能是您主动删除，也可能是此联系人将您从他们的联系人列表中删除。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişi, sizin yaptığınız veya bu kişinin sizi kendi kişilerinden sildiği için Olvid kişilerinizden silindi."
+          }
         }
       }
     },
@@ -5258,6 +5666,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "此对话已被 %@ 远程删除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu tartışma %@ tarafından uzaktan silindi"
           }
         }
       }
@@ -5336,6 +5750,12 @@
             "state": "translated",
             "value": "이 대화는 %@에 의해 %@에 원격으로 삭제되었습니다."
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu tartışma %@ tarihinde %@ tarafından uzaktan silindi."
+          }
         }
       }
     },
@@ -5411,6 +5831,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "未接听的已拨打的电话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cevaplanmayan giden çağrı"
           }
         }
       }
@@ -5488,6 +5914,12 @@
             "state": "translated",
             "value": "未完成的呼出通话"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamamlanmamış giden arama"
+          }
         }
       }
     },
@@ -5563,6 +5995,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "未知用户"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilinmeyen kullanıcı"
           }
         }
       }
@@ -5641,6 +6079,12 @@
             "state": "translated",
             "value": "未读阅后即焚消息"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okunmamış geçici mesaj"
+          }
         }
       }
     },
@@ -5718,6 +6162,12 @@
             "state": "translated",
             "value": "无限"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sınırsız"
+          }
         }
       }
     },
@@ -5793,6 +6243,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "与 %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ile"
           }
         }
       }
@@ -6086,6 +6542,30 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "bir katılımcıyla"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld katılımcılarla"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "katılımcı olmadan"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -6163,6 +6643,12 @@
             "state": "translated",
             "value": "已清除"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silindi"
+          }
         }
       }
     },
@@ -6238,6 +6724,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "你现在是群管理员了 😎"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artık bir grup yöneticisisiniz 😎."
           }
         }
       }
@@ -6315,6 +6807,12 @@
             "state": "translated",
             "value": "您不再是群组管理员。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artık grup yöneticisi değilsiniz."
+          }
         }
       }
     },
@@ -6390,6 +6888,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您截取了包含敏感信息的聊天内容，其他参与者已收到通知。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hassas bir mesajın ekran görüntüsünü aldınız, diğer katılımcılar bilgilendirildi."
           }
         }
       }
@@ -6467,6 +6971,12 @@
             "state": "translated",
             "value": "您将 %@ 介绍给 %@。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi %@'ye tanıttınız."
+          }
         }
       }
     },
@@ -6542,6 +7052,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您已将 %@ 介绍给另一位联系人。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'yi başka bir kişiyle tanıştırdınız."
           }
         }
       }
@@ -6619,6 +7135,12 @@
             "state": "translated",
             "value": "您向 %@ 介绍了此联系人。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişiyi %@ ile tanıştırdınız."
+          }
         }
       }
     },
@@ -6694,6 +7216,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您曾将此联系人介绍给另一位联系人。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişiyi başka biriyle tanıştırdınız."
           }
         }
       }
@@ -6772,6 +7300,12 @@
             "state": "translated",
             "value": "你分享了一个地点"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir yer paylaştınız"
+          }
         }
       }
     },
@@ -6848,6 +7382,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您已开始共享位置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konum paylaşmaya başladınız"
           }
         }
       }
@@ -6926,6 +7466,12 @@
             "state": "translated",
             "value": "您已停止共享位置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konum paylaşmayı durdurdunuz"
+          }
         }
       }
     },
@@ -7002,6 +7548,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "你"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sen"
           }
         }
       }
@@ -7286,6 +7838,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "첨부 없음"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir ek"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u ekler"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ek yok"
                 }
               }
             }
@@ -7591,6 +8167,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "没有新消息"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 yeni mesaj"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%u yeni mesajlar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Yeni mesaj yok"
                 }
               }
             }

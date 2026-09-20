@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "已归档的对话将保持归档状态，直到您手动取消归档为止。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşivlenmiş bir tartışma, siz onu manuel olarak arşivden çıkarmaya karar verene kadar arşivlenmiş olarak kalır."
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "当此对话中收到通知时，已归档的对话将自动取消归档。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşivlenmiş bir tartışma, bu tartışmada bir bildirim alındığında otomatik olarak arşivden kaldırılacaktır."
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "手动取消归档"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuel olarak arşivden çıkarma"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "自动解压缩"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik olarak arşivden çıkarma"
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "操作"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eylemler"
+          }
         }
       }
     },
@@ -454,6 +484,12 @@
             "state": "translated",
             "value": "已归档的对话"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşivlenmiş tartışmalar"
+          }
         }
       }
     },
@@ -529,6 +565,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "归档"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşiv"
           }
         }
       }
@@ -750,6 +792,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Seçilen sohbetteki tüm mesajları bu cihazdan silmek istiyor musunuz? Bu işlem geri alınamaz."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Seçilen %lld sohbetteki tüm mesajları bu cihazdan silmek istiyor musunuz? Bu işlem geri alınamaz."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -825,6 +885,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "没有消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesaj yok"
           }
         }
       }
@@ -902,6 +968,12 @@
             "state": "translated",
             "value": "探索 Olvid+"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+'ı keşfedin"
+          }
         }
       }
     },
@@ -977,6 +1049,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "好的"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tamam"
           }
         }
       }
@@ -1054,6 +1132,12 @@
             "state": "translated",
             "value": "配置备份"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeleri yapılandırma"
+          }
         }
       }
     },
@@ -1129,6 +1213,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "配置解压缩"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşivden çıkarmayı yapılandırma"
           }
         }
       }
@@ -1350,6 +1440,24 @@
               }
             }
           }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tartışmanın mesajlarını silin"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tartışmalarının mesajlarını silin"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1425,6 +1533,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sil"
           }
         }
       }
@@ -1502,6 +1616,12 @@
             "state": "translated",
             "value": "完成"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitti"
+          }
         }
       }
     },
@@ -1578,6 +1698,12 @@
             "state": "translated",
             "value": "请勿开启"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açmayın"
+          }
         }
       }
     },
@@ -1653,6 +1779,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "获取新消息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni mesajlar al"
           }
         }
       }
@@ -1872,6 +2004,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "您当前正在共享 %lld 台其他设备的位置。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda başka bir cihazın konumunu paylaşıyorsunuz."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda diğer %lld cihazın konumunu paylaşıyorsunuz."
                 }
               }
             }
@@ -2164,6 +2314,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "没有位置正在与您共享。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sizinle bir konum paylaşılıyor."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld konumlar sizinle paylaşılıyor."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sizinle hiçbir konum paylaşılmıyor."
                 }
               }
             }
@@ -2744,6 +2918,54 @@
               }
             }
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@arg2@ ve %#@arg1@"
+          },
+          "substitutions": {
+            "arg1": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Bir konum sizinle paylaşılıyor."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg konum sizinle paylaşılıyor."
+                    }
+                  }
+                }
+              }
+            },
+            "arg2": {
+              "argNum": 2,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Şu anda başka bir cihazın konumunu paylaşıyorsunuz"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Şu anda diğer %arg cihazın konumunu paylaşıyorsunuz"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -2819,6 +3041,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您目前正在共享此设备的地理位置。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu anda bu cihazın konumunu paylaşıyorsunuz."
           }
         }
       }
@@ -3038,6 +3266,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "您当前正在共享此设备和 %lld 台其他设备的位置。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda bu cihazın ve başka bir cihazın konumunu paylaşıyorsunuz."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda bu cihazın ve diğer %lld cihazın konumunu paylaşıyorsunuz."
                 }
               }
             }
@@ -3330,6 +3576,30 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "您当前正在共享此设备的位置。"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda bu cihazın konumunu paylaşıyorsunuz ve başka bir konum sizinle paylaşılıyor."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda bu cihazın konumunu paylaşıyorsunuz ve %lld diğer konum sizinle paylaşılıyor."
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda bu cihazın konumunu paylaşıyorsunuz."
                 }
               }
             }
@@ -3916,6 +4186,54 @@
               }
             }
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu anda bu cihazı, %#@arg2@ ve %#@arg1@ paylaşıyorsunuz"
+          },
+          "substitutions": {
+            "arg1": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Bir konum sizinle paylaşılıyor."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg konum sizinle paylaşılıyor."
+                    }
+                  }
+                }
+              }
+            },
+            "arg2": {
+              "argNum": 2,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "başka bir cihazın konumu"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg diğer cihazın konumu"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -3991,6 +4309,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您没有共享此设备的地理位置。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın konumunu paylaşmıyorsunuz."
           }
         }
       }
@@ -4070,6 +4394,12 @@
             "state": "translated",
             "value": "管理我的设备"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlarımı yönet"
+          }
         }
       }
     },
@@ -4145,6 +4475,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "标记为已读"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okundu olarak işaretle"
           }
         }
       }
@@ -4222,6 +4558,12 @@
             "state": "translated",
             "value": "归档"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşiv"
+          }
         }
       }
     },
@@ -4297,6 +4639,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sil"
           }
         }
       }
@@ -4374,6 +4722,12 @@
             "state": "translated",
             "value": "标记为已读"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okundu olarak işaretle"
+          }
         }
       }
     },
@@ -4449,6 +4803,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "固定"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sabitle"
           }
         }
       }
@@ -4526,6 +4886,12 @@
             "state": "translated",
             "value": "设置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar"
+          }
         }
       }
     },
@@ -4601,6 +4967,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "存储管理"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depolama yönetimi"
           }
         }
       }
@@ -4678,6 +5050,12 @@
             "state": "translated",
             "value": "解归档"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşivden kaldır"
+          }
         }
       }
     },
@@ -4753,6 +5131,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消置顶"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sabitlemeyi kaldır"
           }
         }
       }
@@ -4830,6 +5214,12 @@
             "state": "translated",
             "value": "现在，您可以通过家庭成员的授权使用 Olvid+！您可以进行安全的音频和视频通话，并在多个设备上使用 Olvid。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artık bir aile üyesi sayesinde Olvid+'a erişebileceksiniz! Güvenli sesli ve görüntülü aramalar yapın ve Olvid'i birden fazla cihazda kullanın."
+          }
         }
       }
     },
@@ -4905,6 +5295,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的 Olvid+ 家庭订阅已激活！您和您的家人现在可以享受安全的音频和视频通话，并在多个设备上使用 Olvid。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+ aile aboneliğiniz aktif! Artık siz ve aileniz güvenli sesli ve görüntülü aramaların keyfini çıkarabilir ve Olvid'i birden fazla cihazda kullanabilirsiniz."
           }
         }
       }
@@ -4982,6 +5378,12 @@
             "state": "translated",
             "value": "您的 Olvid+ 订阅已激活！您可以进行安全的音频和视频通话，并在多个设备上使用 Olvid。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+ aboneliğiniz aktif! Güvenli sesli ve görüntülü aramalar yapın ve Olvid'i birden fazla cihazda kullanın."
+          }
         }
       }
     },
@@ -5057,6 +5459,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "静音通知"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildirimleri yoksay"
           }
         }
       }
@@ -5134,6 +5542,12 @@
             "state": "translated",
             "value": "静音通知"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildirimleri yoksay"
+          }
         }
       }
     },
@@ -5209,6 +5623,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "置顶讨论"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışmayı sabitle"
           }
         }
       }
@@ -5286,6 +5706,12 @@
             "state": "translated",
             "value": "请稍等，我们正在努力为您准备好所有内容！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen bekleyin, sizin için her şeyi hazırlamak için çok çalışıyoruz!"
+          }
         }
       }
     },
@@ -5361,6 +5787,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已读回执"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Makbuzları oku"
           }
         }
       }
@@ -5438,6 +5870,12 @@
             "state": "translated",
             "value": "搜索"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ara"
+          }
         }
       }
     },
@@ -5513,6 +5951,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择对话"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışmaları seçin"
           }
         }
       }
@@ -5590,6 +6034,12 @@
             "state": "translated",
             "value": "显示我的备份密钥"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedek anahtarımı göster"
+          }
         }
       }
     },
@@ -5665,6 +6115,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "建议升级 iOS 版本。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS yükseltmesi önerilir."
           }
         }
       }
@@ -5742,6 +6198,12 @@
             "state": "translated",
             "value": "我们很快将停止对您所使用的 iOS 版本的支持。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS sürümünüze yönelik destek yakında sonlandırılacak."
+          }
         }
       }
     },
@@ -5817,6 +6279,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "建议升级到 iPadOS。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPadOS yükseltmesi önerilir."
           }
         }
       }
@@ -5894,6 +6362,12 @@
             "state": "translated",
             "value": "我们很快将停止对您使用的 iPadOS 版本的支持。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPadOS sürümünüze yönelik destek yakında sonlandırılacak."
+          }
         }
       }
     },
@@ -5969,6 +6443,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "建议升级 macOS。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS yükseltmesi önerilir."
           }
         }
       }
@@ -6046,6 +6526,12 @@
             "state": "translated",
             "value": "我们将很快停止对您使用的 macOS 版本的支持。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MacOS sürümünüze yönelik destek yakında sonlandırılacak."
+          }
         }
       }
     },
@@ -6121,6 +6607,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "停止"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durdur"
           }
         }
       }
@@ -6198,6 +6690,12 @@
             "state": "translated",
             "value": "设置 Apple 家庭共享，并将 Olvid+ 赠送给五位家庭成员。每个人都可以享受多设备访问、安全的通话和视频功能，为整个家庭提供隐私保护！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Aile Paylaşımı'nı kurun ve Olvid+'ı beş aile üyesine hediye edin. Herkes çoklu cihaz erişimine ve güvenli çağrı ve video gizliliğine sahip olur; tüm aile için gizlilik!"
+          }
         }
       }
     },
@@ -6273,6 +6771,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "升级到 Olvid+ 并解锁多设备访问功能。您的消息将在所有设备上保持同步，让您始终保持连接。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+'a yükseltin ve çoklu cihaz erişiminin kilidini açın. Mesajlarınız tüm cihazlarınızda senkronize kalır; böylece her zaman bağlantıda kalırsınız."
           }
         }
       }
@@ -6350,6 +6854,12 @@
             "state": "translated",
             "value": "Olvid+ 允许您进行端到端加密的语音和视频通话。无论对方是否使用 Olvid+，您都可以安全地与任何 Olvid 用户联系。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+, uçtan uca şifrelenmiş sesli ve görüntülü aramalar yapmanızı sağlar. Olvid+ sahibi olsun veya olmasın her Olvid kullanıcısına güvenli bir şekilde ulaşın."
+          }
         }
       }
     },
@@ -6425,6 +6935,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "解锁多设备访问和安全通话功能，使用 Olvid+。您的订阅支持可持续且透明的模式，让 Olvid 始终保持免费，且没有广告或隐藏费用。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+ ile çoklu cihaz erişiminin kilidini açın ve aramaları güvenli hale getirin. Aboneliğiniz, Olvid'in reklamlar veya gizli maliyetler olmadan herkes için ücretsiz olmasını sağlayan sürdürülebilir ve dürüst bir modeli desteklemektedir."
           }
         }
       }
@@ -6502,6 +7018,12 @@
             "state": "translated",
             "value": "家庭共享"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aile Paylaşımı"
+          }
         }
       }
     },
@@ -6577,6 +7099,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "多设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çoklu cihaz"
           }
         }
       }
@@ -6654,6 +7182,12 @@
             "state": "translated",
             "value": "安全通话与视频"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli Aramalar ve Video"
+          }
         }
       }
     },
@@ -6729,6 +7263,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "支持真正免费的应用程序"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerçekten Ücretsiz Bir Uygulamayı Destekleyin"
           }
         }
       }
@@ -6806,6 +7346,12 @@
             "state": "translated",
             "value": "如果您无法再访问此设备，您的备份密钥对于恢复您的个人资料至关重要。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaza erişiminizi kaybederseniz profillerinizi geri yüklemek için yedek anahtarınız çok önemlidir."
+          }
         }
       }
     },
@@ -6881,6 +7427,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "别忘了记下你的备份密钥 😇"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedek anahtarınızı yazmayı unutmayın 😇"
           }
         }
       }
@@ -6958,6 +7510,12 @@
             "state": "translated",
             "value": "允许通知"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildirimlere İzin Ver"
+          }
         }
       }
     },
@@ -7033,6 +7591,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "当有新消息到达时接收通知，确保不错过任何对话。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni mesajlar geldiğinde bildirim alın, böylece hiçbir konuşmayı kaçırmazsınız."
           }
         }
       }
@@ -7110,6 +7674,12 @@
             "state": "translated",
             "value": "启用通知"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildirimleri etkinleştir"
+          }
         }
       }
     },
@@ -7185,6 +7755,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "备份功能可让您在无法访问此设备时恢复您的个人资料。新的体验比以往任何时候都更容易，并且可以在几秒钟内设置完成。😉"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeler, bu cihaza erişiminizi kaybederseniz profillerinizi geri yüklemenize olanak tanır. Yeni deneyim her zamankinden daha kolay 😉 ve birkaç saniye içinde kurulabiliyor."
           }
         }
       }
@@ -7262,6 +7838,12 @@
             "state": "translated",
             "value": "不要丢失您帐户的访问权限！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profillerinize erişiminizi kaybetmeyin!"
+          }
         }
       }
     },
@@ -7337,6 +7919,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您现在已拥有 Olvid+！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artık Olvid+'a sahipsiniz!"
           }
         }
       }
@@ -7414,6 +8002,12 @@
             "state": "translated",
             "value": "您的 Olvid+ 家庭套餐已激活！"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+ Aile planınız aktif!"
+          }
         }
       }
     },
@@ -7489,6 +8083,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的 Olvid+ 订阅已激活！"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+ planınız aktif!"
           }
         }
       }
@@ -7566,6 +8166,12 @@
             "state": "translated",
             "value": "开启"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aç"
+          }
         }
       }
     },
@@ -7641,6 +8247,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "启用已读回执，让您的联系人知道您已阅读他们的消息。您可以随时调整此设置。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişilerinizin mesajlarını okuduğunuzu bilmesini sağlamak için okundu bilgilerini açın. Bu ayarı istediğiniz zaman değiştirebilirsiniz."
           }
         }
       }
@@ -7718,6 +8330,12 @@
             "state": "translated",
             "value": "取消归档"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arşivden kaldır"
+          }
         }
       }
     },
@@ -7793,6 +8411,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消静音"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildirimlerin sesini aç"
           }
         }
       }
@@ -7870,6 +8494,12 @@
             "state": "translated",
             "value": "取消置顶对话"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tartışmanın sabitlemesini kaldır"
+          }
         }
       }
     },
@@ -7945,6 +8575,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您可以选择要保持活跃状态的设备，或者订阅 **Olvid+** 以保持所有设备处于活跃状态。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hangi cihazların aktif kalacağını seçebilir veya tüm cihazlarınızı aktif tutmak için **Olvid+**'e abone olabilirsiniz."
           }
         }
       }
@@ -8024,6 +8660,12 @@
             "state": "translated",
             "value": "您的其中一个设备将在**不到 %@**的时间内停用。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlarınızdan biri **%@**'den daha az bir sürede devre dışı bırakılacak."
+          }
         }
       }
     },
@@ -8101,6 +8743,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的其中一台设备很快将被停用。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlarınızdan biri yakında devre dışı bırakılacak."
           }
         }
       }
@@ -8180,6 +8828,12 @@
             "state": "translated",
             "value": "您的设备 *%@* 即将停用。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazınız *%@* yakında devre dışı bırakılacak."
+          }
         }
       }
     },
@@ -8255,6 +8909,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的设备 *%1$@* 将在 **不到 %2$@** 后停用。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "*%1$@* cihazınız **%2$@**'den daha kısa bir sürede devre dışı bırakılacaktır."
           }
         }
       }
@@ -8334,6 +8994,12 @@
             "state": "translated",
             "value": "此设备即将停用。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz yakında devre dışı bırakılacak."
+          }
         }
       }
     },
@@ -8412,6 +9078,12 @@
             "state": "translated",
             "value": "此设备将在 **不到 %@** 后停用。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz **%@**'den daha az bir sürede devre dışı bırakılacaktır."
+          }
         }
       }
     },
@@ -8487,6 +9159,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "即将停用设备"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaklaşan cihaz devre dışı bırakma"
           }
         }
       }
@@ -8566,6 +9244,12 @@
             "state": "translated",
             "value": "%@ 即将停用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'nin yakında devre dışı bırakılması"
+          }
         }
       }
     },
@@ -8644,6 +9328,12 @@
             "state": "translated",
             "value": "该设备即将停用"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın yakında devre dışı bırakılması"
+          }
         }
       }
     },
@@ -8719,6 +9409,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "查看重新激活选项"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden etkinleştirme seçeneklerine bakın"
           }
         }
       }
@@ -8796,6 +9492,12 @@
             "state": "translated",
             "value": "您当前的个人资料在此设备上处于非活跃状态。您将无法发送或接收消息。点击下方查看您的重新激活选项。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz şu anda bu cihazda etkin değil. Mesaj gönderemeyecek veya alamayacaksınız. Yeniden etkinleştirme seçeneklerinizi görmek için aşağıya dokunun."
+          }
         }
       }
     },
@@ -8871,6 +9573,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您的个人资料在此设备上处于非活动状态"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz bu cihazda etkin değil"
           }
         }
       }

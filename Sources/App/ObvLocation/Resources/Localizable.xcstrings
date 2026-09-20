@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "关闭"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapat"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reddet"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "你想使用哪个应用？"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hangi uygulamayı kullanmak istiyorsunuz?"
+          }
         }
       }
     },
@@ -301,6 +319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "允许访问位置信息"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konuma açık"
           }
         }
       }
@@ -378,6 +402,12 @@
             "state": "translated",
             "value": "在地图上固定"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haritaya sabitle"
+          }
         }
       }
     },
@@ -453,6 +483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "分享"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaş"
           }
         }
       }
@@ -530,6 +566,12 @@
             "state": "translated",
             "value": "发送定位"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PIN gönder"
+          }
         }
       }
     },
@@ -606,6 +648,12 @@
             "state": "translated",
             "value": "分享我的位置"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumumu paylaş"
+          }
         }
       }
     },
@@ -681,6 +729,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "无限期"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Süresiz olarak"
           }
         }
       }
@@ -760,6 +814,12 @@
             "state": "translated",
             "value": "实时显示 2 分钟"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 dakika boyunca gerçek zamanlı olarak"
+          }
         }
       }
     },
@@ -835,6 +895,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "持续一小时"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir saat boyunca"
           }
         }
       }

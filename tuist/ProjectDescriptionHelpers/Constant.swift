@@ -29,6 +29,7 @@ public struct Constant {
         "uk",
         "pt-BR",
         "pt-PT",
+        "tr",
         "zh-Hans",
         "ja",
         "ko",

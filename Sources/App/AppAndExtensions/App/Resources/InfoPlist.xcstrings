@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "Apple 文件应用中的文件"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Dosyaları uygulama dosyası"
+          }
         }
       }
     },
@@ -149,6 +155,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "macOS 中的 Apple Finder 节点"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MacOS'ta Apple Finder düğümü"
           }
         }
       }
@@ -226,6 +238,12 @@
             "state": "translated",
             "value": "Apple Link 演示文稿元数据"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Link Sunumu meta verileri"
+          }
         }
       }
     },
@@ -302,6 +320,12 @@
             "state": "translated",
             "value": "Apple m4a 音频"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple m4a Ses"
+          }
         }
       }
     },
@@ -376,6 +400,12 @@
           }
         },
         "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Olvid"
@@ -458,6 +488,12 @@
             "state": "translated",
             "value": "Olvid"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
         }
       }
     },
@@ -533,6 +569,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chromium 启动拖动"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chromium tarafından başlatılan sürükleme"
           }
         }
       }
@@ -610,6 +652,12 @@
             "state": "translated",
             "value": "Microsoft Excel 文档"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Excel belgesi"
+          }
         }
       }
     },
@@ -685,6 +733,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Microsoft PowerPoint 文档"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Powerpoint belgesi"
           }
         }
       }
@@ -762,6 +816,12 @@
             "state": "translated",
             "value": "Microsoft Word 97 文档"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word 97 belgesi"
+          }
         }
       }
     },
@@ -837,6 +897,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Microsoft Word 文档"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word belgesi"
           }
         }
       }
@@ -916,6 +982,12 @@
             "state": "translated",
             "value": "访问相机功能可让您扫描联系人的二维码，并可以直接在对话中拍摄照片和视频。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kameraya erişim, kişilerinizin QR kodunu taramanıza ve doğrudan bir tartışmanın içinden fotoğraf ve video çekmenize olanak tanır."
+          }
         }
       }
     },
@@ -993,6 +1065,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用面容 ID 访问 Olvid"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'e erişmek için Face ID'yi kullanın"
           }
         }
       }
@@ -1072,6 +1150,12 @@
             "state": "translated",
             "value": "版权所有 © 2019-2026 Olvid SAS"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telif Hakkı © 2019-2026 Olvid SAS"
+          }
         }
       }
     },
@@ -1149,6 +1233,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "当您决定与他人分享位置时，您的位置信息是必需的。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu diğer kullanıcılarla paylaşmaya karar verdiğinizde gereklidir."
           }
         }
       }
@@ -1228,6 +1318,12 @@
             "state": "translated",
             "value": "当您决定与他人共享位置时，您的位置信息是必需的。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu diğer kullanıcılarla paylaşmaya karar verdiğinizde gereklidir."
+          }
         }
       }
     },
@@ -1305,6 +1401,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "当您决定与他人分享位置时，您的位置信息是必需的。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu diğer kullanıcılarla paylaşmaya karar verdiğinizde gereklidir."
           }
         }
       }
@@ -1384,6 +1486,12 @@
             "state": "translated",
             "value": "当您决定与他人分享时，需要提供您的位置信息。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu diğer kullanıcılarla paylaşmaya karar verdiğinizde gereklidir."
+          }
         }
       }
     },
@@ -1461,6 +1569,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "为了进行安全的语音通话以及录制视频和语音信息，需要允许访问麦克风。"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli sesli aramalar yapmak ve film ve sesli mesaj kaydetmek için mikrofona erişime izin verilmesi gerekir."
           }
         }
       }
@@ -1540,6 +1654,12 @@
             "state": "translated",
             "value": "为了将图片保存到您的照片库，需要写入权限。请注意，Olvid不会访问您照片库中的其他照片。"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir resmi fotoğraf kitaplığınıza kaydetmek için yazma erişimi gereklidir. Olvid'in fotoğraf kitaplığınızdaki diğer fotoğraflara erişemeyeceğini lütfen unutmayın."
+          }
         }
       }
     },
@@ -1615,6 +1735,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Olvid 备份"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid Yedekleme"
           }
         }
       }
@@ -1692,6 +1818,12 @@
             "state": "translated",
             "value": "Olvid 链接预览"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid Bağlantı Önizlemesi"
+          }
         }
       }
     },
@@ -1767,6 +1899,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "网页互联网位置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web İnternet Konumu"
           }
         }
       }

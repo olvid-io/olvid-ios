@@ -74,6 +74,12 @@
             "state": "translated",
             "value": "创建群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup oluştur"
+          }
         }
       }
     },
@@ -152,6 +158,12 @@
             "state": "translated",
             "value": "已加入的群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Katılan gruplar"
+          }
         }
       }
     },
@@ -227,6 +239,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "您管理的群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönettiğiniz gruplar"
           }
         }
       }
@@ -306,6 +324,12 @@
             "state": "translated",
             "value": "群组"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
+          }
         }
       }
     },
@@ -383,6 +407,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "设置"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar"
           }
         }
       }
@@ -462,6 +492,12 @@
             "state": "translated",
             "value": "存储管理"
           }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depolama yönetimi"
+          }
         }
       }
     },
@@ -539,6 +575,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "搜索群组"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup arayın"
           }
         }
       }
