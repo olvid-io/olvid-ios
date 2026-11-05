@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -288,7 +288,7 @@ extension PersistedDeviceBackupSeed {
         let fetchRequest = Self.fetchRequest()
         fetchRequest.predicate = Predicate.isNotActive
         fetchRequest.fetchBatchSize = 100
-        fetchRequest.propertiesToFetch = []
+        fetchRequest.includesPropertyValues = false
         fetchRequest.returnsObjectsAsFaults = true
         let results: [PersistedDeviceBackupSeed]
         do {

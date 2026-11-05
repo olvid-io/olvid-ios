@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -81,33 +81,36 @@ final class BootstrapWorker: @unchecked Sendable {
         let flowId = FlowIdentifier()
         
         guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            let logger = Logger(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
+            logger.fault("The Delegate Manager is not set")
             assertionFailure()
             return
         }
         
+        let logger = Logger(subsystem: delegateManager.logSubsystem, category: logCategory)
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         
-        os_log("SendManager: application did become active", log: log, type: .info)
-
         guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: log, type: .fault)
+            logger.fault("The Context Creator is not set")
             assertionFailure()
             return
         }
 
-        // We used to schedule these operations in `finalizeInitialization`. In order to speed up the boot process, we schedule them here instead
-        internalQueue.addOperation { [weak self] in
-            self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
-            // 2020-06-29 Added this to make sure we always send attachments
-            delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.shareExtension, flowId: flowId)
-        }
-
-        internalQueue.addOperation { [weak self] in
-            self?.cleanOutboxFromOrphanedMessagesDirectories(flowId: flowId)
-            delegateManager.uploadAttachmentChunksDelegate.resumeMissingAttachmentUploads(flowId: flowId)
-            delegateManager.uploadAttachmentChunksDelegate.queryServerOnSessionsTasksCreatedByShareExtension(flowId: flowId)
+        if forTheFirstTime {
+            
+            // We used to schedule these operations in `finalizeInitialization`. In order to speed up the boot process, we schedule them here instead
+            internalQueue.addOperation { [weak self] in
+                self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
+                // 2020-06-29 Added this to make sure we always send attachments
+                delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.shareExtension, flowId: flowId)
+            }
+            
+            internalQueue.addOperation { [weak self] in
+                self?.cleanOutboxFromOrphanedMessagesDirectories(flowId: flowId)
+                delegateManager.uploadAttachmentChunksDelegate.resumeMissingAttachmentUploads(flowId: flowId)
+                delegateManager.uploadAttachmentChunksDelegate.queryServerOnSessionsTasksCreatedByShareExtension(flowId: flowId)
+            }
+            
         }
         
     }
@@ -465,8 +468,9 @@ extension BootstrapWorker {
             return
         }
         
-        let outbox = self.outbox
-        
+        // The local copy of `self.outbox` that used to stand here existed so that the closure below could build keep-URLs without capturing `self`. It builds
+        // names now, and needs neither.
+
         let messageDirectories: Set<URL>
         do {
             messageDirectories = Set(try directoriesInOutbox.filter { (url) in
@@ -481,41 +485,70 @@ extension BootstrapWorker {
         }
         
         guard !messageDirectories.isEmpty else { return }
-               
+
         var messageDirectoriesToDelete = Set<URL>()
-        
+
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            
-            let existingMessageIds: Set<ObvMessageIdentifier>
+
+            let existingMessages: [OutboxMessage]
             do {
-                let existingMessages = try OutboxMessage.getAll(within: obvContext.context)
-                existingMessageIds = Set(existingMessages.compactMap({ $0.messageId }))
+                existingMessages = try OutboxMessage.getAll(within: obvContext.context)
             } catch {
                 os_log("Could not clean outbox: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
             }
 
-            let legacyMessageDirectoriesToKeep: Set<URL> = existingMessageIds.reduce(Set<URL>()) { partialResult, messageId in
-                Set(messageId.legacyDirectoryNamesForMessageAttachments.map {
-                    outbox.appendingPathComponent($0, isDirectory: true)
-                })
+            // **Nothing is deleted while anything is unknown.** `OutboxMessage.messageId` is nil for a message deleted on another thread — its getter says
+            // so — and `compactMap` dropped such a message from the keep-set in silence, whereupon its directory was deleted. The two failure directions are
+            // not symmetric: an orphan directory left on disk costs a few bytes until the next sweep, and deleting a live one destroys the encrypted chunks
+            // of an upload in flight. So doubt means keep, and doubt about any one message means this sweep does nothing at all — it cannot know which
+            // directory the unknown message would have claimed.
+            let messageIdsOfExistingMessages = existingMessages.map({ $0.messageId })
+            guard !messageIdsOfExistingMessages.contains(where: { $0 == nil }) else {
+                os_log("📁 Not sweeping the outbox: an OutboxMessage could not say which directory is its own, and nothing may be deleted while that is true", log: log, type: .error)
+                return
             }
-            let nonLegacyMessageDirectoriesToKeep: Set<URL> = Set(existingMessageIds.map { outbox.appendingPathComponent($0.directoryNameForMessageAttachments, isDirectory: true) })
-            let messageDirectoriesToKeep = legacyMessageDirectoriesToKeep.union(nonLegacyMessageDirectoriesToKeep)
+            let existingMessageIds = Set(messageIdsOfExistingMessages.compactMap({ $0 }))
 
-            messageDirectoriesToDelete = messageDirectories.subtracting(messageDirectoriesToKeep)
-            
+            // **Compared by name, and never by URL**, exactly as `BootstrapWorker.cleanInboxFromOrphanedMessagesDirectories` was taught to on 2026-08-31 —
+            // the reasoning is written out there. This was a `Set<URL>` subtraction between
+            // candidates from `contentsOfDirectory(at:)`, which answers `file:///private/var/mobile/…`, and a keep-set from
+            // `appendingPathComponent(_:isDirectory:)`, which answers `file:///var/mobile/…`: the same directory, and never an exact match, so the keep-set
+            // was inert and **every** live message directory in the outbox was deleted on every launch. The inbox's twin of this was measured doing exactly
+            // that on an iPhone 13, and then found in production on 2026-09-03 as an inbox holding no directories at all while its rows had all survived.
+            // Every candidate and every keep name is a direct child of `outbox`, so within that one directory the name **is** the identity: a 64-character
+            // hex string, needing no filesystem access, and correct for a directory not yet created.
+            //
+            // Both names are kept for every message, the deterministic one and the legacy ones, whatever is on disk. The legacy half used to be a `reduce`
+            // whose closure ignored `partialResult` and returned only the names it had just computed, so it kept the legacy names of the **last** message of
+            // the set and of no other.
+            var namesOfDirectoriesToKeep = Set<String>()
+            for messageId in existingMessageIds {
+                namesOfDirectoriesToKeep.insert(messageId.directoryNameForMessageAttachments)
+                namesOfDirectoriesToKeep.formUnion(messageId.legacyDirectoryNamesForMessageAttachments)
+            }
+
+            messageDirectoriesToDelete = messageDirectories.filter({ !namesOfDirectoriesToKeep.contains($0.lastPathComponent) })
+
+            // **It says so when it deletes, and stays quiet otherwise.** What made the bug above invisible for as long as it lasted is that a sweep removed a
+            // live upload's chunks and said nothing. A healthy outbox is silent: the counts are not printed and the loop below does not run.
+            if !messageDirectoriesToDelete.isEmpty {
+                os_log("📁 Sweeping %d orphaned message director(ies) from the outbox, of %d found, against %d OutboxMessage(s)", log: log, type: .info, messageDirectoriesToDelete.count, messageDirectories.count, existingMessages.count)
+            }
+
         }
-        
+
         for url in messageDirectoriesToDelete {
+            // Named one by one, not counted, for the same reason the inbox's sweep names them.
             do {
                 try FileManager.default.removeItem(at: url)
+                os_log("📁 Swept the orphaned message directory %{public}@ from the outbox, and every encrypted chunk staged in it", log: log, type: .info, url.path)
             } catch {
-                os_log("Could not properly clean the outbox", log: log, type: .error)
+                os_log("📁 Could not sweep the orphaned message directory %{public}@ from the outbox: %{public}@", log: log, type: .error, url.path, error.localizedDescription)
             }
 
         }
-        
+
     }
 
     /// This method invalidate and cancels the URLSessions associated with an existing `OutboxAttachmentSession` object that does *not* have an associated attachment. It then deletes all these objects.

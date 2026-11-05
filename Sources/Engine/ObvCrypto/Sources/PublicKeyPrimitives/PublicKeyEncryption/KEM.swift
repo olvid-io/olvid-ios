@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,6 +58,7 @@ extension KEM_ECIES256KEM512 {
             publicKey.curveByteId == curve.byteId
             else { return nil }
         // Check the public key
+        guard curve.isCanonicalYCoordinateOfAPointOnCurve(publicKey.yCoordinate) else { return nil }
         guard !publicKey.isLowOrderPoint else { assertionFailure(); return nil }
         let r = BigInt(0)
         while r == BigInt(0) {
@@ -65,11 +66,12 @@ extension KEM_ECIES256KEM512 {
         }
         let B = curve.scalarMultiplication(scalar: r, point: curve.parameters.G)!
         let Dy: BigInt
-        if publicKey.point != nil {
-            let D = curve.scalarMultiplication(scalar: r, point: publicKey.point!)!
+        if let point = publicKey.point {
+            guard let D = curve.scalarMultiplication(scalar: r, point: point) else { return nil }
             Dy = D.y
         } else {
-            Dy = curve.scalarMultiplication(scalar: r, yCoordinate: publicKey.yCoordinate)!
+            guard let y = curve.scalarMultiplication(scalar: r, yCoordinate: publicKey.yCoordinate) else { return nil }
+            Dy = y
         }
         let c = try! Data(B.y, count: length)
         let ciphertext = EncryptedData(data: c)
@@ -88,10 +90,14 @@ extension KEM_ECIES256KEM512 {
         let q = curve.parameters.q
         let ciphertextAsData = Data(encryptedData: ciphertext)
         let yCoordinate = BigInt(ciphertextAsData)
-        guard yCoordinate != BigInt(1) else { return nil }
+        // Unlike a decoded public key, a ciphertext is checked to be a point on the curve: the check costs nothing next to
+        // the scalar multiplications, and keeps the computation off the twist
+        guard curve.isCanonicalYCoordinateOfAPointOnCurve(yCoordinate) else { return nil }
         guard let By = curve.scalarMultiplication(scalar: nu, yCoordinate: yCoordinate) else { return nil }
+        // B has low order exactly when ν·B is the neutral point, whose y-coordinate is 1
+        guard By != BigInt(1) else { return nil }
         let a = BigInt(privateKey.scalar).mul(nuInv, modulo: q)
-        let Dy = curve.scalarMultiplication(scalar: a, yCoordinate: By)!
+        guard let Dy = curve.scalarMultiplication(scalar: a, yCoordinate: By) else { return nil }
         var rawSeed = ciphertextAsData
         let pLength = curve.parameters.p.byteSize()
         rawSeed.append(try! Data(Dy, count: pLength))

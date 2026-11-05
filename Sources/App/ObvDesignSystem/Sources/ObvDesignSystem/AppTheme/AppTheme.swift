@@ -72,80 +72,39 @@ public final class AppTheme {
 // MARK: - Computing colors from identities
 
 extension AppTheme {
-        
-    static let richterColors: [UIColor] = {
-        var index = 0
-        var colors = [UIColor]()
-        while let color = UIColor(named: "RichterColor\(index)") {
-            colors.append(color)
-            index += 1
-        }
-        return colors
-    }()
-    
 
-    //public func identityColors(for cryptoId: ObvCryptoId, using style: IdentityColorStyle = ObvMessengerSettings.Interface.identityColorStyle) -> (background: UIColor, text: UIColor) {
-    public func identityColors(for cryptoId: ObvCryptoId, using style: IdentityColorStyle) -> (background: UIColor, text: UIColor) {
-        switch style {
-        case .hue:
-            let hue = hueFromBytes(cryptoId.getIdentity())
-            let text = UIColor(hue: hue, saturation: 0.46, brightness: 0.91, alpha: 1.0)
-            let background = UIColor(hue: hue, saturation: 0.16, brightness: 0.98, alpha: 1.0)
-            return (background, text)
-        case .richter:
-            let text = UIColor.white.withAlphaComponent(0.8)
-            let background = richterColorFromBytes(cryptoId.getIdentity())
-            return (background, text)
-        }
+    public func identityColors(for cryptoId: ObvCryptoId) -> (background: UIColor, text: UIColor) {
+        colors(fromBytes: cryptoId.getIdentity())
     }
 
-    
-    //public func groupColors(forGroupUid groupUid: UID, using style: IdentityColorStyle = ObvMessengerSettings.Interface.identityColorStyle) -> (background: UIColor, text: UIColor) {
-    public func groupColors(forGroupUid groupUid: UID, using style: IdentityColorStyle) -> (background: UIColor, text: UIColor) {
-        switch style {
-        case .hue:
-            let hue = hueFromBytes(groupUid.raw)
-            let text = UIColor(hue: hue, saturation: 0.46, brightness: 0.91, alpha: 1.0)
-            let background = UIColor(hue: hue, saturation: 0.16, brightness: 0.98, alpha: 1.0)
-            return (background, text)
-        case .richter:
-            let text = UIColor.white.withAlphaComponent(0.8)
-            let background = richterColorFromBytes(groupUid.raw)
-            return (background, text)
-        }
+
+    public func groupColors(forGroupUid groupUid: UID) -> (background: UIColor, text: UIColor) {
+        colors(fromBytes: groupUid.raw)
     }
 
-    public func groupV2Colors(forGroupIdentifier groupIdentifier: Data, using style: IdentityColorStyle = .hue) -> (background: UIColor, text: UIColor) {
-        switch style {
-        case .hue:
-            let hue = hueFromBytes(groupIdentifier)
-            let text = UIColor(hue: hue, saturation: 0.46, brightness: 0.91, alpha: 1.0)
-            let background = UIColor(hue: hue, saturation: 0.16, brightness: 0.98, alpha: 1.0)
-            return (background, text)
-        case .richter:
-            let text = UIColor.white.withAlphaComponent(0.8)
-            let background = richterColorFromBytes(groupIdentifier)
-            return (background, text)
-        }
+
+    public func groupV2Colors(forGroupIdentifier groupIdentifier: Data) -> (background: UIColor, text: UIColor) {
+        colors(fromBytes: groupIdentifier)
     }
+
+
+    private func colors(fromBytes bytes: Data) -> (background: UIColor, text: UIColor) {
+        let hue = hueFromBytes(bytes)
+        let text = UIColor(hue: hue, saturation: 0.46, brightness: 0.91, alpha: 1.0)
+        let background = UIColor(hue: hue, saturation: 0.16, brightness: 0.98, alpha: 1.0)
+        return (background, text)
+    }
+
 
     private func bytesValue(_ bytes: Data) -> Int {
         return bytes.reduce(1 as Int) { (31 * ($0 as Int) + Int($1)) & 0xff }
     }
+
 
     private func hueFromBytes(_ bytes: Data) -> CGFloat {
         let fourBitsValue = bytesValue(bytes)
         let hue = CGFloat(fourBitsValue) / 256.0
         return hue
     }
-    
-    private func richterColorFromBytes(_ bytes: Data) -> UIColor {
-        let bitsValue = bytesValue(bytes)
-        let index = bitsValue % AppTheme.richterColors.count
-        let color = AppTheme.richterColors[index]
-        return color
-    }
-    
 
 }
-

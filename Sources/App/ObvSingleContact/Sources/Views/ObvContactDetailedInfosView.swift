@@ -136,6 +136,8 @@ public struct ObvContactDetailedInfosView: View {
 
         }
         .task(onTask)
+        // Nothing in this sheet is focusable, and a shortcut is found from the first responder.
+        .takesKeyboardFocusOnAppear()
     }
     
 }
@@ -210,6 +212,7 @@ private struct HeaderView: View {
             OlvidButtonNew(action: userTappedBackButton) {
                 Label(title: { Text("BACK") }, icon: { Image(systemIcon: .arrowshapeTurnUpBackwardFill) })
             }
+            .keyboardShortcut(.cancelAction)
                         
         }
 

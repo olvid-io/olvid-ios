@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvEngine
 import ObvCrypto
 import OlvidUtils
@@ -31,12 +31,21 @@ import ObvAppCoreConstants
 final class UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation: ContextualOperationWithSpecificReasonForCancel<UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation.ReasonForCancel>, @unchecked Sendable {
     
     private let obvAttachment: ObvAttachment
-    private let obvEngine: ObvEngine
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation.self))
 
-    init(obvAttachment: ObvAttachment, obvEngine: ObvEngine) {
+    private(set) var deliveredReceiptToSend: ObvReturnReceiptToSend?
+
+    /// Set when the file the engine reported as complete cannot be used, and saying which way.
+    ///
+    /// Reported rather than acted upon here, for three reasons. This operation's context is discarded when it cancels, so nothing it wrote about the repair
+    /// would survive; how many times this attachment has already been fetched and found wanting is not a fact about one notification but about the process,
+    /// which is where the coordinator keeps it; and a Core Data operation is no place to be calling the engine — the calls have no bearing on whether this
+    /// operation succeeds, and the detached `Task` that used to make them was awaited by nobody. See
+    /// `PersistedDiscussionsUpdatesCoordinator.repairAttachmentWhoseFileCannotBeUsed(_:whatWasWrong:)`.
+    private(set) var whatWasWrongWithTheFile: WhatWasWrongWithADownloadedFile?
+
+    init(obvAttachment: ObvAttachment) {
         self.obvAttachment = obvAttachment
-        self.obvEngine = obvEngine
         super.init()
     }
 
@@ -53,7 +62,7 @@ final class UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation: Co
             // Update the attachment sent by this contact
             
             do {
-                try persistedContactIdentity.process(obvAttachment: obvAttachment)
+                deliveredReceiptToSend = try persistedContactIdentity.process(obvAttachment: obvAttachment)
             } catch {
                 
                 switch error {
@@ -63,25 +72,15 @@ final class UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation: Co
                     switch error {
                         
                     case .couldNotFindSourceFile:
-                        
-                        // In rare circumstances, the engine might announce a downloaded attachment although there is no file on disk.
-                        // In that case, we request a re-download of the attachments.
 
-                        Task {
-                            do {
-                                try await obvEngine.appCouldNotFindFileOfDownloadedAttachment(
-                                    obvAttachment.number,
-                                    ofMessageWithIdentifier: obvAttachment.messageIdentifier,
-                                    ownedCryptoId: obvAttachment.fromContactIdentity.ownedCryptoId)
-                                try await obvEngine.resumeDownloadOfAttachment(
-                                    obvAttachment.number,
-                                    ofMessageWithIdentifier: obvAttachment.messageIdentifier,
-                                    ownedCryptoId: obvAttachment.fromContactIdentity.ownedCryptoId)
-                            } catch {
-                                assertionFailure(error.localizedDescription)
-                            }
-                        }
-                        
+                        // In rare circumstances, the engine might announce a downloaded attachment although there is no file on disk.
+
+                        whatWasWrongWithTheFile = .thereIsNoFileAtAll
+
+                    case .sha256OfReceivedFileReferenceByObvAttachmentDoesNotMatchWhatWeExpect:
+
+                        whatWasWrongWithTheFile = .theFileDoesNotHashAsExpected
+
                     default:
                         
                         break
@@ -104,10 +103,10 @@ final class UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation: Co
                 switch uiCoreDataError {
                 case .cannotCreateReceivedFyleMessageJoinWithStatusForWipedMessage:
                     // The received message was wiped, we can request a deletion of the attachment from the server.
-                    // This will be determined by the `DetermineAttachmentsProcessingRequestForMessageSentOperation` operation.
+                    // This will be determined by the `DetermineAttachmentsProcessingRequestOperation` operation.
                     return
                 default:
-                    assertionFailure(error.localizedDescription)
+//                    assertionFailure(error.localizedDescription)
                     return cancel(withReason: .coreDataError(error: error))
                 }
             } else {

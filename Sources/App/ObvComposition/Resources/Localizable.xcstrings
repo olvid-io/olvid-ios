@@ -45,6 +45,12 @@
             "value": "음성 메시지를 녹음하려면 기기 설정에서 Olvid가 마이크에 액세스하도록 허용하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aby nagrać wiadomość głosową, zezwól aplikacji Olvid na dostęp do mikrofonu w ustawieniach urządzenia."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "Для записи голосового сообщения разрешите Olvid доступ к микрофону в настройках вашего устройства."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesli mesaj kaydetmek için cihazınızın ayarlarından Olvid'in mikrofonunuza erişmesine izin verin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Щоб записати аудіоповідомлення, дозвольте Olvid доступ до вашого мікрофона в налаштуваннях пристрою."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để ghi âm tin nhắn, hãy cho phép Olvid truy cập vào micro của thiết bị trong cài đặt."
           }
         },
         "zh-Hans": {
@@ -77,78 +95,191 @@
         }
       }
     },
-    "CHOOSE_FILE": {
+    "ATTACHMENTS_LOADING_PROGRESS_CAPTION": {
+      "comment": "Shown over the composition bar's text editor while the system hands a picked file over to the draft, with the percentage at the end of the same line and a bar underneath. Deliberately count-free: one file or several, the reader is told the same thing.",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Datei anhängen"
+            "value": "Wird vorbereitet…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Attach file"
+            "value": "Preparing…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Adjuntar archivo"
+            "value": "Preparando…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choisir un fichier"
+            "value": "Préparation…"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allega file"
+            "value": "Preparazione…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ファイルを添付"
+            "value": "準備中…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "파일 첨부"
+            "value": "준비 중…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przygotowywanie…"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anexar arquivo"
+            "value": "Preparando…"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anexar ficheiro"
+            "value": "A preparar…"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Прикрепить файл"
+            "value": "Подготовка…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hazırlanıyor…"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Додати файл"
+            "value": "Підготовка…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang chuẩn bị…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "附加文件"
+            "value": "正在准备…"
+          }
+        }
+      }
+    },
+    "CHOOSE_FILE": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichiers"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pliki"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arquivos"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ficheiros"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosyalar"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файли"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件"
           }
         }
       }
@@ -158,73 +289,91 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foto & Videobibliothek"
+            "value": "Fotos"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Photo & video library"
+            "value": "Photos"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Biblioteca de fotos y vídeos"
+            "value": "Fotos"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bibliothèque de photos & vidéos"
+            "value": "Photos"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Libreria foto e video"
+            "value": "Foto"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "写真とビデオのライブラリ"
+            "value": "写真"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "사진 및 비디오 라이브러리"
+            "value": "사진"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zdjęcia"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Biblioteca de fotos e vídeos"
+            "value": "Fotos"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Galeria de fotos e vídeos"
+            "value": "Fotos"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Фото и видеогалерея"
+            "value": "Фото"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraflar"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Фото- та відеогалерея"
+            "value": "Фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ảnh"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "照片和视频库"
+            "value": "照片"
           }
         }
       }
@@ -273,6 +422,12 @@
             "value": "맞춤 설정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dostosuj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -291,10 +446,22 @@
             "value": "Настроить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özelleştir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Налаштувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tùy chỉnh"
           }
         },
         "zh-Hans": {
@@ -310,73 +477,91 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine Umfrage erstellen"
+            "value": "Umfrage"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create a poll"
+            "value": "Poll"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crear una encuesta"
+            "value": "Encuesta"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Créer un sondage"
+            "value": "Sondage"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crea un sondaggio"
+            "value": "Sondaggio"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "投票を作成"
+            "value": "投票"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "투표 생성"
+            "value": "투표"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ankieta"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Criar uma enquete"
+            "value": "Enquete"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Criar uma enquete"
+            "value": "Sondagem"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Создать опрос"
+            "value": "Опрос"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anket"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Створити опитування"
+            "value": "Опитування"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thăm dò"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "创建投票"
+            "value": "投票"
           }
         }
       }
@@ -386,31 +571,31 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vergängliche Nachricht"
+            "value": "Vergänglich"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ephemeral message"
+            "value": "Ephemeral"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mensaje efímero"
+            "value": "Efímero"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Message éphémère"
+            "value": "Éphémère"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Messaggio effimero"
+            "value": "Effimero"
           }
         },
         "ja": {
@@ -425,112 +610,146 @@
             "value": "일시적인 메시지"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znikająca wiadomość"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mensagem temporária"
+            "value": "Temporária"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mensagem temporária"
+            "value": "Temporária"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Исчезающее сообщение"
+            "value": "Исчезающее"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçici"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Тимчасове повідомлення"
+            "value": "Тимчасове"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tự hủy"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "阅后即焚的消息"
+            "value": "阅后即焚"
           }
         }
       }
     },
-    "INTRODUCE_CONTACT_%@_TO": {
-      "comment": "A menu item title that introduces a contact to the user. The argument is the name of the contact.",
-      "isCommentAutoGenerated": true,
+    "INTRODUCE_CONTACT_%@": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Führe %@ zu... ein"
+            "value": "%@ vorstellen…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Introduce %@ to..."
+            "value": "Introduce %@…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Presenta a %@ a..."
+            "value": "Presentar a %@…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Présenter %@ à..."
+            "value": "Présenter %@…"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Presenta %@ a..."
+            "value": "Presenta %@…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@を…に紹介"
+            "value": "%@を紹介…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@님을 소개합니다..."
+            "value": "%@ 소개…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przedstaw kontakt %@…"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apresente %@ a..."
+            "value": "Apresentar %@…"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apresentar %@ a..."
+            "value": "Apresentar %@…"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Познакомьте %@ с..."
+            "value": "Представить %@…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ adlı kişiyi tanıştır…"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Познайомте %@ з..."
+            "value": "Представити %@…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giới thiệu %@…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "向 %@ 介绍..."
+            "value": "介绍%@…"
           }
         }
       }
@@ -540,73 +759,1126 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Einführung"
+            "value": "Vorstellen…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Introduce"
+            "value": "Introduce…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Introduce"
+            "value": "Presentar…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Présenter"
+            "value": "Présenter…"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Presentati"
+            "value": "Presenta…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自己紹介"
+            "value": "紹介…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "소개"
+            "value": "소개…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przedstaw…"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apresente-se"
+            "value": "Apresentar…"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apresente-se"
+            "value": "Apresentar…"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Представьтесь"
+            "value": "Представить…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanıştır…"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Представтеся"
+            "value": "Представити…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giới thiệu…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "介绍"
+            "value": "介绍…"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_APPROXIMATE_WEIGHT_%@": {
+      "comment": "Shown in the composition bar's size menu in place of a weight, when that weight is an estimate. The argument is a weight already formatted with its unit, such as '12 MB'. Reached when the draft holds a video: a clip is exported only at the size chosen, so its other sizes are estimated. Keep it as short as possible.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "約%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "약 %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "约 %@"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_BUTTON_ACCESSIBILITY_LABEL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mediengröße"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Media size"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamaño de los archivos multimedia"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taille des médias"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dimensione dei contenuti multimediali"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メディアのサイズ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "미디어 크기"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmiar multimediów"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamanho da mídia"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamanho dos ficheiros multimédia"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер медиафайлов"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medya boyutu"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Розмір медіафайлів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kích thước phương tiện"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "媒体尺寸"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_HI": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysoka"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yüksek"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_LOW": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niska"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düşük"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_MAX": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maks."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maks."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_MED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Średnia"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orta"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_PREPARING": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird vorbereitet…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparazione…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備中…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "준비 중…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przygotowywanie…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparando…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A preparar…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hazırlanıyor…"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Підготовка…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang chuẩn bị…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "准备中…"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_SUBTITLE_HI": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sehr hohe Auflösung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Very high resolution"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resolución muy alta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Très haute résolution"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Risoluzione molto alta"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "非常に高い解像度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "매우 높은 해상도"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bardzo wysoka rozdzielczość"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resolução muito alta"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resolução muito alta"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очень высокое разрешение"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çok yüksek çözünürlük"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дуже висока роздільна здатність"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Độ phân giải rất cao"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "超高分辨率"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_SUBTITLE_LOW": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kleinere Datei"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lighter file"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivo más ligero"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier plus léger"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File più leggero"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "軽いファイル"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "더 가벼운 파일"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lżejszy plik"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arquivo mais leve"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ficheiro mais leve"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл меньше"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha küçük dosya"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Легший файл"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp nhẹ hơn"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件更小"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_SUBTITLE_MAX": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximale Qualität"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximum quality"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calidad máxima"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualité maximale"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualità massima"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最高画質"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "최고 화질"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maksymalna jakość"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualidade máxima"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualidade máxima"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Максимальное качество"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En yüksek kalite"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Максимальна якість"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chất lượng tối đa"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最高画质"
+          }
+        }
+      }
+    },
+    "MEDIA_FORMAT_SUBTITLE_MED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gute Balance aus Qualität und Größe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good balance of quality and size"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buen equilibrio entre calidad y tamaño"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bon équilibre qualité/taille"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buon equilibrio tra qualità e dimensione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画質とサイズのバランス"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "화질과 용량의 균형"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dobry kompromis między jakością a rozmiarem"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bom equilíbrio entre qualidade e tamanho"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bom equilíbrio entre qualidade e tamanho"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Баланс качества и размера"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalite ve boyut arasında iyi denge"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Баланс якості та розміру"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cân bằng giữa chất lượng và dung lượng"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画质与大小兼顾"
           }
         }
       }
@@ -616,73 +1888,91 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Text/Anhang einfügen"
+            "value": "Einfügen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paste Text/Attachment"
+            "value": "Paste"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pegar texto/archivo"
+            "value": "Pegar"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Coller texte/pièce jointe"
+            "value": "Coller"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Incolla testo/allegato"
+            "value": "Incolla"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "テキスト/添付ファイルをペースト"
+            "value": "ペースト"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "텍스트/첨부 파일 붙여넣기"
+            "value": "붙여넣기"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wklej"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Colar texto/anexo"
+            "value": "Colar"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Colar texto/anexo"
+            "value": "Colar"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вставить текст/файл"
+            "value": "Вставить"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yapıştır"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вставити текст/вкладення"
+            "value": "Вставити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dán"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "粘贴文本/附件"
+            "value": "粘贴"
           }
         }
       }
@@ -733,6 +2023,12 @@
             "value": "음성 메시지를 녹음하려면 계속 누르고 계세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trzymaj, aby nagrywać wiadomość głosową"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -751,10 +2047,22 @@
             "value": "Удерживайте, чтобы записать голосовое сообщение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesli mesaj kaydetmek için basılı tutmaya devam edin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Утримуйте, щоб записати аудіоповідомлення"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ để ghi âm tin nhắn thoại"
           }
         },
         "zh-Hans": {
@@ -770,73 +2078,91 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dokument scannen"
+            "value": "Scannen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan a document"
+            "value": "Scan"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escanear un documento"
+            "value": "Escanear"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scanner un document"
+            "value": "Scanner"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scansiona un documento"
+            "value": "Scansiona"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "書類をスキャン"
+            "value": "スキャン"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서를 스캔하세요"
+            "value": "스캔"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skanuj"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Digitalize um documento"
+            "value": "Digitalizar"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Digitalize um documento"
+            "value": "Digitalizar"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сканируйте документ"
+            "value": "Сканировать"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tara"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Скануйте документ"
+            "value": "Сканувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quét"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "扫描文档"
+            "value": "扫描"
           }
         }
       }
@@ -846,73 +2172,91 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Teilen Sie Ihren Standort"
+            "value": "Standort"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share your location"
+            "value": "Location"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comparte tu ubicación"
+            "value": "Ubicación"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Partager sa position"
+            "value": "Position"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condividi la tua posizione"
+            "value": "Posizione"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "現在地を共有"
+            "value": "位置情報"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "현재 위치 공유"
+            "value": "위치"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokalizacja"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compartilhe sua localização"
+            "value": "Localização"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Partilhe a sua localização"
+            "value": "Localização"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Поделитесь своим местоположением"
+            "value": "Местоположение"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konum"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Поділіться своїм місцезнаходженням"
+            "value": "Місцезнаходження"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "分享你的位置"
+            "value": "位置"
           }
         }
       }
@@ -961,6 +2305,12 @@
             "value": "카메라"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aparat"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -979,16 +2329,217 @@
             "value": "Камера"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Камера"
           }
         },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy ảnh"
+          }
+        },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "相机"
+          }
+        }
+      }
+    },
+    "VIDEO_EXPORT_IN_PROGRESS_ACCESSIBILITY_LABEL": {
+      "comment": "Accessibility label of the ring drawn over a clip in the composition bar while it is being exported at the size the draft will be sent at. Its accessibility value carries the percentage.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video wird vorbereitet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing the video"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparando el vídeo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation de la vidéo"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparazione del video"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ビデオを準備中"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "동영상 준비 중"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przygotowywanie wideo"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparando o vídeo"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A preparar o vídeo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка видео"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video hazırlanıyor"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Підготовка відео"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang chuẩn bị video"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备视频"
+          }
+        }
+      }
+    },
+    "VIDEOS_BEING_PREPARED_FOR_SENDING_PROGRESS_CAPTION": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videos werden vorbereitet…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing the videos…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparando los vídeos…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation des vidéos…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparazione dei video…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ビデオを準備中…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "동영상 준비 중…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przygotowywanie filmów…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparando os vídeos…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A preparar os vídeos…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка видео…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videolar hazırlanıyor…"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Підготовка відео…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang chuẩn bị video…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备视频…"
           }
         }
       }

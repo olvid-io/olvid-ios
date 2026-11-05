@@ -38,20 +38,26 @@ enum LocalAuthenticationResult {
     case lockedOut
 }
 
-protocol VerifyPasscodeDelegate: AnyObject {
+/// `Sendable` for the same reason as ``LocalAuthenticationDelegate``: called from the main actor through `async`
+/// requirements, and implemented by an actor.
+protocol VerifyPasscodeDelegate: AnyObject, Sendable {
     var remainingLockoutTime: TimeInterval? { get async }
     var isLockedOut: Bool { get async }
 
     func verifyPasscode(_ candidate: String, firstTryForThisSession: Bool) async -> VerifyPasscodeResult
 }
 
-protocol CreatePasscodeDelegate: AnyObject {
+/// `Sendable` for the same reason as ``LocalAuthenticationDelegate``: called from the main actor through `async`
+/// requirements, and implemented by an actor.
+protocol CreatePasscodeDelegate: AnyObject, Sendable {
     func clearPasscode() async
     func savePasscode(_ passcode: String, passcodeIsPassword: Bool) async throws
     func requestCustomPasscode(customPasscodePresentingViewController: UIViewController) async -> LocalAuthenticationResult
 }
 
-protocol LocalAuthenticationDelegate: AnyObject {
+/// `Sendable` because the delegate is called from the main actor through `async` requirements, so it crosses
+/// an isolation boundary on every call. Its only implementation is an actor, which is `Sendable` by construction.
+protocol LocalAuthenticationDelegate: AnyObject, Sendable {
     var remainingLockoutTime: TimeInterval? { get async }
     var isLockedOut: Bool { get async }
 

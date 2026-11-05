@@ -23,9 +23,11 @@ import SwiftUI
 public struct ObvBadgeNumberOfNewMessages: View {
     
     let numberOfNewReceivedMessages: Int
+    let color: Color
     
-    public init(numberOfNewReceivedMessages: Int) {
+    public init(numberOfNewReceivedMessages: Int, color: Color = Color(uiColor: .red)) {
         self.numberOfNewReceivedMessages = numberOfNewReceivedMessages
+        self.color = color
     }
     
     private var valueAsString: String {
@@ -46,7 +48,7 @@ public struct ObvBadgeNumberOfNewMessages: View {
             .lineLimit(1)
             .padding(.horizontal, 8.0)
             .padding(.vertical, 4.0)
-            .background(Capsule().foregroundColor(Color(uiColor: .red)))
+            .background(Capsule().foregroundColor(color))
             .transition(.scale.animation(.easeInOut(duration: 0.15)))
     }
     

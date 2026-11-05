@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,6 +31,10 @@ protocol UploadAttachmentChunksDelegate {
     func processCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier identifer: String, withinFlowId flowId: FlowIdentifier)
     func cleanExistingOutboxAttachmentSessionsCreatedBy(_ creatorAppType: AppType, flowId: FlowIdentifier)
     func requestUploadAttachmentProgressesUpdatedSince(date: Date) async -> [ObvAttachmentIdentifier: Float]
+
+    func getAsyncStreamOfUploadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentUploadProgress>)
+
+    func finishAsyncStreamOfUploadProgress(streamUUID: UUID)
     func queryServerOnSessionsTasksCreatedByShareExtension(flowId: FlowIdentifier)
     func cancelAllAttachmentsUploadOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws
 

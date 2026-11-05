@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -103,24 +103,31 @@ extension ContactMutualIntroductionProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
 
             let contactIdentityA = receivedMessage.contactIdentityA
             let contactIdentityB = receivedMessage.contactIdentityB
+            
+            // Refuse to introduce a contact to themselves
+
+            guard contactIdentityA != contactIdentityB else {
+                logger.error("Cannot introduce a contact to themselves")
+                return CancelledState()
+            }
 
             // Make sure both contacts are trusted (i.e., are part of the ContactIdentity database of the owned identity), active and OneToOne.
             
             for contactIdentity in [contactIdentityA, contactIdentityB] {
                 guard (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true else {
-                    os_log("One of the contact identities is not yet trusted", log: log, type: .debug)
+                    logger.debug("One of the contact identities is not yet trusted")
                     return CancelledState()
                 }
                 guard try identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
-                    os_log("One of the contact identities is not active", log: log, type: .debug)
+                    logger.debug("One of the contact identities is not active")
                     return CancelledState()
                 }
                 guard try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) == .oneToOne else {
-                    os_log("One of the contact identities is not a OneToOne contact", log: log, type: .debug)
+                    logger.debug("One of the contact identities is not a OneToOne contact")
                     return CancelledState()
                 }
             }
@@ -183,7 +190,7 @@ extension ContactMutualIntroductionProtocol {
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     assertionFailure()
-                    os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
+                    logger.fault("Could not propagate accept/reject invitation to other devices.")
                 }
             }
             
@@ -282,20 +289,28 @@ extension ContactMutualIntroductionProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
             
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityCoreDetails = receivedMessage.contactIdentityCoreDetails
             let dialogUuid = UUID()
 
             guard let mediatorIdentity = receivedMessage.receptionChannelInfo?.getRemoteIdentity() else {
-                os_log("Could not determiner the mediator identity", log: log, type: .error)
+                logger.error("Could not determiner the mediator identity")
+                return CancelledState()
+            }
+            
+            // Refuse an introduction to ourselves or to the mediator, before any dialog, auto-accept or waiting entry
+
+            guard contactIdentity != ownedIdentity && contactIdentity != mediatorIdentity else {
+                logger.error("We received an introduction to our own identity or to the mediator. We reject it.")
                 return CancelledState()
             }
             
             // Check that the mediator is a OneToOne contact. If not, we discard the invite.
             
             guard try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: ownedIdentity, contactIdentity: mediatorIdentity, within: obvContext) == .oneToOne else {
-                os_log("We received mutual introduction invite from a mediator that is not a OneToOne contact. We discard the message.", log: log, type: .error)
+                logger.error("We received mutual introduction invite from a mediator that is not a OneToOne contact. We discard the message.")
                 return CancelledState()
             }
             
@@ -320,7 +335,7 @@ extension ContactMutualIntroductionProtocol {
                                                                            log: log,
                                                                            delegateManager: delegateManager)
                 } catch {
-                    os_log("Could not sign and send notification of accepted invitation", log: log, type: .fault)
+                    logger.fault("Could not sign and send notification of accepted invitation")
                     return CancelledState()
                 }
                 
@@ -352,7 +367,7 @@ extension ContactMutualIntroductionProtocol {
                 do {
                     
                     guard let thisProtocolInstance = try ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, within: obvContext.context) else {
-                        os_log("Could not retrive this protocol instance", log: log, type: .fault)
+                        logger.fault("Could not retrive this protocol instance")
                         assertionFailure()
                         return CancelledState()
                     }

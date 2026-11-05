@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,15 +26,16 @@ import OlvidUtils
 import ObvSettings
 import ObvAppTypes
 import ObvEmojiUtils
+import ObvDesignSystem
 
 
-final class EmojiPickerHostingViewController: KeyboardHostingController<EmojiPickerView>, EmojiPickerViewModelDelegate {
+final class EmojiPickerHostingViewController: UIHostingController<EmojiPickerView>, EmojiPickerViewModelDelegate {
 
     fileprivate let model: EmojiPickerViewModel
     
     init(model: EmojiPickerViewModel) {
         self.model = model
-        let view = EmojiPickerView(model: model)
+        let view = EmojiPickerView(model: model, escapeKeyClosesIt: true) // This controller is the delegate the hidden button closes through.
         super.init(rootView: view)
         self.model.delegate = self
     }
@@ -46,7 +47,7 @@ final class EmojiPickerHostingViewController: KeyboardHostingController<EmojiPic
         let closeAction = UIAction { [weak self] _ in self?.dismiss() }
         let closeButton = UIBarButtonItem(systemItem: .cancel, primaryAction: closeAction)
         navigationItem.rightBarButtonItem = closeButton
-        
+
     }
 
     override func viewDidLayoutSubviews() {
@@ -91,6 +92,10 @@ final class EmojiPickerViewModel: ObservableObject {
         selectAction(selectedEmoji)
         delegate?.dismiss()
     }
+
+    fileprivate func userWantsToClose() {
+        delegate?.dismiss()
+    }
 }
 
 fileprivate struct Emoji: Identifiable {
@@ -110,11 +115,18 @@ struct EmojiPickerView: View {
 
     @ObservedObject var model: EmojiPickerViewModel
 
+    /// Esc closes the picker through a hidden button, because under `EmojiPickerHostingViewController` the close button is a UIKit bar button, and there is
+    /// none at all when the picker is presented without a navigation controller. Pass `false` where the picker sits in a SwiftUI sheet whose own close
+    /// button carries Esc: two live cancel shortcuts leave it to chance which one fires, and this one closes nothing without the hosting controller.
+    /// There is no default on purpose: either value is silently wrong for the other presentation, so each presenter says which it is.
+    let escapeKeyClosesIt: Bool
+
     var body: some View {
         EmojiPickerInnerView(selectedEmoji: $model.selectedEmoji,
                              selectAction: model.selectAction_,
                              haptic: model.haptic,
                              preferredEmojiList: model.preferredEmojisList)
+        .escapeKeyPresses(while: escapeKeyClosesIt, model.userWantsToClose)
     }
 }
 
@@ -131,7 +143,7 @@ fileprivate struct InnerEmojiView: View {
     @Binding var showVariantsView: String?
     @Binding var draggedEmoji: String?
 
-    static let defaultFontSize: CGFloat = 33.0
+    static let defaultFontSize: CGFloat = EmojiUtils.emojiFontSize
 
     private var showBackground: Bool {
         guard let selectedEmoji = selectedEmoji else { return false }
@@ -174,14 +186,21 @@ fileprivate struct InnerEmojiView: View {
                 tapGestureAction()
             }
             .if(!hasVariants && !isPreferredView) { view in
+                /// **The closure returns the provider and changes nothing.** `draggedEmoji` is bound to state well above
+                /// this view, so writing it here rebuilds the subtree the drag was started from while UIKit is still
+                /// building the session — which frees dependency-graph nodes it holds and kills the app later, somewhere
+                /// with nothing to do with dragging. A turn's delay puts the change after the session exists.
                 view.onDrag({
-                    if self.draggedEmoji != emoji {
-                        haptic()
+                    let itemProvider = NSItemProvider(object: emoji as NSString)
+                    DispatchQueue.main.async {
+                        if self.draggedEmoji != emoji {
+                            haptic()
+                        }
+                        withAnimation {
+                            self.draggedEmoji = emoji
+                        }
                     }
-                    withAnimation {
-                        self.draggedEmoji = emoji
-                    }
-                    return NSItemProvider(object: emoji as NSString)
+                    return itemProvider
                 }, preview: {
                     Text(emoji)
                         .font(.system(size: fontSize * 1.5))
@@ -367,8 +386,14 @@ extension EmojiGroup {
 
 struct EmojiUtils {
 
-    static let gridItemSize: CGFloat = 36
-    static let gridSpacing: CGFloat = 5
+    /// The size the emojis are drawn at. Everything below follows it, and so does ``InnerEmojiView/defaultFontSize``.
+    static let emojiFontSize: CGFloat = 48
+
+    /// A cell is deliberately a little shorter than the line box of the glyph it holds — an emoji occupies about 1.2 times
+    /// its point size — and the spacing covers the overhang. The two factors are the ones the grid was built with: at the
+    /// 33pt this screen used to draw at, they give back the 36 and 5 that were written here by hand.
+    static let gridItemSize: CGFloat = (emojiFontSize * 1.09).rounded()
+    static let gridSpacing: CGFloat = (emojiFontSize * 0.15).rounded()
     static let gridColumnSize: CGFloat = gridItemSize + gridSpacing
 
     typealias ScrollCorrectionType = String?
@@ -691,8 +716,14 @@ struct EmojiPickerInnerView: View {
                                               selectedGroupBindingWithoutScroll.wrappedValue = group
                                           }
                                       }
-                                      withAnimation {
-                                          self.draggedEmoji = nil
+                                      /// Only when there is something to clear. This runs on every layout pass, and a
+                                      /// `@State` write is not skipped for being equal to what is already there — so
+                                      /// unguarded it invalidated the graph on every frame of a scroll, inside an
+                                      /// animation, from within the update pass.
+                                      if self.draggedEmoji != nil {
+                                          withAnimation {
+                                              self.draggedEmoji = nil
+                                          }
                                       }
                                       if self.rowsCount == nil {
                                           let rowCount = EmojiUtils.computeRowsCount(geometry: geometry)

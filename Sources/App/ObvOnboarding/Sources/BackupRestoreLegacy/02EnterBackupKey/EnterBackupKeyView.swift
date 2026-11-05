@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,6 @@
  */
 
 import SwiftUI
-import Combine
 import ObvDesignSystem
 import ObvCrypto
 
@@ -424,8 +423,6 @@ private struct SingleTextField: View {
         let acceptableCharactersForBackupKeyString: CharacterSet
     }
     
-    @State private var previousText: String? = nil
-    
     private static let maxLength = 4
     
     init(_ key: LocalizedStringKey, text: Binding<String>, actions: SingleTextFieldActions, model: Model) {
@@ -446,24 +443,23 @@ private struct SingleTextField: View {
             .autocorrectionDisabled()
             .multilineTextAlignment(.center)
             .font(myFont)
-            .onReceive(Just(text)) { _ in
-                guard previousText != text.wrappedValue else { return }
-                previousText = text.wrappedValue
+            .onChange(of: text.wrappedValue) { newValue in
                 // If the user pastes a backup key, the "text" received here will contain it.
                 // To handle this case, we call our "superview" (the BackupKeyTextField) using the
                 // tryToPasteTextIfItIsSomeBackupKey method. This method will paste the key in all 8 text
                 // fields (including this one) if a key is found. In that case, the method returns true
                 // and there is nothing left to do here.
-                if actions.tryToPasteTextIfItIsSomeBackupKey(text.wrappedValue) {
+                if actions.tryToPasteTextIfItIsSomeBackupKey(newValue) {
                     return
                 }
                 // If we reach this point, we are not in a situation where the text contains
                 // a pasted backup key.
-                // We limit the string length to maxLength characters.
-                let uppercasedText = text.wrappedValue.uppercased()
-                let newText = String(uppercasedText.removingAllCharactersNotInCharacterSet(model.acceptableCharactersForBackupKeyString).prefix(4))
-                if text.wrappedValue != newText {
-                    text.wrappedValue = newText
+                // We limit the string length to maxLength characters. Writing the sanitized value back
+                // re-enters this closure with the clean value, which is the one we report.
+                let sanitized = String(newValue.uppercased().removingAllCharactersNotInCharacterSet(model.acceptableCharactersForBackupKeyString).prefix(Self.maxLength))
+                guard newValue == sanitized else {
+                    text.wrappedValue = sanitized
+                    return
                 }
                 actions.singleTextFieldDidChangeAtIndex(model.index)
             }

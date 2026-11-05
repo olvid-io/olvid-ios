@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import OSLog
 import ObvDesignSystem
 import ObvOwnedIdentityChooser
 import ObvEngine
@@ -33,6 +34,7 @@ import ObvLicenceActivationFlow
 import ObvSidebar
 import ObvSingleDiscussion
 import ObvSingleContact
+import ObvContactsSuggestions
 import ObvUIGroupV1
 import ObvUIGroupV2
 import ObvUIGroupSharedBetweenV1AndV2
@@ -42,6 +44,12 @@ import ObvSubscription
 import ObvHistoryTransfer
 import ObvComposition
 import ObvLocation
+import OlvidUtils
+import ObvUICoreData
+import ObvSettings
+import ObvAppCoreConstants
+import ObvCoreDataStack
+import ObvAppDatabase
 
 
 /// Allows to easily inject all the datasources required by the children view controller
@@ -62,11 +70,20 @@ struct ObvDataSources {
     let singleContactViewDataSource: ObvSingleContactViewAppDataSource
     let listOfCommonGroupsWithContactViewDataSource: ObvListOfCommonGroupsWithContactViewDataSource
     let contactDetailedInfosViewDataSource: ObvContactDetailedInfosViewDataSource
+    let contactsSuggestionsViewDataSource: any ContactsSuggestionsViewDataSource
+    let contactsSuggestionsViewDataSources: ContactsSuggestionsView.DataSources
     let licenseActivationViewDataSource: NewLicenseActivationViewDataSource
     let listOfContactDevicesViewDataSource: any ObvCells.ObvListOfContactDevicesViewDataSource
     let pollViewDataSource: PollViewDataSource
     let sideBarViewAppDataSource: ObvSideBarViewAppDataSource
     let messageReactionsViewDataSource: any ObvMessageReactionsViewDataSource
+    let singleDiscussionViewDataSource: any SingleDiscussionViewDataSource & SingleDiscussionCellViewDataSource
+    let singleDiscussionViewDataSources: SingleDiscussionView.DataSources
+    /// The same object as ``singleDiscussionViewDataSource``: what the reader asks of an attachment cannot be told apart from what is streamed about it, so one
+    /// object holds both.
+    /// Only the part of the cells' actions a data source can answer: what a *place* needs done has to be presented, and is held by the screen's controller — see
+    /// `SwiftUISingleDiscussionActions`.
+    let singleDiscussionViewActions: any SingleDiscussionAttachmentActions
     let trustOriginsListViewDataSource: ObvTrustOriginsListViewDataSource
     
     let archivedDiscussionsCellAppDataSource: any ArchivedDiscussionsCellDataSource
@@ -150,6 +167,9 @@ struct ObvDataSources {
     let composeLinkPreviewViewDataSource: any ComposeLinkPreviewViewDataSource
     let composeViewDataSources: ComposeView.DataSources
 
+    let backgroundContext: NSManagedObjectContext
+    let remoteChangeObserver: ObvPersistentHistoryMerger
+    
     @MainActor
     init(avatarViewAppDataSourceDelegate: any ObvAvatarViewAppDataSourceDelegate,
          singleContactViewAppDataSourceDelegate: ObvSingleContactViewAppDataSourceDelegate,
@@ -159,6 +179,7 @@ struct ObvDataSources {
          editGroupNameAndPictureViewAppDataSourceDelegate: any EditGroupNameAndPictureViewAppDataSourceDelegate,
          chooseDeviceToReactivateViewAppDataSourceDelegate: any ObvChooseDeviceToReactivateViewAppDataSourceDelegate,
          ownedDetailedInfosViewAppDataSourceDelegate: any ObvOwnedDetailedInfosViewAppDataSourceDelegate,
+         singleDiscussionViewAppDataSourceDelegate: any SingleDiscussionViewAppDataSourceDelegate,
          discussionCacheDelegate: any DiscussionCacheDelegate,
          obvEngine: ObvEngine,
          backgroundContext: NSManagedObjectContext,
@@ -166,6 +187,8 @@ struct ObvDataSources {
         assert(backgroundContext.concurrencyType == .privateQueueConcurrencyType)
         assert(viewContext.concurrencyType == .mainQueueConcurrencyType)
         backgroundContext.automaticallyMergesChangesFromParent = true
+        
+        self.backgroundContext = backgroundContext
         
         // ForDiscussionsList
         
@@ -219,7 +242,7 @@ struct ObvDataSources {
         self.singleContactViewDataSource = ObvSingleContactViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext, delegate: singleContactViewAppDataSourceDelegate)
         self.listOfCommonGroupsWithContactViewDataSource = ObvListOfCommonGroupsWithContactViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
         self.contactDetailedInfosViewDataSource = ObvContactDetailedInfosViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
-        
+
         // ForTrustOrigins
         
         self.trustOriginsListViewDataSource = ObvTrustOriginsListViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext, delegate: trustOriginsListViewAppDataSourceDelegate)
@@ -227,10 +250,26 @@ struct ObvDataSources {
         // ObvSingleDiscussion
         
         self.messageReactionsViewDataSource = ObvMessageReactionsViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext)
+        // Made here rather than in the "ForAvatars" section below, because the discussion screen forwards to it: a cell drawing a person — the mark on a shared
+        // location, and the sender above a message from Step 16 — asks the same photo cache as the rest of the app.
+        let avatarViewDataSource = ObvAvatarViewAppDataSource(delegate: avatarViewAppDataSourceDelegate)
+        self.avatarViewDataSource = avatarViewDataSource
+        let singleDiscussionViewDataSource = SingleDiscussionViewAppDataSource(viewContext: viewContext, backgroundContext: backgroundContext, avatarViewDataSource: avatarViewDataSource)
+        singleDiscussionViewDataSource.delegate = singleDiscussionViewAppDataSourceDelegate
+        self.singleDiscussionViewDataSource = singleDiscussionViewDataSource
+        self.singleDiscussionViewDataSources = .init(
+            dataSource: singleDiscussionViewDataSource,
+            cellViewDataSource: singleDiscussionViewDataSource,
+            messageReactionsViewDataSource: self.messageReactionsViewDataSource)
+        self.singleDiscussionViewActions = singleDiscussionViewDataSource
         
-        // ForAvatars
-        
-        self.avatarViewDataSource = ObvAvatarViewAppDataSource(delegate: avatarViewAppDataSourceDelegate)
+        // ForAvatars — made above, with the discussion data source that forwards to it
+
+        // ForContactsSuggestions, once the avatars exist
+
+        let contactsSuggestionsViewDataSource = ContactsSuggestionsViewAppDataSource(backgroundContext: backgroundContext)
+        self.contactsSuggestionsViewDataSource = contactsSuggestionsViewDataSource
+        self.contactsSuggestionsViewDataSources = .init(dataSource: contactsSuggestionsViewDataSource, avatarViewDataSource: avatarViewDataSource)
 
         // ForOwnedIdentityChooser
         
@@ -499,9 +538,19 @@ struct ObvDataSources {
             composeViewParametersDataSource: composeViewParametersDataSource,
             composeLinkPreviewViewDataSource: composeLinkPreviewViewDataSource)
         
-    }
-    
+        // Cross-process Core Data sync — merges writes from the Intents/Notification/Share
+        // extensions into `backgroundContext` whenever Core Data signals a remote change.
+        self.remoteChangeObserver = ObvPersistentHistoryMerger(
+            backgroundContext: self.backgroundContext,
+            logSubsystem: ObvAppCoreConstants.logSubsystem,
+            localTransactionAuthor: ObvUICoreDataConstants.AppCategory.mainApp.transactionAuthor,
+            contextCreator: ObvStack.shared,
+            persistentStoreCoordinator: ObvStack.shared.persistentStoreCoordinator,
+            tokenStore: ObvStack.historyConsumerTokenStore)
 
+    }
+
+    
     public func fetchAvatarImage(localPhotoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
         guard let avatarViewDataSource = avatarViewDataSource as? ObvAvatarViewAppDataSource else {
             assertionFailure(); throw ObvError.internalError

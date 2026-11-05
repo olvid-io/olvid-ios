@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,8 +36,10 @@ final class MarkAsOpenedOperation: ContextualOperationWithSpecificReasonForCance
         super.init()
     }
 
+    private(set) var readReceiptToSend: ObvReturnReceiptToSend?
+
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
-        
+
         do {
             guard let fyle = try ReceivedFyleMessageJoinWithStatus.get(objectID: receivedFyleMessageJoinWithStatusID, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindReceivedFyleMessageJoinWithStatus)
@@ -47,6 +49,7 @@ final class MarkAsOpenedOperation: ContextualOperationWithSpecificReasonForCance
                 return cancel(withReason: .tryToMarkAsOpenedAMessageWithReadingRequiresUserAction)
             }
             fyle.markAsOpened()
+            readReceiptToSend = fyle.produceReadReceiptToSendIfAppropriate()
         } catch {
             return cancel(withReason: .coreDataError(error: error))
         }

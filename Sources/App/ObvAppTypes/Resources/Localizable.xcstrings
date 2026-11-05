@@ -45,6 +45,12 @@
             "value": "8시간"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "8 godzin"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "8 часов"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "8 saat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "8 годин"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "8 giờ"
           }
         },
         "zh-Hans": {
@@ -121,6 +139,12 @@
             "value": "무기한"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezterminowo"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -139,10 +163,22 @@
             "value": "Бессрочно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Süresiz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "На невизначений термін"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vô thời hạn"
           }
         },
         "zh-Hans": {
@@ -197,6 +233,12 @@
             "value": "1시간"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 godzina"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -215,10 +257,22 @@
             "value": "1 час"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 saat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "1 година"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 giờ"
           }
         },
         "zh-Hans": {
@@ -273,6 +327,12 @@
             "value": "7일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 dni"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -291,10 +351,22 @@
             "value": "7 дней"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 gün"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "7 днів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 ngày"
           }
         },
         "zh-Hans": {

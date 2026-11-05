@@ -36,7 +36,9 @@ public enum TipCellViewModel: Sendable, Equatable {
     case ownedDeviceExpriginSoon(OwnedDeviceExpriginSoonModel)
     case profileIsDeactivatedOnThisDevice(ownedCryptoId: ObvCryptoId)
     case requestUserNotificationsAuthorization
-    
+    case newerAppVersionAvailable
+    case grantRecordPermission(GrantRecordPermission)
+
     public enum SetupNewBackupsCellViewModel: Sendable, Equatable {
         case newBackupsShouldBeSetup
         case rememberToWriteDownBackupKey
@@ -52,6 +54,14 @@ public enum TipCellViewModel: Sendable, Equatable {
     public enum OSUpgrade: Sendable, Equatable {
         case recommended
         case required
+    }
+
+    /// Variants of the "grant microphone access" tip. Both ask the user to grant the record permission so they can take calls;
+    /// they differ in how the permission is obtained: `requestInApp` triggers the system dialog (permission undetermined),
+    /// `openSettings` sends the user to the Settings app (permission previously denied).
+    public enum GrantRecordPermission: Sendable, Equatable {
+        case requestInApp
+        case openSettings
     }
     
     public struct OwnedDeviceExpriginSoonModel: Sendable, Equatable, Hashable {
@@ -77,11 +87,11 @@ public protocol TipCellViewDataSource: Sendable, TipCellViewDataSourceActions {
 }
 
 /// Actions expected to be implemented by the app
-@MainActor protocol TipCellViewActionsProtocol: SetupNewBackupsCellViewActionsProtocol, DoSendReadReceiptTipViewActionsProtocol, ArchivedDiscussionsHelpMessageViewActionsProtocol, OlvidPlusTipViewActions, OlvidPlusSuccessfulSubscriptionViewActions, OwnedDeviceExpriginSoonTipViewActions, ProfileIsDeactivatedOnThisDeviceTipViewActions, RequestUserNotificationsAuthorizationTipViewActions {}
+@MainActor protocol TipCellViewActionsProtocol: SetupNewBackupsCellViewActionsProtocol, DoSendReadReceiptTipViewActionsProtocol, ArchivedDiscussionsHelpMessageViewActionsProtocol, OlvidPlusTipViewActions, OlvidPlusSuccessfulSubscriptionViewActions, OwnedDeviceExpriginSoonTipViewActions, ProfileIsDeactivatedOnThisDeviceTipViewActions, RequestUserNotificationsAuthorizationTipViewActions, NewerAppVersionAvailableTipViewActions, GrantRecordPermissionTipViewActions {}
 
 /// Actions expected to be implemented by the data source.
 @MainActor
-public protocol TipCellViewDataSourceActions: Sendable, OSUpgradeCellActions, OwnedDeviceExpiringSoonTipViewDataSourceActions, RequestUserNotificationsAuthorizationTipViewDataSourceActions {}
+public protocol TipCellViewDataSourceActions: Sendable, OSUpgradeCellActions, OwnedDeviceExpiringSoonTipViewDataSourceActions, RequestUserNotificationsAuthorizationTipViewDataSourceActions, NewerAppVersionAvailableTipViewDataSourceActions, GrantRecordPermissionTipViewDataSourceActions {}
 
 struct TipCellView: View {
     
@@ -111,6 +121,10 @@ struct TipCellView: View {
             ProfileIsDeactivatedOnThisDeviceTipView(ownedCryptoId: ownedCryptoId, actions: actions)
         case .requestUserNotificationsAuthorization:
             RequestUserNotificationsAuthorizationTipView(actions: actions, dataSourceActions: dataSourceActions)
+        case .newerAppVersionAvailable:
+            NewerAppVersionAvailableTipView(actions: actions, dataSourceActions: dataSourceActions)
+        case .grantRecordPermission(let permission):
+            GrantRecordPermissionTipView(permission: permission, actions: actions, dataSourceActions: dataSourceActions)
         }
     }
     
@@ -384,6 +398,239 @@ public struct OSUpgradeCell: View {
     }
     
 }
+
+// MARK: - Internal view: NewerAppVersionAvailableTipView
+
+/// Implemented by the view controller layer to open the App Store so the user can update Olvid.
+@MainActor
+protocol NewerAppVersionAvailableTipViewActions {
+    func userWantsToUpdateOlvidFromAppStore(_ view: NewerAppVersionAvailableTipView)
+}
+
+/// Implemented by the data source (app layer) to record the dismissal and suppress the tip on subsequent refreshes.
+@MainActor
+public protocol NewerAppVersionAvailableTipViewDataSourceActions {
+    func userWantsToDismissNewerAppVersionAvailableTipView(_ view: NewerAppVersionAvailableTipView)
+}
+
+public struct NewerAppVersionAvailableTipView: View {
+
+    let actions: any NewerAppVersionAvailableTipViewActions
+    let dataSourceActions: any NewerAppVersionAvailableTipViewDataSourceActions
+
+    private var title: String {
+        String(localizedInThisBundle: "SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE")
+    }
+
+    private var message: String {
+        String(localizedInThisBundle: "SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE")
+    }
+
+    private var cornerSize: CGSize {
+        if ObvAppCoreConstants.targetEnvironmentIsMacCatalyst {
+            return CGSize(width: 8, height: 8)
+        } else {
+            return CGSize(width: 12, height: 12)
+        }
+    }
+
+    private var backgroundColor: Color {
+        Color(UIColor.secondarySystemBackground)
+    }
+
+    private func userWantsToUpdateOlvidFromAppStore() {
+        // Dismiss before opening the App Store: recording the dismissal upfront prevents the tip from
+        // lingering once the user leaves to update, and stops a different tip from popping in meanwhile.
+        dataSourceActions.userWantsToDismissNewerAppVersionAvailableTipView(self)
+        actions.userWantsToUpdateOlvidFromAppStore(self)
+    }
+
+    private func userWantsToDismissNewerAppVersionAvailableTipView() {
+        dataSourceActions.userWantsToDismissNewerAppVersionAvailableTipView(self)
+    }
+
+    public var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+
+            Image(systemIcon: .forwardFill)
+                .foregroundStyle(.white)
+                .font(.system(size: 13))
+                .padding(10)
+                .background(.blue, in: Circle())
+                .padding(.trailing, 6)
+
+            VStack(alignment: .leading) {
+
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text(title)
+                            .font(.system(.headline, design: .rounded))
+                            .fontWeight(.semibold)
+                            .padding(.bottom, 4)
+                        Spacer(minLength: 0)
+                    }
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 4)
+                }
+
+                HStack(alignment: .firstTextBaseline) {
+                    Spacer(minLength: 0)
+                    Button(action: userWantsToDismissNewerAppVersionAvailableTipView) {
+                        Text("BUTTON_TITLE_LATER")
+                    }
+                    .controlSize(.mini)
+                    .buttonStyle(.borderless)
+                    .padding(.trailing)
+                    Button(action: userWantsToUpdateOlvidFromAppStore) {
+                        Text(String(localizedInThisBundle: "GO_TO_APP_STORE_BUTTON_TITLE"))
+                    }
+                    .controlSize(.mini)
+                    .buttonStyle(.borderedProminent)
+                }
+
+            }
+
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical)
+        .background(RoundedRectangle(cornerSize: cornerSize, style: .continuous).foregroundStyle(backgroundColor))
+        .buttonStyle(PlainButtonStyle()) // Prevents the whole view to act as a button, required when using a SwiftUI List
+    }
+
+}
+
+
+// MARK: - Internal view: GrantRecordPermissionTipView
+
+/// Implemented by the view controller layer to obtain the microphone (record) permission, either by triggering the system
+/// dialog or by sending the user to the Settings app.
+@MainActor
+protocol GrantRecordPermissionTipViewActions {
+    func userWantsToRequestRecordPermission(_ view: GrantRecordPermissionTipView)
+    func userWantsToOpenSettingsToGrantRecordPermission(_ view: GrantRecordPermissionTipView)
+}
+
+/// Implemented by the data source (app layer) to record the dismissal and suppress the tip on subsequent refreshes.
+@MainActor
+public protocol GrantRecordPermissionTipViewDataSourceActions {
+    func userWantsToDismissGrantRecordPermissionTipView(_ view: GrantRecordPermissionTipView)
+}
+
+public struct GrantRecordPermissionTipView: View {
+
+    let permission: TipCellViewModel.GrantRecordPermission
+    let actions: any GrantRecordPermissionTipViewActions
+    let dataSourceActions: any GrantRecordPermissionTipViewDataSourceActions
+
+    private var title: String {
+        switch permission {
+        case .requestInApp:
+            return String(localizedInThisBundle: "SNACK_BAR_DETAILS_TITLE_GRANT_PERMISSION_TO_RECORD")
+        case .openSettings:
+            return String(localizedInThisBundle: "SNACK_BAR_DETAILS_TITLE_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS")
+        }
+    }
+
+    private var message: String {
+        switch permission {
+        case .requestInApp:
+            return String(localizedInThisBundle: "SNACK_BAR_DETAILS_BODY_GRANT_PERMISSION_TO_RECORD")
+        case .openSettings:
+            return String(localizedInThisBundle: "SNACK_BAR_DETAILS_BODY_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS")
+        }
+    }
+
+    private var primaryButtonTitle: String {
+        switch permission {
+        case .requestInApp:
+            return String(localizedInThisBundle: "GRANT_PERMISSION_TO_RECORD_BUTTON_TITLE")
+        case .openSettings:
+            return String(localizedInThisBundle: "GRANT_PERMISSION_TO_RECORD_IN_SETTINGS_BUTTON_TITLE")
+        }
+    }
+
+    private var cornerSize: CGSize {
+        if ObvAppCoreConstants.targetEnvironmentIsMacCatalyst {
+            return CGSize(width: 8, height: 8)
+        } else {
+            return CGSize(width: 12, height: 12)
+        }
+    }
+
+    private var backgroundColor: Color {
+        Color(UIColor.secondarySystemBackground)
+    }
+
+    private func primaryButtonTapped() {
+        // Dismiss before acting: recording the dismissal upfront removes the tip and prevents another tip from
+        // popping in while the system dialog (or the Settings app) is presented.
+        dataSourceActions.userWantsToDismissGrantRecordPermissionTipView(self)
+        switch permission {
+        case .requestInApp:
+            actions.userWantsToRequestRecordPermission(self)
+        case .openSettings:
+            actions.userWantsToOpenSettingsToGrantRecordPermission(self)
+        }
+    }
+
+    private func userWantsToDismissGrantRecordPermissionTipView() {
+        dataSourceActions.userWantsToDismissGrantRecordPermissionTipView(self)
+    }
+
+    public var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+
+            Image(systemIcon: .phone)
+                .foregroundStyle(.white)
+                .font(.system(size: 13))
+                .padding(10)
+                .background(.green, in: Circle())
+                .padding(.trailing, 6)
+
+            VStack(alignment: .leading) {
+
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text(title)
+                            .font(.system(.headline, design: .rounded))
+                            .fontWeight(.semibold)
+                            .padding(.bottom, 4)
+                        Spacer(minLength: 0)
+                    }
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 4)
+                }
+
+                HStack(alignment: .firstTextBaseline) {
+                    Spacer(minLength: 0)
+                    Button(action: userWantsToDismissGrantRecordPermissionTipView) {
+                        Text("BUTTON_TITLE_LATER")
+                    }
+                    .controlSize(.mini)
+                    .buttonStyle(.borderless)
+                    .padding(.trailing)
+                    Button(action: primaryButtonTapped) {
+                        Text(primaryButtonTitle)
+                    }
+                    .controlSize(.mini)
+                    .buttonStyle(.borderedProminent)
+                }
+
+            }
+
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical)
+        .background(RoundedRectangle(cornerSize: cornerSize, style: .continuous).foregroundStyle(backgroundColor))
+        .buttonStyle(PlainButtonStyle()) // Prevents the whole view to act as a button, required when using a SwiftUI List
+    }
+
+}
+
 
 @MainActor
 protocol OlvidPlusSuccessfulSubscriptionViewActions {
@@ -1137,11 +1384,47 @@ extension ActionsForPreviews: RequestUserNotificationsAuthorizationTipViewAction
 }
 
 extension ActionsForPreviews: RequestUserNotificationsAuthorizationTipViewDataSourceActions {
-    
+
     func userWantsToDismissRequestUserNotificationsAuthorizationTipView(_ view: RequestUserNotificationsAuthorizationTipView) {
         print("User wants to dismiss request user notifications authorization tip view")
     }
-    
+
+}
+
+extension ActionsForPreviews: NewerAppVersionAvailableTipViewActions {
+
+    func userWantsToUpdateOlvidFromAppStore(_ view: NewerAppVersionAvailableTipView) {
+        print("User wants to update Olvid from the App Store")
+    }
+
+}
+
+extension ActionsForPreviews: NewerAppVersionAvailableTipViewDataSourceActions {
+
+    func userWantsToDismissNewerAppVersionAvailableTipView(_ view: NewerAppVersionAvailableTipView) {
+        print("User wants to dismiss newer app version available tip view")
+    }
+
+}
+
+extension ActionsForPreviews: GrantRecordPermissionTipViewActions {
+
+    func userWantsToRequestRecordPermission(_ view: GrantRecordPermissionTipView) {
+        print("User wants to request record permission")
+    }
+
+    func userWantsToOpenSettingsToGrantRecordPermission(_ view: GrantRecordPermissionTipView) {
+        print("User wants to open settings to grant record permission")
+    }
+
+}
+
+extension ActionsForPreviews: GrantRecordPermissionTipViewDataSourceActions {
+
+    func userWantsToDismissGrantRecordPermissionTipView(_ view: GrantRecordPermissionTipView) {
+        print("User wants to dismiss grant record permission tip view")
+    }
+
 }
 
 extension ActionsForPreviews: OwnedDeviceExpriginSoonTipViewActions {
@@ -1158,6 +1441,11 @@ extension ActionsForPreviews: OwnedDeviceExpriginSoonTipViewActions {
 
 @MainActor
 private let actionsForPreviews = ActionsForPreviews()
+
+#Preview("Newer app version available") {
+    TipCellView(viewModel: .newerAppVersionAvailable, actions: actionsForPreviews, dataSourceActions: actionsForPreviews)
+        .padding()
+}
 
 #Preview("Profile deactivated") {
     ProfileIsDeactivatedOnThisDeviceTipView(ownedCryptoId: .sampleDatasForOwnedCryptoId[0], actions: actionsForPreviews)
@@ -1239,6 +1527,16 @@ private let expiringDeviceModels: [TipCellViewModel.OwnedDeviceExpriginSoonModel
 #Preview("Request notifications authorization") {
     TipCellView(viewModel: .requestUserNotificationsAuthorization, actions: actionsForPreviews, dataSourceActions: actionsForPreviews)
         .padding()
+}
+
+#Preview("Grant record permission") {
+    ScrollView {
+        VStack {
+            TipCellView(viewModel: .grantRecordPermission(.requestInApp), actions: actionsForPreviews, dataSourceActions: actionsForPreviews)
+            TipCellView(viewModel: .grantRecordPermission(.openSettings), actions: actionsForPreviews, dataSourceActions: actionsForPreviews)
+        }
+        .padding()
+    }
 }
 
 #endif

@@ -274,6 +274,7 @@ extension PollCreationFlowView {
                         } label: {
                             Text("POLL_CREATE_DISMISS")
                         }
+                        .keyboardShortcut(.cancelAction)
                     }
                     
                     ToolbarItem(placement: .topBarTrailing) {

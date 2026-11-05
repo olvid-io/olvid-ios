@@ -68,6 +68,11 @@ public protocol ObvDiscussionsListViewControllerActionsProtocol: AnyObject {
 
     func userWantsToRequestNotificationsAuthorization(_ vc: ObvDiscussionsListViewController)
 
+    func userWantsToUpdateOlvidFromAppStore(_ vc: ObvDiscussionsListViewController)
+
+    func userWantsToRequestRecordPermission(_ vc: ObvDiscussionsListViewController)
+    func userWantsToOpenSettingsToGrantRecordPermission(_ vc: ObvDiscussionsListViewController)
+
 }
 
 
@@ -80,6 +85,9 @@ public final class ObvDiscussionsListViewController: UIHostingController<ObvDisc
     public weak var internalDelegate: ObvDiscussionsListViewControllerActionsProtocol?
     private let configuration: ObvDiscussionsListViewConfiguration
 
+    /// Owned by this controller (not the SwiftUI view) so scroll-to-top requests survive view reloads.
+    private let scrollToTopWrapper = ObvDiscussionsListScrollToTopWrapper()
+
     public init(currentOwnedCryptoId: ObvCryptoId, discussionsListViewDataSource: ObvDiscussionsListViewDataSource, avatarViewDataSource: ObvAvatarViewDataSource, configuration: ObvDiscussionsListViewConfiguration) {
         self.currentOwnedCryptoId = currentOwnedCryptoId
         self.configuration = configuration
@@ -88,7 +96,8 @@ public final class ObvDiscussionsListViewController: UIHostingController<ObvDisc
             dataSource: discussionsListViewDataSource,
             avatarViewDataSource: avatarViewDataSource,
             actions: viewsActions,
-            configuration: configuration)
+            configuration: configuration,
+            scrollToTopWrapper: scrollToTopWrapper)
         super.init(rootView: rootView)
         self.viewsActions.delegate = self
     }
@@ -122,7 +131,20 @@ public final class ObvDiscussionsListViewController: UIHostingController<ObvDisc
         case dataSourceNotSet
         case internalDelegateNotSet
     }
-    
+
+}
+
+
+// MARK: - Programmatic scroll
+
+extension ObvDiscussionsListViewController {
+
+    /// Requests the recent discussions list to scroll to its top. Used, e.g., when the user taps the
+    /// already-selected "Discussions" tab a second time.
+    public func scrollToTop() {
+        scrollToTopWrapper.scrollToTop = true
+    }
+
 }
 
 
@@ -134,7 +156,22 @@ extension ObvDiscussionsListViewController: ObvDiscussionsListViewActionsProtoco
         guard let internalDelegate else { assertionFailure(); return }
         internalDelegate.userWantsToRequestNotificationsAuthorization(self)
     }
-    
+
+    func userWantsToUpdateOlvidFromAppStore(_ view: NewerAppVersionAvailableTipView) {
+        guard let internalDelegate else { assertionFailure(); return }
+        internalDelegate.userWantsToUpdateOlvidFromAppStore(self)
+    }
+
+    func userWantsToRequestRecordPermission(_ view: GrantRecordPermissionTipView) {
+        guard let internalDelegate else { assertionFailure(); return }
+        internalDelegate.userWantsToRequestRecordPermission(self)
+    }
+
+    func userWantsToOpenSettingsToGrantRecordPermission(_ view: GrantRecordPermissionTipView) {
+        guard let internalDelegate else { assertionFailure(); return }
+        internalDelegate.userWantsToOpenSettingsToGrantRecordPermission(self)
+    }
+
     func userDidSwitchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
         guard let internalDelegate else { assertionFailure(); return }
         self.currentOwnedCryptoId = newOwnedCryptoId
@@ -313,6 +350,21 @@ private final class ViewsActions: ObvDiscussionsListViewActionsProtocol {
     func userWantsToRequestNotificationsAuthorization(_ view: RequestUserNotificationsAuthorizationTipView) {
         guard let delegate else { assertionFailure(); return }
         delegate.userWantsToRequestNotificationsAuthorization(view)
+    }
+
+    func userWantsToUpdateOlvidFromAppStore(_ view: NewerAppVersionAvailableTipView) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToUpdateOlvidFromAppStore(view)
+    }
+
+    func userWantsToRequestRecordPermission(_ view: GrantRecordPermissionTipView) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToRequestRecordPermission(view)
+    }
+
+    func userWantsToOpenSettingsToGrantRecordPermission(_ view: GrantRecordPermissionTipView) {
+        guard let delegate else { assertionFailure(); return }
+        delegate.userWantsToOpenSettingsToGrantRecordPermission(view)
     }
 
     func userDidSwitchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {

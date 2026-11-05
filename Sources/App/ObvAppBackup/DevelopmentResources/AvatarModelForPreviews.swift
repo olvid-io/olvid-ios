@@ -35,7 +35,7 @@ final class AvatarModelForPreviews: ObvAvatarLegacyViewModel {
 
     init(index: Int, size: ObvDesignSystem.ObvAvatarSize, showGreenShield: Bool = false) {
         self.displayedLetter = PreviewsHelper.coreDetails[index].getDisplayNameWithStyle(.firstNameThenLastName).first!
-        let colors = AppTheme.shared.identityColors(for: PreviewsHelper.cryptoIds[index], using: .hue)
+        let colors = AppTheme.shared.identityColors(for: PreviewsHelper.cryptoIds[index])
         self.colors = (colors.text, colors.background)
         self.displayedImage = nil
         self.imageName = "avatar0\(index)"

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvTypes
 import ObvCrypto
@@ -73,8 +73,8 @@ extension ObvServerChannel {
                 serverQueryType = .deviceDiscovery(of: identity)
             case .putUserData(label: let label, dataURL: let dataURL, dataKey: let dataKey):
                 serverQueryType = .putUserData(label: label, dataURL: dataURL, dataKey: dataKey)
-            case .getUserData(of: let identity, label: let label):
-                serverQueryType = .getUserData(of: identity, label: label)
+            case .getUserData(of: let identity, label: let label, retryIfNotFound: let retryIfNotFound):
+                serverQueryType = .getUserData(of: identity, label: label, retryIfNotFound: retryIfNotFound)
             case .checkKeycloakRevocation(keycloakServerUrl: let keycloakServerUrl, signedContactDetails: let signedContactDetails):
                 serverQueryType = .checkKeycloakRevocation(keycloakServerUrl: keycloakServerUrl, signedContactDetails: signedContactDetails)
             case .createGroupBlob(groupIdentifier: let groupIdentifier, serverAuthenticationPublicKey: let serverAuthenticationPublicKey, encryptedBlob: let encryptedBlob):
@@ -117,7 +117,7 @@ extension ObvServerChannel {
             
             let serverQuery = ServerQuery(ownedIdentity: ownedIdentity, queryType: serverQueryType, encodedElements: message.encodedElements)
             
-            networkFetchDelegate.postServerQuery(serverQuery, within: context)
+            try networkFetchDelegate.postServerQuery(serverQuery, within: context)
             
             let randomUid = UID.gen(with: prng)
             let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid)

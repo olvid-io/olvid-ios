@@ -39,9 +39,6 @@ public extension GlobalSettingsBackupItem {
 
         // Interface
 
-        if let value = self.identityColorStyle {
-            ObvMessengerSettings.Interface.identityColorStyle = value
-        }
         if let value = self.contactsSortOrder {
             ObvMessengerSettings.Interface.contactsSortOrder = value
         }

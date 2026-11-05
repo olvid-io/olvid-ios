@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,13 @@ import ObvEngine
 import ObvUICoreData
 import OlvidUtils
 
-/// Operations that updates the badge on the app icon. This is the only allowed place to do so.
+/// Operation that updates the badge on the app icon. This is the only place where the **app** does so: user notifications scheduled
+/// from the app must never carry a badge value, as it would override the value computed here.
+///
+/// Note that the app is not the only process setting the app icon badge: the notification extension does so through the badge
+/// value of the user notifications it publishes (computed from the currently shown user notifications rather than from the app
+/// database, as the latter is usually unaware of the messages received since the app was last running), and the intents extension
+/// does so directly when Siri marks a message as read.
 final class RefreshAppBadgeOperation: Operation, @unchecked Sendable {
     
     let log: OSLog
@@ -56,13 +62,8 @@ final class RefreshAppBadgeOperation: Operation, @unchecked Sendable {
                 
                 os_log("[🔴][RefreshAppBadgeOperation] setting new badge value to %d", log: log, type: .debug, newBadgeValue)
 
-                if #available(iOS 16, *) {
-                    UNUserNotificationCenter.current().setBadgeCount(newBadgeValue) { error in
-                        guard error == nil else { assertionFailure(); return }
-                    }
-                } else {
-                    guard UIApplication.shared.applicationIconBadgeNumber != newBadgeValue else { return }
-                    UIApplication.shared.applicationIconBadgeNumber = newBadgeValue
+                UNUserNotificationCenter.current().setBadgeCount(newBadgeValue) { error in
+                    guard error == nil else { assertionFailure(); return }
                 }
                 
             }

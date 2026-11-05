@@ -67,9 +67,21 @@ extension ObvUserNotificationCategoryIdentifier {
                                           actions: [.callBack, .sendMessage],
                                           intentIdentifiers: [],
                                           options: [.allowInCarPlay])
+        case .missedCallWithHiddenContent:
+            let actions = [ObvUserNotificationAction]()
+            return UNNotificationCategory(identifier: categoryIdentifier,
+                                          actions: actions,
+                                          intentIdentifiers: [],
+                                          options: [.allowInCarPlay])
         case .newReaction:
             return UNNotificationCategory(identifier: categoryIdentifier,
                                           actions: [.mute],
+                                          intentIdentifiers: [],
+                                          options: [.customDismissAction, .allowInCarPlay])
+        case .newReactionWithHiddenContent:
+            let actions = [ObvUserNotificationAction]()
+            return UNNotificationCategory(identifier: categoryIdentifier,
+                                          actions: actions,
                                           intentIdentifiers: [],
                                           options: [.customDismissAction, .allowInCarPlay])
         case .pollVote:

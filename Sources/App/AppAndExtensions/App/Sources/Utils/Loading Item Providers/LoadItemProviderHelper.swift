@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,6 +30,7 @@ import ObvSettings
 import ObvAppCoreConstants
 import LinkPresentation
 import ObvAppTypes
+import ObvMediaTranscoding
 
 
 struct LoadedItemProviderToAttach {
@@ -82,7 +83,8 @@ extension [LoadedItemProvider] {
 
 actor LoadItemProviderHelper {
     
-    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "LoadItemProviderHelper")
+    /// `fileprivate` rather than `private`, so that the `NSItemProvider` extensions at the foot of this file can report through it.
+    fileprivate static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "LoadItemProviderHelper")
 
     private static let preferredTypes: [UTType] = [.fileURL, .jpeg, .png, .pdf, .mpeg4Movie, .mp3, .quickTimeMovie, .gif, .appleLinkpresentationMetadata, .webInternetLocation, .webP, .url, .utf8PlainText]
     private static let ignoredTypes: Set<UTType?> = Set([.groupActivitiesActivity, .Bitmoji.avatarID, .Bitmoji.comicID, .Bitmoji.packID, .appleFilesAppFile, .appleFinderNode])
@@ -96,7 +98,10 @@ actor LoadItemProviderHelper {
     private static func filterContentTypes(registeredBy itemProvider: NSItemProvider) -> UTTypesOfNSItemProvider  {
         let availableContentTypes = itemProvider.registeredTypeIdentifiers(fileOptions: NSItemProviderFileOptions(rawValue: 0))
             .compactMap({ UTType($0) })
-        Self.logger.info("Available type identifiers of the attachment: \(availableContentTypes.debugDescription, privacy: .public)")
+        // **At `notice`, because which type is asked for decides how long the reader waits.** An item provider from the photo library
+        // offers a clip in several types, and asking for one the file is not already in makes Photos re-encode the whole thing before
+        // it hands anything over — which is not distinguishable, from outside, from a slow disk or a slow network.
+        Self.logger.notice("📎 The attachment is offered as: \(availableContentTypes.map(\.identifier).joined(separator: ", "), privacy: .public)")
         let filteredContentTypes = availableContentTypes.filter({ !Self.ignoredTypes.contains($0) })
         Self.logger.info("Filtered type identifiers of the attachment: \(filteredContentTypes.debugDescription, privacy: .public)")
         let preferredContentTypes = preferredTypes.filter({ filteredContentTypes.contains($0) })
@@ -106,8 +111,58 @@ actor LoadItemProviderHelper {
                                        preferredContentTypes: preferredContentTypes)
     }
     
-    private static func determineBestUTTypeToLoad(from types: UTTypesOfNSItemProvider) -> UTType? {
-        types.preferredContentTypes.first ?? types.filteredContentTypes.first
+    /// The types asked for a photo from the photo library, in this order.
+    ///
+    /// A photo is offered in several types, and the one asked for is the one handed over: asked for as a JPEG, a HEIC comes back as a
+    /// JPEG the system encodes, heavier than the photo and not the photo (measured: 4,361,081 bytes for a HEIC of 2,946,061). The HEIC
+    /// first, so that the largest size sends the photo as it was taken.
+    private static let photoTypesAskedOfThePhotoPicker: [UTType] = [.heic, .heif, .jpeg]
+
+    /// A HEIC developed from the RAW at `url`, which replaces it, or nil when it could not be developed and the RAW is kept.
+    ///
+    /// For a photo the library hands over as a RAW alone, which it does for a ProRAW (measured on an imported one): the photo is sent as
+    /// a HEIC rather than as a DNG of tens of megabytes. Developed away from this actor, the other items being loaded meanwhile.
+    private static func developedRAW(at url: URL) async -> URL? {
+        let startedDeveloping = Date.now
+        do {
+            let developed = try await Task.detached(priority: .userInitiated) {
+                try ObvPhotoTranscoder.developRAW(photoAt: url, inDirectory: url.deletingLastPathComponent())
+            }.value
+            let byteCount = (try? FileManager.default.attributesOfItem(atPath: developed.path)[.size] as? Int) ?? -1
+            Self.logger.notice("📎 A RAW from the photo library was developed into a HEIC of \(byteCount, privacy: .public) bytes in \(Int(Date.now.timeIntervalSince(startedDeveloping) * 1000), privacy: .public) ms")
+            try? FileManager.default.removeItem(at: url)
+            return developed
+        } catch {
+            Self.logger.error("📎 A RAW from the photo library could not be developed, and is attached as it is: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+
+    private static func determineBestUTTypeToLoad(from types: UTTypesOfNSItemProvider, source: ItemProviderProviderSource) -> UTType? {
+        if source == .photoPicker {
+            if let photoType = photoTypesAskedOfThePhotoPicker.first(where: { types.filteredContentTypes.contains($0) }) {
+                return photoType
+            }
+            // A RAW is not sent when the library offers one of our usual types for the same photo. Only those: what the library
+            // offers beside a photo also includes its private thumbnail types, and asking for one would send a thumbnail.
+            if let preferredTypeOtherThanRAW = types.preferredContentTypes.first(where: { !$0.conforms(to: .rawImage) }) {
+                return preferredTypeOtherThanRAW
+            }
+            // Failing those, the RAW, which is developed into a HEIC once handed over, rather than whichever type is offered first,
+            // which may be a thumbnail.
+            if let rawType = types.filteredContentTypes.first(where: { $0.conforms(to: .rawImage) }) {
+                return rawType
+            }
+        }
+        let choice = types.preferredContentTypes.first ?? types.filteredContentTypes.first
+        // Photos offers a HEIC shared to the extension as a JPEG first. Asked for as one, it is handed over as a JPEG the system encodes,
+        // which is heavier than the photo and has lost any transparency or frames before the extension can check for them.
+        if source == .shareExtension, choice == .jpeg,
+           let heicType = [UTType.heic, .heif].first(where: { types.filteredContentTypes.contains($0) }) {
+            return heicType
+        }
+        return choice
     }
 
     
@@ -126,11 +181,13 @@ actor LoadItemProviderHelper {
     }
 
     
-    func load(_ itemProviders: [NSItemProvider], source: ItemProviderProviderSource, progressProvider: ((Progress) -> Void)?) async throws -> [LoadedItemProvider] {
+    func load(_ itemProviders: [NSItemProvider], source: ItemProviderProviderSource, progressProvider: (@Sendable (Progress) -> Void)?) async throws -> [LoadedItemProvider] {
         let loadedItemProviders = try await withThrowingTaskGroup(of: [LoadedItemProvider].self, returning: [LoadedItemProvider].self) { taskGroup in
             for itemProvider in itemProviders {
                 taskGroup.addTask {
-                    let loadedItemProviders = try await self.load(itemProvider, source: source, progressProvider: nil)
+                    // Passed down rather than dropped. It used to be `nil` here, which made `progressProvider` a parameter nothing could
+                    // ever feed — the plumbing existed and was not connected at either end.
+                    let loadedItemProviders = try await self.load(itemProvider, source: source, progressProvider: progressProvider)
                     return loadedItemProviders
                 }
             }
@@ -157,15 +214,15 @@ actor LoadItemProviderHelper {
     ///
     /// One case where several `LoadedItemProvider` instances are returned for the same `NSItemProvider` is when the item has a registered `UTType.appleLinkpresentationMetadata`.
     /// In that case, we return an URL to paste in the composition view, as well as a file URL containing an `ObvLinkMetadata` to add as an attachment to the draft.
-    func load(_ itemProvider: NSItemProvider, source: ItemProviderProviderSource, progressProvider: ((Progress) -> Void)?) async throws -> [LoadedItemProvider] {
+    func load(_ itemProvider: NSItemProvider, source: ItemProviderProviderSource, progressProvider: (@Sendable (Progress) -> Void)?) async throws -> [LoadedItemProvider] {
         
         let typesOfNSItemProvider = Self.filterContentTypes(registeredBy: itemProvider)
-        guard let contentTypeToLoad = Self.determineBestUTTypeToLoad(from: typesOfNSItemProvider) else {
+        guard let contentTypeToLoad = Self.determineBestUTTypeToLoad(from: typesOfNSItemProvider, source: source) else {
             Self.logger.fault("Could not find an appropriate UTType to load")
             throw ObvError.couldNotFindAppropriateUTTypeToLoad
         }
         
-        Self.logger.info("Content type to load is: \(contentTypeToLoad.debugDescription, privacy: .public)")
+        Self.logger.notice("📎 The type asked for is: \(contentTypeToLoad.identifier, privacy: .public)")
 
         switch contentTypeToLoad {
             
@@ -407,10 +464,14 @@ actor LoadItemProviderHelper {
 
             do {
                 
-                let tempURL = try await itemProvider.obvLoadFileRepresentation(for: contentTypeToLoad)
+                let tempURL = try await itemProvider.obvLoadFileRepresentation(for: contentTypeToLoad, progressProvider: progressProvider)
                 
                 let fileType = (try? tempURL.resourceValues(forKeys: [.contentTypeKey]).contentType) ?? contentTypeToLoad
-                
+
+                if source == .photoPicker, fileType.conforms(to: .rawImage), let developed = await Self.developedRAW(at: tempURL) {
+                    return [.toAttach(LoadedItemProviderToAttach(tempURL: developed, fileType: .heic, filename: developed.lastPathComponent))]
+                }
+
                 let loadedItemProviderToAttach = LoadedItemProviderToAttach(tempURL: tempURL, fileType: fileType, filename: tempURL.lastPathComponent)
                 return [.toAttach(loadedItemProviderToAttach)]
                 
@@ -502,11 +563,7 @@ fileprivate extension NSItemProvider {
     
     /// Trivial wrapper around the ``NSItemProvider.loadDataRepresentation(for:completionHandler:)`` method since it is only available under iOS 16
     func obvLoadDataRepresentation(for contentType: UTType, completionHandler: @escaping @Sendable (Data?, (Error)?) -> Void) -> Progress {
-        if #available(iOS 16, *) {
-            return loadDataRepresentation(for: contentType, completionHandler: completionHandler)
-        } else {
-            return loadDataRepresentation(forTypeIdentifier: contentType.identifier, completionHandler: completionHandler)
-        }
+        return loadDataRepresentation(for: contentType, completionHandler: completionHandler)
     }
 
 }
@@ -522,9 +579,17 @@ fileprivate extension NSItemProvider {
     ///
     /// The wrapped method writes a copy of the file’s data to a temporary file, which the system deletes when the completion handler returns. For this reason, this method
     /// copies the provided temporary file to another temporary file.
-    func obvLoadFileRepresentation(for contentType: UTType) async throws -> URL {
+    /// - Parameter progressProvider: handed the `Progress` the system returns for this load, as soon as it starts. **This is the only
+    /// part of adding an attachment that can report anything**: measured on a 160 MB clip, the system took 59.4 s to hand the file over,
+    /// our own copy of it took 0 ms — APFS clones rather than copies — and making the draft took 108 ms. Everything a reader waits for
+    /// is inside this call, and it is somebody else's code.
+    func obvLoadFileRepresentation(for contentType: UTType, progressProvider: (@Sendable (Progress) -> Void)? = nil) async throws -> URL {
+        // Timed at `notice`, unconditionally: the composition bar is shut for the whole of this and the reader calls it "extremely
+        // long", and the two halves below — what the system spends handing the file over, and what we then spend copying it again —
+        // are indistinguishable from outside and want completely different answers.
+        let startedLoading = Date()
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, any Error>) in
-            self.loadFileRepresentation(forTypeIdentifier: contentType.identifier) { (url, error) in
+            let progress = self.loadFileRepresentation(forTypeIdentifier: contentType.identifier) { (url, error) in
                 do {
                     if let error {
                         throw error
@@ -532,16 +597,20 @@ fileprivate extension NSItemProvider {
                         guard let url else {
                             throw LoadItemProviderHelper.ObvError.fileRepresentationURLIsNil
                         }
+                        let loaded = Date()
                         let filename = url.lastPathComponent
                         let emptyTempDir = try FileManager.default.createEmptyTemporaryDirectoryForLoadedNSItemProviders()
                         let tempURL = emptyTempDir.appendingPathComponent(filename)
                         try FileManager.default.copyItem(at: url, to: tempURL)
+                        let byteCount = (try? FileManager.default.attributesOfItem(atPath: tempURL.path)[.size] as? Int64) ?? nil
+                        LoadItemProviderHelper.logger.notice("📎 \(byteCount ?? -1, privacy: .public) bytes: the system handed the file over in \(Int(loaded.timeIntervalSince(startedLoading) * 1000), privacy: .public) ms, and copying it again took \(Int(Date().timeIntervalSince(loaded) * 1000), privacy: .public) ms")
                         return continuation.resume(returning: tempURL)
                     }
                 } catch {
                     return continuation.resume(throwing: error)
                 }
             }
+            progressProvider?(progress)
         }
     }
 
@@ -698,7 +767,7 @@ fileprivate extension NSItemProvider {
     ///   - aClass: The class to load.
     ///   - progressProvider: If specified, this block is called as soon as a progress is available.
     /// - Returns: The loaded object.
-    func obvLoadObject<T>(ofClass aClass: T.Type, progressProvider: ((Progress) -> Void)?) async throws -> T where T : _ObjectiveCBridgeable, T._ObjectiveCType : NSItemProviderReading {
+    func obvLoadObject<T>(ofClass aClass: T.Type, progressProvider: (@Sendable (Progress) -> Void)?) async throws -> T where T : _ObjectiveCBridgeable & Sendable, T._ObjectiveCType : NSItemProviderReading {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, any Error>) in
             let progress = self.loadObject(ofClass: aClass) { (item, error) in
                 if let error {
@@ -721,7 +790,7 @@ fileprivate extension NSItemProvider {
     ///   - aClass: The class to load.
     ///   - progressProvider: If specified, this block is called as soon as a progress is available.
     /// - Returns: The loaded object.
-    func obvLoadObject(ofClass objectClass: any NSItemProviderReading.Type, progressProvider: ((Progress) -> Void)?) async throws -> any NSItemProviderReading {
+    func obvLoadObject(ofClass objectClass: any NSItemProviderReading.Type, progressProvider: (@Sendable (Progress) -> Void)?) async throws -> any NSItemProviderReading {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<any NSItemProviderReading, any Error>) in
             let progress = self.loadObject(ofClass: objectClass) { (item, error) in
                 if let error {
@@ -731,16 +800,19 @@ fileprivate extension NSItemProvider {
                         assertionFailure()
                         return continuation.resume(throwing: LoadItemProviderHelper.ObvError.couldNotLoadObject)
                     }
-                    return continuation.resume(returning: item)
+                    // The object comes fresh from the system's loader and goes straight to the awaiting caller, so
+                    // nothing else holds it. The existential cannot be `Sendable`, hence the unchecked hand-over.
+                    nonisolated(unsafe) let loadedItem = item
+                    return continuation.resume(returning: loadedItem)
                 }
             }
             progressProvider?(progress)
         }
     }
 
-    
+
     /// In case `self` conforms to `UTType.vCard`, this methods return an URL to a `.vcf` file (in a temporary directory) that contains the `.vcard` information.
-    func obvLoadObjectAsVCFFile(progressProvider: ((Progress) -> Void)?) async throws -> URL {
+    func obvLoadObjectAsVCFFile(progressProvider: (@Sendable (Progress) -> Void)?) async throws -> URL {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, any Error>) in
             let progress = self.obvLoadDataRepresentation(for: .vCard, completionHandler: { (data, error) in
                 do {

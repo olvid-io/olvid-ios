@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,23 +20,30 @@
 import SwiftUI
 
 
+/// A close button. By default Esc presses it too, through `.keyboardShortcut(.cancelAction)`.
 public struct ObvButtonWithCancelRole: View {
- 
+
     private let action: () -> Void
-    
-    public init(action: @escaping () -> Void) {
+    private let escapeKeyPressesIt: Bool
+
+    /// - Parameter escapeKeyPressesIt: Pass `false` where Esc must not do what this button does.
+    public init(escapeKeyPressesIt: Bool = true, action: @escaping () -> Void) {
         self.action = action
+        self.escapeKeyPressesIt = escapeKeyPressesIt
     }
-    
+
     public var body: some View {
-        if #available(iOS 26.0, *) {
-            Button(role: .cancel, action: action)
-        } else {
-            Button(action: action) {
-                Image(systemIcon: .xmarkCircleFill)
-                    .font(Font.system(size: 24, weight: .semibold, design: .default))
+        Group {
+            if #available(iOS 26.0, *) {
+                Button(role: .cancel, action: action)
+            } else {
+                Button(action: action) {
+                    Image(systemIcon: .xmarkCircleFill)
+                        .font(Font.system(size: 24, weight: .semibold, design: .default))
+                }
             }
         }
+        .keyboardShortcut(escapeKeyPressesIt ? .cancelAction : nil)
     }
-    
+
 }

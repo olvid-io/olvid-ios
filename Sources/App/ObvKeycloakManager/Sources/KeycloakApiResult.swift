@@ -141,7 +141,14 @@ extension KeycloakManager {
     struct APIResultForKeycloakIdBasedAuthRequestSession: Decodable, KeycloakManagerApiResult {
         
         let accessToken: String
-        let refreshToken: String
+        let refreshToken: String?
+        /// The client credentials the returned tokens were issued for. Returned by newer versions of the
+        /// Olvid keycloak plugin only; `nil` for older versions. When present, they are used to refresh the
+        /// access token; when absent, transparent refresh is not possible and the session is treated as
+        /// non-refreshable (see `createOIDAuthStateFromTokens`). There is no fallback to the configuration's
+        /// client credentials.
+        let clientId: String?
+        let clientSecret: String?
 
         /// When querying the `getSession` API during ID-based authentication, we can receive `permissionDenied`
         /// if ID-based authentication is not enabled for the user.
@@ -155,6 +162,8 @@ extension KeycloakManager {
         enum CodingKeys: String, CodingKey {
             case accessToken = "access_token"
             case refreshToken = "refresh_token"
+            case clientId = "client_id"
+            case clientSecret = "client_secret"
         }
 
         /// Overrides the default `KeycloakManagerApiResult` implementation of `decode(_:)`.
@@ -219,11 +228,20 @@ extension KeycloakManager {
     /// The token pair returned by the `olvid-rest/getMagicSession` endpoint when a valid magic link is exchanged.
     struct APIResultForMagicLinkAuthRequest: Decodable, KeycloakManagerApiResult {
         let accessToken: String
-        let refreshToken: String
+        let refreshToken: String?
+        /// The client credentials the returned tokens were issued for. Returned by newer versions of the
+        /// Olvid keycloak plugin only; `nil` for older versions. When present, they are used to refresh the
+        /// access token; when absent, transparent refresh is not possible and the session is treated as
+        /// non-refreshable (see `createOIDAuthStateFromTokens`). There is no fallback to the configuration's
+        /// client credentials.
+        let clientId: String?
+        let clientSecret: String?
 
         enum CodingKeys: String, CodingKey {
             case accessToken = "access_token"
             case refreshToken = "refresh_token"
+            case clientId = "client_id"
+            case clientSecret = "client_secret"
         }
 
     }

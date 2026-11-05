@@ -84,6 +84,28 @@ extension TipCellViewAppDataSourceForListOfArchivedDiscussions: TipCellViewDataS
         }
     }
 
+
+    /// Called when the user dismisses the `NewerAppVersionAvailableTipView`. This tip is never shown within the list of archived
+    /// discussions (which only displays the archived-discussions help message), so this is a no-op kept for protocol conformance.
+    func userWantsToDismissNewerAppVersionAvailableTipView(_ view: ObvDiscussionsList.NewerAppVersionAvailableTipView) {
+        guard let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) else { assertionFailure(); return }
+        userDefaults.setDate(.now, for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastNewerAppVersionAvailableTipDisplay)
+        for manager in self.tipCellViewModelStreamManagerForStreamUUID.values {
+            manager.createAndYieldModelIfNeeded()
+        }
+    }
+
+
+    /// Called when the user dismisses the `GrantRecordPermissionTipView`. This tip is never shown within the list of archived
+    /// discussions (which only displays the archived-discussions help message), so this is a no-op kept for protocol conformance.
+    func userWantsToDismissGrantRecordPermissionTipView(_ view: ObvDiscussionsList.GrantRecordPermissionTipView) {
+        guard let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) else { assertionFailure(); return }
+        userDefaults.setDate(.now, for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastGrantRecordPermissionTipDisplay)
+        for manager in self.tipCellViewModelStreamManagerForStreamUUID.values {
+            manager.createAndYieldModelIfNeeded()
+        }
+    }
+
 }
 
 

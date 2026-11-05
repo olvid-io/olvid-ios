@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -69,27 +69,27 @@ actor WebSocketManager {
         let tokens = [
             NotificationCenter.default.addObserver(forName: willEnterForegroundNotification, object: nil, queue: nil) { [weak self] _ in
                 os_log("🧦 willEnterForegroundNotification", log: Self.log, type: .info)
-                Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: true) }
+                Task { await self?.setiOSLifecycleStateRequiresWebSocket(to: true) }
             },
-            NotificationCenter.default.addObserver(forName: didBecomeActiveNotification, object: nil, queue: nil) { _ in
+            NotificationCenter.default.addObserver(forName: didBecomeActiveNotification, object: nil, queue: nil) { [weak self] _ in
                 os_log("🧦 didBecomeActiveNotification", log: Self.log, type: .info)
-                Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: true) }
+                Task { await self?.setiOSLifecycleStateRequiresWebSocket(to: true) }
             },
-            NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: nil) { _ in
+            NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
                  os_log("didEnterBackgroundNotification", log: Self.log, type: .info)
-                 Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
+                 Task { await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
             },
-            NotificationCenter.default.addObserver(forName: willTerminateNotification, object: nil, queue: nil) { _ in
+            NotificationCenter.default.addObserver(forName: willTerminateNotification, object: nil, queue: nil) { [weak self] _ in
                 os_log("🧦 willTerminateNotification", log: Self.log, type: .info)
-                Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
+                Task { await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
             },
-            VoIPNotification.observeNewCallToShow { _ in
+            VoIPNotification.observeNewCallToShow { [weak self] _ in
                 os_log("🧦 observeNewIncomingCall", log: Self.log, type: .info)
-                Task { [weak self] in await self?.setAnIncomingCallRequiresWebSocket(to: true) }
+                Task { await self?.setAnIncomingCallRequiresWebSocket(to: true) }
             },
-            VoIPNotification.observeNoMoreCallInProgress {
+            VoIPNotification.observeNoMoreCallInProgress { [weak self] in
                 os_log("🧦 noMoreCallInProgress", log: Self.log, type: .info)
-                Task { [weak self] in await self?.setAnIncomingCallRequiresWebSocket(to: false) }
+                Task { await self?.setAnIncomingCallRequiresWebSocket(to: false) }
             },
         ]
         await storeObservationTokens(observationTokens: tokens)

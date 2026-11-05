@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,6 +36,7 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
     }
     
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvProtocolManager")
+    lazy private var logger = Logger(subsystem: logSubsystem, category: "ObvProtocolManager")
     
     private let prng: PRNGService
     
@@ -160,6 +161,12 @@ extension ObvProtocolManager {
             Task(priority: .low) {
                 await deleteOldUploadingUserData()
             }
+            Task(priority: .low) {
+                try? await deleteOldGroupV2PreShotBlobVersionSeeds(flowId: flowId)
+            }
+            Task(priority: .low) {
+                await deleteProtocolInstancesWaitingForAChildThatWillNeverAnswer(flowId: flowId)
+            }
             delegateManager.receivedMessageDelegate.deleteOwnedIdentityTransferProtocolInstances(flowId: flowId)
             delegateManager.receivedMessageDelegate.deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(flowId: flowId)
             delegateManager.receivedMessageDelegate.deleteProtocolInstancesInAFinalState(flowId: flowId)
@@ -170,6 +177,47 @@ extension ObvProtocolManager {
             replayFirstStepOfAllOngoingOwnedIdentityDeletionProtocol(flowId: flowId)
         }
 
+    }
+    
+    
+    private func deleteProtocolInstancesWaitingForAChildThatWillNeverAnswer(flowId: FlowIdentifier) async {
+        
+        let delegateManager = self.delegateManager
+        let logger = self.logger
+        let log = self.log
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            logger.fault("The context creator is not set")
+            assertionFailure()
+            return
+        }
+
+        do {
+            
+            let candidates = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[NSManagedObjectID], any Error>) in
+                contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                    do {
+                        let candidates = try ProtocolInstance.getContactDeviceDiscoveryAndKeycloakContactAdditionInstancesWaitingForAChildThatWillNeverAnswer(
+                            within: obvContext.context)
+                        return continuation.resume(returning: candidates)
+                    } catch {
+                        return continuation.resume(throwing: error)
+                    }
+                }
+            }
+            
+            guard !candidates.isEmpty else { return }
+            
+            let op1 = DeleteProtocolInstancesWaitingForAChildThatWillNeverAnswerOperation(
+                candidates: candidates,
+                logger: logger)
+            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
+            try await delegateManager.receivedMessageDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+
+        } catch {
+            logger.error("Failed to delete protocol instances waiting for a child that will never answer: \(error.localizedDescription, privacy: .public)")
+        }
+        
     }
 
     
@@ -261,7 +309,63 @@ extension ObvProtocolManager {
         }
 
     }
-    
+
+
+    /// Sweeps the `GroupV2PreShotBlobVersionSeedReceived` table at bootstrap, removing rows older than the TTL
+    /// configured inside `DeleteOldGroupV2PreShotBlobVersionSeedsOperation`.
+    ///
+    /// A pre-shot row records a `blobVersionSeed` an admin sent us out-of-band. Once consumed, a row is
+    /// *not* proactively deleted because a receiver may hold pre-shots for several future blob versions at
+    /// the same time (concurrent admin updates can pipeline). A TTL sweep is the conservative cleanup
+    /// mechanism. The operation runs on the protocol manager's serial queue so it cannot race with any
+    /// step that reads from or writes to the same table.
+    private func deleteOldGroupV2PreShotBlobVersionSeeds(flowId: FlowIdentifier) async throws {
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            throw ObvError.contextCreatorIsNil
+        }
+
+        let op1 = DeleteOldGroupV2PreShotBlobVersionSeedsOperation()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
+        try await delegateManager.receivedMessageDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+    }
+
+
+    /// Invoked by the engine when the identity manager publishes that a `ContactGroupV2` was deleted.
+    /// Removes any stashed pre-shot `blobVersionSeed` rows we are still holding for that group so we don't
+    /// keep stranded seeds for a group that no longer exists on the identity side.
+    public func processContactGroupV2WasDeleted(ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) async throws {
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            throw ObvError.contextCreatorIsNil
+        }
+
+        let op1 = DeletePreShotBlobVersionSeedsForDeletedGroupV2Operation(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
+        try await delegateManager.receivedMessageDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+    }
+
+
+    /// Invoked by the engine when the identity manager publishes that an `OwnedIdentity` was deleted.
+    /// Removes any stashed pre-shot `blobVersionSeed` rows we are still holding for any group of that
+    /// owned identity, so we don't keep stranded seeds for a profile that no longer exists.
+    public func processOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws {
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            throw ObvError.contextCreatorIsNil
+        }
+
+        let op1 = DeletePreShotBlobVersionSeedsForDeletedOwnedIdentityOperation(ownedCryptoId: ownedCryptoId)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
+        try await delegateManager.receivedMessageDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+    }
+
 }
 
 

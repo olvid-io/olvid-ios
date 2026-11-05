@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -64,7 +64,7 @@ final class UpdateCustomNicknameAndPictureForContactOperation: ContextualOperati
             
             if makeSyncAtomRequest && customDisplayNameWasUpdated {
                 if let ownedCryptoId = contact.ownedIdentity?.cryptoId, let syncAtomRequestDelegate = self.syncAtomRequestDelegate {
-                    let contactCryptoId = contact.cryptoId
+                    let contactCryptoId = try contact.cryptoId
                     let syncAtom = ObvSyncAtom.contactNickname(contactCryptoId: contactCryptoId, contactNickname: customDisplayName)
                     try? obvContext.addContextDidSaveCompletionHandler { error in
                         guard error == nil else { return }

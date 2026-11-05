@@ -102,21 +102,30 @@ actor SrcSha256Dispatcher {
     func saveAttachmentChunkReceivedInSourceSha256Message(_ data: Data) {
         
         // Parse the received data
-        
+
         let sha256 = data.prefix(Self.sha256length)
-        guard sha256.count == Self.sha256length else { assertionFailure(); return }
-        
+        guard sha256.count == Self.sha256length else {
+            Self.logger.fault("📰 Received a sourceSha256 message too short to contain a sha256 (\(data.count) bytes). Ignoring it")
+            assertionFailure(); return
+        }
+
         guard !failedSha256.contains(sha256) else { yieldURLIfPossible(sha256: sha256); return }
-        
+
         do {
-            
+
             let offetAndChunk = Data(data.suffix(from: data.startIndex.advanced(by: Self.sha256length)))
-            guard offetAndChunk.count > Self.fileOffsetLength else { assertionFailure(); return }
-            
+            guard offetAndChunk.count > Self.fileOffsetLength else {
+                Self.logger.fault("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Received a sourceSha256 message with no chunk data (\(data.count) bytes). Ignoring it")
+                assertionFailure(); return
+            }
+
             let fileOffset = try UInt64.from8Bytes(offetAndChunk.prefix(Self.fileOffsetLength))
-            
+
             let chunk = data.suffix(from: data.startIndex.advanced(by: Self.sha256length + Self.fileOffsetLength))
-            guard chunk.count > 0 else { assertionFailure(); return }
+            guard chunk.count > 0 else {
+                Self.logger.fault("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Received a sourceSha256 message with an empty chunk. Ignoring it")
+                assertionFailure(); return
+            }
 
             // Write the file chunk to the attachment file
             
@@ -132,7 +141,7 @@ actor SrcSha256Dispatcher {
             
             if let fh = try? FileHandle(forWritingTo: url) {
                 defer { try? fh.close() }
-                Self.logger.debug("📰 [\(sha256.hexString().prefix(8))] Seek to \(fileOffset)")
+                Self.logger.debug("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Seek to \(fileOffset)")
                 try fh.seek(toOffset: fileOffset)
                 try fh.write(contentsOf: chunk)
             } else {
@@ -146,6 +155,7 @@ actor SrcSha256Dispatcher {
             yieldURLIfPossible(sha256: sha256)
             
         } catch {
+            Self.logger.error("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Failed to write a received attachment chunk: \(String(describing: error), privacy: .public). Marking this attachment as failed")
             if !failedSha256.contains(sha256) {
                 failedSha256.insert(sha256)
                 yieldURLIfPossible(sha256: sha256)
@@ -160,10 +170,11 @@ actor SrcSha256Dispatcher {
         guard let continuation = self.continuationForSha256[sha256] else { return }
         
         if failedSha256.contains(sha256) {
-            
+
+            Self.logger.error("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Finishing the reception stream of this attachment with a failure")
             self.continuationForSha256.removeValue(forKey: sha256)
             return continuation.finish(throwing: ObvError.failure)
-            
+
         } else {
             
             guard let url = self.urlForSha256[sha256] else { return }
@@ -171,13 +182,13 @@ actor SrcSha256Dispatcher {
             guard let currentFileSize = FileManager.default.getFileSize(at: url) else { return }
             
             if currentFileSize < expectedFileSize {
-                Self.logger.debug("📰 [\(sha256.hexString().prefix(8))] current file size (\(currentFileSize)) < expected file size (\(expectedFileSize))")
+                Self.logger.debug("📰 [\(sha256.hexString().prefix(8), privacy: .public)] current file size (\(currentFileSize)) < expected file size (\(expectedFileSize))")
                 
                 continuation.yield(.inProgress(sha256: sha256, currentFileSize: currentFileSize))
                 
             } else {
                 
-                Self.logger.debug("📰 [\(sha256.hexString().prefix(8))] File size ok")
+                Self.logger.debug("📰 [\(sha256.hexString().prefix(8), privacy: .public)] File size ok")
 
                 defer {
                     self.continuationForSha256.removeValue(forKey: sha256)
@@ -185,22 +196,23 @@ actor SrcSha256Dispatcher {
                 }
                 
                 do {
-                    
+
                     let computedSha256 = try Sha256.hash(fileAtUrl: url)
                     guard sha256 == computedSha256 else {
-                        Self.logger.fault("📰 [\(sha256.hexString().prefix(8))] Sha256 mismatch!!!!!!")
+                        Self.logger.fault("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Sha256 mismatch: the received file hashes to \(computedSha256.hexString().prefix(8), privacy: .public)")
                         throw ObvError.sha256DoNotMatch
                     }
-                    Self.logger.debug("📰 [\(sha256.hexString().prefix(8))] Sha256 match")
+                    Self.logger.debug("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Sha256 match")
                     continuation.yield(.fileReceived(sha256: sha256, url: url))
                     continuation.finish()
-                    
+
                 } catch {
-                    
+
+                    Self.logger.error("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Discarding the received attachment file: \(String(describing: error), privacy: .public)")
                     assertionFailure()
                     try? FileManager.default.removeItem(at: url)
                     continuation.finish(throwing: ObvError.sha256DoNotMatch)
-                    
+
                 }
                     
             }
@@ -240,6 +252,9 @@ private extension FileManager {
 extension SrcSha256Dispatcher {
     
     func finishAllDispatchesByThrowing(_ error: any Error) {
+        if !continuationForSha256.isEmpty {
+            Self.logger.error("📰 Finishing \(self.continuationForSha256.count) pending attachment reception streams by throwing: \(String(describing: error), privacy: .public)")
+        }
         while let continuation = continuationForSha256.popFirst() {
             continuation.value.finish(throwing: error)
         }

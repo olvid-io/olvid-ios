@@ -36,12 +36,9 @@ final class NewUnmanagedDetailsChooserViewController: UIHostingController<NewUnm
     
     weak var delegate: NewUnmanagedDetailsChooserViewControllerDelegate?
     
-    private let showCloseButton: Bool
-
     init(model: NewUnmanagedDetailsChooserViewModel, delegate: NewUnmanagedDetailsChooserViewControllerDelegate, showCloseButton: Bool) {
-        self.showCloseButton = showCloseButton
         let actions = Actions()
-        let view = NewUnmanagedDetailsChooserView(model: model, actions: actions)
+        let view = NewUnmanagedDetailsChooserView(model: model, actions: actions, showCloseButton: showCloseButton)
         super.init(rootView: view)
         self.delegate = delegate
         actions.delegate = self
@@ -67,23 +64,14 @@ final class NewUnmanagedDetailsChooserViewController: UIHostingController<NewUnm
     private func configureNavigation(animated: Bool) {
         navigationItem.largeTitleDisplayMode = .never
         navigationController?.setNavigationBarHidden(false, animated: animated)
-        if showCloseButton {
-            let handler: UIActionHandler = { [weak self] _ in self?.closeAction() }
-            let closeButton = UIBarButtonItem(systemItem: .close, primaryAction: .init(handler: handler))
-            navigationItem.rightBarButtonItem = closeButton
-        }
-    }
-    
-    
-    private func closeAction() {
-        Task { [weak self] in
-            guard let self else { return }
-            await delegate?.userWantsToCloseOnboarding(controller: self)
-        }
     }
 
     
     // NewUnmanagedDetailsChooserViewActions
+    
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding(controller: self)
+    }
     
     func userDidChooseUnmanagedDetails(ownedIdentityCoreDetails: ObvTypes.ObvIdentityCoreDetails, photo: UIImage?) {
         Task(priority: .userInitiated) {
@@ -321,6 +309,10 @@ fileprivate final class Actions: NewUnmanagedDetailsChooserViewActions {
     
     func userIndicatedHerProfileIsManagedByOrganisation() {
         delegate?.userIndicatedHerProfileIsManagedByOrganisation()
+    }
+
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding()
     }
 
     func userWantsToTakePhoto() async -> UIImage? {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,4 +26,9 @@ public protocol FyleJoin {
     var uti: String { get }
     var contentType: UTType { get }
     var index: Int { get }
+}
+
+
+public protocol FyleJoinsProvider: Operation {
+    var fyleJoins: [FyleJoin]? { get }
 }

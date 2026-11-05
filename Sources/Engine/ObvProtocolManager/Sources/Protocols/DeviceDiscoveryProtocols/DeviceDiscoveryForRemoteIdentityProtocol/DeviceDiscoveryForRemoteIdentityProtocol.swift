@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -34,7 +34,40 @@ public struct DeviceDiscoveryForRemoteIdentityProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.deviceDiscoveryForRemoteIdentity
     
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.deviceUidsReceived, StateId.cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [
+        StateId.deviceUidsReceived,
+        StateId.cancelled,
+        StateId.serverQueryFailed,
+    ]
+    
+    enum FinalState {
+        case deviceUidsReceived(DeviceUidsReceivedState)
+        case serverQueryFailed(ServerQueryFailedState)
+        case cancelled
+
+        init(_ inputs: ChildToParentProtocolMessageInputs) throws {
+            guard let stateId = StateId(rawValue: inputs.childProtocolInstanceReachedStateRawId) else {
+                assertionFailure()
+                throw ObvError.unknownStateId
+            }
+            let encoded = inputs.childProtocolInstanceEncodedReachedState
+            switch stateId {
+            case .deviceUidsReceived: self = .deviceUidsReceived(try DeviceUidsReceivedState(encoded))
+            case .cancelled:          self = .cancelled
+            case .serverQueryFailed:  self = .serverQueryFailed(ServerQueryFailedState(encoded))
+            case .waitingForDeviceUids,
+                    .initialState:
+                assertionFailure()
+                throw ObvError.stateIsNotFinalStateOfThisProtocol
+            }
+        }
+        
+        enum ObvError: Error {
+            case stateIsNotFinalStateOfThisProtocol
+            case unknownStateId
+        }
+        
+    }
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

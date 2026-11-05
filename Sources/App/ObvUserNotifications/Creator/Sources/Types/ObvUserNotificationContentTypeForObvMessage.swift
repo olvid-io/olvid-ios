@@ -32,7 +32,7 @@ public enum ObvUserNotificationContentTypeForObvMessage {
     case silentWithUpdatedBadgeCount(content: UNNotificationContent)
     case minimal(content: UNNotificationContent)
 
-    case addReceivedMessage(content: UNNotificationContent, messageAppIdentifier: ObvMessageAppIdentifier, userNotificationCategory: ObvUserNotificationCategoryIdentifier, contactDeviceUIDs: Set<UID>)
+    case addReceivedMessage(content: UNNotificationContent, messageAppIdentifier: ObvMessageAppIdentifier, userNotificationCategory: ObvUserNotificationCategoryIdentifier)
     case removeReceivedMessages(content: UNNotificationContent, messageAppIdentifiers: [ObvMessageAppIdentifier])
     case updateReceivedMessage(content: UNNotificationContent, messageAppIdentifier: ObvMessageAppIdentifier)
 
@@ -52,7 +52,7 @@ public enum ObvUserNotificationContentTypeForObvMessage {
             return content
         case .minimal(let content):
             return content
-        case .addReceivedMessage(content: let content, messageAppIdentifier: _, userNotificationCategory: _, contactDeviceUIDs: _):
+        case .addReceivedMessage(content: let content, messageAppIdentifier: _, userNotificationCategory: _):
             return content
         case .removeReceivedMessages(content: let content, messageAppIdentifiers: _):
             return content
@@ -84,8 +84,8 @@ public enum ObvUserNotificationContentTypeForObvMessage {
             return .silentWithUpdatedBadgeCount(content: mutableContent)
         case .minimal(content: _):
             return .minimal(content: mutableContent)
-        case .addReceivedMessage(content: _, messageAppIdentifier: let messageAppIdentifier, userNotificationCategory: let userNotificationCategory, contactDeviceUIDs: let contactDeviceUIDs):
-            return .addReceivedMessage(content: mutableContent, messageAppIdentifier: messageAppIdentifier, userNotificationCategory: userNotificationCategory, contactDeviceUIDs: contactDeviceUIDs)
+        case .addReceivedMessage(content: _, messageAppIdentifier: let messageAppIdentifier, userNotificationCategory: let userNotificationCategory):
+            return .addReceivedMessage(content: mutableContent, messageAppIdentifier: messageAppIdentifier, userNotificationCategory: userNotificationCategory)
         case .removeReceivedMessages(content: _, messageAppIdentifiers: let messageAppIdentifiers):
             return .removeReceivedMessages(content: mutableContent, messageAppIdentifiers: messageAppIdentifiers)
         case .updateReceivedMessage(content: _, messageAppIdentifier: let messageAppIdentifier):

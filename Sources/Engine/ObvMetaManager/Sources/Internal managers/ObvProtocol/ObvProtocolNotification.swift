@@ -125,6 +125,8 @@ public enum ObvProtocolNotification {
 		let name = Name.forInternalNotification(self)
 		let label = "Queue for posting \(name.rawValue) notification"
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		backgroundQueue.async {
 			notificationDelegate.post(name: name, userInfo: userInfo)
 		}
@@ -132,6 +134,8 @@ public enum ObvProtocolNotification {
 
 	public static func observeProtocolMessageToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.protocolMessageToProcess.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -141,6 +145,8 @@ public enum ObvProtocolNotification {
 
 	public static func observeProtocolMessageProcessed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.protocolMessageProcessed.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -150,6 +156,8 @@ public enum ObvProtocolNotification {
 
 	public static func observeGroupV2UpdateDidFail(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, Data, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.groupV2UpdateDidFail.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
@@ -160,6 +168,8 @@ public enum ObvProtocolNotification {
 
 	public static func observeProtocolReceivedMessageWasDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.protocolReceivedMessageWasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! ObvMessageIdentifier
 			block(protocolMessageId)
@@ -168,6 +178,8 @@ public enum ObvProtocolNotification {
 
 	public static func observeKeycloakSynchronizationRequired(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.keycloakSynchronizationRequired.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			block(ownedIdentity)
@@ -176,6 +188,8 @@ public enum ObvProtocolNotification {
 
 	public static func observeContactIntroductionInvitationSent(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.contactIntroductionInvitationSent.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let contactIdentityA = notification.userInfo!["contactIdentityA"] as! ObvCryptoIdentity
@@ -186,6 +200,8 @@ public enum ObvProtocolNotification {
 
 	public static func observeTheCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			block(ownedIdentity)
@@ -194,6 +210,8 @@ public enum ObvProtocolNotification {
 
 	public static func observeAnOwnedIdentityTransferProtocolFailed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, UID, Error) -> Void) -> NSObjectProtocol {
 		let name = Name.anOwnedIdentityTransferProtocolFailed.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
 			let protocolInstanceUID = notification.userInfo!["protocolInstanceUID"] as! UID

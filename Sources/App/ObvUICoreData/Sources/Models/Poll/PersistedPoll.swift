@@ -190,14 +190,42 @@ extension PersistedPoll {
     }
 
     
+    /// The version to send the owned identity's next vote on this poll with: one more than the highest version among **all** the votes they have cast on it.
+    ///
+    /// It lives here, beside the votes it reads, because getting it wrong is silent and permanent:
+    /// `PersistedPollVote.update(version:voted:timestamp:)` guards on `self.version <= version` and simply returns `false`, so a vote sent with a version that has
+    /// not grown is dropped without an error, leaving the screen unresponsive while the database and the contacts' devices are quietly right.
+    ///
+    /// **It reads `votes` filtered by type, and not `ownedVotes`**, which is the trap it exists to close: `ownedVotes` comes from `accuratedVotes`, keeping only the
+    /// votes whose `voted` is true, so a *withdrawn* vote — a vote object still there with `voted == false` — is invisible to it. A caller computing a version from
+    /// `ownedVotes` therefore sees no vote after a withdrawal, sends 0, and has it rejected by the vote it could not see.
+    ///
+    /// Every vote of theirs on the poll counts, and not only the answer being tapped: a single-choice poll rewrites the answer they had chosen before, and taking the
+    /// highest of all of them cannot be wrong — one voter's versions only ever have to increase.
+    public var versionForTheNextVoteFromOwnedIdentity: Int {
+        let versionsAlreadyUsed = candidates
+            .flatMap({ $0.votes })
+            .compactMap({ $0 as? PersistedPollVoteSent })
+            .map({ Int($0.version) })
+        return (versionsAlreadyUsed.max() ?? -1) + 1
+    }
+
+
     /// Set `messageUploadTimestampFromServer` to `nil` if the request is made on the current device.
     /// This method shall exclusively be called from `PersistedMessage.setPollVoteFromOwnedIdentity(...)`.
     func setPollVoteFromOwnedIdentity(for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date?) throws {
-        
+
         // Set or update the vote
         let timestamp = messageUploadTimestampFromServer ?? Date.now
         if let pollVote = pollVoteFromOwnedIdentity(for: pollCandidateUUID) {
-            pollVote.update(version: version, voted: voted, timestamp: timestamp)
+            // A rejected update is worth saying out loud when the vote is the owned identity's own: it means the version did not grow, and the reader's vote has been
+            // dropped — nothing throws, nothing changes on screen, and only the caller's arithmetic can be at fault. See
+            // ``versionForTheNextVoteFromOwnedIdentity``, which exists so that no caller has to compute it. (A *contact's* vote arriving with an old version is
+            // another matter entirely: that is an out-of-order message, and ignoring it quietly is correct.)
+            if !pollVote.update(version: version, voted: voted, timestamp: timestamp) {
+                logger.error("The owned identity's vote was dropped: version \(version, privacy: .public) does not exceed the version already stored, \(pollVote.version, privacy: .public)")
+                assertionFailure()
+            }
         } else if let pollCandidate = self.candidates.first(where: { $0.uuid == pollCandidateUUID }) {
             _ = try PersistedPollVoteSent(version: version, voted: voted, timestamp: timestamp, pollCandidate: pollCandidate)
         }
@@ -226,38 +254,52 @@ extension PersistedPoll {
     }
     
     
-    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date) throws {
-        
+    /// Returns `true` iff processing the request visibly changed the votes displayed on the poll (see `PersistedPollVote.update(version:voted:timestamp:)`).
+    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date) throws -> Bool {
+
+        var votesVisiblyChanged = false
+
+        let contactCryptoId = try contact.cryptoId
+
         // Set or update the vote
         let timestamp = messageUploadTimestampFromServer
-        if let pollVote = pollVoteFromContact(with: contact.cryptoId, for: pollCandidateUUID) {
-            pollVote.update(version: version, voted: voted, timestamp: timestamp)
+        if let pollVote = pollVoteFromContact(with: contactCryptoId, for: pollCandidateUUID) {
+            if pollVote.update(version: version, voted: voted, timestamp: timestamp) {
+                votesVisiblyChanged = true
+            }
         } else if let pollCandidate = self.candidates.first(where: { $0.uuid == pollCandidateUUID }) {
             _ = try PersistedPollVoteReceived(version: version, voted: voted, timestamp: timestamp, pollCandidate: pollCandidate, contact: contact)
+            // A vote created with voted == false is not displayed
+            votesVisiblyChanged = voted
         }
-        
+
         // We check that we need to update other votes
         if voted {
-            
+
             // If user vote for other than none, and none has been voted, we set none to false
-            if pollCandidateUUID != .uuidOfPollCandidateNone, self.hasVoteNone, let pollVote = pollVoteFromContact(with: contact.cryptoId, for: .uuidOfPollCandidateNone) {
-                pollVote.update(version: version, voted: false, timestamp: timestamp)
+            if pollCandidateUUID != .uuidOfPollCandidateNone, self.hasVoteNone, let pollVote = pollVoteFromContact(with: contactCryptoId, for: .uuidOfPollCandidateNone) {
+                if pollVote.update(version: version, voted: false, timestamp: timestamp) {
+                    votesVisiblyChanged = true
+                }
             }
-            
+
             // if poll is not a multiple choice one, we force to set all the other votes to false.
             if !self.multipleChoice, pollCandidateUUID != .uuidOfPollCandidateNone {
                 let otherVotedCandidates = self.candidatesVotedBy(contact: contact).filter { $0.uuid != pollCandidateUUID }
                 otherVotedCandidates.forEach { candidate in
                     guard let candidateUUID = candidate.uuid else { assertionFailure(); return }
-                    if let pollVote = pollVoteFromContact(with: contact.cryptoId, for: candidateUUID) {
-                        pollVote.update(version: version, voted: false, timestamp: timestamp)
+                    if let pollVote = pollVoteFromContact(with: contactCryptoId, for: candidateUUID) {
+                        if pollVote.update(version: version, voted: false, timestamp: timestamp) {
+                            votesVisiblyChanged = true
+                        }
                     }
                 }
-                
+
             }
         }
 
-        
+        return votesVisiblyChanged
+
     }
 
     

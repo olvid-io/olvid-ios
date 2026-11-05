@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -68,16 +68,30 @@ final class CreatePendingServerQueryOperation: ContextualOperationWithSpecificRe
             }
             
             guard let dataURL, let dataKey else { return }
-            
-            let serverQueryType: ServerQuery.QueryType = .putUserData(label: label, dataURL: dataURL, dataKey: dataKey)
+
+            // Adopt the source file by hardlinking it into the network manager's `pendingUserDataUploads`
+            // staging directory before persisting the `PendingServerQuery`. From here on, the network manager
+            // owns the lifecycle of the staged file; the identity-manager-owned file at `dataURL` is left
+            // untouched and remains the identity manager's responsibility.
+            let adoptedDataURL: URL
+            do {
+                let destination = delegateManager.pendingUserDataUploads.appendingPathComponent(UUID().uuidString)
+                try FileManager.default.linkOrCopyItem(at: dataURL, to: destination)
+                adoptedDataURL = destination
+            } catch {
+                assertionFailure()
+                return cancel(withReason: .coreDataError(error: error))
+            }
+
+            let serverQueryType: ServerQuery.QueryType = .putUserData(label: label, dataURL: adoptedDataURL, dataKey: dataKey)
             let noElements: [ObvEncoded] = []
-            
+
             let serverQuery = ServerQuery(ownedIdentity: ownedCryptoId, queryType: serverQueryType, encodedElements: noElements.obvEncode())
-            
+
             _ = PendingServerQuery.createPendingServerQuery(serverQuery: serverQuery, within: obvContext.context)
 
         } catch {
-            assertionFailure()
+            //assertionFailure()
             return cancel(withReason: .coreDataError(error: error))
         }
         

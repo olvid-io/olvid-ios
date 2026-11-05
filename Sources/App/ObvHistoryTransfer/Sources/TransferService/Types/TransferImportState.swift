@@ -49,7 +49,15 @@ public enum DestinationTransferStepsState: Sendable, Hashable, Equatable {
 public enum ReceivingAttachmentstatus: Sendable, Hashable, Equatable {
     case starting
     /// `bytesPerSecond` and `eta` are `nil` until enough time has elapsed to produce a meaningful rate.
-    case inProgress(receivedFylesCount: Int, failedFylesCount: Int, byteCountReceived: UInt64, byteCountFailedToReceive: UInt64, numberOfFylesToReceive: Int, byteCountToReceive: UInt64, bytesPerSecond: Double?, eta: TimeInterval?)
+    ///
+    /// `skippedFylesCount` / `byteCountSkipped` account for attachments that were part of the expected total
+    /// (`numberOfFylesToReceive` / `byteCountToReceive`) but that this destination ultimately declined (it sent a
+    /// `DstDoNotRequestSha256` for them, e.g. because no stored message ended up requiring them). They were neither
+    /// received nor failed; they are simply not transferred. Tracking them as a distinct bucket lets the attachment
+    /// step reach a terminal state instead of appearing frozen mid-progress while the transfer is reported as done.
+    /// At completion: `receivedFylesCount + failedFylesCount + skippedFylesCount == numberOfFylesToReceive`
+    /// and `byteCountReceived + byteCountFailedToReceive + byteCountSkipped == byteCountToReceive`.
+    case inProgress(receivedFylesCount: Int, failedFylesCount: Int, skippedFylesCount: Int, byteCountReceived: UInt64, byteCountFailedToReceive: UInt64, byteCountSkipped: UInt64, numberOfFylesToReceive: Int, byteCountToReceive: UInt64, bytesPerSecond: Double?, eta: TimeInterval?)
 }
 
 public enum ReceivingMessagesStatus: Sendable, Hashable, Equatable {
@@ -92,9 +100,9 @@ extension ReceivingAttachmentstatus {
         switch self {
         case .starting:
             return nil
-        case .inProgress(receivedFylesCount: _, failedFylesCount: _, byteCountReceived: let byteCountReceived, byteCountFailedToReceive: let byteCountFailedToReceive, numberOfFylesToReceive: _, byteCountToReceive: let byteCountToReceive, bytesPerSecond: _, eta: _):
+        case .inProgress(receivedFylesCount: _, failedFylesCount: _, skippedFylesCount: _, byteCountReceived: let byteCountReceived, byteCountFailedToReceive: let byteCountFailedToReceive, byteCountSkipped: let byteCountSkipped, numberOfFylesToReceive: _, byteCountToReceive: let byteCountToReceive, bytesPerSecond: _, eta: _):
             let total = Int64(byteCountToReceive)
-            let completed = Int64(byteCountReceived) + Int64(byteCountFailedToReceive)
+            let completed = Int64(byteCountReceived) + Int64(byteCountFailedToReceive) + Int64(byteCountSkipped)
             return (completed, total)
         }
     }

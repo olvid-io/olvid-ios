@@ -22,7 +22,6 @@ import UIKit
 import ObvUIObvCircledInitials
 import ObvSystemIcon
 import ObvDesignSystem
-import ObvSettings
 
 
 // MARK: - NewCircledInitialsView
@@ -51,8 +50,8 @@ public final class NewCircledInitialsView: UIView {
         self.currentConfiguration = configuration
 
         prepareForReuse()
-        roundedClipView.backgroundColor = configuration.backgroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle)
-        setupIconView(icon: configuration.icon, tintColor: configuration.foregroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle))
+        roundedClipView.backgroundColor = configuration.backgroundColor(appTheme: AppTheme.shared)
+        setupIconView(icon: configuration.icon, tintColor: configuration.foregroundColor(appTheme: AppTheme.shared))
 
         switch configuration {
         case .contact(let initial, let photo, let showGreenShield, let showRedShield, let cryptoId, let tintAdjustmentMode):
@@ -61,7 +60,7 @@ public final class NewCircledInitialsView: UIView {
             switch tintAdjustmentMode {
             case .normal:
                 textColor = cryptoId.colors.text
-                roundedClipViewBackgroundColor = configuration.backgroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle)
+                roundedClipViewBackgroundColor = configuration.backgroundColor(appTheme: AppTheme.shared)
             case .disabled:
                 textColor = AppTheme.shared.colorScheme.secondaryLabel
                 roundedClipViewBackgroundColor = AppTheme.shared.colorScheme.systemFill

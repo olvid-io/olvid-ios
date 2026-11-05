@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,6 +49,11 @@ public final class ObvIdentityManagerImplementation {
     }
     
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvIdentityManagerImplementation")
+
+    /// A `static let` rather than a sibling of the `lazy var` above, deliberately: this one is read from a background context-creator closure, and a second
+    /// lazily-initialised property dereferenced off the main thread is a race nobody needs. The cost is the default subsystem rather than the per-app
+    /// prefixed one, which is what every `Logger` added to this engine lately does.
+    private static let logger = Logger(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: "ObvIdentityManagerImplementation")
     
     public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {
         assert(self.delegate != nil, "The delegate must be set soon after initialization")
@@ -431,8 +436,11 @@ extension ObvIdentityManagerImplementation: ObvIdentityManagerSnapshotable {
     public func deserializeObvSyncSnapshotNode(_ serializedSyncSnapshotNode: Data, context: ObvTypes.ObvSyncSnapshot.Context) throws -> any ObvSyncSnapshotNode {
         let jsonDecoder = JSONDecoder()
         switch context {
-        case .transfer:
+        case .transfer(ownedCryptoId: let ownedCryptoId):
             let node = try jsonDecoder.decode(ObvIdentityManagerSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+            guard node.ownedCryptoIdentity.getIdentity() == ownedCryptoId.getIdentity() else {
+                throw ObvIdentityManagerError.unexpectedOwnedIdentity
+            }
             return node
         case .backupProfile(ownedCryptoId: let ownedCryptoId):
             let node = try jsonDecoder.decode(ObvIdentityManagerSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
@@ -932,35 +940,6 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func getDeterministicSeedForReturnReceiptToSendEncryption(returnReceiptsToSend: [ObvReturnReceiptToSend]) async -> [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)] {
-            
-        let receiptsAndSeeds: [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)] = await withCheckedContinuation { (continuation: CheckedContinuation<[(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)], Never>) in
-            delegateManager.contextCreator.performBackgroundTask { context in
-                
-                let receiptsAndSeeds: [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)] = returnReceiptsToSend.compactMap { returnReceiptToSend in
-                    do {
-                        let seed = try self.getDeterministicSeedForOwnedIdentity(
-                            returnReceiptToSend.contactIdentifier.ownedCryptoId.cryptoIdentity,
-                            diversifiedUsing: returnReceiptToSend.elements.nonce,
-                            forProtocol: .encryptReturnReceipt,
-                            within: context)
-                        return (returnReceiptToSend, seed)
-                    } catch {
-                        assertionFailure() // In production, continue with the next receipt
-                        return nil
-                    }
-                }
-                
-                return continuation.resume(returning: receiptsAndSeeds)
-                
-            }
-        }
-        
-        return receiptsAndSeeds
-        
-    }
-    
-    
     public func getDeterministicSeedForOwnedIdentity(_ identity: ObvCryptoIdentity, diversifiedUsing data: Data, forProtocol seedProtocol: ObvConstants.SeedProtocol, within context: NSManagedObjectContext) throws -> Seed {
         guard let ownedIdentityObj = try OwnedIdentity.get(identity, within: context)  else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
@@ -1231,12 +1210,18 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         return group
     }
     
-    public func getTrustedPhotoURLAndUploaderOfObvGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (url: URL, uploader: ObvCryptoIdentity)? {
-        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, within: obvContext.context) else {
+
+    public func getPublishedOrTrustedPhotoURLAndUploaderOfObvGroupV2(
+        withGroupWithIdentifier groupIdentifier: GroupV2.Identifier,
+        of ownedIdentity: ObvCryptoIdentity,
+        within obvContext: ObvContext
+    ) throws -> (url: URL, uploader: ObvCryptoIdentity)? {
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, within: obvContext.context) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
         }
-        guard let group = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity) else { throw Self.makeError(message: "Could not find group") }
-        guard let photoURLAndUploader = try group.trustedDetails?.getPhotoURLAndUploader() else { return nil }
+        guard let group = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentityObject) else { throw Self.makeError(message: "Could not find group") }
+        guard let details = group.publishedDetails ?? group.trustedDetails else { return nil }
+        guard let photoURLAndUploader = try details.getPhotoURLAndUploader() else { return nil }
         guard FileManager.default.fileExists(atPath: photoURLAndUploader.url.path) else { assertionFailure(); return nil }
         return photoURLAndUploader
     }
@@ -1284,19 +1269,34 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func getAllGroupsV2IdentifierVersionAndKeysForContact(_ contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [GroupV2.IdentifierVersionAndKeys] {
-        guard let contact = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, within: obvContext.context) else {
-            throw makeError(message: "Could not find contact")
+    public func getAllGroupsV2IdentifierVersionAndKeysForContact(
+        _ contactIdentity: ObvCryptoIdentity,
+        ofOwnedIdentity ownedCryptoId: ObvCryptoIdentity,
+        within obvContext: ObvContext
+    ) throws -> [GroupV2.IdentifierVersionAndKeys] {
+        
+        guard let contact = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedCryptoId, within: obvContext.context) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotContact
         }
-        guard let ownedIdentity_ = try OwnedIdentity.get(ownedIdentity, within: obvContext.context) else {
+        
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoId, within: obvContext.context) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
         }
-        let identifierVersionAndKeysOfGroupsWhereTheContactIsNotPending = contact.groupMemberships.compactMap { $0.contactGroup?.identifierVersionAndKeys }
-        let identifierVersionAndKeysOfGroupsWhereTheContactIsPending = (try ContactGroupV2PendingMember.getPendingMemberEntriesCorrespondingToContactIdentity(contactIdentity, of: ownedIdentity_)).compactMap({ $0.contactGroup?.identifierVersionAndKeys })
+        
+        let identifierVersionAndKeysOfGroupsWhereTheContactIsNotPending: [GroupV2.IdentifierVersionAndKeys] = contact.groupMemberships.compactMap {
+            let isAdmin: Bool = ($0.allPermissions?.contains(.groupAdmin) == true)
+            return $0.contactGroup?.identifierVersionAndKeys(forAMemberWhoIsAdmin: isAdmin)
+        }
+        
+        let identifierVersionAndKeysOfGroupsWhereTheContactIsPending: [GroupV2.IdentifierVersionAndKeys] = (try ContactGroupV2PendingMember.getPendingMemberEntriesCorrespondingToContactIdentity(contactIdentity, of: ownedIdentity)).compactMap {
+            let isAdmin: Bool = ($0.allPermissions?.contains(.groupAdmin) == true)
+            return $0.contactGroup?.identifierVersionAndKeys(forAMemberWhoIsAdmin: isAdmin)
+        }
         
         let allIdentifierVersionAndKeys = identifierVersionAndKeysOfGroupsWhereTheContactIsNotPending + identifierVersionAndKeysOfGroupsWhereTheContactIsPending
         
         return allIdentifierVersionAndKeys
+        
     }
     
     
@@ -1304,7 +1304,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoId, within: obvContext.context) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
         }
-        return ownedIdentity.contactGroupsV2.compactMap { $0.identifierVersionAndKeys }
+        return ownedIdentity.contactGroupsV2.compactMap { $0.identifierVersionAndKeys(forAMemberWhoIsAdmin: true) }
     }
     
     
@@ -1387,8 +1387,8 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func getOwnedIdentityKeycloakState(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvKeycloakStateAndUserDetails? {
-        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, within: obvContext.context) else {
+    public func getOwnedIdentityKeycloakState(ownedIdentity ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvKeycloakStateAndUserDetails? {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoId, within: obvContext.context) else {
             throw makeError(message: "Could not find Owned Identity in database")
         }
         guard let obvKeycloakState = try ownedIdentity.keycloakServer?.toObvKeycloakState else {
@@ -1400,8 +1400,8 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
             return .init(keycloakState: obvKeycloakState,
                          signedUserDetails: nil)
         }
-        let signedOwnedDetails = try? SignedObvKeycloakUserDetails.verifySignedUserDetails(signedDetails, with: signatureVerificationKey)
-        assert(signedOwnedDetails != nil, "An invalid signature should not have been stored in the first place")
+        let signedOwnedDetails = try? SignedObvKeycloakUserDetails.verifySignedUserDetails(signedDetails, with: signatureVerificationKey, binding: .mayBeUnbound(ownedIdentity: ObvCryptoId(cryptoIdentity: ownedCryptoId)))
+        assert(signedOwnedDetails != nil, "Our own stored signed details should verify and name no identity but ours")
         return .init(keycloakState: obvKeycloakState,
                      signedUserDetails: signedOwnedDetails)
     }
@@ -1513,6 +1513,36 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         return compromisedContacts
     }
     
+    
+    public func isRevokedByOwnKeycloakOrExpired(
+        ownedIdentity ownedCryptoIdentity: ObvCryptoIdentity,
+        identity: ObvCryptoIdentity,
+        signedDetails: SignedObvKeycloakUserDetails,
+        within obvContext: ObvContext
+    ) throws -> Bool {
+        
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, within: obvContext.context) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound
+        }
+        
+        guard let ownKeycloakServer = ownedIdentity.keycloakServer else {
+            throw ObvIdentityManagerError.ownedIdentityIsNotKeycloakManaged
+        }
+        
+        if try ownKeycloakServer.hasRevokedAsCompromised(identity) {
+            Self.logger.notice("Our keycloak revoked the identity as compromised")
+            return true
+        }
+
+        if try ownKeycloakServer.areDetailsRevokedOrExpired(signedDetails, of: identity) {
+            Self.logger.notice("The signed details predate a left-company revocation by our keycloak, or are too old")
+            return true
+        }
+        
+        return false
+        
+    }
+
     
     public func updateKeycloakPushTopicsIfNeeded(ownedCryptoIdentity: ObvCryptoIdentity, pushTopics: Set<String>, within obvContext: ObvContext) throws -> Bool {
         guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, within: obvContext.context) else {
@@ -2008,8 +2038,17 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     
     public func getDeviceUidsOfContactIdentity(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<UID> {
-        guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, within: obvContext.context) else {
+        guard let deviceUids = try getDeviceUidsOfContactIdentityIfThisContactExists(identity, ofOwnedIdentity: ownedIdentity, within: obvContext) else {
             throw ObvIdentityManagerImplementation.makeError(message: "Could not find ContactIdentity object")
+        }
+        return deviceUids
+    }
+
+
+    public func getDeviceUidsOfContactIdentityIfThisContactExists(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<UID>? {
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, within: obvContext.context) else {
+            // No such contact. A fetch that failed throws instead, so the two are distinguishable here.
+            return nil
         }
         let deviceUids = try contactIdentity.devices.map { try $0.uid }
         return Set(deviceUids)
@@ -2710,7 +2749,7 @@ extension ObvIdentityManagerImplementation: ObvKeyWrapperForIdentityDelegate {
             return .couldNotUnwrap
         }
 
-        return try ownedIdentity.unwrapForCurrentOwnedDevice(wrappedMessageKey, within: obvContext.context)
+        return try ownedIdentity.unwrapForCurrentOwnedDevice(wrappedMessageKey)
         
     }
     
@@ -3031,9 +3070,27 @@ extension ObvIdentityManagerImplementation {
             let photoURLsToDeleteFromDisk = photoURLsOnDisk.subtracting(photoURLsInDatabase)
             let photoURLsMissingFromDisk = photoURLsInDatabase.subtracting(photoURLsOnDisk)
 
+            // **Reported unconditionally, and before anything is deleted.** This sweep is the same shape as the inbox's orphan sweep, which subtracted a
+            // `Set<URL>` built by `appendingPathComponent` from one built by `contentsOfDirectory(at:)` — `/var/mobile/…` against `/private/var/mobile/…`,
+            // the same file and never an exact match — and deleted every live message directory on every launch for as long as nobody looked. Here the
+            // database side is built by appending (`identityPhotosDirectory.appendingPathComponent(_:)` and the entities' own getters) and the disk side by
+            // `contentsOfDirectory(at:)` through `resolvingSymlinksInPath()`, so whether the two agree is a question about this device rather than about the
+            // code, and it must be answered by a measurement rather than by reading. `bothNonEmptyAndDisjoint` is the derived value that **is** the bug: two
+            // sets naming the same photos cannot be disjoint, and if they are then every photo on disk is about to be deleted.
+            //
+            // The line below stays quiet about nothing: a healthy sweep prints one line per launch with four zeros or with equal counts.
+            let bothNonEmptyAndDisjoint = !photoURLsInDatabase.isEmpty && !photoURLsOnDisk.isEmpty && photoURLsInDatabase.isDisjoint(with: photoURLsOnDisk)
+            Self.logger.info("📁 Identity photos sweep: \(photoURLsInDatabase.count) in database, \(photoURLsOnDisk.count) on disk, \(photoURLsToDeleteFromDisk.count) to delete from disk, \(photoURLsMissingFromDisk.count) missing from disk, bothNonEmptyAndDisjoint=\(bothNonEmptyAndDisjoint ? "TRUE" : "false", privacy: .public)")
+            if !photoURLsToDeleteFromDisk.isEmpty || !photoURLsMissingFromDisk.isEmpty {
+                // One URL of each shape whenever the two sides disagree. This is the whole diagnosis in a single line: if one reads `/var/mobile/…` and the
+                // other `/private/var/mobile/…`, they are the same files and the comparison is the fault.
+                Self.logger.info("📁 Identity photos sweep: a database URL reads \(photoURLsInDatabase.first?.path ?? "none", privacy: .public) and a disk URL reads \(photoURLsOnDisk.first?.path ?? "none", privacy: .public)")
+            }
+
             for photoURL in photoURLsToDeleteFromDisk {
                 do {
                     try FileManager.default.removeItem(at: photoURL)
+                    Self.logger.info("📁 Identity photos sweep: deleted \(photoURL.path, privacy: .public)")
                 } catch {
                     os_log("Cannot delete unused photo: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
                     assertionFailure()

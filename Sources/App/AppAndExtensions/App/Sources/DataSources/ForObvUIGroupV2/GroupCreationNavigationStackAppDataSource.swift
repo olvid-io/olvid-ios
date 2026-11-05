@@ -54,9 +54,7 @@ extension GroupCreationNavigationStackAppDataSource: GroupCreationNavigationStac
                 assertionFailure()
                 throw ObvError.couldNotFindGroupMember
             }
-            let memberCryptoId = persistedMember.cryptoId
-            let ownedCryptoId = try persistedMember.persistedGroup.ownCryptoId
-            return ObvContactIdentifier(contactCryptoId: memberCryptoId, ownedCryptoId: ownedCryptoId)
+            return try persistedMember.userIdentifier
         case .contactIdentifierForCreatingGroupForPreviews(contactIdentifier: let contactIdentifier):
             assertionFailure("This identifier kind should only be used in previews")
             return contactIdentifier

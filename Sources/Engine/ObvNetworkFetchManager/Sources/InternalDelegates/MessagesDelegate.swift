@@ -27,7 +27,9 @@ import ObvServerInterface
 protocol MessagesDelegate {
     
     func getAsyncStreamOfObvMessageOrObvOwnedMessages() async -> AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]>
-    func downloadAllMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async
+    /// - Parameter trigger: what provoked this listing. Recorded with the timing of the request, so that a reader's report can say whether the slow
+    /// listings are the ones the app asked for or the ones a push or a socket provoked — the two have different causes.
+    func downloadAllMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, trigger: ObvServerRequestTiming.Trigger, flowId: FlowIdentifier) async
     func saveMessageReceivedOnWebsocket(message: ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer, downloadTimestampFromServer: Date, ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws
     func removeExpectedContactForReProcessingOperationThenProcessUnprocessedMessages(expectedContactsThatAreNowContacts: Set<ObvContactIdentifier>, flowId: FlowIdentifier) async throws
 

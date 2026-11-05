@@ -30,5 +30,13 @@ protocol BackgroundTasksManagerDelegate: AnyObject {
     
     // For Message Ids kept for later by the AppInboxService
     func syncMessageIdsKeptForLater(_ backgroundTasksManager: BackgroundTasksManager) async throws
-    
+
+    /// Drains the engine's inbox — lists, waits for the app to process what was listed, and sweeps the finished rows away — until there is nothing left,
+    /// until `deadline`, or until `run` is asked to stop.
+    ///
+    /// Takes a deadline and a stop flag rather than the `BGProcessingTask` itself, deliberately: the settings row that triggers a drain on a simulator, where
+    /// background tasks are never scheduled, has to drive exactly the same code. What is left in the background handler is the plumbing — the launch, the
+    /// expiry, the completion, the rescheduling — and none of it can be tested where the drain can, so none of it does anything interesting.
+    func drainEngineInbox(_ backgroundTasksManager: BackgroundTasksManager, deadline: Date, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport
+
 }

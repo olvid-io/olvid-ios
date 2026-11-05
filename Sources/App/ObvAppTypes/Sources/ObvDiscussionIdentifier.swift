@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -128,8 +128,8 @@ extension ObvDiscussionIdentifier: LosslessStringConvertible {
     
     
     public init?(_ description: String) {
-        guard let rawData = Data(hexString: description) else { assertionFailure(); return nil }
-        guard let encoded = ObvEncoded(withRawData: rawData) else { assertionFailure(); return nil}
+        guard let rawData = Data(hexString: description) else { /*assertionFailure();*/ return nil }
+        guard let encoded = ObvEncoded(withRawData: rawData) else { /*assertionFailure();*/ return nil }
         do {
             self = try encoded.obvDecode()
         } catch {

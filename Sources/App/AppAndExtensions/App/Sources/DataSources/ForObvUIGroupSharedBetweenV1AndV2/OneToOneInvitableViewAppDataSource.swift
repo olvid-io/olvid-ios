@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -98,7 +98,7 @@ extension OneToOneInvitableViewAppDataSource {
             let invitableMembers = fetchedObjects1
             let oneToOneInvitation = fetchedObjects2
             
-            let identitiesOfInvitableGroupMembers: Set<ObvCryptoId> = Set(invitableMembers.map(\.cryptoId))
+            let identitiesOfInvitableGroupMembers: Set<ObvCryptoId> = Set(invitableMembers.compactMap { try? $0.cryptoId })
             let invitedIdentities: Set<ObvCryptoId> = Set(oneToOneInvitation.compactMap(\.contactIdentity))
             
             let numberOfGroupMembersThatAreContactsButNotOneToOne = identitiesOfInvitableGroupMembers.count
@@ -143,7 +143,7 @@ extension OneToOneInvitableViewAppDataSource {
             let oneToOneInvitation = fetchedObjects2
             let allMembers = fetchedObjects4
             
-            let identitiesOfInvitableGroupMembers: Set<ObvCryptoId> = Set(invitableMembers.map(\.cryptoId))
+            let identitiesOfInvitableGroupMembers: Set<ObvCryptoId> = Set(invitableMembers.compactMap { try? $0.cryptoId })
             let invitedIdentities: Set<ObvCryptoId> = Set(oneToOneInvitation.compactMap(\.contactIdentity))
             
             let numberOfGroupMembersThatAreContactsButNotOneToOne = identitiesOfInvitableGroupMembers.count

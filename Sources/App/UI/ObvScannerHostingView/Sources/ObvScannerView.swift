@@ -229,6 +229,7 @@ public struct ScannerView: View {
                         OlvidButton(style: .blue, title: Text("Show my Id"), systemIcon: .qrcode, action: buttonAction)
                     case .back:
                         OlvidButton(style: .blue, title: Text("Back"), systemIcon: .arrowshapeTurnUpBackwardFill, action: buttonAction)
+                            .keyboardShortcut(.cancelAction)
                     }
                 }.padding(.all, 16)
             }

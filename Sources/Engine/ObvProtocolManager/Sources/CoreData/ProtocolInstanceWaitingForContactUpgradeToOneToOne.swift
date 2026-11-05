@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -154,7 +154,7 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
         let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()
         request.predicate = Predicate.withAssociatedProtocolInstance(protocolInstance)
         request.fetchBatchSize = 1_000
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let items = try context.fetch(request)
         for item in items {
             try item.deleteProtocolInstanceWaitingForContactUpgradeToOneToOne()
@@ -172,7 +172,7 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
             Predicate.withContactCryptoIdentity(contactCryptoIdentity),
         ])
         request.fetchBatchSize = 1_000
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let items = try context.fetch(request)
         for item in items {
             try item.deleteProtocolInstanceWaitingForContactUpgradeToOneToOne()

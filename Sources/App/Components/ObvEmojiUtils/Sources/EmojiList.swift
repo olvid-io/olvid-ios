@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,20 +25,16 @@ extension EmojiList {
     public static var allEmojis: [String] {
         if #available(iOS 16.4, *) {
             return allEmojis15_0
-        } else if #available(iOS 15.4, *) {
-            return allEmojis14_0
         } else {
-            return allEmojis13_1
+            return allEmojis14_0
         }
     }
 
     public static var variants: [String: [String]] {
         if #available(iOS 16.4, *) {
             return variants15_0
-        } else if #available(iOS 15.4, *) {
-            return variants14_0
         } else {
-            return variants13_1
+            return variants14_0
         }
     }
 
@@ -49,20 +45,16 @@ extension EmojiGroup {
     public var firstEmoji: String {
         if #available(iOS 16.4, *) {
             return firstEmoji15_0
-        } else if #available(iOS 15.4, *) {
-            return firstEmoji14_0
         } else {
-            return firstEmoji13_1
+            return firstEmoji14_0
         }
     }
 
     public static func group(of position: Int) -> EmojiGroup? {
         if #available(iOS 16.4, *) {
             return group15_0(of: position)
-        } else if #available(iOS 15.4, *) {
-            return group14_0(of: position)
         } else {
-            return group13_1(of: position)
+            return group14_0(of: position)
         }
     }
 }

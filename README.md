@@ -36,6 +36,18 @@ To build Olvid for iOS, you would need:
   - Verify that `xcode-select -p` looks something like `/Applications/Xcode.app/Contents/Developer`
   - If not, run `sudo xcode-select -r` to reset the command line tools path
 
+## Enabling the repository git hooks
+
+This repository ships a small `pre-commit` hook that prevents accidental edits to historical Core Data model versions (any `.xcdatamodel` directory that is no longer the current one inside an `.xcdatamodeld` bundle). Editing a model version that has already shipped breaks the migration chain for users upgrading from an older Olvid build, so the hook refuses the commit when a non-current model version is staged.
+
+To enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+If a commit genuinely does not affect on-disk schema (e.g. a typo in a model file comment), the hook can be bypassed with `git commit --no-verify`.
+
 ## Running Olvid in a simulator
 
 After generating the project, choose the `Olvid` scheme. Then choose a simulator. From the `Product` menu, choose `Run`. This should compile Olvid for iOS and launch it in the chosen simulator.
@@ -67,7 +79,7 @@ Olvid, as a company, has not yet put in place all the necessary processes to eas
 Olvid for iOS is licensed under the GNU Affero General Public License v3. The full license is available in [`LICENSE`](LICENSE).
 
     Olvid for iOS
-    Copyright © 2019-2025 Olvid SAS
+    Copyright © 2019-2026 Olvid SAS
 
     Olvid is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License, version 3,

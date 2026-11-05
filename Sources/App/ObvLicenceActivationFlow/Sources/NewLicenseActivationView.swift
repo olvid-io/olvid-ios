@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -106,6 +106,7 @@ public struct NewLicenseActivationView: View {
 
     private enum APIKeyElementsFromServerStatus {
         case none
+        case serverIncompatible
         case fetching
         case fetchingFailed(Error)
         case success(ObvTypes.APIKeyElements)
@@ -159,8 +160,14 @@ public struct NewLicenseActivationView: View {
     }
 
     private func userWantsToQueryAPIKeyElementsFromServer() async {
+        // The scanned API key was generated for a specific server. If that server is not the profile's server, the
+        // license is not compatible with this profile: there is no point querying the profile's server about it.
+        // We surface the incompatibility to the user instead.
+        guard apiKeyServerIsCompatibleWithOwnedIdentityServer else {
+            withAnimation { apiKeyElementsFromServerStatus = .serverIncompatible }
+            return
+        }
         withAnimation { apiKeyElementsFromServerStatus = .fetching }
-        assert(ownedCryptoId.belongsTo(serverURL: serverAndAPIKey.server), "This should have been checked by this view earlier")
         do {
             let APIKeyElementsFromServer = try await dataSource.getApiKeyElementsFromServer(self, ownedCryptoId: ownedCryptoId, apiKey: serverAndAPIKey.apiKey)
             withAnimation { apiKeyElementsFromServerStatus = .success(APIKeyElementsFromServer) }
@@ -208,9 +215,13 @@ public struct NewLicenseActivationView: View {
                                     switch apiKeyElementsFromServerStatus {
                                         
                                     case .none:
-                                        
+
                                         EmptyView()
-                                        
+
+                                    case .serverIncompatible:
+
+                                        UnableToActivateLicenseView(category: .serverAndAPIKeyIncompatibleWithOwnServer)
+
                                     case .fetching:
                                         
                                         HStack {
@@ -277,8 +288,10 @@ public struct NewLicenseActivationView: View {
                         VStack {
                             if !isAPIKeyActivated {                                                                
                                 CancelButton(action: userTappedCancelButton)
+                                    .keyboardShortcut(.cancelAction)
                             } else {
                                 OkButton(action: okButtonTapped)
+                                    .keyboardShortcut(.cancelAction)
                             }
                         }
                         .disabled(isAPIKeyActivating)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,7 +48,7 @@ extension ObvChannelServerQueryMessageToSend {
     public enum QueryType {
         case deviceDiscovery(of: ObvCryptoIdentity)
         case putUserData(label: UID, dataURL: URL, dataKey: AuthenticatedEncryptionKey)
-        case getUserData(of: ObvCryptoIdentity, label: UID)
+        case getUserData(of: ObvCryptoIdentity, label: UID, retryIfNotFound: Bool = false)
         case checkKeycloakRevocation(keycloakServerUrl: URL, signedContactDetails: String)
         case createGroupBlob(groupIdentifier: GroupV2.Identifier, serverAuthenticationPublicKey: PublicKeyForAuthentication, encryptedBlob: EncryptedData)
         case getGroupBlob(groupIdentifier: GroupV2.Identifier)

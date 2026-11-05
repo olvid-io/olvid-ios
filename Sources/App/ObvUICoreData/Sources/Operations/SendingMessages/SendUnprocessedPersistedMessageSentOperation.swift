@@ -56,6 +56,15 @@ public final class SendUnprocessedPersistedMessageSentOperation: ContextualOpera
     
     /// Set if we reach the end of this operation. This is essentially used by the share extension in order to donate an intent
     public private(set) var messentSent: PersistedMessageSentStructure?
+
+    /// The identifiers the engine assigned to the message when posting it, deduplicated across recipients
+    /// (a message sent to several contacts of the same group maps to a single engine identifier).
+    ///
+    /// Used by the share extension to attribute the upload progresses returned by
+    /// `ObvEngine.requestUploadAttachmentProgressesUpdatedSince(date:)` to the messages it just posted,
+    /// rather than to uploads left over from an earlier share in the same (reused) extension process.
+    /// Empty when the message had no recipient reachable through the engine.
+    public private(set) var messageIdentifiersFromEngine = Set<Data>()
     
     public init(messageSentPermanentID: MessageSentPermanentID, alsoPostToOtherOwnedDevices: Bool, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, callCompletionWhenMessageAndAttachmentsAreSent: Bool = false, completionHandler: (() -> Void)? = nil) {
         self.input = .messagePermanentID(messageSentPermanentID)
@@ -161,11 +170,14 @@ public final class SendUnprocessedPersistedMessageSentOperation: ContextualOpera
                 completionHandler?()
             }
             
+            self.messageIdentifiersFromEngine = Set(messageIdentifierForContactToWhichTheMessageWasSent.values)
+
             // The engine returned a array containing all the contacts to which it could send the message.
             // We use this array generated  by the engine in order to update the appropriate PersistedMessageSentRecipientInfos.
-            
+
             for recipientInfos in persistedMessageSent.unsortedRecipientsInfos {
-                if let messageIdentifierFromEngine = messageIdentifierForContactToWhichTheMessageWasSent[recipientInfos.recipientCryptoId] {
+                guard let recipientCryptoId = try? recipientInfos.recipientCryptoId else { continue }
+                if let messageIdentifierFromEngine = messageIdentifierForContactToWhichTheMessageWasSent[recipientCryptoId] {
                     os_log("🆗 Setting messageIdentifierFromEngine %{public}@ within recipientInfos", log: log, type: .info, messageIdentifierFromEngine.hexString())
                     recipientInfos.setMessageIdentifierFromEngine(to: messageIdentifierFromEngine, andReturnReceiptElementsTo: returnReceiptElements)
                 }

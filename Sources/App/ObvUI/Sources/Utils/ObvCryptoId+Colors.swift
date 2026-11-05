@@ -21,13 +21,12 @@ import Foundation
 import ObvTypes
 import ObvUICoreData
 import ObvDesignSystem
-import ObvSettings
 
 
 public extension ObvCryptoId {
     
     var colors: (background: UIColor, text: UIColor) {
-        return AppTheme.shared.identityColors(for: self, using: ObvMessengerSettings.Interface.identityColorStyle)
+        return AppTheme.shared.identityColors(for: self)
     }
         
 }

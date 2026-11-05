@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -227,14 +227,9 @@ private struct ReactionCellContentView: View {
                           dataSource: avatarViewDataSource)
             HStack(alignment: .center) {
                 
-                if #available(iOS 16, *) {
-                    // Under iOS16+, we align the leading edge of the separator (required, as it otherwise automatically aligns on the character in the avatar view)
-                    TextView(model: model.textViewModel)
-                        .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] }
-                } else {
-                    // Under iOS15, the separators are hidden (see `ObvMessageReactionsView`)
-                    TextView(model: model.textViewModel)
-                }
+                // Under iOS16+, we align the leading edge of the separator (required, as it otherwise automatically aligns on the character in the avatar view)
+                TextView(model: model.textViewModel)
+                    .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] }
 
                 Spacer()
                 Text(String(model.reaction))

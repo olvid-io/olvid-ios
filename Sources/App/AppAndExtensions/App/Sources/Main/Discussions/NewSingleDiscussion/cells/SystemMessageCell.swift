@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,9 +24,9 @@ import ObvUI
 import UIKit
 import ObvUICoreData
 import ObvSystemIcon
+import OlvidUtils
 
 
-@available(iOS 14.0, *)
 final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWithTappableStuff {
     
     private(set) var message: PersistedMessageSystem?
@@ -182,7 +182,6 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
 
 // MARK: - Implementing CellWithMessage
 
-@available(iOS 14.0, *)
 extension SystemMessageCell {
     
     var persistedMessage: PersistedMessage? { message }
@@ -235,7 +234,6 @@ extension SystemMessageCell {
 
 
 
-@available(iOS 14.0, *)
 fileprivate struct SystemMessageCellCustomContentConfiguration: UIContentConfiguration, Hashable {
 
     var body: String?
@@ -258,7 +256,6 @@ fileprivate struct SystemMessageCellCustomContentConfiguration: UIContentConfigu
 }
 
 
-@available(iOS 14.0, *)
 private final class SystemMessageCellContentView: UIView, UIContentView {
     
     fileprivate let mainStack = OlvidVerticalStackView(gap: MessageCellConstants.mainStackGap,
@@ -396,7 +393,6 @@ private final class SystemMessageCellContentView: UIView, UIContentView {
 }
 
 
-@available(iOS 14.0, *)
 private class SystemMessageDateView: ViewForOlvidStack {
     
     var date = Date() {

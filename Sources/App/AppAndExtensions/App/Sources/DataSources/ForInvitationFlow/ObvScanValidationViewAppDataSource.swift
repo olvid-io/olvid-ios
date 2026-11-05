@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -71,7 +71,6 @@ extension ObvScanValidationViewAppDataSource: ObvScanValidationViewDataSource {
 
 // MARK: - Internal manager
 
-@available(iOS 16.0, *)
 extension ObvScanValidationViewAppDataSource {
     
     private final class ScanValidationViewModelStreamManager: ObvDataSourceStreamManagerWithTwoFetchedResultsController<ScanValidationViewModel, PersistedObvContactIdentity, PersistedOneToOneDiscussion>, @unchecked Sendable {
@@ -150,7 +149,7 @@ extension ScanValidationViewModel {
 extension ObvAvatarViewModel {
 
     init(contactCryptoId: ObvCryptoId, contactFullDisplayName: String) {
-        let colors = ObvDesignSystem.AppTheme.shared.identityColors(for: contactCryptoId, using: .hue)
+        let colors = ObvDesignSystem.AppTheme.shared.identityColors(for: contactCryptoId)
         let characterOrIcon: ObvAvatarViewModel.CharacterOrIcon
         if let character = contactFullDisplayName.trimmingWhitespacesAndNewlines().first {
             characterOrIcon = .character(character)

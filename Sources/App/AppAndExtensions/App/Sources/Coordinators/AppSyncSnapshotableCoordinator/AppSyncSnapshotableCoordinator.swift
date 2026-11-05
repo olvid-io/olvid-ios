@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import ObvEngine
-import os.log
+import OSLog
 import ObvTypes
 import CoreData
 import ObvUICoreData
@@ -196,8 +196,18 @@ final class AppSyncSnapshotableCoordinator: OlvidCoordinator, ObvAppSnapshotable
     func deserializeObvSyncSnapshotNode(_ serializedSyncSnapshotNode: Data, context: ObvSyncSnapshot.Context) throws -> any ObvSyncSnapshotNode {
         let jsonDecoder = JSONDecoder()
         switch context {
-        case .transfer, .backupProfile:
-            return try jsonDecoder.decode(AppSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+        case .transfer(ownedCryptoId: let ownedCryptoId):
+            let node = try jsonDecoder.decode(AppSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+            guard node.ownedCryptoId == ownedCryptoId else {
+                throw ObvError.unexpectedOwnedIdentity
+            }
+            return node
+        case .backupProfile(ownedCryptoId: let ownedCryptoId):
+            let node = try jsonDecoder.decode(AppSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+            guard node.ownedCryptoId == ownedCryptoId else {
+                throw ObvError.unexpectedOwnedIdentity
+            }
+            return node
         case .backupDevice:
             return try jsonDecoder.decode(AppDeviceSnapshotNode.self, from: serializedSyncSnapshotNode)
         }
@@ -207,6 +217,7 @@ final class AppSyncSnapshotableCoordinator: OlvidCoordinator, ObvAppSnapshotable
     enum ObvError: Error {
         case unexpectedSnapshotType
         case updateAppDatabaseFailedWithoutSpecifyingError
+        case unexpectedOwnedIdentity
     }
         
 }

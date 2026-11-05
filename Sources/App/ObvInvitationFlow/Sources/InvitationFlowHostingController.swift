@@ -26,10 +26,9 @@ import ObvDesignSystem
 import ObvCells
 
 
-public final class InvitationFlowHostingController: KeyboardHostingController<InvitationFlowRouterView> {
+public final class InvitationFlowHostingController: UIHostingController<InvitationFlowRouterView> {
     
     private var observationTokens = [NSObjectProtocol]()
-    public override var canBecomeFirstResponder: Bool { true }
     
     let ownedURLIdentity: ObvURLIdentity
     let router: InvitationFlowRouter

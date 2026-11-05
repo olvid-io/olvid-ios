@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,7 +48,9 @@ final actor AppMainManager: ObvErrorMaker {
     private let runningLog = RunningLogError()
     
     private let fileSystemService = FileSystemService()
-    private var appManagersHolder: AppManagersHolder?
+    /// Readable from outside, as ``appCoordinatorsHolder`` is: a screen that needs something a *manager* does has otherwise nowhere to go, where one that needs a
+    /// coordinator has a well-trodden path through `RootViewController`.
+    private(set) var appManagersHolder: AppManagersHolder?
     private(set) var appCoordinatorsHolder: AppCoordinatorsHolder?
 
     private var metaFlowControllerViewDidAppearAtLeastOnce = false
@@ -115,8 +117,12 @@ final actor AppMainManager: ObvErrorMaker {
         changeAppStateTo(.initializing)
         
         await performPreInitialization()
-        try performAppCoreDataStackInitialization()
-        try performObvUserNotificationsStackInitialization()
+        try await performAppCoreDataStackInitialization()
+        try await performObvUserNotificationsStackInitialization()
+        // Now that the user-notifications stack is up and its history pruned, give the drain path its
+        // history merger so it stays in sync with NSE writes. Done here (not in the coordinator's
+        // init, which runs before the stack exists) to honor the prune-before-merger invariant.
+        userNotificationsCoordinator.setupUserNotificationsHistoryMerger()
         try performObvAppInboxStackInitialization()
         let obvEngine = try await performEngineAndEngineCoreDataStackInitialization()
         await initializeManagers(obvEngine: obvEngine,
@@ -162,18 +168,18 @@ final actor AppMainManager: ObvErrorMaker {
     /// (see the `SceneDelegate`), we know we won't miss the notification.
     private func observeNotifications() {
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeMetaFlowControllerViewDidAppear {
-                Task { [weak self] in await self?.processMetaFlowControllerViewDidAppear() }
+            ObvMessengerInternalNotification.observeMetaFlowControllerViewDidAppear { [weak self] in
+                Task { await self?.processMetaFlowControllerViewDidAppear() }
             },
             ObvMessengerInternalNotification.observeRequestRunningLog { [weak self] completion in
                 guard let _self = self else { return }
                 completion(_self.runningLog)
             },
-            ObvEngineNotificationNew.observeAPushTopicWasReceivedViaWebsocket(within: NotificationCenter.default) { pushTopic in
-                Task { [weak self] in try await self?.transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: pushTopic) }
+            ObvEngineNotificationNew.observeAPushTopicWasReceivedViaWebsocket(within: NotificationCenter.default) { [weak self] pushTopic in
+                Task { try? await self?.transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: pushTopic) }
             },
-            ObvEngineNotificationNew.observeAKeycloakTargetedPushNotificationReceivedViaWebsocket(within: NotificationCenter.default) { ownedCryptoId in
-                Task { [weak self] in try await self?.requestSyncOfOwnedIdentityToTheKeycloakManager() }
+            ObvEngineNotificationNew.observeAKeycloakTargetedPushNotificationReceivedViaWebsocket(within: NotificationCenter.default) { [weak self] ownedCryptoId in
+                Task { try? await self?.requestSyncOfOwnedIdentityToTheKeycloakManager() }
             },
             ObvMessengerCoreDataNotification.observeOwnedIdentityHiddenStatusChanged { _, _ in
                 Task { await LatestCurrentOwnedIdentityStorage.shared.removeLatestCurrentOWnedIdentityStored() }
@@ -186,10 +192,12 @@ final actor AppMainManager: ObvErrorMaker {
 
         let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
 
-        changeAppStateTo(.initializedAndMetaFlowControllerViewDidAppear(obvEngine: obvEngine))
-
         let forTheFirstTime = !metaFlowControllerViewDidAppearAtLeastOnce
         metaFlowControllerViewDidAppearAtLeastOnce = true
+
+        if forTheFirstTime {
+            changeAppStateTo(.initializedAndMetaFlowControllerViewDidAppear(obvEngine: obvEngine))
+        }
 
         obvEngine.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         
@@ -224,7 +232,7 @@ final actor AppMainManager: ObvErrorMaker {
     }
     
     
-    private func performAppCoreDataStackInitialization() throws {
+    private func performAppCoreDataStackInitialization() async throws {
         
         runningLog.addEvent(message: "AppCoreDataStackInitialization starts")
         defer { runningLog.addEvent(message: "AppCoreDataStackInitialization ends") }
@@ -240,7 +248,17 @@ final actor AppMainManager: ObvErrorMaker {
             throw error
         }
         runningLog.addEvent(message: "The initialization of the App Core Data stack was successful")
-        
+
+        // Prune persistent history at launch. Runs before this process constructs its own merger,
+        // and respects other live consumers' cursors (e.g. the Intents extension) via the shared
+        // token store, so it never deletes history a live consumer still needs.
+        runningLog.addEvent(message: "Pruning App DB persistent history at launch")
+        await ObvPersistentHistoryMerger.pruneHistory(
+            persistentStoreCoordinator: ObvStack.shared.persistentStoreCoordinator,
+            transactionAuthor: ObvUICoreDataConstants.AppCategory.mainApp.transactionAuthor,
+            tokenStore: ObvStack.historyConsumerTokenStore,
+            logSubsystem: ObvAppCoreConstants.logSubsystem)
+
         // Perform app migrations and handle exceptional situations
         runningLog.addEvent(message: "Performing exception migrations")
         migrationFromBuild147ToBuild148()
@@ -259,16 +277,17 @@ final actor AppMainManager: ObvErrorMaker {
         migrationToV3_1()
         migrationToV3_3()
         migrationToV3_5()
+        migrationToV4_4()
     }
     
     
-    private func performObvUserNotificationsStackInitialization() throws {
-        
+    private func performObvUserNotificationsStackInitialization() async throws {
+
         runningLog.addEvent(message: "ObvUserNotificationsStackInitialization starts")
         defer { runningLog.addEvent(message: "ObvUserNotificationsStackInitialization ends") }
 
         runningLog.addEvent(message: "Initializing the User Notifications stack")
-        
+
         do {
             try ObvUserNotificationsStack.initSharedInstance(transactionAuthor: ObvUICoreDataConstants.AppCategory.mainApp.transactionAuthor,
                                                              runningLog: runningLog,
@@ -279,6 +298,16 @@ final actor AppMainManager: ObvErrorMaker {
             throw error
         }
         runningLog.addEvent(message: "The initialization of the User Notifications stack was successful")
+
+        // Prune this store's persistent history (tracking is enabled on its container), respecting
+        // other live consumers' cursors (the Intents extension reads this store) via the shared NSE
+        // token store, so it never deletes history a live consumer still needs.
+        runningLog.addEvent(message: "Pruning User Notifications DB persistent history at launch")
+        await ObvPersistentHistoryMerger.pruneHistory(
+            persistentStoreCoordinator: ObvUserNotificationsStack.shared.persistentStoreCoordinator,
+            transactionAuthor: ObvUICoreDataConstants.AppCategory.mainApp.transactionAuthor,
+            tokenStore: ObvUserNotificationsStack.historyConsumerTokenStore,
+            logSubsystem: ObvAppCoreConstants.logSubsystem)
 
     }
     
@@ -316,12 +345,11 @@ final actor AppMainManager: ObvErrorMaker {
         runningLog.addEvent(message: "Initializing the Engine")
         let obvEngine: ObvEngine
         do {
-            let mainEngineContainer = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url
-            ObvEngine.mainContainerURL = mainEngineContainer
             obvEngine = try await ObvEngine.startFull(logPrefix: "FullEngine",
                                                       appNotificationCenter: NotificationCenter.default,
                                                       backgroundTaskManager: backgroundTaskManagerBasedOnUIApplication,
                                                       sharedContainerIdentifier: ObvAppCoreConstants.appGroupIdentifier,
+                                                      mainContainerURL: ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url,
                                                       supportBackgroundTasks: ObvMessengerConstants.isRunningOnRealDevice,
                                                       remoteNotificationByteIdentifierForServer: ObvAppCoreConstants.remoteNotificationByteIdentifierForServer,
                                                       appType: .mainApp,
@@ -375,6 +403,7 @@ final actor AppMainManager: ObvErrorMaker {
         migrationToV0_9_4(obvEngine: obvEngine)
         await migrationToPerformAfterBuild586()
         await migrationToPerformAfterBuild600()
+        await migrationToPerformAfterBuild987()
 
         // Performing post initialization tasks for all managers
         assert(appManagersHolder != nil)
@@ -660,6 +689,30 @@ extension AppMainManager {
         userDefaults.removeObject(forKey: "settings.interface.preferredComposeMessageViewActions")
     }
     
+    private func migrationToV4_4() {
+        guard let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) else { assertionFailure(); return }
+        // The elastic scroll's default now depends on the platform — off on a Mac, on elsewhere — so the old key is dropped rather than
+        // honoured: every TestFlight reader had a stored `true` they had never chosen, and keeping it would have carried the whole of the
+        // Mac ones forward with the effect running. See ObvMessengerSettings.Interface.elasticScrolling.
+        userDefaults.removeObject(forKey: "settings.interface.elasticScrolling")
+        // The order of the plus menu's actions was the user's to choose back when they were buttons competing for the room beside the
+        // text field. That composition view is gone and the actions are a grouped menu now, where a chosen order could do nothing but
+        // switch the grouping off, so the setting was removed. Note migrationToV3_5 above, which drops the key this one replaced: the
+        // same setting, dropped twice, a version apart.
+        userDefaults.removeObject(forKey: "settings.interface.preferredComposeMessageViewActionsOrder")
+        // A run of messages within one minute used to say the time once, under the last of them, and this key was the way back to a date under
+        // every message. **The collapse itself was deleted on 2026-09-09**, so the switch had nothing left to control and went with it: every
+        // message shows its date now, which is what this key's *on* position asked for. Dropped rather than left inert so that a TestFlight reader
+        // who turned it on is not carrying a preference for a feature that no longer exists — and so the next thing to claim
+        // `everyMessageShowsItsDate` starts from nothing rather than from a stale `true`.
+        //
+        // What it cost is worth the sentence, since it is why the feature went: the date line was the one change on the discussion screen that
+        // altered a **row's height** and animated itself while doing it, and landing inside the animated scroll that follows an arriving message it
+        // made the `List` re-estimate mid-flight — measured at −1,386pt, with one frame of a blank screen and one 1,222pt above the end. Removing it
+        // left the content constant to the decimal through every follow. See `SingleDiscussionCellsListView.goesToTheMessageThatHasJustAppeared`.
+        userDefaults.removeObject(forKey: "settings.interface.everyMessageShowsItsDate")
+    }
+    
     private func migrationToV3_3() {
         
         // User notifications have completely refactored. This has an impact on intents and on files stored
@@ -845,6 +898,14 @@ extension AppMainManager {
         guard let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) else { return }
         userDefaults.removeObject(forKey: "settings.featureflags.toggleNewDiscussionTab")
     }
+
+    
+    /// The choice between two palettes for the coloured circles standing for an identity is gone: everybody gets the computed hue. Both keys are cleared —
+    /// the one in the app group and the pre-build-148 one, whose only remaining drain was the block in ``migrationFromBuild147ToBuild148()``.
+    private func migrationToPerformAfterBuild987() async {
+        UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)?.removeObject(forKey: "settings.interface.identityColorStyle")
+        UserDefaults(suiteName: "io.olvid.messenger.settings")?.removeObject(forKey: "interface.identityColorStyle")
+    }
     
     
     private func migrationToV0_9_17() {
@@ -883,17 +944,6 @@ extension AppMainManager {
         do {
             let oldKey = "downloads.maxAttachmentSizeForAutomaticDownload"
             let newKey = "settings.downloads.maxAttachmentSizeForAutomaticDownload"
-            if newUserDefaults.object(forKey: newKey) == nil {
-                if let value = oldUserDefaults.object(forKey: oldKey) as? Int {
-                    newUserDefaults.set(value, forKey: newKey)
-                    oldUserDefaults.removeObject(forKey: oldKey)
-                }
-            }
-        }
-        // Migrate Interface.identityColorStyle
-        do {
-            let oldKey = "interface.identityColorStyle"
-            let newKey = "settings.interface.identityColorStyle"
             if newUserDefaults.object(forKey: newKey) == nil {
                 if let value = oldUserDefaults.object(forKey: oldKey) as? Int {
                     newUserDefaults.set(value, forKey: newKey)

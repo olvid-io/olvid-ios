@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,12 +23,14 @@ public enum AppType: Int {
     case mainApp = 0
     case shareExtension = 1
     case notificationExtension = 2
+    case intentExtension = 3
     
     public var transactionAuthor: String {
         switch self {
         case .mainApp: return "mainApp"
         case .shareExtension: return "shareExtension"
         case .notificationExtension: return "notificationExtension"
+        case .intentExtension: return "intentExtension"
         }
     }
 }

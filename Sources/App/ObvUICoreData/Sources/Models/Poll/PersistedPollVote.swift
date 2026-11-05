@@ -59,20 +59,25 @@ public class PersistedPollVote: NSManagedObject {
         rawTimestamp ?? .now
     }
     
-    func update(version: Int, voted: Bool, timestamp: Date) {
-        guard !self.isDeleted else { return }
-        guard self.version <= version else { return }
+    /// Returns `true` iff the update visibly changed the vote, i.e., iff the `voted` flag changed. A version or timestamp change alone is not user visible.
+    @discardableResult
+    func update(version: Int, voted: Bool, timestamp: Date) -> Bool {
+        guard !self.isDeleted else { return false }
+        guard self.version <= version else { return false }
         if self.version != version {
             self.version = version
         }
-        
-        if self.voted != voted {
+
+        let votedChanged = self.voted != voted
+        if votedChanged {
             self.voted = voted
         }
-        
+
         if self.rawTimestamp != timestamp {
             self.rawTimestamp = timestamp
         }
+
+        return votedChanged
     }
 }
 
@@ -119,6 +124,14 @@ extension PersistedPollVote {
             NSPredicate(Key.voted, is: bool)
         }
         
+        static func withPoll(objectID: TypeSafeManagedObjectID<PersistedPoll>) -> NSPredicate {
+            let key: String = [
+                Key.candidate.rawValue,
+                PersistedPollCandidate.Predicate.Key.poll.rawValue,
+            ].joined(separator: ".")
+            return NSPredicate(key, equalToObjectWithObjectID: objectID.objectID)
+        }
+
         static func withPollInDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
             let key: String = [
                 Key.candidate.rawValue,
@@ -129,30 +142,18 @@ extension PersistedPollVote {
             return NSPredicate(key, equalToObjectWithObjectID: discussionObjectID.objectID)
         }
 
-        static func withMessageLaterThan(_ date: Date) -> NSPredicate {
-            let key: String = [
-                Key.candidate.rawValue,
-                PersistedPollCandidate.Predicate.Key.poll.rawValue,
-                PersistedPoll.Predicate.Key.message.rawValue,
-                PersistedMessage.Predicate.Key.timestamp.rawValue,
-            ].joined(separator: ".")
-            return NSPredicate(key, laterThan: date)
+        static func withTimestampLaterThan(_ date: Date) -> NSPredicate {
+            NSPredicate(Key.rawTimestamp, laterThan: date)
         }
-        
-        static func withMessageEarlierOrEqualTo(_ date: Date) -> NSPredicate {
-            let key: String = [
-                Key.candidate.rawValue,
-                PersistedPollCandidate.Predicate.Key.poll.rawValue,
-                PersistedPoll.Predicate.Key.message.rawValue,
-                PersistedMessage.Predicate.Key.timestamp.rawValue,
-            ].joined(separator: ".")
-            return NSPredicate(key, earlierOrEqualTo: date)
+
+        static func withTimestampEarlierOrEqualTo(_ date: Date) -> NSPredicate {
+            NSPredicate(Key.rawTimestamp, earlierOrEqualTo: date)
         }
-        
-        static func withMessageInTimeInterval(startDate: Date, endDate: Date) -> NSPredicate {
+
+        static func withTimestampInTimeInterval(startDate: Date, endDate: Date) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
-                withMessageLaterThan(startDate),
-                withMessageEarlierOrEqualTo(endDate),
+                withTimestampLaterThan(startDate),
+                withTimestampEarlierOrEqualTo(endDate),
             ])
         }
 
@@ -163,6 +164,23 @@ extension PersistedPollVote {
     }
 
     
+    /// Returns an `NSFetchedResultsController` for every `PersistedPollVote` cast on any answer of the given `PersistedPoll`.
+    ///
+    /// It exists because **a vote is what changes when anyone votes**: casting one inserts or updates a `PersistedPollVote` and touches neither the poll nor the
+    /// message showing it. A screen watching only those two therefore misses the very thing it is drawing — which is what the poll bubble of the SwiftUI discussion
+    /// screen did until it watched this as well.
+    public static func getFetchedResultsController(pollObjectID: TypeSafeManagedObjectID<PersistedPoll>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedPollVote> {
+        let request: NSFetchRequest<PersistedPollVote> = PersistedPollVote.fetchRequest()
+        request.predicate = Predicate.withPoll(objectID: pollObjectID)
+        request.fetchBatchSize = 500
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
+
     /// Returns an `NSFetchedResultsController` for all the `PersistedPollVote`s associated to the given `PersistedPollCandidate`.
     public static func getFetchedResultsController(pollCandidateObjectID: TypeSafeManagedObjectID<PersistedPollCandidate>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedPollVote> {
         let request: NSFetchRequest<PersistedPollVote> = PersistedPollVote.fetchRequest()
@@ -216,8 +234,10 @@ public final class PersistedPollVoteSent: PersistedPollVote {
         return NSFetchRequest<PersistedPollVoteSent>(entityName: entityName)
     }
 
-    /// When a group member status changes from pending to non-pending, we need to send them the current users (sent) votes
-    /// relating to messages (sent or received) containing a Poll in the group during the member's pending period. This method returns these votes.
+    /// When a group member status changes from pending to non-pending, we need to send them the current user's (sent) votes that were set or updated
+    /// in the group during the member's pending period: the member did not receive them, since pending members are excluded from the active participants.
+    /// This method returns these votes. Note that the filter is on the *vote's* timestamp, not the message's: a vote made during the pending period
+    /// on an older poll was missed by the member too.
     public static func getPollVoteSentOnGroupMessages(groupIdentifier: ObvGroupV2Identifier,
                                                       dateInterval: PersistedGroupV2Member.DateInterval,
                                                       within context: NSManagedObjectContext) throws -> [(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, version: Int, originalServerTimestamp: Date)] {
@@ -230,11 +250,11 @@ public final class PersistedPollVoteSent: PersistedPollVote {
             assertionFailure()
             throw ObvUICoreDataError.couldNotFindDiscussion
         }
-        // Find all the sent votes associated to a message sent/received in the date interval in the discussion.
+        // Find all the sent votes of the discussion that were set or updated in the date interval.
         let request: NSFetchRequest<PersistedPollVoteSent> = PersistedPollVoteSent.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             PersistedPollVote.Predicate.withPollInDiscussion(discussionObjectID: objectIDOfGroupDiscussion.downcast),
-            PersistedPollVote.Predicate.withMessageInTimeInterval(startDate: dateInterval.startDate, endDate: dateInterval.endDate),
+            PersistedPollVote.Predicate.withTimestampInTimeInterval(startDate: dateInterval.startDate, endDate: dateInterval.endDate),
             PersistedPollVote.Predicate.whereVotedIs(true),
         ])
         request.fetchBatchSize = 1_000

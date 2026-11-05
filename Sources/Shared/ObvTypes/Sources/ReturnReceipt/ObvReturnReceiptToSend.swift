@@ -26,15 +26,13 @@ public struct ObvReturnReceiptToSend: Sendable {
     public let elements: ObvReturnReceiptElements
     public let status: ObvReturnReceiptStatus
     public let contactIdentifier: ObvContactIdentifier
-    public let contactDeviceUIDs: Set<UID>
     public let attachmentNumber: Int?
     
-    public init(elements: ObvReturnReceiptElements, status: ObvReturnReceiptStatus, contactIdentifier: ObvContactIdentifier, contactDeviceUIDs: Set<UID>, attachmentNumber: Int?) {
+    public init(elements: ObvReturnReceiptElements, status: ObvReturnReceiptStatus, contactIdentifier: ObvContactIdentifier, attachmentNumber: Int?) {
         self.elements = elements
         self.status = status
         self.contactIdentifier = contactIdentifier
         self.attachmentNumber = attachmentNumber
-        self.contactDeviceUIDs = contactDeviceUIDs
     }
     
 }

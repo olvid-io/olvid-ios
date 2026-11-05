@@ -362,6 +362,73 @@ extension ObvAppInboxService {
     }
  
     
+    /// Deletes the rows naming these messages, and only those, in one operation. Returns how many rows were deleted.
+    ///
+    /// That count can be smaller than the number of identifiers, and legitimately so: another process may have removed a row first,
+    /// and asking twice for the same page is not an error. The caller walks these rows by offset, so what it needs is not whether the
+    /// call succeeded but how many rows this page still occupies.
+    public func deleteMessageIdentifiersForLater(messageIds: [ObvMessageIdentifier]) async throws -> Int {
+        
+        guard !messageIds.isEmpty else { return 0 }
+        
+        let op1 = DeleteMessageIdentifiersForLaterOperation(input: .messageIds(messageIds))
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            let reason = composedOp.reasonForCancel
+            Self.logger.fault("Could not delete message identifiers saved for later: \(reason.debugDescription)")
+            assertionFailure()
+            throw ObvError.couldNotDeleteMessageIdentifiersForLater
+        }
+
+        guard let numberOfRowsDeleted = op1.numberOfRowsDeleted else {
+            assertionFailure("The operation was given a page of identifiers, so it counts what it deleted")
+            throw ObvError.couldNotDeleteMessageIdentifiersForLater
+        }
+
+        return numberOfRowsDeleted
+
+    }
+    
+    
+    /// How many messages are held for this owned identity.
+    public func countMessageIdentifiersForLater(ownedCryptoId: ObvCryptoId) async throws -> Int {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int, any Error>) in
+            ObvAppInboxStack.shared.performBackgroundTask { context in
+                do {
+                    let count = try MessageIdentifierForLater.countMessageIdentifiersForLater(ownedCryptoId: ownedCryptoId, within: context)
+                    return continuation.resume(returning: count)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
+    /// A bounded page of the identifiers held for this owned identity, oldest upload first.
+    ///
+    /// A caller that deletes some rows of each page must advance `fetchOffset` by the number it kept, not by the page size. See the
+    /// entity method for why.
+    public func fetchMessageIdentifiersForLater(ownedCryptoId: ObvCryptoId, fetchOffset: Int, fetchLimit: Int) async throws -> [ObvMessageIdentifier] {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvMessageIdentifier], any Error>) in
+            ObvAppInboxStack.shared.performBackgroundTask { context in
+                do {
+                    let messageIdentifiers = try MessageIdentifierForLater.fetchMessageIdentifiersForLater(
+                        ownedCryptoId: ownedCryptoId,
+                        fetchOffset: fetchOffset,
+                        fetchLimit: fetchLimit,
+                        within: context)
+                    return continuation.resume(returning: messageIdentifiers)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
     /// Called when an owned identity is deleted
     public func deleteMessageIdentifiersForLater(ownedCryptoId: ObvCryptoId) async {
         
@@ -423,6 +490,7 @@ extension ObvAppInboxService {
     
     enum ObvError: Error {
         case couldNotStoreObvEncryptedReceivedReturnReceiptForLater
+        case couldNotDeleteMessageIdentifiersForLater
     }
     
 }

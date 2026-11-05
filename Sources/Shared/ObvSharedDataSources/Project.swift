@@ -16,6 +16,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.App.obvDesignSystem,
         .Olvid.Shared.obvTypes,
         .Olvid.Shared.obvOwnedIdentityChooser,
+        .Olvid.Shared.obvDiscussionChooser,
         .Olvid.Shared.olvidUtils,
     ],
     enableSwift6: true)

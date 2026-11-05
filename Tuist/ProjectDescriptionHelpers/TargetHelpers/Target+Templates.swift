@@ -1,0 +1,614 @@
+import Foundation
+import ProjectDescription
+
+// MARK: - For Frameworks
+
+extension Target {
+    
+    /// See ``https://developer.apple.com/documentation/Xcode/configuring-your-project-to-use-mergeable-libraries`` for an understanding of `mergedBinaryType` and `mergeable`.
+    public static func makeFrameworkTarget(name: String,
+                                           infoPlist: InfoPlist = .default,
+                                           sourcesDirectoryName: String = "",
+                                           resources: ProjectDescription.ResourceFileElements? = nil,
+                                           developmentAssets: String? = nil,
+                                           dependencies: [TargetDependency],
+                                           coreDataModels: [CoreDataModel] = [],
+                                           additionalFiles: [ProjectDescription.FileElement] = [],
+                                           prepareForSwift6: Bool = false,
+                                           enableSwift6: Bool = false) -> Target {
+        
+        let settings: Settings = .settingsForFrameworkTarget(prepareForSwift6: prepareForSwift6, enableSwift6: enableSwift6, developmentAssets: developmentAssets)
+        
+        let sources = sourcesDirectoryName.isEmpty ? "Sources/**/*.swift" : [sourcesDirectoryName, "Sources/**/*.swift"].joined(separator: "/")
+
+        let allSources: ProjectDescription.SourceFilesList
+        if let developmentAssets {
+            let developmentSources = [developmentAssets, "**/*.swift"].joined(separator: "/")
+            allSources = [.init(stringLiteral: sources), .init(stringLiteral: developmentSources)]
+        } else {
+            allSources = [.init(stringLiteral: sources)]
+        }
+        
+        return .target(name: name,
+                       destinations: Constant.destinations,
+                       product: .framework,
+                       productName: nil,
+                       bundleId: "io.olvid.\(name)",
+                       deploymentTargets: Constant.deploymentTargets,
+                       infoPlist: infoPlist,
+                       sources: allSources,
+                       resources: resources,
+                       copyFiles: nil,
+                       headers: nil,
+                       entitlements: nil,
+                       scripts: [],
+                       dependencies: dependencies,
+                       settings: settings,
+                       coreDataModels: coreDataModels,
+                       environmentVariables: [:],
+                       launchArguments: [],
+                       additionalFiles: additionalFiles,
+                       buildRules: [],
+                       mergedBinaryType: .disabled,
+                       mergeable: false,
+                       onDemandResourcesTags: nil)
+        
+    }
+    
+    
+    /// The unit tests of the main app's own sources.
+    ///
+    /// It hosts nothing. The app has two targets, production and development, so hosting would mean picking one of them
+    /// arbitrarily and launching it on a simulator to test a pure function — where the sources under test here depend on
+    /// frameworks alone and compile perfectly well on their own. `sourcesUnderTest` therefore names the app files to
+    /// compile *into* the test target, which is the price of this: a file listed there is built twice, and gains nothing
+    /// from the app target it normally lives in. Keep the list short, and prefer moving a file into a framework of its
+    /// own when it grows past being testable this way.
+    public static func makeAppUnitTestsTarget(name: String,
+                                              sourcesUnderTest: [ProjectDescription.SourceFileGlob],
+                                              dependencies: [TargetDependency]) -> Target {
+        .target(name: name,
+                destinations: Constant.destinations,
+                product: .unitTests,
+                productName: nil,
+                bundleId: "\(Constant.olvidBundleIdentifiers(for: .development).app).tests",
+                deploymentTargets: Constant.deploymentTargets,
+                infoPlist: .default,
+                sources: SourceFilesList.sourceFilesList(globs: [.glob("App/Tests/**/*.swift")] + sourcesUnderTest),
+                resources: nil,
+                copyFiles: nil,
+                headers: nil,
+                entitlements: nil,
+                scripts: [],
+                dependencies: dependencies,
+                settings: .settings(
+                    base: ["DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER": .init(booleanLiteral: false)],
+                    configurations: [],
+                    defaultSettings: .recommended),
+                coreDataModels: [],
+                environmentVariables: [:],
+                launchArguments: [],
+                additionalFiles: [],
+                buildRules: [],
+                mergedBinaryType: .disabled,
+                mergeable: false,
+                onDemandResourcesTags: nil)
+    }
+    
+    
+    /// `dependencies` are what the tests need beyond the tested target, such as the module holding a Core Data model.
+    public static func makeFrameworkUnitTestsTarget(forTesting testedTarget: Target,
+                                                    resources: ProjectDescription.ResourceFileElements? = nil,
+                                                    dependencies: [TargetDependency] = []) -> Target {
+        .target(name: "\(testedTarget.name)Tests",
+                destinations: Constant.destinations,
+                product: .unitTests,
+                productName: nil,
+                bundleId: "\(testedTarget.bundleId).tests",
+                deploymentTargets: Constant.deploymentTargets,
+                infoPlist: .default,
+                sources: ["Tests/**/*.swift"],
+                resources: resources,
+                copyFiles: nil,
+                headers: nil,
+                entitlements: nil,
+                scripts: [],
+                dependencies: [.target(name: testedTarget.name)] + dependencies,
+                settings: .settings(
+                    base: ["DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER": .init(booleanLiteral: false)],
+                    configurations: [],
+                    defaultSettings: .recommended),
+                coreDataModels: [],
+                environmentVariables: [:],
+                launchArguments: [],
+                additionalFiles: [],
+                buildRules: [],
+                mergedBinaryType: .disabled,
+                mergeable: false,
+                onDemandResourcesTags: nil)
+    }
+
+}
+
+
+// MARK: - For App Extensions
+
+extension Target {
+    
+    public static func makeIntentsServiceExtensionTarget(appType: OlvidAppType) -> Self {
+        
+        let name = Constant.olvidTargetNames(for: appType).intentsExtension
+
+        let bundleId = Constant.olvidBundleIdentifiers(for: appType).intentsExtension
+        
+        let infoPlist: InfoPlist = .forOlvidIntentsServiceExtension(appType: appType)
+        
+        let sources: SourceFilesList = [
+            "Extensions/IntentsExtension/Sources/**/*.swift",
+            "App/Sources/Constants/ObvMessengerConstants.swift",
+            "App/Sources/Singletons/ObvStack.swift",
+            "App/Sources/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/Receiving messages/MarkReceivedMessageAsReadFromCurrentDeviceOperation.swift",
+            "App/Sources/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/EngineOperations/PostDiscussionReadJSONEngineOperation.swift",
+            "Extensions/ShareExtension/Sources/Operations/CreateUnprocessedPersistedMessageSentFromFylesStrings.swift",
+        ]
+        
+        let entitlements: Entitlements = .forIntentsServiceExtension(appType: appType)
+        
+        let dependencies: [TargetDependency] = [
+            .sdk(name: "Intents", type: .framework, status: .required),
+            .Olvid.Shared.obvTypes,
+            .Olvid.Shared.olvidUtils,
+            .Olvid.Shared.obvCoreDataStack,
+            .Olvid.Shared.obvSharedDataSources,
+            .Olvid.App.obvAppCoreConstants,
+            .Olvid.App.obvCommunicationInteractor,
+            .Olvid.App.obvDesignSystem,
+            .Olvid.App.obvSettings,
+            .Olvid.App.obvUI,
+            .Olvid.App.obvUICoreData,
+            .Olvid.App.obvSystemIcon,
+            .Olvid.App.obvAppTypes,
+            .Olvid.App.obvKeycloakManager,
+            .Olvid.App.ObvUserNotifications.content,
+            .Olvid.App.ObvUserNotifications.database,
+            .Olvid.App.obvSiriReadIntents,
+            .Olvid.App.UI.obvCircledInitials,
+            .Olvid.App.UI.obvCircleAndTitlesView,
+            .Olvid.Engine.obvCrypto,
+            .Olvid.Engine.obvEngine,
+            .Olvid.App.UI.obvImageEditor,
+        ]
+
+        let settings: Settings = .settingsOfAppExtensionTarget()
+
+        let target = Target.makeAppExtensionTarget(name: name,
+                                                   bundleId: bundleId,
+                                                   infoPlist: infoPlist,
+                                                   sources: sources,
+                                                   resources: [],
+                                                   entitlements: entitlements,
+                                                   dependencies: dependencies,
+                                                   settings: settings)
+
+        return target
+        
+    }
+    
+    public static func makeNotificationServiceExtensionTarget(appType: OlvidAppType) -> Self {
+        
+        let name = Constant.olvidTargetNames(for: appType).notificationExtension
+
+        let bundleId = Constant.olvidBundleIdentifiers(for: appType).notificationExtension
+        
+        let infoPlist: InfoPlist = .forOlvidNotificationServiceExtension(appType: appType)
+        
+        // There is way too much source files here. Eventually, we should create subprojects to share code between the App and the Notification extension
+        // and reduce the number of dependencies.
+        let sources: SourceFilesList = [
+            "Extensions/NotificationServiceExtension/Sources/**/*.swift",
+            "App/Sources/Singletons/ObvStack.swift",
+        ]
+        
+        let resources: ResourceFileElements = [
+            "Extensions/NotificationServiceExtension/Resources/PrivacyInfo.xcprivacy",
+            "App/Resources/Localizable.xcstrings",
+            "App/Resources/*.xcassets",
+        ]
+        
+        let entitlements: Entitlements = .forNotificationServiceExtension(appType: appType)
+        
+        let dependencies: [TargetDependency] = [
+            .sdk(name: "UserNotifications", type: .framework),
+            .sdk(name: "UIKit", type: .framework),
+            .package(product: "AppAuth"), // See the .remote package declaration when creating the project
+            .Olvid.App.obvAppCoreConstants,
+            .Olvid.App.obvUICoreData,
+            .Olvid.App.obvSettings,
+            .Olvid.App.obvCommunicationInteractor,
+            .Olvid.App.obvUI,
+            .Olvid.App.ObvUserNotifications.database,
+            .Olvid.App.ObvUserNotifications.sounds,
+            .Olvid.App.ObvUserNotifications.creator,
+            .Olvid.App.UI.obvImageEditor,
+            .Olvid.Engine.obvEngine,
+            .Olvid.Engine.obvCrypto,
+            .Olvid.Shared.olvidUtils,
+            .Olvid.Shared.obvTypes,
+            .Olvid.Shared.obvAccessibility
+        ]
+
+        let settings: Settings = .settingsOfAppExtensionTarget(enableSwift6: true)
+
+        let target = Target.makeAppExtensionTarget(name: name,
+                                                   bundleId: bundleId,
+                                                   infoPlist: infoPlist,
+                                                   sources: sources,
+                                                   resources: resources,
+                                                   entitlements: entitlements,
+                                                   dependencies: dependencies,
+                                                   settings: settings)
+
+        return target
+
+    }
+    
+    
+    public static func makeShareExtensionTarget(appType: OlvidAppType) -> Self {
+        
+        let name = Constant.olvidTargetNames(for: appType).shareExtension
+        
+        let bundleId = Constant.olvidBundleIdentifiers(for: appType).shareExtension
+        
+        let infoPlist: InfoPlist = .forOlvidShareExtension(appType: appType)
+        
+        // Beyond the extension's own sources, this pulls in individual files from the main app target.
+        // Keep the list minimal: every entry is compiled into the extension, which runs under a much
+        // tighter memory limit than the app. Anything listed here should be reachable from
+        // `Extensions/ShareExtension/Sources`, directly or transitively.
+        let sources: SourceFilesList = [
+            "Extensions/ShareExtension/Sources/**/*.swift",
+            "App/Sources/Constants/ObvMessengerConstants.swift",
+            "App/Sources/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/Deleting messages and discussions/WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation.swift",
+            "App/Sources/LocalAuthentication/LocalAuthenticationViewController.swift",
+            "App/Sources/LocalAuthentication/LocalAuthenticationViewControllerDelegate.swift",
+            "App/Sources/Localization/CommonString.swift",
+            "App/Sources/Main/Settings/AllSettings/Privacy/VerifyPasscodeViewController.swift",
+            "App/Sources/Managers/HardLinksToFylesManager/HardLinksToFylesManager.swift",
+            "App/Sources/Managers/LocalAuthenticationManager/LocalAuthenticationManager.swift",
+            "App/Sources/Notifications/HardLinksToFylesNotifications.swift",
+            "App/Sources/Notifications/ObvMessengerInternalNotification.swift",
+            "App/Sources/LatestCurrentOwnedIdentityStorage/LatestCurrentOwnedIdentityStorage.swift",
+            "App/Sources/Singletons/ObvStack.swift",
+            "App/Sources/Types/ObvLinkMetadata+LPLinkMetadata.swift",
+            "App/Sources/Types/OlvidUserId.swift",
+            "App/Sources/Utils/Loading Item Providers/LoadItemProviderHelper.swift",
+            "App/Sources/Utils/Loading Item Providers/NSItemProvider+UncheckedSendable.swift",
+            "App/Sources/UIElements/PasscodeUtils.swift",
+            "App/Sources/Utils/Atomic.swift",
+            "App/Sources/Utils/Concurrency.swift",
+            "App/Sources/Utils/NotificationObservationTokens.swift",
+            "App/Sources/Utils/ObvDeepLink.swift",
+            "App/Sources/Utils/TimeUtils.swift",
+            "App/Sources/Utils/UIView+EdgeConstraints.swift",
+            "App/Sources/Utils/UIViewController+ContentController.swift",
+            "App/Sources/Utils/URL+MoveToTrash.swift",
+        ]
+      
+        let resources: ResourceFileElements = [
+            "Extensions/ShareExtension/Resources/**/*",
+            "App/Resources/LaunchScreen.storyboard",
+            "App/Resources/*.xcassets",
+        ]
+
+        let entitlements: Entitlements = .forShareExtension(appType: appType)
+      
+        let dependencies: [TargetDependency] = [
+            .sdk(name: "UIKit", type: .framework),
+            .Olvid.Shared.obvTypes,
+            .Olvid.Shared.olvidUtils,
+            .Olvid.Shared.obvCoreDataStack,
+            .Olvid.Shared.obvSharedDataSources,
+            .Olvid.Shared.obvMediaTranscoding,
+            .Olvid.App.obvAppCoreConstants,
+            .Olvid.App.obvDesignSystem,
+            .Olvid.App.obvSettings,
+            .Olvid.App.obvUI,
+            .Olvid.App.obvUICoreData,
+            .Olvid.App.obvSystemIcon,
+            .Olvid.App.obvAppTypes,
+            .Olvid.App.obvKeycloakManager,
+            .Olvid.App.UI.obvCircledInitials,
+            .Olvid.App.UI.obvCircleAndTitlesView,
+            .Olvid.Engine.obvCrypto,
+            .Olvid.Engine.obvEngine,
+            .Olvid.App.UI.obvImageEditor,
+            .Olvid.App.obvShareExtension
+         ]
+
+        let settings: Settings = .settingsOfAppExtensionTarget(enableSwift6: true)
+        
+        let target = Target.makeAppExtensionTarget(name: name,
+                                                   bundleId: bundleId,
+                                                   infoPlist: infoPlist,
+                                                   sources: sources,
+                                                   resources: resources,
+                                                   entitlements: entitlements,
+                                                   dependencies: dependencies,
+                                                   settings: settings)
+        
+        return target
+        
+    }
+    
+    
+    /// Used when creating an app extension target (i.e., either the share, notification, or intents extension)
+    private static func makeAppExtensionTarget(name: String,
+                                              bundleId: String,
+                                              infoPlist: InfoPlist,
+                                              sources: SourceFilesList?,
+                                              resources: ResourceFileElements?,
+                                              entitlements: Entitlements?,
+                                              dependencies: [TargetDependency],
+                                              settings: Settings?) -> Target {
+        
+        return .target(name: name,
+                       destinations: Constant.destinations,
+                       product: .appExtension,
+                       productName: name,
+                       bundleId: bundleId,
+                       deploymentTargets: Constant.deploymentTargets,
+                       infoPlist: infoPlist,
+                       sources: sources,
+                       resources: resources,
+                       copyFiles: nil,
+                       headers: nil,
+                       entitlements: entitlements,
+                       scripts: [],
+                       dependencies: dependencies,
+                       settings: settings,
+                       coreDataModels: [],
+                       environmentVariables: [:],
+                       launchArguments: [],
+                       additionalFiles: [],
+                       buildRules: [],
+                       mergedBinaryType: .disabled,
+                       mergeable: false,
+                       onDemandResourcesTags: nil)
+        
+    }
+
+}
+
+
+// MARK: - For the main App
+
+extension Target {
+    
+    public static func makeMainAppTarget(appType: OlvidAppType,
+                                         externalDependencies: [TargetDependency],
+                                         shareExtension: Target,
+                                         notificationExtension: Target,
+                                         intentsExtension: Target) -> Self {
+        
+        let name = Constant.olvidTargetNames(for: appType).app
+        
+        let bundleId = Constant.olvidBundleIdentifiers(for: appType).app
+
+        let infoPlist: InfoPlist = .forOlvidMainAppTarget(for: appType)
+        
+        let sources: SourceFilesList = [
+            "App/Sources/**/*.swift",
+            "App/Sources/**/*.xcmappingmodel",
+        ]
+        
+        let resources: ResourceFileElements = [
+            "App/Resources/*.xcassets",
+            "App/Resources/**/*.xcstrings",
+            "App/Resources/**/*.lproj/AppIntentVocabulary.plist",
+            "App/Resources/LaunchScreen.storyboard",
+            "App/Resources/PrivacyInfo.xcprivacy",
+            "App/Resources/Settings.bundle",
+            "App/Resources/CallSounds/*.mp3",
+            //"App/Resources/AppIcon.icon",
+            //"App/Resources/AppIcon-debug.icon",
+            "App/Sources/**/*.xib",
+        ]
+        
+        let internalDependencies: [TargetDependency] = [
+            .target(shareExtension),
+            .target(notificationExtension),
+            .target(intentsExtension),
+            .Olvid.App.obvAppCoreConstants,
+            .Olvid.App.ObvAppInbox.types,
+            .Olvid.App.ObvAppInbox.database,
+            .Olvid.App.ObvAppInbox.service,
+            .Olvid.App.obvUICoreData,
+            .Olvid.App.obvDesignSystem,
+            .Olvid.App.obvUIGroupV1,
+            .Olvid.App.obvUIGroupV2,
+            .Olvid.App.obvUIGroupSharedBetweenV1AndV2,
+            .Olvid.App.obvSingleContact,
+            .Olvid.App.obvContactsSuggestions,
+            .Olvid.App.obvSingleOwnedIdentity,
+            .Olvid.App.obvDiscussionsList,
+            .Olvid.App.obvGroupsList,
+            .Olvid.App.obvSingleDiscussion,
+            .Olvid.App.obvProfilePictureBarButtonItem,
+            .Olvid.App.obvSettings,
+            .Olvid.App.obvContinuedProcessingTaskManager,
+            .Olvid.App.obvSiriReadIntents,
+            .Olvid.App.ObvUserNotifications.sounds,
+            .Olvid.App.Platform.uiKitAdditions,
+            .Olvid.App.Platform.base,
+            .Olvid.App.Components.textInputShortcutsResultView,
+            .Olvid.App.Components.obvEmojiUtils,
+            .Olvid.App.UI.obvPhotoButton,
+            .Olvid.App.UI.obvCircledInitials,
+            .Olvid.App.UI.obvCircleAndTitlesView,
+            .Olvid.App.UI.obvImageEditor,
+            .Olvid.App.UI.obvScannerHostingView,
+            .Olvid.App.obvSystemIcon,
+            .Olvid.App.obvUI,
+            .Olvid.App.obvLocation,
+            .Olvid.App.obvCarPlay,
+            .Olvid.App.obvLicenceActivationFlow,
+            .Olvid.App.obvAppBackup,
+            .Olvid.App.obvHistoryTransfer,
+            .Olvid.App.obvAppTypes,
+            .Olvid.App.obvAppNavigation,
+            .Olvid.App.obvKeycloakManager,
+            .Olvid.App.obvCells,
+            .Olvid.App.obvOnboarding,
+            .Olvid.App.obvPollFeature,
+            .Olvid.App.obvComposition,
+            .Olvid.App.obvSubscription,
+            .Olvid.App.obvInvitationFlow,
+            .Olvid.App.obvShareExtension,
+            .Olvid.App.obvSidebar,
+            .Olvid.Engine.obvEngine,
+            .Olvid.Engine.obvCrypto,
+            .Olvid.Engine.obvEncoder,
+            .Olvid.Engine.obvFlowManager,
+            .Olvid.Engine.obvJWS,
+            .Olvid.Shared.obvCoreDataStack,
+            .Olvid.Shared.obvTypes,
+            .Olvid.Shared.olvidUtils,
+            .Olvid.Shared.obvNetworkStatus,
+            .Olvid.Shared.obvAccessibility,
+            .Olvid.Shared.obvOwnedIdentityChooser,
+            .Olvid.Shared.obvDiscussionChooser,
+            .Olvid.Shared.obvSharedDataSources,
+            .Olvid.Shared.obvMediaTranscoding,
+        ]
+        
+        let dependencies = internalDependencies + externalDependencies
+        
+        let entitlements: Entitlements = .forMainApp(appType: appType)
+        
+        let settings: Settings = .settingsOfMainAppTarget(appType: appType)
+        
+        let additionalFiles: [FileElement] = [
+            "App/TestConfiguration.storekit",
+            "App/NewStoreKitConfiguration.storekit",
+        ]
+        
+        let target: Target = .target(name: name,
+                                     destinations: Constant.destinations,
+                                     product: .app,
+                                     productName: name,
+                                     bundleId: bundleId,
+                                     deploymentTargets: Constant.deploymentTargets,
+                                     infoPlist: infoPlist,
+                                     sources: sources,
+                                     resources: resources,
+                                     copyFiles: nil,
+                                     headers: nil,
+                                     entitlements: entitlements,
+                                     scripts: [],
+                                     dependencies: dependencies,
+                                     settings: settings,
+                                     coreDataModels: [],
+                                     environmentVariables: [:],
+                                     launchArguments: [],
+                                     additionalFiles: additionalFiles,
+                                     buildRules: [],
+                                     mergedBinaryType: .disabled,
+                                     mergeable: false,
+                                     onDemandResourcesTags: nil)
+
+        return target
+        
+    }
+        
+}
+
+
+// MARK: - For ObjectiveC libraries
+
+extension Target {
+    
+    public static func makeObjectiveCLibraryTarget(name: String,
+                                                   sources: SourceFilesList,
+                                                   headers: Headers?,
+                                                   dependencies: [TargetDependency],
+                                                   isExtensionSafe: Bool) -> Target {
+        
+        let settings: Settings = .settingsOfObjectiveCLibraryTarget()
+
+        return .target(name: name,
+                       destinations: Constant.destinations,
+                       product: .framework,
+                       productName: name,
+                       bundleId: bundleIdentifier(for: name),
+                       deploymentTargets: Constant.deploymentTargets,
+                       infoPlist: .default,
+                       sources: sources,
+                       resources: nil,
+                       copyFiles: nil,
+                       headers: headers,
+                       entitlements: nil,
+                       scripts: [],
+                       dependencies: dependencies,
+                       settings: settings,
+                       coreDataModels: [],
+                       environmentVariables: [:],
+                       launchArguments: [],
+                       additionalFiles: [],
+                       buildRules: [],
+                       mergedBinaryType: .disabled,
+                       mergeable: false,
+                       onDemandResourcesTags: nil)
+        
+    }
+    
+}
+
+
+// MARK: - For Swift libraries
+
+extension Target {
+    
+    public static func makeSwiftLibraryTarget(name: String,
+                                              sources: SourceFilesList,
+                                              resources: ProjectDescription.ResourceFileElements?,
+                                              dependencies: [TargetDependency],
+                                              isExtensionSafe: Bool) -> Target {
+        
+        let settings: Settings = .settingsOfSwiftLibraryTarget()
+
+        return .target(name: name,
+                       destinations: Constant.destinations,
+                       product: .framework,
+                       productName: nil,
+                       bundleId: bundleIdentifier(for: name),
+                       deploymentTargets: Constant.deploymentTargets,
+                       infoPlist: .default,
+                       sources: sources,
+                       resources: resources,
+                       copyFiles: nil,
+                       headers: nil,
+                       entitlements: nil,
+                       scripts: [],
+                       dependencies: dependencies,
+                       settings: settings,
+                       coreDataModels: [],
+                       environmentVariables: [:],
+                       launchArguments: [],
+                       additionalFiles: [],
+                       buildRules: [],
+                       mergedBinaryType: .disabled,
+                       mergeable: false,
+                       onDemandResourcesTags: nil)
+        
+    }
+    
+    
+}
+
+
+// MARK: - Private helpers
+
+private func bundleIdentifier(for name: String) -> String {
+    let name = name.replacingOccurrences(of: "_", with: "-")
+    return "io.olvid.\(name)"
+}

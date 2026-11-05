@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,6 +62,15 @@ actor DownloadAttachmentChunksCoordinator {
     
     private var chunksProgressesForAttachment = [ObvAttachmentIdentifier: (chunkProgresses: [ChunkProgress], dateOfLastUpdate: Date)]()
 
+    // Streaming the progress of a download to whoever is showing that attachment
+
+    /// The continuations of the streams being followed, and the attachment each of them follows.
+    ///
+    /// Two dictionaries rather than one: a chunk arriving must reach the continuations of *its* attachment without a pass over all of them, while a stream is
+    /// finished by its UUID alone, as the engine's other streams are.
+    private var progressContinuationForStreamUUID = [UUID: AsyncStream<ObvAttachmentDownloadProgress>.Continuation]()
+    private var progressStreamUUIDsForAttachment = [ObvAttachmentIdentifier: Set<UUID>]()
+
     init(logPrefix: String) {
         let logSubsystem = "\(logPrefix).\(Self.defaultLogSubsystem)"
         Self.logger = Logger(subsystem: logSubsystem, category: Self.logCategory)
@@ -120,6 +129,10 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
         // If there is no download task in progress, there is nothing to do
         
         guard downloadAttachmentTask[attachmentId] != nil else {
+            // **Not the same as "nothing is downloading".** This map is in memory, so it is empty for a background `URLSession` that outlived the process
+            // that started it — and such a session goes on writing chunks into a file whose message may be about to be deleted from the server. Said out
+            // loud, because a cancel that cancelled nothing is otherwise indistinguishable from a cancel that had nothing to cancel.
+            Self.logger.info("📁 [\(attachmentId.debugDescription, privacy: .public)] Not cancelling anything: this coordinator holds no download task for the attachment. Any background URLSession started by an earlier process is unaffected and keeps writing")
             return
         }
         
@@ -175,11 +188,27 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
         // Make sure there is a download task to pause.
         
         guard let currentDownloadTask = downloadAttachmentTask[attachmentId] else {
+            // **The notification is posted only if the status actually changed**, which it was not until 2026-08-31: the failure was swallowed by a bare
+            // `assertionFailure()` and the pause was announced regardless. Moving *to* `.paused` is legal only from `.resumeRequested` or from `.paused`
+            // itself — `.markedForDeletion` is allowed through silently — so what throws here is `.downloaded` or `.cancelledByServer`, an attachment for
+            // which pausing means nothing at all.
+            //
+            // Announcing it anyway did more than mislead. The app answers `inboxAttachmentDownloadWasPaused` by marking its join `.downloadable`, so the
+            // glyph became a download arrow and the tap looked as though it had worked; the join being `.downloadable` then made the app ask to download,
+            // `resumeDownload()` was refused on the same grounds, and nothing happened. One lie, and the attachment was further from a working state than
+            // before the reader touched it.
+            //
+            // **A log rather than an assertion**: an attachment stuck at `.downloaded` with the app-side join still believing it is downloading is reachable
+            // in ordinary use until that is repaired, and trapping every debug build on a reader's tap is noise. The throw is the signal.
+            //
+            // Note the sibling path was always right — `createTaskForPausingAttachmentDownload`'s error propagates through `try await task.value`, which
+            // returns before the notification below. This branch, the one taken when no download task is held in memory, was the only one that lied.
             let op1 = ChangeAttachmentStatusToPausedOperation(attachmentId: attachmentId)
             do {
                 try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
             } catch {
-                assertionFailure()
+                Self.logger.error("📄[\(attachmentId.debugDescription, privacy: .public)] Could not pause the download: \(error.localizedDescription, privacy: .public). Saying nothing, since saying it paused would be false.")
+                throw error
             }
             ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasPaused(attachmentId: attachmentId, flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
@@ -288,7 +317,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
     /// Called during bootstrap so as to invalidate and cancel any URLSession and to delete their associated ``InboxAttachmentSession``.
     /// This ensures a "fresh start" after a cold boot of the app.
     /// 2023-12: ok
-    func cleanExistingOutboxAttachmentSessions(flowId: FlowIdentifier) async throws {
+    func cleanExistingInboxAttachmentSessions(flowId: FlowIdentifier) async throws {
         
         guard let delegateManager = delegateManager else {
             Self.logger.fault("The Delegate Manager is not set")
@@ -301,7 +330,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
         } catch {
             assertionFailure()
-            throw ObvError.failedToCleanExistingOutboxAttachmentSessions
+            throw ObvError.failedToCleanExistingInboxAttachmentSessions
         }
         
         failedAttemptsCounterManager.resetAll()
@@ -329,6 +358,107 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
     }
 
     
+    /// Follows the download of one attachment, for as long as the caller keeps the stream.
+    ///
+    /// The alternative this replaces is `requestDownloadAttachmentProgressesUpdatedSince(date:)`, which the app polls every 0.3s to move a number this
+    /// coordinator already has. Here the number is pushed at the moment it changes, to the views showing that one attachment and to nothing else.
+    ///
+    /// The current progress is yielded at once, and is read from the database when nothing is held in memory. That is not an optimisation: a **paused**
+    /// attachment has no in-memory entry, since none is created until a chunk arrives, so a stream that waited for the first chunk would report nothing at all
+    /// and a paused download would appear not to have started.
+    ///
+    /// The buffering policy is what keeps a fast download from flooding its reader: only the latest progress means anything, so a consumer slower than
+    /// `URLSession` sees the newest value rather than a queue of stale ones.
+    func getAsyncStreamOfDownloadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentDownloadProgress>) {
+
+        let progressSoFar = await currentDownloadProgress(attachmentId: attachmentId, flowId: flowId)
+
+        let streamUUID = UUID()
+        let (stream, continuation) = AsyncStream.makeStream(of: ObvAttachmentDownloadProgress.self, bufferingPolicy: .bufferingNewest(1))
+
+        progressContinuationForStreamUUID[streamUUID] = continuation
+        progressStreamUUIDsForAttachment[attachmentId, default: []].insert(streamUUID)
+
+        if let progressSoFar {
+            continuation.yield(progressSoFar)
+        }
+
+        return (streamUUID, stream)
+
+    }
+
+
+    /// Ends one stream returned by ``getAsyncStreamOfDownloadProgress(attachmentId:flowId:)``.
+    ///
+    /// The caller has to do this: a continuation cannot learn on its own that the view following it has gone, `onTermination` running in the app's process and
+    /// not here. A caller that forgets leaves this coordinator yielding into a stream nobody reads, for every attachment ever shown.
+    func finishAsyncStreamOfDownloadProgress(streamUUID: UUID) {
+        guard let continuation = progressContinuationForStreamUUID.removeValue(forKey: streamUUID) else { return }
+        continuation.finish()
+        for (attachmentId, streamUUIDs) in progressStreamUUIDsForAttachment where streamUUIDs.contains(streamUUID) {
+            progressStreamUUIDsForAttachment[attachmentId]?.remove(streamUUID)
+            if progressStreamUUIDsForAttachment[attachmentId]?.isEmpty ?? false {
+                progressStreamUUIDsForAttachment.removeValue(forKey: attachmentId)
+            }
+        }
+    }
+
+
+    /// Where an attachment's download stands right now: what is held in memory, or failing that what the chunks on disk say.
+    ///
+    /// Returns nil when neither can answer, which is an attachment the engine knows nothing about.
+    private func currentDownloadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async -> ObvAttachmentDownloadProgress? {
+
+        if let (chunkProgresses, _) = chunksProgressesForAttachment[attachmentId] {
+            return Self.downloadProgress(from: chunkProgresses)
+        }
+
+        guard let delegateManager else {
+            Self.logger.fault("The Delegate Manager is not set")
+            assertionFailure()
+            return nil
+        }
+
+        // Nothing in memory, which is what a paused download looks like. The chunks already written are on disk, so the operation that would have created the
+        // in-memory entry can answer instead.
+        let op1 = CreateChunksProgressesForAttachmentOperation(attachmentId: attachmentId)
+        do {
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        } catch {
+            return nil
+        }
+        return Self.downloadProgress(from: op1.currentChunkProgresses)
+
+    }
+
+
+    /// The progress of the whole attachment, which is the sum over its chunks.
+    private static func downloadProgress(from chunkProgresses: [ChunkProgress]) -> ObvAttachmentDownloadProgress {
+        .init(totalBytesWritten: chunkProgresses.map({ $0.totalBytesWritten }).reduce(0, +),
+              totalBytesExpectedToWrite: chunkProgresses.map({ $0.totalBytesExpectedToWrite }).reduce(0, +))
+    }
+
+
+    /// Reports what an attachment's chunks now amount to, to whoever is following it.
+    private func yieldDownloadProgress(ofAttachment attachmentId: ObvAttachmentIdentifier) {
+        guard let streamUUIDs = progressStreamUUIDsForAttachment[attachmentId], !streamUUIDs.isEmpty else { return }
+        guard let (chunkProgresses, _) = chunksProgressesForAttachment[attachmentId] else { return }
+        let progress = Self.downloadProgress(from: chunkProgresses)
+        for streamUUID in streamUUIDs {
+            progressContinuationForStreamUUID[streamUUID]?.yield(progress)
+        }
+    }
+
+
+    /// Ends every stream following an attachment, its download being over.
+    private func finishStreamsOfDownloadProgress(ofAttachment attachmentId: ObvAttachmentIdentifier) {
+        guard let streamUUIDs = progressStreamUUIDsForAttachment.removeValue(forKey: attachmentId) else { return }
+        for streamUUID in streamUUIDs {
+            progressContinuationForStreamUUID.removeValue(forKey: streamUUID)?.finish()
+        }
+    }
+
+
     /// Called by the app when it cannot find the file associated to an attachment, although it was notified that the attachment is fully downloaded. This is very rare.
     func appCouldNotFindFileOfDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
         
@@ -344,6 +474,30 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
         } catch {
             assertionFailure()
             throw ObvError.anOperationCancelled(localizedDescription: "ResetAttachmentStatusIfCurrentStatusIsDownloadedAndFileIsNotAvailableOperation")
+        }
+
+    }
+
+
+    /// Called by the app when the file of an attachment it was told is fully downloaded does not hash as the sender said it would.
+    ///
+    /// Deliberately a different entry point from ``appCouldNotFindFileOfDownloadedAttachment(attachmentId:flowId:)`` rather than a reuse of it: that one turns
+    /// on the file being absent and returns when it is there, so it cannot serve a file whose bytes are merely wrong. The caller is expected to ask for the
+    /// download to be resumed afterwards; this only undoes the belief that the attachment is complete.
+    func appFoundACorruptFileForDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
+
+        guard let delegateManager else {
+            Self.logger.fault("The Delegate Manager is not set")
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+
+        let op1 = ResetAttachmentStatusBecauseTheDownloadedFileIsCorruptOperation(attachmentId: attachmentId, inbox: delegateManager.inbox)
+        do {
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        } catch {
+            assertionFailure()
+            throw ObvError.anOperationCancelled(localizedDescription: "ResetAttachmentStatusBecauseTheDownloadedFileIsCorruptOperation")
         }
 
     }
@@ -525,11 +679,16 @@ extension DownloadAttachmentChunksCoordinator {
             throw ObvError.theNotificationDelegateIsNotSet
         }
 
+        // What this actor is already handling, so that the operation builds no session for those — see there. Read before the `await` below and therefore
+        // possibly out of date by the time the loop runs, which the loop allows for: it consults `downloadAttachmentTask` itself, and that reading wins.
+        let attachmentsTheCoordinatorIsAlreadyHandling = Set(downloadAttachmentTask.keys)
+
         let op1 = DetermineAttachmentsToDownloadAndCreateURLSessionsOperation(
             kind: kind,
             tracker: self,
-            delegateManager: delegateManager)
-        
+            delegateManager: delegateManager,
+            attachmentsTheCoordinatorIsAlreadyHandling: attachmentsTheCoordinatorIsAlreadyHandling)
+
         do {
             try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
         } catch {
@@ -572,11 +731,20 @@ extension DownloadAttachmentChunksCoordinator {
                         kindOfResumeToPerform = .resumingPausedDownload(urlSession: urlSession)
                     }
                 } else {
-                    // There is no existing paused download to resume, we create a fresh download
+                    // There is no existing paused download to resume, we create a fresh download.
+                    //
+                    // The session comes from the operation, which built one because this attachment was not among those we said we were handling. It can
+                    // be nil all the same: that reading was taken before the operation ran, and whatever we held for this attachment may have been
+                    // dropped in between — by a session going invalid, say. Rare, and not worth recovering from here: the attachment stays
+                    // `resumeRequested` and the next resume, of which there are several, will build one.
+                    guard let urlSession = values.urlSession else {
+                        Self.logger.error("📄[\(attachmentId.debugDescription, privacy: .public)] No URLSession for an attachment we no longer hold. Leaving it to the next resume.")
+                        continue
+                    }
                     kindOfResumeToPerform = .noPausedDownloadToResume(
                         attachmentId: attachmentId,
                         chunksToDownload: values.chunkNumbersAndSignedURLs,
-                        urlSession: values.urlSession,
+                        urlSession: urlSession,
                         identityDelegate: identityDelegate,
                         flowId: flowId)
                 }
@@ -590,7 +758,10 @@ extension DownloadAttachmentChunksCoordinator {
                 do {
                     downloadAttachmentTask[attachmentId] = .resumingBackgroundDownload(task: task)
                     try await task.value
-                    downloadAttachmentTask[attachmentId] = .backgroundDownloadInProgress(urlSession: values.urlSession)
+                    // **The session that is downloading, not the one the operation handed us.** Resuming a paused download resumes the tasks of the session
+                    // held in memory, and storing the other one here is what left a later pause suspending a session with nothing in it — reporting a stop
+                    // to the app while the bytes kept arriving.
+                    downloadAttachmentTask[attachmentId] = .backgroundDownloadInProgress(urlSession: kindOfResumeToPerform.urlSession)
                 } catch {
                     downloadAttachmentTask.removeValue(forKey: attachmentId)
                     throw error
@@ -618,6 +789,16 @@ extension DownloadAttachmentChunksCoordinator {
     private enum ResumeTaskKind {
         case resumingPausedDownload(urlSession: URLSession)
         case noPausedDownloadToResume(attachmentId: ObvAttachmentIdentifier, chunksToDownload: [(chunkNumber: Int, signedURL: URL)], urlSession: URLSession, identityDelegate: ObvIdentityDelegate, flowId: FlowIdentifier)
+
+        /// The session whose tasks this resume actually runs in, which is what must be tracked afterwards.
+        var urlSession: URLSession {
+            switch self {
+            case .resumingPausedDownload(let urlSession):
+                urlSession
+            case .noPausedDownloadToResume(_, _, let urlSession, _, _):
+                urlSession
+            }
+        }
     }
     
     
@@ -795,7 +976,8 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
             guard chunkProgress.chunkNumber < chunksProgresses.count else { assertionFailure(); return }
             chunksProgresses[chunkProgress.chunkNumber] = (chunkProgress.totalBytesWritten, chunkProgress.totalBytesExpectedToWrite)
             chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
-            
+            yieldDownloadProgress(ofAttachment: attachmentId)
+
         } else {
             
             do {
@@ -803,7 +985,8 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
                 try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
 
                 chunksProgressesForAttachment[attachmentId] = (op1.currentChunkProgresses, Date())
-                
+                yieldDownloadProgress(ofAttachment: attachmentId)
+
             } catch {
                 assertionFailure()
                 return
@@ -826,6 +1009,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         let totalBytesExpectedToWrite = chunksProgresses[chunkNumber].totalBytesExpectedToWrite
         chunksProgresses[chunkNumber] = (totalBytesExpectedToWrite, totalBytesExpectedToWrite)
         chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
+        yieldDownloadProgress(ofAttachment: attachmentId)
 
     }
     
@@ -838,7 +1022,12 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         // When an attachment is downloaded, we remove the progresses we stored in memory for its chunks
 
         chunksProgressesForAttachment.removeValue(forKey: attachmentId)
-        
+
+        // The download being over, there is nothing left to report: whoever was following it is told so by the stream ending. That the file has arrived is said
+        // elsewhere, by the notification below and by what the app then reads from its own database.
+
+        finishStreamsOfDownloadProgress(ofAttachment: attachmentId)
+
         // We also immediately notify the network fetch flow delegate (so as to notify the app)
         
         guard let delegateManager = delegateManager else {
@@ -865,7 +1054,7 @@ extension DownloadAttachmentChunksCoordinator {
         case theIdentityDelegateIsNotSet
         case theNotificationDelegateIsNotSet
         case anOperationCancelled(localizedDescription: String?)
-        case failedToCleanExistingOutboxAttachmentSessions
+        case failedToCleanExistingInboxAttachmentSessions
         case invalidServerResponse
         case couldNotParseReturnStatusFromServer
         case serverReturnedGeneralError
@@ -879,8 +1068,8 @@ extension DownloadAttachmentChunksCoordinator {
                 return "The context creator is not set"
             case .anOperationCancelled(localizedDescription: let localizedDescription):
                 return "An operation cancelled with reason: \(String(describing: localizedDescription))"
-            case .failedToCleanExistingOutboxAttachmentSessions:
-                return "Failed to clean existing outbox attachments session"
+            case .failedToCleanExistingInboxAttachmentSessions:
+                return "Failed to clean existing inbox attachment sessions"
             case .invalidServerResponse:
                 return "Invalid server response"
             case .couldNotParseReturnStatusFromServer:

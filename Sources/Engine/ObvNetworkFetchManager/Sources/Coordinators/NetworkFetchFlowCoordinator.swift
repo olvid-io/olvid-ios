@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -321,7 +321,29 @@ extension NetworkFetchFlowCoordinator {
         }
         
         return await delegateManager.downloadAttachmentChunksDelegate.requestDownloadAttachmentProgressesUpdatedSince(date: date)
-        
+
+    }
+
+    func getAsyncStreamOfDownloadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentDownloadProgress>) {
+
+        guard let delegateManager else {
+            Self.logger.fault("The Delegate Manager is not set")
+            throw Self.makeError(message: "The Delegate Manager is not set")
+        }
+
+        return await delegateManager.downloadAttachmentChunksDelegate.getAsyncStreamOfDownloadProgress(attachmentId: attachmentId, flowId: flowId)
+
+    }
+
+    func finishAsyncStreamOfDownloadProgress(streamUUID: UUID) async throws {
+
+        guard let delegateManager else {
+            Self.logger.fault("The Delegate Manager is not set")
+            throw Self.makeError(message: "The Delegate Manager is not set")
+        }
+
+        await delegateManager.downloadAttachmentChunksDelegate.finishAsyncStreamOfDownloadProgress(streamUUID: streamUUID)
+
     }
 
     func attachmentWasCancelledByServer(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
@@ -399,9 +421,71 @@ extension NetworkFetchFlowCoordinator {
 
     // MARK: - Handling Server Queries
 
-    func postServerQuery(_ serverQuery: ServerQuery, within context: NSManagedObjectContext) {
-        _ = PendingServerQuery.createPendingServerQuery(serverQuery: serverQuery, within: context)
+    func postServerQuery(_ serverQuery: ServerQuery, within context: NSManagedObjectContext) throws {
+        let adoptedServerQuery = try adoptUploadsIfNeeded(in: serverQuery)
+        _ = PendingServerQuery.createPendingServerQuery(serverQuery: adoptedServerQuery, within: context)
         // Note that since we are a `PendingServerQueryObserver`, we will process the new `PendingServerQuery` once the context is saved
+    }
+
+
+    /// If the query carries a source file that the network manager will later read (today only `putUserData`),
+    /// adopt the file by hardlinking it into the network manager's `pendingUserDataUploads` staging directory
+    /// and rewrite the query's URL to point at the adopted file. The caller is then free to delete its own
+    /// copy at any time.
+    ///
+    /// Throws on adoption failure: persisting a `PendingServerQuery` whose `dataURL` still points at a
+    /// caller-owned file would leave a row that the network manager cannot safely delete (the path check
+    /// in `RespondAndDeleteServerQueryOperation` forbids it) and that may break later if the caller
+    /// has already removed its own copy after handing the file off.
+    ///
+    /// The switch below enumerates every `ServerQuery.QueryType` case explicitly on purpose: if a new query
+    /// type is added in the future, the compiler will force a decision here about whether that type also needs
+    /// adoption, instead of silently being treated as "no adoption needed".
+    private func adoptUploadsIfNeeded(in serverQuery: ServerQuery) throws -> ServerQuery {
+
+        switch serverQuery.queryType {
+
+        case .putUserData(label: let label, dataURL: let sourceURL, dataKey: let dataKey):
+            guard let delegateManager else {
+                assertionFailure()
+                throw ObvError.theDelegateManagerIsNotSet
+            }
+            let destination = delegateManager.pendingUserDataUploads.appendingPathComponent(UUID().uuidString)
+            do {
+                try FileManager.default.linkOrCopyItem(at: sourceURL, to: destination)
+            } catch {
+                Self.logger.fault("Could not adopt the upload source file into the pendingUserDataUploads staging directory: \(error.localizedDescription, privacy: .public)")
+                assertionFailure()
+                throw error
+            }
+            let rewrittenQueryType: ServerQuery.QueryType = .putUserData(label: label, dataURL: destination, dataKey: dataKey)
+            return ServerQuery(ownedIdentity: serverQuery.ownedIdentity, queryType: rewrittenQueryType, encodedElements: serverQuery.encodedElements)
+
+        case .deviceDiscovery,
+                .getUserData,
+                .checkKeycloakRevocation,
+                .createGroupBlob,
+                .getGroupBlob,
+                .deleteGroupBlob,
+                .putGroupLog,
+                .requestGroupBlobLock,
+                .updateGroupBlob,
+                .getKeycloakData,
+                .ownedDeviceDiscovery,
+                .setOwnedDeviceName,
+                .deactivateOwnedDevice,
+                .setUnexpiringOwnedDevice,
+                .sourceGetSessionNumber,
+                .sourceWaitForTargetConnection,
+                .targetSendEphemeralIdentity,
+                .transferRelay,
+                .transferWait,
+                .closeWebsocketConnection,
+                .uploadPreKeyForCurrentDevice:
+            // None of these carry a source file owned by the caller — no adoption needed.
+            return serverQuery
+
+        }
     }
 
 
@@ -511,7 +595,7 @@ extension NetworkFetchFlowCoordinator {
         
         ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] Will call downloadMessagesAndListAttachments on successful web socket registration")
         
-        await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: identity, flowId: flowId)
+        await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: identity, trigger: .webSocketRegistrationSucceeded, flowId: flowId)
         
     }
 

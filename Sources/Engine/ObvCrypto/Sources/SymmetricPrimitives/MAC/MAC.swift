@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -96,10 +96,12 @@ extension MACConcrete where Self: MacBasedOnCommonCrypto {
         return dataToReturn
     }
     
+    
     static func verify(mac: Data, forData data: Authenticable, withKey key: MACKey) throws -> Bool {
         let computedMac = try compute(forData: data, withKey: key)
-        return [UInt8](mac) == [UInt8](computedMac)
+        return mac.isEqualInConstantTime(to: computedMac)
     }
+    
 }
 
 class HMACWithSHA256: MACConcrete, MacBasedOnCommonCrypto {

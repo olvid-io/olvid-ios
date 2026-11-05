@@ -79,6 +79,10 @@ final class OlvidCall: ObservableObject {
     @Published private(set) var atLeastOneOtherParticipantHasCameraEnabled = false
     @Published private var hasVideo = false // true iff one of the participants (including self) has a video track
     private var userWantsToStreamSelfVideo = false
+    /// Non nil while we request the screen to stay awake because this call is in progress. See ``reevaluateKeepingTheScreenAwake()``.
+    private var screenAwakeRequestForCallInProgress: UUID?
+    /// Non nil while we request the screen to stay lit because video is shown during this call. See ``reevaluateKeepingTheScreenAwake()``.
+    private var screenAwakeRequestForVideo: UUID?
 
     private let factory: ObvPeerConnectionFactory
     
@@ -198,8 +202,12 @@ final class OlvidCall: ObservableObject {
     
     
     deinit {
-        DispatchQueue.main.async {
-            UIApplication.shared.isIdleTimerDisabled = false
+        // Backstop: a call always ends by reaching a final state, where the requests below are released. This covers a call deallocated without that.
+        let screenAwakeRequests = [screenAwakeRequestForCallInProgress, screenAwakeRequestForVideo].compactMap { $0 }
+        if !screenAwakeRequests.isEmpty {
+            DispatchQueue.main.async {
+                screenAwakeRequests.forEach { IdleTimerManager.shared.enableIdleTimer(disableRequestIdentifier: $0) }
+            }
         }
         cancellables.forEach { $0.cancel() }
         cancellablesForWatchingOtherParticipants.forEach { $0.cancel() }
@@ -342,7 +350,7 @@ final class OlvidCall: ObservableObject {
             update.localizedCallerName = "..."
         }
         update.remoteHandle = .init(type: .generic, value: uuidForCallKit.uuidString)
-        update.hasVideo = true // Not self.hasVideo, has this seems to prevent the Camera button to work on the standard CallKit screen.
+        update.hasVideo = self.hasVideo // 2026-05-19, for a brief period of time, this was set to true. This allows the video button on the standard CallKit screen to work, but this would show "Olvid video call" always
         update.supportsGrouping = false
         update.supportsUngrouping = false
         update.supportsHolding = false
@@ -396,7 +404,7 @@ extension OlvidCall {
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) { [weak self] in
                 guard let self else { return }
                 self.localPreviewVideoTrack = newLocalPreviewVideoTrack
-                Task { [weak self] in await self?.reevalutateScreenDimming() } // Prevent the screen for dimming
+                Task { [weak self] in await self?.reevaluateKeepingTheScreenAwake() } // Prevent the screen from dimming
             }
         }
         if self.currentCameraPosition != newCurrentCameraPosition {
@@ -431,7 +439,7 @@ extension OlvidCall {
             self.localPreviewVideoTrack = nil
             self.currentCameraPosition = nil
         }
-        await reevalutateScreenDimming() // Stop preventing the screen for dimming
+        await reevaluateKeepingTheScreenAwake() // Stop preventing the screen from dimming
         await factory.stopCaptureLocalVideo()
         for otherParticipant in self.otherParticipants {
             try? await otherParticipant.setLocalVideoTrack(isEnabled: false)
@@ -449,15 +457,30 @@ extension OlvidCall {
     }
     
     
-    /// Each time we start/stop streaming our own video, or when another participant starts/stop her video, we check if it is appropriate for the system to dim the screen.
+    /// Called when this call starts, each time we start/stop streaming our own video, when another participant starts/stop her video or leaves, and
+    /// when this call ends. Two distinct requests are made: an ongoing call must keep a Mac display awake, where only video must also keep an iOS screen lit.
+    ///
+    /// We go through the ``IdleTimerManager`` rather than writing the idle timer ourselves, so that ending a call cannot cancel a request made
+    /// elsewhere, e.g. by the audio message recorder.
     @MainActor
-    func reevalutateScreenDimming() async {
-        if self.localPreviewVideoTrack != nil {
-            UIApplication.shared.isIdleTimerDisabled = true
-        } else if otherParticipants.first(where: { $0.remoteCameraVideoTrackIsEnabled || $0.remoteScreenCastVideoTrackIsEnabled }) != nil {
-            UIApplication.shared.isIdleTimerDisabled = true
-        } else {
-            UIApplication.shared.isIdleTimerDisabled = false
+    func reevaluateKeepingTheScreenAwake() async {
+        let callIsInProgress = !state.isFinalState
+        let videoIsShown = callIsInProgress && (localPreviewVideoTrack != nil || otherParticipants.contains(where: { $0.remoteCameraVideoTrackIsEnabled || $0.remoteScreenCastVideoTrackIsEnabled }))
+        Self.updateScreenAwakeRequest(&screenAwakeRequestForCallInProgress, isWanted: callIsInProgress, reason: .callInProgress)
+        Self.updateScreenAwakeRequest(&screenAwakeRequestForVideo, isWanted: videoIsShown, reason: .videoIsShownDuringCall)
+    }
+
+
+    @MainActor
+    private static func updateScreenAwakeRequest(_ requestIdentifier: inout UUID?, isWanted: Bool, reason: IdleTimerManager.Reason) {
+        switch (isWanted, requestIdentifier) {
+        case (true, nil):
+            requestIdentifier = IdleTimerManager.shared.disableIdleTimer(reason: reason)
+        case (false, .some(let identifier)):
+            requestIdentifier = nil
+            IdleTimerManager.shared.enableIdleTimer(disableRequestIdentifier: identifier)
+        case (true, .some), (false, nil):
+            break
         }
     }
     
@@ -784,15 +807,19 @@ extension OlvidCall {
         await setCallState(to: .gettingTurnCredentials)
 
         assert(self.wellKnownTurnCredentials == nil)
+        let turnCredentialsRequestedAt = Date.now
         let wellKnownTurnCredentials = try await delegate.requestWellKnownTurnCredentialsForCall(call: self, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials)
-        
+        OlvidCallInAppLog.log(call: uuidForCallKit, "TURN credentials obtained in \(OlvidCallInAppLog.seconds(Date.now.timeIntervalSince(turnCredentialsRequestedAt)))")
+
         self.wellKnownTurnCredentials = wellKnownTurnCredentials
-        
+
         let turnCredentials = wellKnownTurnCredentials.turnCredentialsForCaller(useAlternativeTurnServersIfPossible: useAlternativeTurnServers)
+        let peerConnectionsCreationStartedAt = Date.now
         for otherParticipant in self.otherParticipants {
             try await otherParticipant.setTurnCredentialsAndCreateUnderlyingPeerConnection(turnCredentials: turnCredentials)
             try? await Task.sleep(milliseconds: 300) // 300 ms, dirty trick, required to prevent a deadlock of the WebRTC library
         }
+        OlvidCallInAppLog.log(call: uuidForCallKit, "\(otherParticipants.count) peer connection(s) created in \(OlvidCallInAppLog.seconds(Date.now.timeIntervalSince(peerConnectionsCreationStartedAt)))")
         await setCallState(to: .initializingCall)
         
     }
@@ -1654,7 +1681,7 @@ extension OlvidCall: OlvidCallParticipantDelegate {
                     Self.logger.fault("☎️ Could not find contactGroup")
                     return
                 }
-                let groupMembers = Set(contactGroup.contactIdentities.map { $0.cryptoId })
+                let groupMembers = Set(contactGroup.contactIdentities.compactMap { try? $0.cryptoId })
                 if groupMembers.contains(callParticipant.cryptoId) {
                     filteredGroupId = .groupV1(groupV1Identifier: groupV1Identifier)
                 }
@@ -1818,7 +1845,10 @@ extension OlvidCall {
         
         guard let index = otherParticipants.firstIndex(where: { $0.cryptoId == callParticipant.cryptoId }) else { return }
         otherParticipants.remove(at: index)
-        
+
+        // The participant who left may have been the only one showing video
+        await reevaluateKeepingTheScreenAwake()
+
         if otherParticipants.isEmpty {
             _ = await endWebRTCCall(reason: .allOtherParticipantsLeft)
         }
@@ -2007,6 +2037,7 @@ extension OlvidCall {
         if newState == .outgoingCallIsConnecting && previousState != .ringing { return }
 
         Self.logger.info("☎️ OlvidCall will change state: \(previousState.debugDescription, privacy: .public) --> \(newState.debugDescription, privacy: .public)")
+        OlvidCallInAppLog.log(call: uuidForCallKit, "state \(previousState.debugDescription) -> \(newState.debugDescription)")
 
         self.state = newState
         
@@ -2049,6 +2080,9 @@ extension OlvidCall {
         
         if newState.isFinalState {
             cancellables.forEach { $0.cancel() }
+            // The call is over, we stop keeping the screen awake. Without this, we would only do so when this call is deallocated, which can happen
+            // long after the call ended.
+            await reevaluateKeepingTheScreenAwake()
         }
         
         // When the local user starts an outgoing call, she might decide to switch on the speaker before the call

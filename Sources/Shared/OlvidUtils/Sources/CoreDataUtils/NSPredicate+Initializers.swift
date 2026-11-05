@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,11 +36,42 @@ public extension NSPredicate {
         self.init(format: "%K == %@", key, data as NSData)
     }
     
+    convenience init<T: RawRepresentable>(_ key: T, in datas: [Data]) where T.RawValue == String {
+        self.init(key.rawValue, in: datas)
+    }
+
     convenience init(_ key: String, in datas: [Data]) {
         assert(datas.count < 150, "Warning, an SQL IN statement max size is limited.")
         self.init(format: "%K IN %@", key, datas as [NSData])
     }
     
+    convenience init<T: RawRepresentable>(_ key: T, in objectIDs: [NSManagedObjectID]) where T.RawValue == String {
+        self.init(key.rawValue, in: objectIDs)
+    }
+
+    convenience init(_ key: String, in objectIDs: [NSManagedObjectID]) {
+        assert(objectIDs.count < 150, "Warning, an SQL IN statement max size is limited.")
+        self.init(format: "%K IN %@", key, objectIDs)
+    }
+
+    convenience init<T: RawRepresentable>(_ key: T, in strings: [String]) where T.RawValue == String {
+        self.init(key.rawValue, in: strings)
+    }
+
+    convenience init(_ key: String, in strings: [String]) {
+        assert(strings.count < 150, "Warning, an SQL IN statement max size is limited.")
+        self.init(format: "%K IN %@", key, strings as [NSString])
+    }
+
+    convenience init<T: RawRepresentable>(_ key: T, in uuids: [UUID]) where T.RawValue == String {
+        self.init(key.rawValue, in: uuids)
+    }
+
+    convenience init(_ key: String, in uuids: [UUID]) {
+        assert(uuids.count < 150, "Warning, an SQL IN statement max size is limited.")
+        self.init(format: "%K IN %@", key, uuids as [NSUUID])
+    }
+
     convenience init<T: RawRepresentable>(_ key: T, EqualToUuid uuid: UUID) where T.RawValue == String {
         self.init(key.rawValue, EqualToUuid: uuid)
     }
@@ -208,6 +239,18 @@ public extension NSPredicate {
     convenience init(withObjectIDIn objectIDs: [NSManagedObjectID]) {
         assert(objectIDs.count < 150, "Warning, an SQL IN statement max size is limited.")
         self.init(format: "SELF IN %@", objectIDs)
+    }
+
+    /// Rows whose **to-many** `key` holds the object with this identifier — the mirror of `init(_:equalToObjectWithObjectID:)`, which is for a to-one.
+    ///
+    /// Useful for watching a row from the far side of a relationship it does not itself name: a message can be found from the one that replies to it, its own
+    /// `replies` being the inverse of the reply's `rawMessageRepliedTo`.
+    convenience init<T: RawRepresentable>(_ key: T, containsObjectWithObjectID objectID: NSManagedObjectID) where T.RawValue == String {
+        self.init(key.rawValue, containsObjectWithObjectID: objectID)
+    }
+
+    convenience init(_ rawKey: String, containsObjectWithObjectID objectID: NSManagedObjectID) {
+        self.init(format: "ANY %K == %@", rawKey, objectID)
     }
 
     convenience init<T: RawRepresentable>(withZeroCountForKey key: T) where T.RawValue == String {

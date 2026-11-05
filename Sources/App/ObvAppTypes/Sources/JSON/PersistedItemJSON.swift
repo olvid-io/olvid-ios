@@ -43,6 +43,30 @@ public struct PersistedItemJSON: Codable {
     public let webrtcHistoryTransferMessageJSON: WebRTCHistoryTransferMessageJSON?
     public let webRTCHistoryTransferControlJSON: WebRTCHistoryTransferControlJSON?
 
+    /// Whether this item carries a discussion shared configuration and nothing else at all. This is the test used by a caller that
+    /// is about to discard the message. `ObvDiscussionSharedSettingsPayload` is deliberately more permissive, because it only counts.
+    ///
+    /// This lists every field explicitly instead of counting the non-nil ones. Adding a new field to this struct then makes items
+    /// that used to be discardable stop being discardable, which is the safe direction in which to fail.
+    public var isADiscussionSharedConfigurationAndNothingElse: Bool {
+        discussionSharedConfiguration != nil
+        && message == nil
+        && returnReceipt == nil
+        && webrtcMessage == nil
+        && deleteMessagesJSON == nil
+        && deleteDiscussionJSON == nil
+        && querySharedSettingsJSON == nil
+        && updateMessageJSON == nil
+        && reactionJSON == nil
+        && pollVoteJSON == nil
+        && screenCaptureDetectionJSON == nil
+        && limitedVisibilityMessageOpenedJSON == nil
+        && discussionRead == nil
+        && webrtcHistoryTransferMessageJSON == nil
+        && webRTCHistoryTransferControlJSON == nil
+    }
+
+
     enum CodingKeys: String, CodingKey {
         case message = "message"
         case returnReceipt = "rr"

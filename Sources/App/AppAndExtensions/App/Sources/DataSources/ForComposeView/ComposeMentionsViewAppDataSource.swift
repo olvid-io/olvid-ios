@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -213,8 +213,8 @@ extension ComposeMentionsViewAppDataSource {
                 
                 let shouldIncludeContactInResults: Bool = (try? PersistedObvContactIdentity.filterAll(objectIDs: [otherContactIdentity.typedObjectID], searchText: query, within: viewContext).isEmpty) == false
                 
-                if shouldIncludeContactInResults {
-                    mentionableIdentities.append(.init(otherContactIdentity))
+                if shouldIncludeContactInResults, let suggestion = ComposeMentionSuggestionModel(otherContactIdentity) {
+                    mentionableIdentities.append(suggestion)
                 }
                 
             case .groupV1(withContactGroup: let contactGroup):
@@ -226,13 +226,13 @@ extension ComposeMentionsViewAppDataSource {
                 let filteredContactObjectIDs = (try? PersistedObvContactIdentity.filterAll(objectIDs: contactObjectIDs, searchText: query, within: viewContext)) ?? []
                 let filteredContacts = allContacts.filter { filteredContactObjectIDs.contains($0.typedObjectID) }
                                                                                          
-                mentionableIdentities += filteredContacts.map({ .init($0) })
-                                
+                mentionableIdentities += filteredContacts.compactMap({ ComposeMentionSuggestionModel($0) })
+
             case .groupV2(withGroup: let group):
                 guard let group else { return emptyModel }
 
                 let otherMembersFiltered = (try? group.otherMembersSorted.filterAll(searchText: query)) ?? group.otherMembersSorted
-                mentionableIdentities += otherMembersFiltered.map({ .init($0) })
+                mentionableIdentities += otherMembersFiltered.compactMap({ ComposeMentionSuggestionModel($0) })
                 
             }
             
@@ -299,8 +299,10 @@ private extension ComposeMentionSuggestionModel {
     }
     
     
-    init(_ contactIdentity: PersistedObvContactIdentity) {
-        
+    init?(_ contactIdentity: PersistedObvContactIdentity) {
+
+        guard let mentionedCryptoId = try? contactIdentity.cryptoId else { return nil }
+
         let title: String
         if let personNameComponents = contactIdentity.personNameComponents {
             title = PersonNameComponentsFormatter.localizedString(from: personNameComponents, style: .medium)
@@ -309,19 +311,21 @@ private extension ComposeMentionSuggestionModel {
         }
 
         self.init(title: title,
-                  mentionedCryptoId: contactIdentity.cryptoId,
+                  mentionedCryptoId: mentionedCryptoId,
                   avatarModel: .init(contact: contactIdentity))
         
     }
 
     
-    init(_ groupMember: PersistedGroupV2Member) {
+    init?(_ groupMember: PersistedGroupV2Member) {
         
-        if let contact = groupMember.contact {
-            
-            self = .init(contact)
-            
+        if let contact = groupMember.contact, let suggestion = ComposeMentionSuggestionModel(contact) {
+
+            self = suggestion
+
         } else {
+            
+            guard let mentionedCryptoId = groupMember.cryptoId else { return nil }
             
             var personNameComponents = PersonNameComponents()
             personNameComponents.givenName = groupMember.firstName
@@ -329,7 +333,7 @@ private extension ComposeMentionSuggestionModel {
             let title = PersonNameComponentsFormatter.localizedString(from: personNameComponents, style: .default)
             
             self.init(title: title,
-                      mentionedCryptoId: groupMember.cryptoId,
+                      mentionedCryptoId: mentionedCryptoId,
                       avatarModel: .init(groupV2Member: groupMember))
         }
         

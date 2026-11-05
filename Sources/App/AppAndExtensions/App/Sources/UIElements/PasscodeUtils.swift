@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,10 +20,13 @@
 import ObvUI
 import SwiftUI
 import ObvDesignSystem
+import OlvidUtils
 
 
-// Allows to fix an iOS 14/13 bug with @available(iOS 15.0, *) @FocusState
-@available(iOS 15, *)
+// `@FocusState` must be a property of the view that reads it, so it cannot be handed to a parent.
+// This bridges one to an ordinary `Binding`, which is what lets `PasscodeField` drive the focus of
+// whichever of its two fields is on screen: they alternate as the reveal toggle flips, and the one
+// arriving takes focus on appear.
 struct FocusModifier: ViewModifier {
 
     @FocusState var focused: Bool
@@ -49,7 +52,6 @@ struct FocusModifier: ViewModifier {
     }
 }
 
-@available(iOS 15, *)
 extension View {
     func obvFocused(state: Binding<Bool>) -> some View {
         self.modifier(FocusModifier(state))
@@ -92,11 +94,13 @@ struct PasscodeField: View {
 
     private var fieldTitle: String {
         if let remainingLockoutTime = remainingLockoutTime {
-            var title = NSLocalizedString("LOCKED_OUT_FOR", comment: "")
-            if let duration = durationFormatter.string(from: remainingLockoutTime) {
-                title += duration
-            }
-            return title
+            // **One format string, not a prefix with the duration stuck on the end.** The key
+            // used to be `LOCKED_OUT_FOR`, whose English is "Locked for " with a trailing space,
+            // and the duration was concatenated — which can only ever be right in a language that
+            // puts it last. German does not, so the translation was written as "Für %d gesperrt",
+            // and since nothing formatted it the specifier was printed to the reader verbatim.
+            let duration = durationFormatter.string(from: remainingLockoutTime) ?? ""
+            return String(localized: "LOCKED_OUT_FOR_\(duration)")
         } else {
             return NSLocalizedString(passcodeKind.passcodeIsPassword ? "PASSWORD" : "PIN", comment: "")
         }

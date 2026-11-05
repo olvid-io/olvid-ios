@@ -44,7 +44,16 @@ actor WebSocketCoordinator: NSObject {
 
     private var continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt: AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt>.Continuation?
     private var encryptedReceivedReturnReceiptToSend = [ObvEncryptedReceivedReturnReceipt]()
-    
+
+    /// Counted for the diagnostics screen, since this process started and no further: in memory only, so both are nought again at the next launch.
+    ///
+    /// The pair is worth more than either number alone. Every return receipt we take delivery of ought to be followed by our asking the server to delete
+    /// it, so the two should keep pace; a received count that runs well ahead of the deleted one means the server is holding receipts we never released, and
+    /// will go on offering them.
+    private var numberOfReturnReceiptsReceivedSinceLaunch = 0
+    private var numberOfDeleteReturnReceiptRequestsSentSinceLaunch = 0
+
+
     deinit {
         continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt?.finish()
         continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt = nil
@@ -59,6 +68,10 @@ actor WebSocketCoordinator: NSObject {
     
     private func popLastEncryptedReceivedReturnReceiptToSend() -> ObvEncryptedReceivedReturnReceipt? {
         encryptedReceivedReturnReceiptToSend.popLast()
+    }
+
+    func getNumbersOfReturnReceiptsSinceLaunch() -> (received: Int, deleteRequestsSent: Int) {
+        (numberOfReturnReceiptsReceivedSinceLaunch, numberOfDeleteReturnReceiptRequestsSentSinceLaunch)
     }
 
     enum ObvError: Error {
@@ -229,6 +242,9 @@ extension WebSocketCoordinator: WebSocketDelegate {
         assert(webSocketTask.state == URLSessionTask.State.running)
         do {
             try await webSocketTask.send(deleteReturnReceiptMessage)
+            // Counted once the send succeeded, so that a gap between this and the number received means either that we never asked or that the asking
+            // failed — and the failure is logged just below.
+            numberOfDeleteReturnReceiptRequestsSentSinceLaunch += 1
             os_log("🏓 We successfully deleted a return receipt", log: log, type: .info)
         } catch {
             os_log("🏓 A return receipt failed to be deleted on server: %{public}@", log: log, type: .error, error.localizedDescription)
@@ -412,22 +428,22 @@ extension WebSocketCoordinator {
         os_log("🏓✅ Will receive on webSocketTask %d for URL %{public}@", log: log, type: .info, webSocketTask.taskIdentifier, String(describing: webSocketTask.originalRequest?.url))
         let log = self.log
 
-        webSocketTask.receive { result in
+        webSocketTask.receive { [weak self] result in
             switch result {
             case .failure(let error):
                 os_log("🏓 Failed to receive a result on a WebSocket: %{public}@", log: log, type: .error, error.localizedDescription)
-                Task { [weak self] in await self?.failedToReadMessage(on: webSocketTask, flowId: flowId) }
+                Task { await self?.failedToReadMessage(on: webSocketTask, flowId: flowId) }
                 return
             case .success(let message):
                 switch message {
                 case .data:
                     os_log("🏓 Data received on websocket. This is unexpected.", log: log, type: .error)
                     assertionFailure()
-                    Task { [weak self] in await self?.continuouslyReadMessages(on: webSocketTask, flowId: flowId) }
+                    Task { await self?.continuouslyReadMessages(on: webSocketTask, flowId: flowId) }
                     return
                 case .string(let string):
                     os_log("🏓 String received on websocket: %{public}@", log: log, type: .info, string)
-                    Task { [weak self] in
+                    Task {
                         do {
                             try await self?.parseString(string, receivedOn: webSocketTask, flowId: flowId)
                         } catch {
@@ -440,7 +456,7 @@ extension WebSocketCoordinator {
                     return
                 @unknown default:
                     assertionFailure()
-                    Task { [weak self] in await self?.failedToReadMessage(on: webSocketTask, flowId: flowId) }
+                    Task { await self?.failedToReadMessage(on: webSocketTask, flowId: flowId) }
                     return
                 }
             }
@@ -467,6 +483,7 @@ extension WebSocketCoordinator {
             // Case #1: ReturnReceipt
             
             os_log("🏓 The server sent a ReturnReceipt", log: log, type: .info)
+            numberOfReturnReceiptsReceivedSinceLaunch += 1
             if let continuation = continuationForAsyncStreamOfObvEncryptedReceivedReturnReceipt {
                 continuation.yield(encryptedReceivedReturnReceipt)
             } else {
@@ -485,12 +502,12 @@ extension WebSocketCoordinator {
                         try await delegateManager.messagesDelegate.saveMessageReceivedOnWebsocket(message: message, downloadTimestampFromServer: message.messageUploadTimestampFromServer, ownedCryptoId: receivedMessage.identity, flowId: flowId)
                     } catch {
                         os_log("🏓 Failed to save the message received through the websocket: %{public}@. We request a download message and list attachments now", log: log, type: .error, error.localizedDescription)
-                        await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: receivedMessage.identity, flowId: flowId)
+                        await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: receivedMessage.identity, trigger: .webSocketMessageCouldNotBeSaved, flowId: flowId)
                     }
                 }
             } else {
                 Task {
-                    await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: receivedMessage.identity, flowId: flowId)
+                    await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: receivedMessage.identity, trigger: .webSocketSaysAMessageIsAvailable, flowId: flowId)
                 }
             }
             

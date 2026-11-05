@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvCrypto
 import ObvEncoder
 
 
-public struct ObvContactIdentifier: Hashable, Sendable, Equatable {
+public struct ObvContactIdentifier: Hashable, Sendable, Equatable, LosslessStringConvertible {
     
     public let contactCryptoId: ObvCryptoId
     public let ownedCryptoId: ObvCryptoId
@@ -39,6 +39,21 @@ public struct ObvContactIdentifier: Hashable, Sendable, Equatable {
         self.ownedCryptoId = ownedCryptoId
     }
 
+    public var description: String {
+        self.obvEncode().rawData.hexString()
+    }
+    
+    
+    public init?(_ description: String) {
+        guard let rawData = Data(hexString: description) else { assertionFailure(); return nil }
+        guard let encoded = ObvEncoded(withRawData: rawData) else { assertionFailure(); return nil}
+        do {
+            self = try encoded.obvDecode()
+        } catch {
+//            assertionFailure()
+            return nil
+        }
+    }
 }
 
 extension ObvContactIdentifier: Identifiable {
@@ -64,35 +79,11 @@ extension ObvContactIdentifier: ObvCodable {
         do {
             (ownedCryptoId, contactCryptoId) = try array.obvDecode()
         } catch {
-            assertionFailure()
             return nil
         }
         self.init(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
     }
     
-}
-
-
-// MARK: - Implementing LosslessStringConvertible, leveraging the ObvCodable conformance
-
-extension ObvContactIdentifier: LosslessStringConvertible {
-    
-    public var description: String {
-        self.obvEncode().rawData.hexString()
-    }
-    
-    
-    public init?(_ description: String) {
-        guard let rawData = Data(hexString: description) else { assertionFailure(); return nil }
-        guard let encoded = ObvEncoded(withRawData: rawData) else { assertionFailure(); return nil}
-        do {
-            self = try encoded.obvDecode()
-        } catch {
-            assertionFailure()
-            return nil
-        }
-    }
-
 }
 
 // MARK: - Codable

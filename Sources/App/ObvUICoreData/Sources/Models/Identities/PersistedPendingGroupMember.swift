@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,15 +63,21 @@ public final class PersistedPendingGroupMember: NSManagedObject {
     }
     
     public var identityCoreDetails: ObvIdentityCoreDetails {
-        return try! ObvIdentityCoreDetails(serializedIdentityCoreDetails)
+        get throws {
+            return try ObvIdentityCoreDetails(serializedIdentityCoreDetails)
+        }
     }
 
     public var identityDetails: ObvIdentityDetails {
-        return .init(coreDetails: identityCoreDetails, photoURL: nil)
+        get throws {
+            return .init(coreDetails: try identityCoreDetails, photoURL: nil)
+        }
     }
 
     public var cryptoId: ObvCryptoId {
-        return try! ObvCryptoId(identity: identity)
+        get throws {
+            return try ObvCryptoId(identity: identity)
+        }
     }
     
     public var ownedCryptoId: ObvCryptoId {
@@ -86,12 +92,15 @@ public final class PersistedPendingGroupMember: NSManagedObject {
     }
     
     public var circledInitialsConfiguration: CircledInitialsConfiguration {
-        .contact(initial: fullDisplayName,
-                 photo: .none,
-                 showGreenShield: false,
-                 showRedShield: false,
-                 cryptoId: cryptoId,
-                 tintAdjustementMode: .normal)
+        guard let cryptoId = try? self.cryptoId else {
+            return .icon(.lockFill)
+        }
+        return .contact(initial: fullDisplayName,
+                        photo: .none,
+                        showGreenShield: false,
+                        showRedShield: false,
+                        cryptoId: cryptoId,
+                        tintAdjustementMode: .normal)
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -136,11 +136,11 @@ extension UserNotificationsBadgesManager {
         await PersistedObvOwnedIdentity.addObvObserver(self)
 
         notificationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observeOwnedIdentityWasReactivated { _ in
-                Task { [weak self] in await self?.recomputeAllBadges() }
+            ObvMessengerCoreDataNotification.observeOwnedIdentityWasReactivated { [weak self] _ in
+                Task { await self?.recomputeAllBadges() }
             },
-            ObvMessengerCoreDataNotification.observeOwnedIdentityWasDeactivated { _ in
-                Task { [weak self] in await self?.recomputeAllBadges() }
+            ObvMessengerCoreDataNotification.observeOwnedIdentityWasDeactivated { [weak self] _ in
+                Task { await self?.recomputeAllBadges() }
             },
             ObvMessengerCoreDataNotification.observeBadgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity { [weak self] _ in
                 Task { [weak self] in await self?.recomputeAllBadges() }

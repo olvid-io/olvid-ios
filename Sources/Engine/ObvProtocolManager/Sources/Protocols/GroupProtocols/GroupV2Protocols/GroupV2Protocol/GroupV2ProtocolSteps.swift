@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -55,6 +55,7 @@ extension GroupV2Protocol {
         case prepareBatchKeysMessage = 20
         case processBatchKeysMessage = 21
         case sendKeycloakGroupTargetedPing = 22
+        case processPreShotVersionSeedMessage = 23
         case processInitiateUpdateKeycloakGroupsMessage = 300
 
 
@@ -161,6 +162,10 @@ extension GroupV2Protocol {
                     return step
                 } else if let step = ProcessPropagateInvitationRejectedMessageFromInvitationReceivedStateStep(from: concreteProtocol, and: receivedMessage) {
                     return step
+                } else if let step = ProcessInitiateGroupReDownloadMessageFromINeedMoreSeedsStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = ProcessPreShotVersionSeedMessageFromINeedMoreSeedsStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
                 } else {
                     return nil
                 }
@@ -178,8 +183,13 @@ extension GroupV2Protocol {
                 return step
 
             case .processGroupUpdatePhotoUploadResponse:
-                let step = ProcessGroupUpdatePhotoUploadResponseStep(from: concreteProtocol, and: receivedMessage)
-                return step
+                if let step = ProcessGroupUpdatePhotoUploadResponseStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = ProcessGroupUpdatePhotoUploadResponseFromInitialStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else {
+                    return nil
+                }
 
             case .finalizeGroupUpdate:
                 let step = FinalizeGroupUpdateStep(from: concreteProtocol, and: receivedMessage)
@@ -261,6 +271,23 @@ extension GroupV2Protocol {
             case .sendKeycloakGroupTargetedPing:
                 let step = SendKeycloakGroupTargetedPingStep(from: concreteProtocol, and: receivedMessage)
                 return step
+
+            case .processPreShotVersionSeedMessage:
+                if let step = ProcessPreShotVersionSeedMessageFromConcreteProtocolInitialStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = ProcessPreShotVersionSeedMessageFromDownloadingGroupBlobStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = ProcessPreShotVersionSeedMessageFromInvitationReceivedStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = ProcessPreShotVersionSeedMessageFromWaitingForLockStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = ProcessPreShotVersionSeedMessageFromUploadingUpdatedGroupBlobStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = ProcessPreShotVersionSeedMessageFromUploadingUpdatedGroupPhotoStateStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else {
+                    return nil
+                }
 
             case .processInitiateUpdateKeycloakGroupsMessage:
                 let step = ProcessInitiateUpdateKeycloakGroupsMessageStep(from: concreteProtocol, and: receivedMessage)
@@ -552,6 +579,10 @@ extension GroupV2Protocol {
             
             do {
                 try deviceUidsOfRemoteIdentity.forEach { (pendingMember, deviceUids) in
+                    // The admin key goes to the admins only, as FinalizeGroupUpdateStep does; every invitee is reached
+                    // through an oblivious channel here, so the main seed goes to all of them.
+                    let pendingMemberIsAdmin = pendingMembersAndPermissions.first(where: { $0.identity == pendingMember })?.hasGroupAdminPermission == true
+                    let keysToSend = blobKeys.forAMember(whoIsAdmin: pendingMemberIsAdmin)
                     let channelType: ObvChannelSendChannelType = .obliviousChannel(
                         to: pendingMember,
                         remoteDeviceUids: Array(deviceUids),
@@ -566,7 +597,7 @@ extension GroupV2Protocol {
                         coreProtocolMessage: coreMessage,
                         groupIdentifier: groupIdentifier,
                         groupVersion: groupVersion,
-                        blobKeys: blobKeys,
+                        blobKeys: keysToSend,
                         notifiedDeviceUIDs: deviceUids)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         assertionFailure(); throw Self.makeError(message: "Implementation error")
@@ -644,7 +675,9 @@ extension GroupV2Protocol {
     // MARK: - ProcessInvitationOrMembersUpdateStep
     
     class ProcessInvitationOrMembersUpdateStep: ProtocolStep {
-        
+
+        private static let logger = Logger(subsystem: ObvProtocolDelegateManager.defaultLogSubsystem, category: "GroupV2Protocol.ProcessInvitationOrMembersUpdateStep")
+
         private let startState: StartStateType
         private let receivedMessage: ReceivedMessageType
 
@@ -768,6 +801,7 @@ extension GroupV2Protocol {
             let groupVersion: Int
             let receivedBlobKeys: GroupV2.BlobKeys
             let inviter: ObvCryptoIdentity?
+            let kindOfMessage: String
             switch receivedMessage {
             case .invitationOrMembersUpdateMessage(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
@@ -780,6 +814,7 @@ extension GroupV2Protocol {
                     return returnedStateWhenDiscardingReceivedMessage
                 }
                 inviter = remoteIdentity
+                kindOfMessage = "invitation or members update"
             case .invitationOrMembersUpdateBroadcastMessage(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 notifiedDeviceUIDs = Set<UID>()
@@ -788,6 +823,7 @@ extension GroupV2Protocol {
                 assert(receivedMessage.blobKeys.blobMainSeed == nil, "The blob main seed should never be sent on a broadcast channel")
                 receivedBlobKeys = GroupV2.BlobKeys(blobMainSeed: nil, blobVersionSeed: receivedMessage.blobKeys.blobVersionSeed, groupAdminServerAuthenticationPrivateKey: receivedMessage.blobKeys.groupAdminServerAuthenticationPrivateKey)
                 inviter = nil
+                kindOfMessage = "invitation or members update, broadcast"
             case .invitationOrMembersUpdatePropagatedMessage(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 notifiedDeviceUIDs = Set<UID>()
@@ -795,6 +831,7 @@ extension GroupV2Protocol {
                 groupVersion = receivedMessage.groupVersion
                 receivedBlobKeys = receivedMessage.blobKeys
                 inviter = receivedMessage.inviter
+                kindOfMessage = "invitation or members update, propagated from another owned device"
             case .blobKeysAfterChannelCreationMessage(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 notifiedDeviceUIDs = Set<UID>()
@@ -802,8 +839,14 @@ extension GroupV2Protocol {
                 groupVersion = receivedMessage.groupVersion
                 receivedBlobKeys = receivedMessage.blobKeys
                 inviter = receivedMessage.inviter
+                kindOfMessage = "keys after a channel creation"
             }
-            
+
+            // Which keys arrived says who the sender takes us for: the admin key goes to admins only. Only their presence is logged.
+            // debugDescription is the identity's last bytes, the keys; the first ones are the server URL, the same for everybody.
+            let sender = inviter?.debugDescription ?? "a broadcast"
+            Self.logger.notice("Group v2 keys received (\(kindOfMessage, privacy: .public)) from \(sender, privacy: .public) for group \(String(groupIdentifier.groupUID.hexString().prefix(8)), privacy: .public) version \(groupVersion): mainSeed=\(receivedBlobKeys.blobMainSeed == nil ? "no" : "yes", privacy: .public) adminKey=\(receivedBlobKeys.groupAdminServerAuthenticationPrivateKey == nil ? "no" : "yes", privacy: .public)")
+
             // Check that the protocol instance UID matches the group identifier
 
             guard protocolInstanceUid == (try? groupIdentifier.computeProtocolInstanceUid()) else {
@@ -956,26 +999,44 @@ extension GroupV2Protocol {
                 invitationCollectedData = invitationCollectedData.insertingBlobKeysCandidates(newBlobKeys, fromInviter: inviter)
             }
             
-            // Request the download a fresh version of the encrypted server blob and logs (group data) from the server
+            // If we know for sure that we don't have the required key material to decrypt the blob currently on the server,
+            // we return now and wait for this key material. If we might have it (i.e., `invitationCollectedData.inviterIdentityAndBlobMainSeedCandidates`
+            // is not empty), we request a download of the encrypted group blob from the server.
             
-            let internalServerQueryIdentifier = Int.random(in: 0..<Int.max)
-            do {
-                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
-                let concreteMessage = DownloadGroupBlobMessage(coreProtocolMessage: coreMessage, internalServerQueryIdentifier: internalServerQueryIdentifier)
-                let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getGroupBlob(groupIdentifier: groupIdentifier)
-                guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            if invitationCollectedData.inviterIdentityAndBlobMainSeedCandidates.isEmpty {
+                
+                return INeedMoreSeedsState(
+                    groupIdentifier: groupIdentifier,
+                    dialogUuid: dialogUuid,
+                    invitationCollectedData: invitationCollectedData,
+                    ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: ownInvitationNonceOfInvitationsAcceptedOnOtherDevices,
+                    lastKnownOwnInvitationNonceAndOtherMembers: lastKnownOwnInvitationNonceAndOtherMembers
+                )
+                
+            } else {
+                
+                let internalServerQueryIdentifier = Int.random(in: 0..<Int.max)
+                do {
+                    let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
+                    let concreteMessage = DownloadGroupBlobMessage(coreProtocolMessage: coreMessage, internalServerQueryIdentifier: internalServerQueryIdentifier)
+                    let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getGroupBlob(groupIdentifier: groupIdentifier)
+                    guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+
+                // Return the new state
+                
+                return DownloadingGroupBlobState(
+                    groupIdentifier: groupIdentifier,
+                    dialogUuid: dialogUuid,
+                    invitationCollectedData: invitationCollectedData,
+                    expectedInternalServerQueryIdentifier: internalServerQueryIdentifier,
+                    ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: ownInvitationNonceOfInvitationsAcceptedOnOtherDevices,
+                    lastKnownOwnInvitationNonceAndOtherMembers: lastKnownOwnInvitationNonceAndOtherMembers
+                )
+                
             }
 
-            // Return the new state
-            
-            return DownloadingGroupBlobState(groupIdentifier: groupIdentifier,
-                                             dialogUuid: dialogUuid,
-                                             invitationCollectedData: invitationCollectedData,
-                                             expectedInternalServerQueryIdentifier: internalServerQueryIdentifier, 
-                                             ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: ownInvitationNonceOfInvitationsAcceptedOnOtherDevices,
-                                             lastKnownOwnInvitationNonceAndOtherMembers: lastKnownOwnInvitationNonceAndOtherMembers)
-            
         }
 
     }
@@ -1320,14 +1381,30 @@ extension GroupV2Protocol {
             }
             
             // If we reach this point, we successfully downloaded an encrypted blob, log entries, and admin public key from the server.
-            
+
             // Look for the trusted prefix of the administrator chain
-            
+
             let alreadyTrustedPrefixAdministratorChain: GroupV2.AdministratorsChain? = try? identityDelegate.getAdministratorChainOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+
+            // Augment the candidate version seeds with any pre-shot seeds we have stashed: when an admin removes a member,
+            // they pre-shoot the new blobVersionSeed before uploading the blob, so by the time the InvitationOrMembersUpdate
+            // message lands the seed is already sitting in our local store and the message itself may omit it.
             
+            let preShotBlobVersionSeeds = try GroupV2PreShotBlobVersionSeedReceived.fetchPreShotBlobVersionSeeds(
+                ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity),
+                groupIdentifier: groupIdentifier,
+                within: obvContext.context)
+            let augmentedInvitationCollectedData = invitationCollectedData.insertingBlobVersionSeeds(Set(preShotBlobVersionSeeds))
+
             // We try to decrypt the encrypted blob
-            
-            guard let (inviterIdentity, signerIdentity, serverBlobToConsolidate, blobKeys) = tryToDecrypt(encryptedServerBlob: encryptedServerBlob, using: invitationCollectedData, groupAdminPublicKey: groupAdminPublicKey, expectedGroupIdentifier: groupIdentifier, alreadyTrustedPrefixAdministratorChain: alreadyTrustedPrefixAdministratorChain) else {
+
+            guard let (inviterIdentity, signerIdentity, serverBlobToConsolidate, blobKeys) = tryToDecrypt(
+                encryptedServerBlob: encryptedServerBlob,
+                using: augmentedInvitationCollectedData,
+                groupAdminPublicKey: groupAdminPublicKey,
+                expectedGroupIdentifier: groupIdentifier,
+                alreadyTrustedPrefixAdministratorChain: alreadyTrustedPrefixAdministratorChain
+            ) else {
                 // We could not decrypt the blob, we need more keys
                 return INeedMoreSeedsState(groupIdentifier: groupIdentifier,
                                            dialogUuid: dialogUuid,
@@ -1523,7 +1600,13 @@ extension GroupV2Protocol {
         
         /// This method uses the collected data seeds one by one until a pair allows to decrypt the encrypted blob.
         /// In case the owned identity is a group admin, it should have received at least one authentication private key. To determine the correct one, we look for a private received key matching the group admin public key.
-        private func tryToDecrypt(encryptedServerBlob: EncryptedData, using invitationCollectedData: GroupV2.InvitationCollectedData, groupAdminPublicKey: PublicKeyForAuthentication, expectedGroupIdentifier: GroupV2.Identifier, alreadyTrustedPrefixAdministratorChain: GroupV2.AdministratorsChain?) -> (inviter: ObvCryptoIdentity, signer: ObvCryptoIdentity, blob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys)? {
+        private func tryToDecrypt(
+            encryptedServerBlob: EncryptedData,
+            using invitationCollectedData: GroupV2.InvitationCollectedData,
+            groupAdminPublicKey: PublicKeyForAuthentication,
+            expectedGroupIdentifier: GroupV2.Identifier,
+            alreadyTrustedPrefixAdministratorChain: GroupV2.AdministratorsChain?
+        ) -> (inviter: ObvCryptoIdentity, signer: ObvCryptoIdentity, blob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys)? {
             
             for (inviter, blobMainSeed) in invitationCollectedData.inviterIdentityAndBlobMainSeedCandidates {
                 for blobVersionSeed in invitationCollectedData.blobVersionSeedCandidates {
@@ -2341,7 +2424,18 @@ extension GroupV2Protocol {
     
     
     // MARK: - InitiateBlobReDownloadStep
-    
+
+    /// Common base for every step that needs to re-download the group blob from the server.
+    ///
+    /// Triggers handled here:
+    /// - `InitiateGroupReDownloadMessage` — local user/app requested a fresh download.
+    /// - `InvitationRejectedBroadcastMessage` / `PropagateInvitationRejectedMessage` — a member rejected an invitation;
+    ///   we need a fresh blob to learn that the group changed.
+    /// - `PreShotVersionSeedMessage` (only from `INeedMoreSeedsState`) — a previously failed decryption may now succeed
+    ///   thanks to the new seed; we stash the seed and re-request the blob.
+    ///
+    /// Regardless of the trigger, the step posts a `DownloadGroupBlobMessage` server query and transitions to
+    /// `DownloadingGroupBlobState`.
     class InitiateBlobReDownloadStep: ProtocolStep {
         
         private let startState: StartStateType
@@ -2350,12 +2444,14 @@ extension GroupV2Protocol {
         enum StartStateType {
             case initial(startState: ConcreteProtocolInitialState)
             case invitationReceived(startState: InvitationReceivedState)
+            case iNeedMoreSeeds(startState: INeedMoreSeedsState)
         }
 
         enum ReceivedMessageType {
             case initiateGroupReDownload(receivedMessage: InitiateGroupReDownloadMessage)
             case invitationRejectedBroadcast(receivedMessage: InvitationRejectedBroadcastMessage)
             case propagateInvitationRejected(receivedMessage: PropagateInvitationRejectedMessage)
+            case preShotVersionSeedMessage(receivedMessage: PreShotVersionSeedMessage)
         }
 
         init?(startState: StartStateType, receivedMessage: ReceivedMessageType, concreteCryptoProtocol: ConcreteCryptoProtocol) {
@@ -2377,49 +2473,80 @@ extension GroupV2Protocol {
                            expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
+            case .preShotVersionSeedMessage(receivedMessage: let receivedMessage):
+                super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           receivedMessage: receivedMessage,
+                           concreteCryptoProtocol: concreteCryptoProtocol)
             }
         }
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             eraseReceivedMessagesAfterReachingAFinalState = false
-
+            
             let concreteStartState: ConcreteProtocolState
             let dialogUuid: UUID
+            let ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: [Data]
             switch startState {
             case .initial(let startState):
                 concreteStartState = startState
                 dialogUuid = UUID()
+                ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = []
             case .invitationReceived(let startState):
                 concreteStartState = startState
                 dialogUuid = startState.dialogUuid
+                ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = []
+            case .iNeedMoreSeeds(startState: let startState):
+                concreteStartState = startState
+                dialogUuid = startState.dialogUuid
+                ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = startState.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
             }
             
             let groupIdentifier: GroupV2.Identifier
             let propagationNeeded: Bool
             let pingAllOtherMembersIfInitialState: Bool
+            let receivedPreShotVersionSeed: Seed?
             switch receivedMessage {
             case .initiateGroupReDownload(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 propagationNeeded = true
                 pingAllOtherMembersIfInitialState = true
+                receivedPreShotVersionSeed = nil
             case .invitationRejectedBroadcast(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 propagationNeeded = true
                 pingAllOtherMembersIfInitialState = false
+                receivedPreShotVersionSeed = nil
             case .propagateInvitationRejected(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 propagationNeeded = false
                 pingAllOtherMembersIfInitialState = false
+                receivedPreShotVersionSeed = nil
+            case .preShotVersionSeedMessage(receivedMessage: let receivedMessage):
+                groupIdentifier = receivedMessage.groupIdentifier
+                propagationNeeded = false
+                pingAllOtherMembersIfInitialState = false
+                receivedPreShotVersionSeed = receivedMessage.blobVersionSeed
             }
             
             // Check that the protocol instance UID matches the group identifier
-
+            
             guard protocolInstanceUid == (try? groupIdentifier.computeProtocolInstanceUid()) else {
                 assertionFailure()
                 return concreteStartState
             }
-
+            
+            // Save the preshot version seed we received
+            
+            if let receivedPreShotVersionSeed {
+                _ = try GroupV2PreShotBlobVersionSeedReceived.insertGroupV2PreShotBlobVersionSeedReceived(
+                    ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity),
+                    groupIdentifier: groupIdentifier,
+                    blobVersionSeed: receivedPreShotVersionSeed,
+                    within: obvContext.context)
+            }
+            
             // Propagate the message if needed
             
             if propagationNeeded {
@@ -2449,15 +2576,19 @@ extension GroupV2Protocol {
             // We also freeze the group since we will download a new version.
             // If the start state is the `InvitationReceivedState`, we use the information contained in the state for the blob keys and inviter.
             // We also freeze the invitation dialog.
+            // If the start state is the `INeedMoreSeedsState`, we already have an `invitationCollectedData` accumulated
+            // from prior attempts; we carry it forward as-is.
             
-            let blobKeys: GroupV2.BlobKeys
-            let inviterIdentity: ObvCryptoIdentity
             let lastKnownOwnInvitationNonceAndOtherMembers: (nonce: Data, otherGroupMembers: Set<ObvCryptoIdentity>)?
-
+            let invitationCollectedData: GroupV2.InvitationCollectedData
+            
             switch startState {
                 
             case .initial:
-                                
+                
+                let blobKeys: GroupV2.BlobKeys
+                let inviterIdentity: ObvCryptoIdentity
+                
                 // Fetch the blob keys from DB and set the inviter to the owned identity
                 
                 blobKeys = try identityDelegate.getGroupV2BlobKeysOfGroup(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
@@ -2470,7 +2601,7 @@ extension GroupV2Protocol {
                 // We don't need our own nonce
                 
                 lastKnownOwnInvitationNonceAndOtherMembers = nil
-                                
+                
                 // Ping all the members and pending members of this group if required. This allows to make sure we are not indicated as "pending" anymore on other group member devices.
                 // All those that actually already accepted will ping us back.
                 
@@ -2486,13 +2617,17 @@ extension GroupV2Protocol {
                         _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     }
                 }
-
+                
+                // Create an initial version of the invitation collected data
+                
+                invitationCollectedData = GroupV2.InvitationCollectedData().insertingBlobKeysCandidates(blobKeys, fromInviter: inviterIdentity)
+                
             case .invitationReceived(let startState):
-
+                
                 // Get the blob keys from the `InvitationReceivedState` (the group does not exist in DB yet)
                 
-                blobKeys = startState.blobKeys
-                inviterIdentity = startState.inviterIdentity
+                let blobKeys = startState.blobKeys
+                let inviterIdentity = startState.inviterIdentity
                 
                 // Freeze the dialog
                 
@@ -2532,34 +2667,63 @@ extension GroupV2Protocol {
                     lastKnownOwnInvitationNonceAndOtherMembers = nil
                 }
                 
+                // Create an initial version of the invitation collected data
+                
+                invitationCollectedData = GroupV2.InvitationCollectedData().insertingBlobKeysCandidates(blobKeys, fromInviter: inviterIdentity)
+                
+            case .iNeedMoreSeeds(startState: let startState):
+                
+                // Carry forward the candidate set from the failed prior attempt. We intentionally do NOT inject the
+                // pre-shot seed (if any) into `invitationCollectedData` here: the seed is already in the protocol
+                // manager's store thanks to the insert above, and `ProcessDownloadedGroupDataStep` reads pre-shots from
+                // that store before attempting decryption. Keeping the store as the single source of truth avoids
+                // duplicating the same seed across two places.
+                
+                invitationCollectedData = startState.invitationCollectedData
+                lastKnownOwnInvitationNonceAndOtherMembers = startState.lastKnownOwnInvitationNonceAndOtherMembers
+                
             }
-
-            // Request the download a fresh version of the encrypted server blob and logs (group data) from the server
-
-            let internalServerQueryIdentifier = Int.random(in: 0..<Int.max)
-            do {
-                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
-                let concreteMessage = DownloadGroupBlobMessage(coreProtocolMessage: coreMessage, internalServerQueryIdentifier: internalServerQueryIdentifier)
-                let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getGroupBlob(groupIdentifier: groupIdentifier)
-                guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            
+            // If we know for sure that we don't have the required key material to decrypt the blob currently on the server,
+            // we return now and wait for this key material. If we might have it (i.e., `invitationCollectedData.inviterIdentityAndBlobMainSeedCandidates`
+            // is not empty), we request a download of the encrypted group blob from the server.
+            
+            if invitationCollectedData.inviterIdentityAndBlobMainSeedCandidates.isEmpty {
+                
+                return INeedMoreSeedsState(
+                    groupIdentifier: groupIdentifier,
+                    dialogUuid: dialogUuid,
+                    invitationCollectedData: invitationCollectedData,
+                    ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: ownInvitationNonceOfInvitationsAcceptedOnOtherDevices,
+                    lastKnownOwnInvitationNonceAndOtherMembers: lastKnownOwnInvitationNonceAndOtherMembers
+                )
+                
+            } else {
+                
+                let internalServerQueryIdentifier = Int.random(in: 0..<Int.max)
+                do {
+                    let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
+                    let concreteMessage = DownloadGroupBlobMessage(coreProtocolMessage: coreMessage, internalServerQueryIdentifier: internalServerQueryIdentifier)
+                    let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getGroupBlob(groupIdentifier: groupIdentifier)
+                    guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+                
+                // Return the new state
+                
+                return DownloadingGroupBlobState(
+                    groupIdentifier: groupIdentifier,
+                    dialogUuid: dialogUuid,
+                    invitationCollectedData: invitationCollectedData,
+                    expectedInternalServerQueryIdentifier: internalServerQueryIdentifier,
+                    ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: ownInvitationNonceOfInvitationsAcceptedOnOtherDevices,
+                    lastKnownOwnInvitationNonceAndOtherMembers: lastKnownOwnInvitationNonceAndOtherMembers
+                )
+                
             }
             
-            // Create an initial version of the invitation collected data
-            
-            let invitationCollectedData = GroupV2.InvitationCollectedData().insertingBlobKeysCandidates(blobKeys, fromInviter: inviterIdentity)
-            
-            // Return the new state
-
-            return DownloadingGroupBlobState(groupIdentifier: groupIdentifier,
-                                             dialogUuid: dialogUuid,
-                                             invitationCollectedData: invitationCollectedData,
-                                             expectedInternalServerQueryIdentifier: internalServerQueryIdentifier, 
-                                             ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: [],
-                                             lastKnownOwnInvitationNonceAndOtherMembers: lastKnownOwnInvitationNonceAndOtherMembers)
-
         }
-        
+            
     }
 
     
@@ -2655,6 +2819,64 @@ extension GroupV2Protocol {
         // The step execution is defined in the superclass
 
     }
+    
+    
+    // MARK: Process InitiateGroupReDownloadMessage from INeedMoreSeedsState
+
+    /// Handles an explicit re-download request while we are parked in `INeedMoreSeedsState` (a prior decryption failed
+    /// for lack of keys). Reuses `InitiateBlobReDownloadStep` to re-request the blob with the candidate set we already
+    /// accumulated.
+    final class ProcessInitiateGroupReDownloadMessageFromINeedMoreSeedsStateStep: InitiateBlobReDownloadStep, TypedConcreteProtocolStep {
+        
+        let startState: INeedMoreSeedsState
+        let receivedMessage: InitiateGroupReDownloadMessage
+        
+        init?(
+            startState: INeedMoreSeedsState,
+            receivedMessage: GroupV2Protocol.InitiateGroupReDownloadMessage,
+            concreteCryptoProtocol: ConcreteCryptoProtocol
+        ) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(
+                startState: .iNeedMoreSeeds(startState: startState),
+                receivedMessage: .initiateGroupReDownload(receivedMessage: receivedMessage),
+                concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        // The step execution is defined in the superclass
+
+    }
+
+    
+    // MARK: Process PreShotVersionSeedMessage from INeedMoreSeedsState
+
+    /// The `INeedMoreSeedsState` variant of `PreShotVersionSeedMessage` is routed through `InitiateBlobReDownloadStep`
+    /// rather than `ProcessReceivedPreShotVersionSeedStep`. Reason: every other accepted state can rely on its own
+    /// existing forward-progress path to surface the stashed pre-shot at decrypt time, but `INeedMoreSeedsState` is
+    /// parked — nothing will pick up the seed unless we actively re-request the blob. Reusing the existing
+    /// "augment-and-re-download" machinery here keeps that logic in one place.
+    final class ProcessPreShotVersionSeedMessageFromINeedMoreSeedsStateStep: InitiateBlobReDownloadStep, TypedConcreteProtocolStep {
+        
+        let startState: INeedMoreSeedsState
+        let receivedMessage: PreShotVersionSeedMessage
+        
+        init?(
+            startState: INeedMoreSeedsState,
+            receivedMessage: GroupV2Protocol.PreShotVersionSeedMessage,
+            concreteCryptoProtocol: ConcreteCryptoProtocol
+        ) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(
+                startState: .iNeedMoreSeeds(startState: startState),
+                receivedMessage: .preShotVersionSeedMessage(receivedMessage: receivedMessage),
+                concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        // The step execution is defined in the superclass
+
+    }
 
     
     // MARK: - InitiateGroupUpdateStep
@@ -2728,8 +2950,11 @@ extension GroupV2Protocol {
             try identityDelegate.freezeGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
             
             // Since we will be waiting for "a long time", we create a local copy of the photo contained in the changeset if there is one.
-            // If there is no photo, and if the updated group already has a trusted photo, we get the photo from the identity manager and behaves just as if the user decided to update the photo.
-            // This will allow to "move" the photo on the server from the "previous" administrator space to the one of the local own identity (the "new" administrator).
+            // If the changeset contains no photo change, and if the updated group already has a photo uploaded by another administrator, we get
+            // that photo from the identity manager and behave just as if the user had decided to update the photo. This allows to "move" the photo
+            // on the server from the "previous" administrator space to the one of the local owned identity (the "new" administrator).
+            // We consider the published photo if there is one (i.e., an update not yet accepted by the user), and fall back to the trusted photo
+            // otherwise (which is what the published photo becomes once the user accepts it).
             
             let updatedChangeset: ObvGroupV2.Changeset
             do {
@@ -2744,12 +2969,19 @@ extension GroupV2Protocol {
                         updatedChangeset = try ObvGroupV2.Changeset(changes: updatedChanges)
                     } else {
                         assertionFailure()
-                        updatedChangeset = changeset
+                        // We could not create a local copy of the photo requested by the user. The photo file is owned by the app
+                        // (not the protocol manager), so it might be deleted before the network manager gets a chance to upload it,
+                        // leading to an unexpected behaviour. We therefore fall back to the exact same situation as if the user had
+                        // requested to remove the group photo, i.e., we replace the photo change by a removal change.
+                        let groupPhotoChange = ObvGroupV2.Change.groupPhoto(photoURL: nil)
+                        let updatedChanges = changeset.changes.filter({ !$0.isGroupPhotoChange }).union(Set([groupPhotoChange]))
+                        updatedChangeset = try ObvGroupV2.Changeset(changes: updatedChanges)
                     }
                 } else {
-                    if let existingPhotoURLAndUploaderWithinIdentityManager = try identityDelegate.getTrustedPhotoURLAndUploaderOfObvGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext), existingPhotoURLAndUploaderWithinIdentityManager.uploader != ownedIdentity {
-                        // The group already has a trusted photo (that was uploaded by somebody else) and the user did not request a change.
-                        // We create a local copy of the photo (local to the protocol manager)
+                    if let existingPhotoURLAndUploaderWithinIdentityManager = try identityDelegate.getPublishedOrTrustedPhotoURLAndUploaderOfObvGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext), existingPhotoURLAndUploaderWithinIdentityManager.uploader != ownedIdentity {
+                        // The group already has a photo (its published photo if any, otherwise its trusted photo) that was uploaded by another
+                        // administrator, and the user did not request a change. We create a local copy of that photo (local to the protocol manager)
+                        // so we can re-upload it under our own key.
                         if let photoURLWithinProtocolManager = createLocalCopyOfFile(at: existingPhotoURLAndUploaderWithinIdentityManager.url) {
                             // We manually insert a change to refresh the photo on the server
                             let groupPhotoChange = ObvGroupV2.Change.groupPhoto(photoURL: photoURLWithinProtocolManager)
@@ -2757,18 +2989,55 @@ extension GroupV2Protocol {
                             updatedChangeset = try ObvGroupV2.Changeset(changes: updatedChanges)
                         } else {
                             assertionFailure()
-                            updatedChangeset = changeset
+                            // We could not create a local copy of the existing photo, so we cannot re-upload it under our key.
+                            // Rather than leaving the group referencing a photo we are not in charge of, we fall back to the exact same
+                            // situation as if the user had requested to remove the group photo, i.e., we insert a removal change.
+                            let groupPhotoChange = ObvGroupV2.Change.groupPhoto(photoURL: nil)
+                            let updatedChanges = changeset.changes.filter({ !$0.isGroupPhotoChange }).union(Set([groupPhotoChange]))
+                            updatedChangeset = try ObvGroupV2.Changeset(changes: updatedChanges)
                         }
                     } else {
-                        // The group has no trusted photo (or the existing photo was previously uploaded by us) and the user did not request a change. There is nothing to do.
+                        // The group has no photo (or the existing photo was previously uploaded by us) and the user did not request a change. There is nothing to do.
                         updatedChangeset = changeset
                     }
                 }
             }
             
+            // Decide the encryption seed strategy for the blob we will eventually upload.
+            //
+            // If no member is removed, the current blobVersionSeed can be reused: the blob's encrypted content is still safe to read
+            // by all (remaining) members, so there is no need to distribute a new seed.
+            //
+            // If at least one member is removed, we must encrypt the new blob with a fresh seed so the removed member cannot decrypt it.
+            // We generate that seed now and pre-shot it — i.e., we send it to remaining members before uploading the blob — so they can
+            // start decrypting as soon as the blob lands on the server, without waiting for a separate key-distribution round-trip.
+            
+            let encryptionSeedStrategy: GroupV2Protocol.EncryptionSeedStrategy
+
+            if updatedChangeset.removedMembersCryptoIds.isEmpty {
+                
+                encryptionSeedStrategy = .keepCurrentBlobVersionSeed
+                
+            } else {
+                
+                let blobVersionSeed = prng.genSeed()
+                encryptionSeedStrategy = .preShotBlobVersionSeed(seed: blobVersionSeed)
+                
+                // Send the pre-shot seed to all current members and pending members, except those being removed
+                // by this update: they must not receive the new seed, otherwise the rotation would not lock them
+                // out of subsequent blob versions.
+                // Members being added by the changeset are not yet in the identity store, so they are naturally absent
+                // from the delegate's result; they will receive the seed later via InvitationOrMembersUpdateMessage.
+                let currentOtherMembers = Set(try identityDelegate.getAllOtherMembersOrPendingMembersOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                    .map(\.identity))
+                let otherMembersToSendTo = currentOtherMembers.subtracting(updatedChangeset.removedMembersCryptoIds.map(\.cryptoIdentity))
+                try self.preShot(blobVersionSeed, to: otherMembersToSendTo, ofGroupWithIdentifier: groupIdentifier, within: obvContext)
+                
+            }
+            
             // Return the new state
             
-            return WaitingForLockState(groupIdentifier: groupIdentifier, changeset: updatedChangeset, lockNonce: lockNonce, failedUploadCounter: 0)
+            return WaitingForLockState(groupIdentifier: groupIdentifier, changeset: updatedChangeset, lockNonce: lockNonce, failedUploadCounter: 0, encryptionSeedStrategy: encryptionSeedStrategy)
             
         }
         
@@ -2829,6 +3098,7 @@ extension GroupV2Protocol {
             let changeset = startState.changeset
             let lockNonce = startState.lockNonce
             let failedUploadCounter = startState.failedUploadCounter
+            let encryptionSeedStrategy = startState.encryptionSeedStrategy
             
             // Check that the group exists in DB
             
@@ -2886,12 +3156,27 @@ extension GroupV2Protocol {
             
             let alreadyTrustedPrefixAdministratorChain: GroupV2.AdministratorsChain? = try? identityDelegate.getAdministratorChainOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
 
-            // We try to decrypt the encrypted blob
-            
-            guard let (serverBlobToConsolidate, _) = tryToDecrypt(encryptedServerBlob: encryptedServerBlob, blobMainSeed: blobMainSeed, blobVersionSeed: blobKeys.blobVersionSeed, expectedGroupIdentifier: groupIdentifier, alreadyTrustedPrefixAdministratorChain: alreadyTrustedPrefixAdministratorChain) else {
-                // We could not decrypt the blob received from the server.
-                // This typically happens if the group was updated by some other admin but we are not aware of it yet.
-                // Indeed, in that case, our version seed is outdated and the decryption necessarily fails.
+            // We try to decrypt the encrypted blob. We try our stored version seed first, then any pre-shot seeds we
+            // have stashed — those would have been sent by a co-admin who updated the group between our last sync and
+            // this lock, in which case our stored seed is stale and the pre-shot is the one that matches the server's
+            // current blob version.
+
+            let preShotBlobVersionSeeds = try GroupV2PreShotBlobVersionSeedReceived.fetchPreShotBlobVersionSeeds(
+                ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity),
+                groupIdentifier: groupIdentifier,
+                within: obvContext.context)
+            let blobVersionSeedCandidates = [blobKeys.blobVersionSeed] + preShotBlobVersionSeeds
+
+            guard let (serverBlobToConsolidate, _, versionSeedThatAllowedToDecryptTheBlob) = tryToDecrypt(
+                encryptedServerBlob: encryptedServerBlob,
+                blobMainSeed: blobMainSeed,
+                blobVersionSeedCandidates: blobVersionSeedCandidates,
+                expectedGroupIdentifier: groupIdentifier,
+                alreadyTrustedPrefixAdministratorChain: alreadyTrustedPrefixAdministratorChain
+            ) else {
+                // We could not decrypt the blob received from the server, even with any stashed pre-shot seeds.
+                // This typically happens if the group was updated by some other admin but we are not aware of it yet
+                // and we did not receive their pre-shot either (e.g. no oblivious channel).
                 // For now, we fail the step and hope we will receive the new version seed soon.
                 try unfreezeTheGroupAndNotifyThatTheGroupUpdateFailed(groupIdentifier: groupIdentifier, within: obvContext)
                 return FinalState()
@@ -2958,13 +3243,33 @@ extension GroupV2Protocol {
             } else {
                 updatedServerAuthenticationKeys = nil
             }
-
-            // We generate a new version seed and use it to encrypt the consolidated blob
             
-            let updatedBlobVersionSeed = prng.genSeed()
+            // The seed strategy was chosen when the update started, from the changeset alone. The members the log
+            // entries removed left or declined since, and were unknown to it. They hold the seed that decrypted the
+            // blob, and the pre-shot if there was one. So the seed the strategy would reuse is checked against them
+            // first. If one of them holds it, a fresh seed is generated now and pre-shot to the members who remain.
+
+            let membersInLocalBlob = Set(try identityDelegate.getAllOtherMembersOrPendingMembersOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext).map(\.identity))
+
+            let blobVersionSeedForUpload: Seed
+            switch Self.blobVersionSeedForUpload(encryptionSeedStrategy: encryptionSeedStrategy,
+                                                 versionSeedThatAllowedToDecryptTheBlob: versionSeedThatAllowedToDecryptTheBlob,
+                                                 membersInLocalBlob: membersInLocalBlob,
+                                                 serverBlobAsDownloaded: serverBlobToConsolidate,
+                                                 serverBlobAfterLogEntries: previousServerBlob,
+                                                 ownedIdentity: ownedIdentity,
+                                                 prng: prng) {
+            case .chosenWhenTheUpdateStarted(let seed):
+                blobVersionSeedForUpload = seed
+            case .freshBecauseMembersLeftOrDeclined(let seed):
+                blobVersionSeedForUpload = seed
+                let otherMembersToSendTo = Set(newServerBlob.getOtherGroupMembers(ownedIdentity: ownedIdentity).map(\.identity))
+                try self.preShot(blobVersionSeedForUpload, to: otherMembersToSendTo, ofGroupWithIdentifier: groupIdentifier, within: obvContext)
+            }
+
             let encryptedConsolidatedServerBlob = try newServerBlob.signThenEncrypt(ownedIdentity: ownedIdentity,
                                                                                     blobMainSeed: blobMainSeed,
-                                                                                    blobVersionSeed: updatedBlobVersionSeed,
+                                                                                    blobVersionSeed: blobVersionSeedForUpload,
                                                                                     solveChallengeDelegate: solveChallengeDelegate,
                                                                                     with: prng,
                                                                                     within: obvContext.context)
@@ -3000,8 +3305,9 @@ extension GroupV2Protocol {
                                                   previousServerBlob: previousServerBlob,
                                                   uploadedServerBlob: newServerBlob,
                                                   updatedServerAuthenticationPrivateKey: updatedServerAuthenticationKeys?.privateKey,
-                                                  updatedBlobVersionSeed: updatedBlobVersionSeed,
-                                                  failedUploadCounter: failedUploadCounter)
+                                                  blobVersionSeedForUpload: blobVersionSeedForUpload,
+                                                  failedUploadCounter: failedUploadCounter,
+                                                  encryptionSeedStrategy: encryptionSeedStrategy)
             
         }
         
@@ -3013,37 +3319,108 @@ extension GroupV2Protocol {
         }
 
         
-        /// This method uses the collected data seeds one by one until a pair allows to decrypt the encrypted blob.
-        /// In case the owned identity is a group admin, it should have received at least one authentication private key. To determine the correct one, we look for a private received key matching the group admin public key.
-        private func tryToDecrypt(encryptedServerBlob: EncryptedData, blobMainSeed: Seed, blobVersionSeed: Seed, expectedGroupIdentifier: GroupV2.Identifier, alreadyTrustedPrefixAdministratorChain: GroupV2.AdministratorsChain?) -> (blob: GroupV2.ServerBlob, signer: ObvCryptoIdentity)? {
-            
-            let blob: GroupV2.ServerBlob
-            let signer: ObvCryptoIdentity
-            do {
-                (blob, signer) = try GroupV2.ServerBlob.decryptThenCheckSignature(
-                    encryptedServerBlob: encryptedServerBlob,
-                    blobMainSeed: blobMainSeed,
-                    blobVersionSeed: blobVersionSeed,
-                    expectedGroupIdentifier: expectedGroupIdentifier,
-                    alreadyTrustedPrefixAdministratorChain: alreadyTrustedPrefixAdministratorChain,
-                    solveChallengeDelegate: solveChallengeDelegate)
-            } catch {
-                // We could not decrypt the blob with these seeds.
-                return nil
+        /// Tries each candidate `blobVersionSeed` in order and returns the decrypted blob along with the seed that worked.
+        /// The candidate order is preserved so the caller can express priority (e.g. "current stored seed first, then pre-shots").
+        private func tryToDecrypt(
+            encryptedServerBlob: EncryptedData,
+            blobMainSeed: Seed,
+            blobVersionSeedCandidates: [Seed],
+            expectedGroupIdentifier: GroupV2.Identifier,
+            alreadyTrustedPrefixAdministratorChain: GroupV2.AdministratorsChain?
+        ) -> (blob: GroupV2.ServerBlob, signer: ObvCryptoIdentity, blobVersionSeed: Seed)? {
+
+            for blobVersionSeed in blobVersionSeedCandidates {
+
+                let blob: GroupV2.ServerBlob
+                let signer: ObvCryptoIdentity
+                do {
+                    (blob, signer) = try GroupV2.ServerBlob.decryptThenCheckSignature(
+                        encryptedServerBlob: encryptedServerBlob,
+                        blobMainSeed: blobMainSeed,
+                        blobVersionSeed: blobVersionSeed,
+                        expectedGroupIdentifier: expectedGroupIdentifier,
+                        alreadyTrustedPrefixAdministratorChain: alreadyTrustedPrefixAdministratorChain,
+                        solveChallengeDelegate: solveChallengeDelegate)
+                } catch {
+                    continue
+                }
+
+                guard blob.administratorsChain.integrityChecked else {
+                    assertionFailure("The ServerBlob should have checked the administrator chain integrity")
+                    continue
+                }
+
+                return (blob, signer, blobVersionSeed)
             }
-            
-            guard blob.administratorsChain.integrityChecked else {
-                assertionFailure("The ServerBlob should have checked the administrator chain integrity")
-                return nil
+
+            return nil
+        }
+
+
+        /// The version seed the updated blob is encrypted with.
+        enum BlobVersionSeedForUpload {
+            /// Nobody left or declined since the update started. The seed follows the strategy chosen at that time.
+            case chosenWhenTheUpdateStarted(Seed)
+            /// At least one member left or declined. This seed is fresh and must be pre-shot to the members who remain before the upload.
+            case freshBecauseMembersLeftOrDeclined(Seed)
+        }
+
+
+        /// Decides the version seed for the upload. `serverBlobAsDownloaded` is the server blob as downloaded, `serverBlobAfterLogEntries` the
+        /// same blob once the log entries are applied, before the changeset. `membersInLocalBlob` are the other members and pending members
+        /// of the group in the identity manager. Each strategy reuses one seed, and the seed is reused only if nobody who holds it was removed
+        /// by the log entries.
+        static func blobVersionSeedForUpload(
+            encryptionSeedStrategy: EncryptionSeedStrategy,
+            versionSeedThatAllowedToDecryptTheBlob: Seed,
+            membersInLocalBlob: Set<ObvCryptoIdentity>,
+            serverBlobAsDownloaded: GroupV2.ServerBlob,
+            serverBlobAfterLogEntries: GroupV2.ServerBlob,
+            ownedIdentity: ObvCryptoIdentity,
+            prng: PRNGService
+        ) -> BlobVersionSeedForUpload {
+
+            let membersInServerBlobAfterLogEntries = Set(serverBlobAfterLogEntries.getOtherGroupMembers(ownedIdentity: ownedIdentity).map(\.identity))
+
+            switch encryptionSeedStrategy {
+
+            case .keepCurrentBlobVersionSeed:
+                // The changeset removes nobody, so the update started without a new seed. The seed to reuse is the one that
+                // decrypted the downloaded blob. Every member of that downloaded blob holds it: it was sent to them when that version was
+                // uploaded. The members who hold it but must not read the next blob are those the log entries removed: they are
+                // in the downloaded blob and not in the blob after the log entries.
+                let membersInServerBlobAsDownloaded = Set(serverBlobAsDownloaded.getOtherGroupMembers(ownedIdentity: ownedIdentity).map(\.identity))
+                let leavers = membersInServerBlobAsDownloaded.subtracting(membersInServerBlobAfterLogEntries)
+                if leavers.isEmpty {
+                    return .chosenWhenTheUpdateStarted(versionSeedThatAllowedToDecryptTheBlob)
+                } else {
+                    return .freshBecauseMembersLeftOrDeclined(prng.genSeed())
+                }
+
+            case .preShotBlobVersionSeed(let seed):
+                // The changeset removes at least one member, so the update started with a new seed, sent as a pre-shot to the
+                // members in the identity manager, minus those the changeset removes. The seed to reuse is that one, and only
+                // its recipients hold it. The identity manager has not changed since: no step accepted from WaitingForLockState
+                // changes the members of a group. The recipients who hold it but must not read the next blob are those in the
+                // identity manager and not in the blob after the log entries: they left, declined, or were removed by another
+                // admin. A member the changeset removes is still in that blob, so they never count.
+                let leavers = membersInLocalBlob.subtracting(membersInServerBlobAfterLogEntries)
+                if leavers.isEmpty {
+                    return .chosenWhenTheUpdateStarted(seed)
+                } else {
+                    return .freshBecauseMembersLeftOrDeclined(prng.genSeed())
+                }
+
+            case .legacy:
+                return .chosenWhenTheUpdateStarted(prng.genSeed())
+
             }
-            
-            return (blob, signer)
-            
+
         }
 
     }
-    
-    
+
+
     // MARK: - ProcessGroupUpdateBlobUploadResponseStep
     
     final class ProcessGroupUpdateBlobUploadResponseStep: ProtocolStep, TypedConcreteProtocolStep {
@@ -3071,8 +3448,9 @@ extension GroupV2Protocol {
             let previousServerBlob = startState.previousServerBlob
             let uploadedServerBlob = startState.uploadedServerBlob
             let updatedServerAuthenticationPrivateKey = startState.updatedServerAuthenticationPrivateKey
-            let updatedBlobVersionSeed = startState.updatedBlobVersionSeed
+            let blobVersionSeedForUpload = startState.blobVersionSeedForUpload
             let failedUploadCounter = startState.failedUploadCounter
+            let encryptionSeedStrategy = startState.encryptionSeedStrategy
 
             // Depending on the blob upload result, we might abort, try again or continue
             
@@ -3128,7 +3506,7 @@ extension GroupV2Protocol {
 
                 // Increment fail counter and wait for the lock
 
-                return WaitingForLockState(groupIdentifier: groupIdentifier, changeset: changeset, lockNonce: lockNonce, failedUploadCounter: failedUploadCounter+1)
+                return WaitingForLockState(groupIdentifier: groupIdentifier, changeset: changeset, lockNonce: lockNonce, failedUploadCounter: failedUploadCounter+1, encryptionSeedStrategy: encryptionSeedStrategy)
                 
             case .success:
 
@@ -3153,12 +3531,16 @@ extension GroupV2Protocol {
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 serverPhotoInfoOfNewUploadedPhoto = serverPhotoInfo
             } else {
-                let coreMessage = getCoreMessage(for: .local(ownedIdentity: ownedIdentity))
-                let concreteMessage = FinalizeGroupUpdateMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate FinalizeGroupUpdateMessage") }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 serverPhotoInfoOfNewUploadedPhoto = nil
             }
+            
+            // Finalize the update immediately. We do not wait, even if there is a photo to upload.
+            // This minimizes the risk of group members to receiving the updated group seeds
+            
+            let coreMessage = getCoreMessage(for: .local(ownedIdentity: ownedIdentity))
+            let concreteMessage = FinalizeGroupUpdateMessage(coreProtocolMessage: coreMessage)
+            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate FinalizeGroupUpdateMessage") }
+            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
 
             // Return the new state (even if we do not have a new photo, the appropriate state is UploadingUpdatedGroupPhotoState)
             
@@ -3167,9 +3549,9 @@ extension GroupV2Protocol {
                                                    previousServerBlob: previousServerBlob,
                                                    uploadedServerBlob: uploadedServerBlob,
                                                    updatedServerAuthenticationPrivateKey: updatedServerAuthenticationPrivateKey,
-                                                   updatedBlobVersionSeed: updatedBlobVersionSeed,
+                                                   blobVersionSeedForUpload: blobVersionSeedForUpload,
                                                    serverPhotoInfoOfNewUploadedPhoto: serverPhotoInfoOfNewUploadedPhoto)
-            
+
         }
         
         
@@ -3186,17 +3568,31 @@ extension GroupV2Protocol {
 
     
     // MARK: - ProcessGroupUpdatePhotoUploadResponseStep
-    
+
+    /// Handles `UploadGroupPhotoMessage` (the network manager's local notification that a `putUserData`
+    /// photo upload has completed).
+    ///
+    /// **Legacy path — kept for retro-compatibility.** In an older app version, `ProcessGroupUpdateBlobUploadResponseStep`
+    /// did *not* fire `FinalizeGroupUpdateMessage` immediately after the blob upload when there was a
+    /// photo to upload; it parked the protocol in `UploadingUpdatedGroupPhotoState` waiting for the photo
+    /// response, and this step then posted the local `FinalizeGroupUpdateMessage`. A user upgrading
+    /// mid-protocol may have a `UploadingUpdatedGroupPhotoState` persisted on disk, so we must keep
+    /// processing the photo response from that state to drive the protocol to completion.
+    ///
+    /// The newer flow always fires `FinalizeGroupUpdateMessage` immediately and the photo file cleanup
+    /// is owned by the network manager. In that flow the photo response arrives after the protocol has
+    /// already reached `FinalState`, so it is processed from `InitialState` instead — see
+    /// `ProcessGroupUpdatePhotoUploadResponseFromInitialStateStep` below.
     final class ProcessGroupUpdatePhotoUploadResponseStep: ProtocolStep, TypedConcreteProtocolStep {
-        
+
         let startState: UploadingUpdatedGroupPhotoState
         let receivedMessage: UploadGroupPhotoMessage
-        
+
         init?(startState: UploadingUpdatedGroupPhotoState, receivedMessage: GroupV2Protocol.UploadGroupPhotoMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
-            
+
             self.startState = startState
             self.receivedMessage = receivedMessage
-            
+
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
                        expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
@@ -3204,7 +3600,7 @@ extension GroupV2Protocol {
         }
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-        
+
             eraseReceivedMessagesAfterReachingAFinalState = false
 
             let groupIdentifier = startState.groupIdentifier
@@ -3212,29 +3608,81 @@ extension GroupV2Protocol {
             let previousServerBlob = startState.previousServerBlob
             let uploadedServerBlob = startState.uploadedServerBlob
             let updatedServerAuthenticationPrivateKey = startState.updatedServerAuthenticationPrivateKey
-            let updatedBlobVersionSeed = startState.updatedBlobVersionSeed
+            let blobVersionSeedForUpload = startState.blobVersionSeedForUpload
             let serverPhotoInfoOfNewUploadedPhoto = startState.serverPhotoInfoOfNewUploadedPhoto
 
             let coreMessage = getCoreMessage(for: .local(ownedIdentity: ownedIdentity))
             let concreteMessage = FinalizeGroupUpdateMessage(coreProtocolMessage: coreMessage)
             guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate FinalizeGroupUpdateMessage") }
             _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            
+
             return UploadingUpdatedGroupPhotoState(groupIdentifier: groupIdentifier,
                                                    changeset: changeset,
                                                    previousServerBlob: previousServerBlob,
                                                    uploadedServerBlob: uploadedServerBlob,
                                                    updatedServerAuthenticationPrivateKey: updatedServerAuthenticationPrivateKey,
-                                                   updatedBlobVersionSeed: updatedBlobVersionSeed,
+                                                   blobVersionSeedForUpload: blobVersionSeedForUpload,
                                                    serverPhotoInfoOfNewUploadedPhoto: serverPhotoInfoOfNewUploadedPhoto)
 
         }
-                
+
+    }
+
+
+    // MARK: - ProcessGroupUpdatePhotoUploadResponseFromInitialStateStep
+
+    /// Consumes `UploadGroupPhotoMessage` when it arrives after the protocol has already finalized — the
+    /// normal path in the current flow.
+    ///
+    /// `ProcessGroupUpdateBlobUploadResponseStep` now fires `FinalizeGroupUpdateMessage` immediately after
+    /// the blob upload, so `FinalizeGroupUpdateStep` runs and reaches `FinalState` long before the photo
+    /// upload completes. The protocol instance is deleted on `FinalState`, so when the network manager
+    /// later delivers `UploadGroupPhotoMessage`, a fresh protocol instance is spawned in
+    /// `ConcreteProtocolInitialState`. There is nothing left for this step to do — the network manager
+    /// owns the photo-file cleanup — so this is a no-op consumer. Its only purpose is to acknowledge the
+    /// message so it does not linger in `ReceivedMessage` until the obsolete-message sweep.
+    final class ProcessGroupUpdatePhotoUploadResponseFromInitialStateStep: ProtocolStep, TypedConcreteProtocolStep {
+
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: UploadGroupPhotoMessage
+
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: GroupV2Protocol.UploadGroupPhotoMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .local,
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            eraseReceivedMessagesAfterReachingAFinalState = false
+            return FinalState()
+        }
+
     }
 
     
     // MARK: - FinalizeGroupUpdateStep
-    
+
+    /// Final step of the group update flow, run once the blob (and optionally the photo) has been uploaded to the server.
+    ///
+    /// Responsibilities, in order:
+    /// 1. Verify the integrity of the uploaded administrator chain.
+    /// 2. Persist the new blob and blob keys locally via `identityDelegate.updateGroupV2(...)`.
+    /// 3. Unfreeze the group locally.
+    /// 4. Distribute `InvitationOrMembersUpdateMessage` (oblivious / pre-key channel) or `InvitationOrMembersUpdateBroadcastMessage`
+    ///    (asymmetric broadcast) to every other group member so they learn about the new version.
+    /// 5. Notify the owned identity's other devices.
+    /// 6. Send signed `KickMessage`s to removed members.
+    /// 7. Hand the uploaded photo to the identity manager and clean up the local copy.
+    ///
+    /// Note on the `blobVersionSeed`: when the update removed at least one member, reachable members have already received the
+    /// new `blobVersionSeed` out-of-band via a `PreShotVersionSeedMessage` sent by `InitiateGroupUpdateStep` *before* the lock
+    /// was acquired. We still include the seed here — it is redundant for those recipients but essential for unreachable members
+    /// (asymmetric broadcast variant) and required for backwards compatibility with develop-branch clients that always expect it.
     final class FinalizeGroupUpdateStep: ProtocolStep, TypedConcreteProtocolStep {
         
         let startState: UploadingUpdatedGroupPhotoState
@@ -3260,7 +3708,7 @@ extension GroupV2Protocol {
             let previousServerBlob = startState.previousServerBlob
             let uploadedServerBlob = startState.uploadedServerBlob
             let updatedServerAuthenticationPrivateKey = startState.updatedServerAuthenticationPrivateKey
-            let updatedBlobVersionSeed = startState.updatedBlobVersionSeed
+            let blobVersionSeedForUpload = startState.blobVersionSeedForUpload
             let serverPhotoInfoOfNewUploadedPhoto = startState.serverPhotoInfoOfNewUploadedPhoto
             
             // Look for the trusted prefix of the administrator chain
@@ -3289,7 +3737,7 @@ extension GroupV2Protocol {
                         
             do {
                 let newBlobKeys = GroupV2.BlobKeys(blobMainSeed: blobMainSeed,
-                                                   blobVersionSeed: updatedBlobVersionSeed,
+                                                   blobVersionSeed: blobVersionSeedForUpload,
                                                    groupAdminServerAuthenticationPrivateKey: updatedServerAuthenticationPrivateKey ?? currentBlobKeys.groupAdminServerAuthenticationPrivateKey)
                 _ = try identityDelegate.updateGroupV2(withGroupWithIdentifier: groupIdentifier,
                                                        of: ownedIdentity,
@@ -3310,30 +3758,32 @@ extension GroupV2Protocol {
             try identityDelegate.unfreezeGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
             
             // For each group member & pending member, send:
-            //  - the main seed, to members with an oblivious channel
-            //  - the version seed, to everyone
-            //  - the groupAdmin private key, to group admins
+            //  - the main seed, to members with an oblivious channel (the main seed never travels through a broadcast/asymmetric channel)
+            //  - the version seed, to everyone (redundant for members already reached by the pre-shot, but see the class doc)
+            //  - the groupAdmin private key, to group admins only
 
             let otherGroupMembers = uploadedServerBlob.getOtherGroupMembers(ownedIdentity: ownedIdentity)
-            
-            let keysToSend = { (hasGroupAdminPermission: Bool, sentThroughObliviousChannel: Bool) -> GroupV2.BlobKeys in
+
+            /// Decides which key subset goes into the outgoing `BlobKeys`, based on whether the recipient is an admin and whether
+            /// we are reaching them through an oblivious / pre-key channel (vs. an asymmetric broadcast channel).
+            let determineKeysToSend = { (hasGroupAdminPermission: Bool, sentThroughObliviousChannel: Bool) -> GroupV2.BlobKeys in
                 let groupAdminServerAuthenticationPrivateKey = updatedServerAuthenticationPrivateKey ?? currentBlobKeys.groupAdminServerAuthenticationPrivateKey
                 switch (hasGroupAdminPermission, sentThroughObliviousChannel) {
                 case (false, false):
                     return GroupV2.BlobKeys(blobMainSeed: nil,
-                                            blobVersionSeed: updatedBlobVersionSeed,
+                                            blobVersionSeed: blobVersionSeedForUpload,
                                             groupAdminServerAuthenticationPrivateKey: nil)
                 case (false, true):
                     return GroupV2.BlobKeys(blobMainSeed: blobMainSeed,
-                                            blobVersionSeed: updatedBlobVersionSeed,
+                                            blobVersionSeed: blobVersionSeedForUpload,
                                             groupAdminServerAuthenticationPrivateKey: nil)
                 case (true, false):
                     return GroupV2.BlobKeys(blobMainSeed: nil,
-                                            blobVersionSeed: updatedBlobVersionSeed,
+                                            blobVersionSeed: blobVersionSeedForUpload,
                                             groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
                 case (true, true):
                     return GroupV2.BlobKeys(blobMainSeed: blobMainSeed,
-                                            blobVersionSeed: updatedBlobVersionSeed,
+                                            blobVersionSeed: blobVersionSeedForUpload,
                                             groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
                 }
             }
@@ -3346,39 +3796,123 @@ extension GroupV2Protocol {
                 identityDelegate: identityDelegate,
                 within: obvContext)
 
+            // Members reachable through exactly one oblivious/pre-key channel are collected here and sent a batched message
+            // after the loop — we coalesce up to N individual sends into at most two (admins / non-admins). Members with
+            // multiple channels still get individual messages so each carries the right `notifiedDeviceUIDs` and avoids
+            // unnecessary same-recipient propagation between the recipient's own devices.
+            var membersWithSingleChannel = Set<GroupV2.IdentityAndPermissionsAndDetails>()
+
             for member in otherGroupMembers {
+
                 if let memberDeviceUids = deviceUidsOfRemoteIdentity[member.identity], !memberDeviceUids.isEmpty {
-                    let keysToSend = keysToSend(member.hasGroupAdminPermission, true)
-                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: member.identity,
-                                                                                 remoteDeviceUids: Array(memberDeviceUids),
-                                                                                 fromOwnedIdentity: ownedIdentity,
-                                                                                 necessarilyConfirmed: true,
-                                                                                 usePreKeyIfRequired: true)
-                    let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
-                    let concreteMessage = InvitationOrMembersUpdateMessage(coreProtocolMessage: coreMessage,
-                                                                           groupIdentifier: groupIdentifier,
-                                                                           groupVersion: uploadedServerBlob.groupVersion,
-                                                                           blobKeys: keysToSend,
-                                                                           notifiedDeviceUIDs: memberDeviceUids)
+
+                    if memberDeviceUids.count == 1 {
+
+                        membersWithSingleChannel.insert(member)
+
+                    } else {
+
+                        let keysToSend = determineKeysToSend(member.hasGroupAdminPermission, true)
+
+                        let channelType = ObvChannelSendChannelType.obliviousChannel(
+                            to: member.identity,
+                            remoteDeviceUids: Array(memberDeviceUids),
+                            fromOwnedIdentity: ownedIdentity,
+                            necessarilyConfirmed: true,
+                            usePreKeyIfRequired: true
+                        )
+                        let coreMessage = CoreProtocolMessage(
+                            channelType: channelType,
+                            cryptoProtocolId: .groupV2,
+                            protocolInstanceUid: protocolInstanceUid
+                        )
+                        let concreteMessage = InvitationOrMembersUpdateMessage(
+                            coreProtocolMessage: coreMessage,
+                            groupIdentifier: groupIdentifier,
+                            groupVersion: uploadedServerBlob.groupVersion,
+                            blobKeys: keysToSend,
+                            notifiedDeviceUIDs: memberDeviceUids
+                        )
+                        guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+
+                    }
+                                        
+                } else {
+                    
+                    let keysToSend = determineKeysToSend(member.hasGroupAdminPermission, false)
+                    
+                    let channelType = ObvChannelSendChannelType.asymmetricChannelBroadcast(
+                        to: member.identity,
+                        fromOwnedIdentity: ownedIdentity
+                    )
+                    let coreMessage = CoreProtocolMessage(
+                        channelType: channelType,
+                        cryptoProtocolId: .groupV2,
+                        protocolInstanceUid: protocolInstanceUid
+                    )
+                    let concreteMessage = InvitationOrMembersUpdateBroadcastMessage(
+                        coreProtocolMessage: coreMessage,
+                        groupIdentifier: groupIdentifier,
+                        groupVersion: uploadedServerBlob.groupVersion,
+                        blobKeys: keysToSend
+                    )
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-                } else {
-                    let keysToSend = keysToSend(member.hasGroupAdminPermission, false)
-                    let channelType = ObvChannelSendChannelType.asymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
-                    let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
-                    let concreteMessage = InvitationOrMembersUpdateBroadcastMessage(coreProtocolMessage: coreMessage,
-                                                                                    groupIdentifier: groupIdentifier,
-                                                                                    groupVersion: uploadedServerBlob.groupVersion,
-                                                                                    blobKeys: keysToSend)
+                    
+                }
+                
+            }
+            
+            // Batched send for single-channel members, split by admin permission so each batch carries the right key subset.
+            // The channel type fans out to all confirmed channels of the listed contacts, so each recipient device still
+            // receives exactly one copy.
+            //
+            // `notifiedDeviceUIDs: []` is intentional: this field is meant to tell a recipient "I already sent to these
+            // device UIDs of yours" so the recipient can skip propagation to them. In a batched fan-out we can't fill it
+            // meaningfully (it would have to be per-recipient). Empty is safe because:
+            //   - `getOtherDeviceUidsOfOwnedIdentity` excludes the receiving device itself, so for a single-device recipient
+            //     it returns ∅ and no propagation happens.
+            //   - For a recipient that has the sender-visible device plus other devices the sender doesn't know about, the
+            //     subtraction `otherDeviceUIDs - notifiedDeviceUIDs` yields the same set as the unbatched per-member send
+            //     would have produced (the single channeled device is the current device and is not in `otherDeviceUIDs`
+            //     to begin with).
+            for sendingToAdmin in [true, false] {
+                let targetMembers = membersWithSingleChannel.filter { $0.hasGroupAdminPermission == sendingToAdmin }
+                if !targetMembers.isEmpty {
+                    let keysToSend = determineKeysToSend(sendingToAdmin, true)
+                    let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(
+                        contactIdentities: Set(targetMembers.map(\.identity)),
+                        fromOwnedIdentity: ownedIdentity,
+                        withUserContent: false,
+                        contactDeviceIdentifiersToExclude: Set<ObvContactDeviceIdentifier>()
+                    )
+                    let coreMessage = CoreProtocolMessage(
+                        channelType: channelType,
+                        cryptoProtocolId: .groupV2,
+                        protocolInstanceUid: protocolInstanceUid
+                    )
+                    let concreteMessage = InvitationOrMembersUpdateMessage(
+                        coreProtocolMessage: coreMessage,
+                        groupIdentifier: groupIdentifier,
+                        groupVersion: uploadedServerBlob.groupVersion,
+                        blobKeys: keysToSend,
+                        notifiedDeviceUIDs: []
+                    )
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
             }
-            
+                
+            // Notify the owned identity's other devices so they learn about the new group version. The owned identity is by
+            // construction an admin (we just performed the update), so we send the full key set over an oblivious channel.
             do {
+
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
+
                 if !otherDeviceUIDs.isEmpty {
-                    let keysToSend = keysToSend(true, true) // We have admin permissions, and we send the keys through an Oblivious channel
+
+                    let keysToSend = determineKeysToSend(true, true) // We have admin permissions, and we send the keys through an Oblivious channel
                     let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
                                                                                  remoteDeviceUids: Array(otherDeviceUIDs),
                                                                                  fromOwnedIdentity: ownedIdentity,
@@ -3392,7 +3926,9 @@ extension GroupV2Protocol {
                                                                            notifiedDeviceUIDs: otherDeviceUIDs)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                    
                 }
+                
             }
 
             // Kick removed members
@@ -4616,9 +5152,216 @@ extension GroupV2Protocol {
         }
     }
 
-    
+
+    // MARK: - ProcessReceivedPreShotVersionSeedStep
+
+    /// Receives a `PreShotVersionSeedMessage` from an admin that has just initiated a group update removing at least one
+    /// member, and stashes the new `blobVersionSeed` so it can be used to decrypt the updated blob when it lands.
+    ///
+    /// The seed is purely persisted to the protocol manager's own store (`GroupV2PreShotBlobVersionSeedReceived`); the
+    /// protocol's state machine is not advanced. Each concrete subclass therefore returns its own start state unchanged
+    /// (or `FinalState` for the initial-state variant, which is the file-wide convention for "isolated" steps).
+    /// Forward progress happens later, through the existing paths that read pre-shots from the store before decrypting
+    /// (`ProcessDownloadedGroupDataStep`, `PrepareBlobForGroupUpdateStep`).
+    ///
+    /// **`INeedMoreSeedsState` is intentionally not handled here.** That state is parked because a prior decryption
+    /// failed, and nothing will pick up the stashed seed unless we actively re-request the blob. It is routed instead
+    /// through `InitiateBlobReDownloadStep` (see `ProcessPreShotVersionSeedMessageFromINeedMoreSeedsStateStep`), which
+    /// transitions to `DownloadingGroupBlobState`.
+    ///
+    /// **States that deliberately do not accept this message at all:**
+    /// - `UploadingCreatedGroupDataState` — we just created the group, nobody else is an admin yet, so no one can
+    ///   legitimately send us a pre-shot for it.
+    /// - `RejectingInvitationOrLeavingGroupState` — we are on our way out of the group; the seed is useless to us.
+    /// - `DisbandingGroupState` — terminal action, same as above.
+    class ProcessReceivedPreShotVersionSeedStep: ProtocolStep {
+
+        private let startState: StartStateType
+        private let receivedMessage: PreShotVersionSeedMessage
+
+        enum StartStateType {
+            case initial(startState: ConcreteProtocolInitialState)
+            case downloadingGroupBlob(startState: DownloadingGroupBlobState)
+            case invitationReceived(startState: InvitationReceivedState)
+            case waitingForLock(startState: WaitingForLockState)
+            case uploadingUpdatedGroupBlob(startState: UploadingUpdatedGroupBlobState)
+            case uploadingUpdatedGroupPhoto(startState: UploadingUpdatedGroupPhotoState)
+        }
+
+        init?(startState: StartStateType, receivedMessage: PreShotVersionSeedMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+
+            eraseReceivedMessagesAfterReachingAFinalState = false
+
+            let groupIdentifier = receivedMessage.groupIdentifier
+            let blobVersionSeed = receivedMessage.blobVersionSeed
+
+            let stateToReturn: ConcreteProtocolState
+            switch startState {
+            case .initial:
+                stateToReturn = FinalState()
+            case .downloadingGroupBlob(let startState):
+                stateToReturn = startState
+            case .invitationReceived(let startState):
+                stateToReturn = startState
+            case .waitingForLock(let startState):
+                stateToReturn = startState
+            case .uploadingUpdatedGroupBlob(let startState):
+                stateToReturn = startState
+            case .uploadingUpdatedGroupPhoto(let startState):
+                stateToReturn = startState
+            }
+
+            // The protocol instance UID is derived from the group identifier; check that the carried identifier matches
+            // the instance we are running in, otherwise the message is malformed (or routed wrong) and we drop it.
+            guard try groupIdentifier.computeProtocolInstanceUid() == self.protocolInstanceUid else {
+                assertionFailure()
+                return stateToReturn
+            }
+
+            _ = try GroupV2PreShotBlobVersionSeedReceived.insertGroupV2PreShotBlobVersionSeedReceived(
+                ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity),
+                groupIdentifier: groupIdentifier,
+                blobVersionSeed: blobVersionSeed,
+                within: obvContext.context)
+
+            return stateToReturn
+        }
+    }
+
+
+    // MARK: Process PreShotVersionSeedMessage from ConcreteProtocolInitialState
+
+    /// Accepts the pre-shot when no protocol is currently running for this group. This is the common case — the
+    /// pre-shot arrives before we have any other reason to be active on this group's protocol instance. Returns
+    /// `FinalState` per the file-wide convention for isolated steps.
+    final class ProcessPreShotVersionSeedMessageFromConcreteProtocolInitialStateStep: ProcessReceivedPreShotVersionSeedStep, TypedConcreteProtocolStep {
+
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PreShotVersionSeedMessage
+
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: GroupV2Protocol.PreShotVersionSeedMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: .initial(startState: startState), receivedMessage: receivedMessage, concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+
+    }
+
+
+    // MARK: Process PreShotVersionSeedMessage from DownloadingGroupBlobState
+
+    /// We are actively downloading the blob right now. By the time the download lands and we attempt decryption,
+    /// having the pre-shot already in the DB is exactly what saves us if the seed has rotated.
+    final class ProcessPreShotVersionSeedMessageFromDownloadingGroupBlobStateStep: ProcessReceivedPreShotVersionSeedStep, TypedConcreteProtocolStep {
+
+        let startState: DownloadingGroupBlobState
+        let receivedMessage: PreShotVersionSeedMessage
+
+        init?(startState: DownloadingGroupBlobState, receivedMessage: GroupV2Protocol.PreShotVersionSeedMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: .downloadingGroupBlob(startState: startState), receivedMessage: receivedMessage, concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+
+    }
+
+
+    // MARK: Process PreShotVersionSeedMessage from InvitationReceivedState
+
+    /// We have been prompted to accept an invitation and may not respond for hours or days. A co-admin can update the
+    /// group in the meantime, so we stash the pre-shot now to have it ready when we eventually accept and download.
+    final class ProcessPreShotVersionSeedMessageFromInvitationReceivedStateStep: ProcessReceivedPreShotVersionSeedStep, TypedConcreteProtocolStep {
+
+        let startState: InvitationReceivedState
+        let receivedMessage: PreShotVersionSeedMessage
+
+        init?(startState: InvitationReceivedState, receivedMessage: GroupV2Protocol.PreShotVersionSeedMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: .invitationReceived(startState: startState), receivedMessage: receivedMessage, concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+
+    }
+
+
+    // MARK: Process PreShotVersionSeedMessage from WaitingForLockState
+
+    /// We are an admin waiting for our server lock. Another admin may have raced us; if our lock attempt fails we will
+    /// retry, and `PrepareBlobForGroupUpdateStep` now feeds stashed pre-shot seeds into its decryption candidates —
+    /// so stashing the incoming seed here makes the retry succeed.
+    final class ProcessPreShotVersionSeedMessageFromWaitingForLockStateStep: ProcessReceivedPreShotVersionSeedStep, TypedConcreteProtocolStep {
+
+        let startState: WaitingForLockState
+        let receivedMessage: PreShotVersionSeedMessage
+
+        init?(startState: WaitingForLockState, receivedMessage: GroupV2Protocol.PreShotVersionSeedMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: .waitingForLock(startState: startState), receivedMessage: receivedMessage, concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+
+    }
+
+
+    // MARK: Process PreShotVersionSeedMessage from UploadingUpdatedGroupBlobState
+
+    /// Same admin-race story as `WaitingForLockState`: our in-flight update may bounce (e.g. another admin's blob is
+    /// already on the server), we will retry, and the stashed seed becomes the one that makes the retry decryption work.
+    final class ProcessPreShotVersionSeedMessageFromUploadingUpdatedGroupBlobStateStep: ProcessReceivedPreShotVersionSeedStep, TypedConcreteProtocolStep {
+
+        let startState: UploadingUpdatedGroupBlobState
+        let receivedMessage: PreShotVersionSeedMessage
+
+        init?(startState: UploadingUpdatedGroupBlobState, receivedMessage: GroupV2Protocol.PreShotVersionSeedMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: .uploadingUpdatedGroupBlob(startState: startState), receivedMessage: receivedMessage, concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+
+    }
+
+
+    // MARK: Process PreShotVersionSeedMessage from UploadingUpdatedGroupPhotoState
+
+    /// Same as `UploadingUpdatedGroupBlobState` — we are still inside our own update flow, and a retry triggered by a
+    /// concurrent admin update can be salvaged by the seed we stash here.
+    final class ProcessPreShotVersionSeedMessageFromUploadingUpdatedGroupPhotoStateStep: ProcessReceivedPreShotVersionSeedStep, TypedConcreteProtocolStep {
+
+        let startState: UploadingUpdatedGroupPhotoState
+        let receivedMessage: PreShotVersionSeedMessage
+
+        init?(startState: UploadingUpdatedGroupPhotoState, receivedMessage: GroupV2Protocol.PreShotVersionSeedMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: .uploadingUpdatedGroupPhoto(startState: startState), receivedMessage: receivedMessage, concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+
+    }
+
+
     // MARK: - ProcessInitiateUpdateKeycloakGroupsMessageStep
-    
+
     /// This steps is an "isolated" step as it starts from the initial state and finishes in a final state. Its protocol instance UID is a random one. It is called when the keycloak manager of the app receives new informations concerning keycloak groups.
     /// This steps processes all this information and launches new protocol steps, e.g., one for each new signed group.
     final class ProcessInitiateUpdateKeycloakGroupsMessageStep: ProtocolStep, TypedConcreteProtocolStep {
@@ -4797,6 +5540,31 @@ extension GroupV2Protocol {
             
         }
         
+    }
+
+}
+
+
+// MARK: - Helpers
+
+extension ProtocolStep {
+
+    /// Sends `blobVersionSeed` to `members` and to the other owned devices, ahead of the blob encrypted with it, so they
+    /// can read that blob as soon as it lands on the server. Members being added by the update may be included: a seed
+    /// received for a group not yet known is kept until the invitation arrives.
+    fileprivate func preShot(_ blobVersionSeed: Seed, to members: Set<ObvCryptoIdentity>, ofGroupWithIdentifier groupIdentifier: GroupV2.Identifier, within obvContext: ObvContext) throws {
+        let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices(
+            contactIdentities: members,
+            fromOwnedIdentity: ownedIdentity,
+            withUserContent: false,
+            contactDeviceIdentifiersToExclude: Set<ObvContactDeviceIdentifier>())
+        let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
+        let concreteMessage = GroupV2Protocol.PreShotVersionSeedMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, blobVersionSeed: blobVersionSeed)
+        guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not generate PreShotVersionSeedMessage")
+        }
+        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
     }
 
 }

@@ -23,6 +23,7 @@ import AVFoundation
 import ObvDesignSystem
 import ObvUICoreData
 import Speech
+import OlvidUtils
 
 protocol AudioWaveFormViewDelegate: AnyObject {
     func audioHasBeenPlayed(_: HardLinkToFyle)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -222,6 +222,22 @@ public final class JWSUtil {
     public static func getUnverifiedPayloadOfJWT(signature: String) throws -> Data {
         let jws = try JWS(compactSerialization: signature)
         return jws.payload.data()
+    }
+
+
+    /// Returns the value of the `exp` (expiration time) claim of a JWT, as a `Date`.
+    ///
+    /// The signature is intentionally **not** verified: this is meant to read the expiration of a token we
+    /// were just issued (e.g. an OAuth access token), not to trust its contents. Throws if the string is not
+    /// a JWT, if its payload is not valid JSON, or if it carries no `exp` claim.
+    public static func getUnverifiedExpiration(ofJWT jwt: String) throws -> Date {
+        let payload = try getUnverifiedPayloadOfJWT(signature: jwt)
+        struct JWTClaims: Decodable { let exp: TimeInterval? }
+        let claims = try JSONDecoder().decode(JWTClaims.self, from: payload)
+        guard let exp = claims.exp else {
+            throw makeError(message: "The JWT carries no exp claim")
+        }
+        return Date(timeIntervalSince1970: exp)
     }
 
 }

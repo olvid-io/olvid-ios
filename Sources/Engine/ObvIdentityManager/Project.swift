@@ -19,8 +19,15 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     ])
 
 
+private let frameworkTestsTarget = Target.makeFrameworkUnitTestsTarget(
+    forTesting: frameworkTarget,
+    dependencies: [
+        .Olvid.Engine.obvDatabaseManager, // The engine's Core Data model, for tests that need a store
+    ])
+
+
 // MARK: - Project
 
 let project = Project.createProjectForFramework(
     frameworkTarget: frameworkTarget,
-    frameworkTestsTarget: nil)
+    frameworkTestsTarget: frameworkTestsTarget)

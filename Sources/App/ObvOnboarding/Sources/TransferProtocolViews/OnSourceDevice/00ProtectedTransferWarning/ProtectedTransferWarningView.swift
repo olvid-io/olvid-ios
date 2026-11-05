@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,7 @@ import ObvDesignSystem
 protocol ProtectedTransferWarningViewActionsProtocol: AnyObject {
     func userTouchedOkButton() async
     func userTouchedBackButton() async
+    func userWantsToCloseOnboarding() async
 }
 
 
@@ -41,6 +42,11 @@ struct ProtectedTransferWarningView: View {
     private func userTouchedBackButton() {
         isDisabled = true
         Task { await actions.userTouchedBackButton() }
+    }
+
+    private func userWantsToCloseOnboarding() {
+        isDisabled = true
+        Task { await actions.userWantsToCloseOnboarding() }
     }
 
     
@@ -92,6 +98,11 @@ struct ProtectedTransferWarningView: View {
         .padding(.horizontal)
         .onAppear {
             self.isDisabled = false
+        }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                ObvButtonWithCancelRole(action: userWantsToCloseOnboarding)
+            }
         }
         
     }
@@ -188,6 +199,9 @@ struct ProtectedTransferWarningView_Previews: PreviewProvider {
         }
         
         func userTouchedBackButton() async {
+        }
+        
+        func userWantsToCloseOnboarding() async {
         }
         
     }

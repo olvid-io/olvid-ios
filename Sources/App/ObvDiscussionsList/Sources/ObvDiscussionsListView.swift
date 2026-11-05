@@ -79,6 +79,21 @@ public struct ObvDiscussionsListViewModel: Sendable, Equatable {
     public enum SearchStatus {
         case notPerformingSearch
         case performingSearch(searchText: String?)
+
+        /// What a search text asks of the list.
+        ///
+        /// Whitespace alone is no search, as in `PersistedDiscussion.getSearchPredicate`. Without the trim, a field holding two spaces would ask for
+        /// a search that matches everything, which lists every discussion rather than the recent ones.
+        public static func askedBy(searchText: String) -> Self {
+            searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .notPerformingSearch : .performingSearch(searchText: searchText)
+        }
+
+        var isPerformingSearch: Bool {
+            switch self {
+            case .notPerformingSearch: return false
+            case .performingSearch: return true
+            }
+        }
     }
     
 }
@@ -170,6 +185,22 @@ public struct ObvDiscussionsListViewConfiguration: Sendable {
 }
 
 
+// MARK: - Scroll to top
+
+/// Lets an external owner (typically the hosting `ObvDiscussionsListViewController`) request a
+/// programmatic scroll to the top of the recent discussions list.
+///
+/// The wrapper is kept outside the SwiftUI view (owned by the hosting controller) so that scroll
+/// requests survive view reloads and identity changes. To trigger a scroll, set `scrollToTop` to
+/// `true`; `ObvDiscussionsListView` observes the change, performs the scroll, and resets the flag
+/// back to `false` so the same request can be issued again later.
+///
+/// This mirrors the `ItemToScrollToWrapper` approach used by `ObvGroupsListView`.
+final class ObvDiscussionsListScrollToTopWrapper: ObservableObject {
+    @Published var scrollToTop: Bool = false
+}
+
+
 // MARK: - Main view: ObvDiscussionsListView
 
 
@@ -180,7 +211,8 @@ public struct ObvDiscussionsListView: View {
     let avatarViewDataSource: ObvAvatarViewDataSource
     let actions: ObvDiscussionsListViewActionsProtocol
     let configuration: ObvDiscussionsListViewConfiguration
-    
+    @ObservedObject var scrollToTopWrapper: ObvDiscussionsListScrollToTopWrapper
+
     @State private var viewModel: ObvDiscussionsListViewModel?
     @State private var streamUUIDForViewModel: UUID?
     
@@ -250,11 +282,17 @@ public struct ObvDiscussionsListView: View {
         }
         Task {
             do {
-                let (newStreamUUID, stream) = try await dataSource.getAsyncStreamOfObvDiscussionsListViewModel(self, ownedCryptoId: self.currentOwnedCryptoId, initialSearchText: searchText)
+                let searchTextWhenAsking = searchText
+                let (newStreamUUID, stream) = try await dataSource.getAsyncStreamOfObvDiscussionsListViewModel(self, ownedCryptoId: self.currentOwnedCryptoId, initialSearchText: searchTextWhenAsking)
                 if let previousStreamUUID = self.streamUUIDForViewModel {
                     dataSource.finishAsyncStreamOfObvDiscussionsListViewModel(self, streamUUID: previousStreamUUID)
                 }
                 self.streamUUIDForViewModel = newStreamUUID
+                // A key pressed while the stream was being created was observed by an `onChange` that had no stream to ask, so it was dropped. The
+                // text the field holds now is applied again here, or the list stays filtered by the one it held before the await until the next key.
+                if searchText != searchTextWhenAsking {
+                    dataSource.filterAsyncStreamOfObvDiscussionsListViewModel(self, streamUUID: newStreamUUID, searchStatus: .askedBy(searchText: searchText))
+                }
                 for await receivedModel in stream {
                     withAnimation { self.viewModel = receivedModel }
                 }
@@ -519,7 +557,8 @@ public struct ObvDiscussionsListView: View {
                              configuration: configuration,
                              searchText: searchText,
                              selection: $selection,
-                             isSearchInProgress: $isSearchInProgress)
+                             isSearchInProgress: $isSearchInProgress,
+                             scrollToTopWrapper: scrollToTopWrapper)
             if configuration.showPlusButton && !isSearchInProgress {
                 ObvPlusButton(actions: actions)
             }
@@ -556,14 +595,27 @@ public struct ObvDiscussionsListView: View {
                         ProgressView()
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    if editMode == .active {
-                        HStack {
-                            ActionsMenuDuringSelection(actions: self, selectionDescription: selectionDescription)
-                                .disabled(selection.isEmpty)
-                            Button(action: toggleSelectMode, label: { Text("DONE") })
+                // The way out of the selection is an xmark, as it is in Photos' own select mode, and it sits in a capsule of its own beside the actions.
+                // Two items are what make two capsules possible, and the ToolbarSpacer is what actually separates them: on iOS 26, everything at one
+                // placement shares a background unless a spacer breaks it. Nothing is needed before 26, where the bar draws no capsules at all.
+                // The word survives as the accessibility label, so DONE keeps its translations and VoiceOver reads a verb rather than a glyph name.
+                // The single discussion screen does the same, and the two must not disagree.
+                if editMode == .active {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ActionsMenuDuringSelection(actions: self, selectionDescription: selectionDescription)
+                            .disabled(selection.isEmpty)
+                    }
+                    if #available(iOS 26.0, *) {
+                        ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: toggleSelectMode) {
+                            Image(systemIcon: .xmark)
                         }
-                    } else {
+                        .accessibilityLabel(Text("DONE"))
+                    }
+                } else {
+                    ToolbarItem(placement: .topBarTrailing) {
                         MainMenu(editMode: $editMode, actions: actions, userWantsToGetNewMessagesFromMainMenu: userWantsToGetNewMessagesFromMainMenu)
                     }
                 }
@@ -822,21 +874,23 @@ private struct MainInternalView: View {
     let searchText: String
     @Binding var selection: Set<ObvDiscussionsListViewModel.DiscussionIdentifier>
     @Binding var isSearchInProgress: Bool
+    @ObservedObject var scrollToTopWrapper: ObvDiscussionsListScrollToTopWrapper
 
     @Environment(\.isSearching) var isSearching
 
     @Environment(\.editMode) var editMode
 
-    private func performSearchWith(newSearchText: String?) {
-        guard let streamUUIDForViewModel else { return }
-        internalDataSource.filterAsyncStreamOfObvDiscussionsListViewModel(self, streamUUID: streamUUIDForViewModel, searchStatus: .performingSearch(searchText: newSearchText))
+    /// Identifier of the top anchor row, used to perform a programmatic scroll to the top of the list.
+    fileprivate static let topItem = "topItem"
+
+    private func performScrollToTop(scrollViewProxy: ScrollViewProxy) {
+        guard scrollToTopWrapper.scrollToTop else { return }
+        scrollToTopWrapper.scrollToTop = false // Scroll only once
+        withAnimation {
+            scrollViewProxy.scrollTo(Self.topItem, anchor: .top)
+        }
     }
-    
-    private func stopSearch() {
-        guard let streamUUIDForViewModel else { return }
-        internalDataSource.filterAsyncStreamOfObvDiscussionsListViewModel(self, streamUUID: streamUUIDForViewModel, searchStatus: .notPerformingSearch)
-    }
-    
+
     private var archivedDiscussionsCellModelAvailbleOrNotRequired: Bool {
         switch configuration.showArchivedDiscussionsCell {
         case .no:
@@ -864,18 +918,41 @@ private struct MainInternalView: View {
         }
     }
     
-    private func setIsSearchInProgress(newValue: Bool) {
-        withAnimation { isSearchInProgress = newValue }
-        if newValue {
-            performSearchWith(newSearchText: searchText)
-        } else {
-            stopSearch()
-        }
+    /// Which discussions are listed, decided by the search text alone.
+    ///
+    /// A search lists discussions that are listed nowhere else, the archived ones and those the user deleted, so stopping it removes rows. Deciding
+    /// that from the focus of the search field means a click removes the row it lands on: on a Mac the click takes the focus first, and the cell is
+    /// gone before the button is told. The text is the only thing the reader can see, so it is what the rows follow.
+    private func showTheDiscussionsMatching(searchText: String) {
+        guard let streamUUIDForViewModel else { return }
+        internalDataSource.filterAsyncStreamOfObvDiscussionsListViewModel(self, streamUUID: streamUUIDForViewModel, searchStatus: .askedBy(searchText: searchText))
+    }
+
+
+    /// Whether the reader is in search mode, which is the focus of the field or the presence of a text.
+    ///
+    /// This hides the plus button and the cells that are not discussions, and it never decides which discussions are listed. It is computed rather
+    /// than assembled in the two `onChange` below: each of those is given the value that changed and still holds the previous one of the other, and
+    /// reading that stale text is what made clearing the field bring its results back.
+    ///
+    /// It asks `aSearchIsInEffect` rather than trimming again, so that a field holding whitespace alone cannot put the chrome in search mode while
+    /// the list is not searching: that combination draws the search placeholder over a list that is showing the recent discussions.
+    private var readerIsInSearchMode: Bool {
+        isSearching || aSearchIsInEffect
+    }
+    
+    /// Whether a search is filtering the list, which is the presence of a text and never the focus of the field.
+    ///
+    /// The archived discussions cell and the empty state follow this rather than `isSearchInProgress`. The focus alone changes nothing about what is
+    /// listed, so a field merely clicked must not take away the only way to reach the archived discussions, nor announce that a query nobody has
+    /// typed has no results: for a reader whose discussions are all archived, those two together turn an ordinary list into "no results".
+    private var aSearchIsInEffect: Bool {
+        ObvDiscussionsListViewModel.SearchStatus.askedBy(searchText: searchText).isPerformingSearch
     }
     
     private var showContentUnavailableView: Bool {
         if let viewModel, !viewModel.isEmpty { return false }
-        if let archivedDiscussionsCellModel, archivedDiscussionsCellModel.atLeastOneDiscussionIsArchived, !isSearchInProgress { return false }
+        if let archivedDiscussionsCellModel, archivedDiscussionsCellModel.atLeastOneDiscussionIsArchived, !aSearchIsInEffect { return false }
         return true
     }
 
@@ -885,13 +962,23 @@ private struct MainInternalView: View {
             if let viewModel, archivedDiscussionsCellModelAvailbleOrNotRequired, locationsCellViewModelAvailableOrNotRequired {
                 Group {
                     if showContentUnavailableView {
-                        if self.isSearching {
+                        if aSearchIsInEffect {
                             ObvContentUnavailableView.search
                         } else {
                             ObvContentUnavailableView(viewModel.contentUnavailableViewModel)
                         }
                     } else {
+                        ScrollViewReader { scrollViewProxy in
                         List(selection: $selection) {
+                            // Top anchor, used to perform a programmatic scroll to the top of the list.
+                            // The List below sets `defaultMinListRowHeight` to 0 so this empty row
+                            // collapses to a zero height and introduces no gap below the search bar.
+                            Color.clear
+                                .frame(height: 0)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .id(Self.topItem)
                             // Section: Progress cell
                             if let progressCellViewModel, progressCellViewModel > 0, progressCellViewModel < 1.0, !isSearchInProgress {
                                 ProgressCellView(fractionCompleted: progressCellViewModel)
@@ -909,7 +996,7 @@ private struct MainInternalView: View {
                                     .listRowSeparator(.hidden, edges: .top)
                             }
                             // Section: Archive cell
-                            if let archivedDiscussionsCellModel, archivedDiscussionsCellModel.atLeastOneDiscussionIsArchived, !isSearchInProgress {
+                            if let archivedDiscussionsCellModel, archivedDiscussionsCellModel.atLeastOneDiscussionIsArchived, !aSearchIsInEffect {
                                 SectionForArchivedDiscussionsCellView(viewModel: archivedDiscussionsCellModel, actions: actions)
                             }
                             // Section: List of recent discussions
@@ -927,17 +1014,23 @@ private struct MainInternalView: View {
                                 .padding(.bottom, 50)
                         }
                         .listStyle(.plain)
+                        .environment(\.defaultMinListRowHeight, 0) // So the zero-height top anchor row collapses (no gap below the search bar)
                         .refreshable {
                             await internalActions.userWantsToGetNewMessages()
                         }
+                        .onChange(of: scrollToTopWrapper.scrollToTop) { _ in performScrollToTop(scrollViewProxy: scrollViewProxy) }
+                        } // End of ScrollViewReader
                     }
                 }
-                .onChange(of: searchText) { newSearchText in performSearchWith(newSearchText: newSearchText) }
-                .onChange(of: isSearching) { newValue in setIsSearchInProgress(newValue: newValue) }
             } else {
                 ProgressView()
             }
         }
+        // On the VStack rather than on the Group above, so they are installed while the spinner is up: a profile switch nils the view model, and
+        // the chrome must still follow the field while it is gone. What the list shows cannot be set during that window, there being no stream to
+        // ask, and `requestViewModelStream` applies the text the field holds once the new stream is there.
+        .onChange(of: searchText) { newSearchText in showTheDiscussionsMatching(searchText: newSearchText) }
+        .onChange(of: readerIsInSearchMode) { newValue in withAnimation { isSearchInProgress = newValue } }
     }
     
 }
@@ -1012,22 +1105,12 @@ private struct SectionForListOfDiscussionsView: View {
     
     var body: some View {
         Section {
-            if #available(iOS 16, *) { // Do not put this test inside the ForEach
-                ForEach(allDiscussionIdentifiers, id: \.self) { discussionIdentifier in
-                    DiscussionCellView(discussionIdentifier: discussionIdentifier, dataSource: dataSource, avatarViewDataSource: avatarViewDataSource, actions: actions, internalActions: self)
-                        .moveDisabled(!identifiersOfPinnedDiscussions.contains(discussionIdentifier) || isSearchInProgress) // pinned discussions are the only ones that can be moved (and no move during a search)
-                        .padding(.vertical, verticalPadding)
-                }
-                .onMove(perform: onMoveOfPinnedDiscussion) // This is called for pinned discussions only (see .moveDisabled())
-            } else {
-                ForEach(allDiscussionIdentifiers) { discussionIdentifier in
-                    DiscussionCellView(discussionIdentifier: discussionIdentifier, dataSource: dataSource, avatarViewDataSource: avatarViewDataSource, actions: actions, internalActions: self)
-                        .moveDisabled(!identifiersOfPinnedDiscussions.contains(discussionIdentifier) || isSearchInProgress) // pinned discussions are the only ones that can be moved (and no move during a search)
-                        .padding(.vertical, verticalPadding)
-                        .listRowSeparator(.hidden)
-                }
-                .onMove(perform: onMoveOfPinnedDiscussion) // This is called for pinned discussions only (see .moveDisabled())
+            ForEach(allDiscussionIdentifiers, id: \.self) { discussionIdentifier in
+                DiscussionCellView(discussionIdentifier: discussionIdentifier, dataSource: dataSource, avatarViewDataSource: avatarViewDataSource, actions: actions, internalActions: self)
+                    .moveDisabled(!identifiersOfPinnedDiscussions.contains(discussionIdentifier) || isSearchInProgress) // pinned discussions are the only ones that can be moved (and no move during a search)
+                    .padding(.vertical, verticalPadding)
             }
+            .onMove(perform: onMoveOfPinnedDiscussion) // This is called for pinned discussions only (see .moveDisabled())
         }
     }
 }
@@ -1311,11 +1394,31 @@ extension ActionsForPreviews: ProfileIsDeactivatedOnThisDeviceTipViewActions {
 }
 
 extension ActionsForPreviews: RequestUserNotificationsAuthorizationTipViewActions {
-    
+
     func userWantsToRequestNotificationsAuthorization(_ view: RequestUserNotificationsAuthorizationTipView) {
         print("User wants to request notifications authorization")
     }
-    
+
+}
+
+extension ActionsForPreviews: NewerAppVersionAvailableTipViewActions {
+
+    func userWantsToUpdateOlvidFromAppStore(_ view: NewerAppVersionAvailableTipView) {
+        print("User wants to update Olvid from the App Store")
+    }
+
+}
+
+extension ActionsForPreviews: GrantRecordPermissionTipViewActions {
+
+    func userWantsToRequestRecordPermission(_ view: GrantRecordPermissionTipView) {
+        print("User wants to request record permission")
+    }
+
+    func userWantsToOpenSettingsToGrantRecordPermission(_ view: GrantRecordPermissionTipView) {
+        print("User wants to open settings to grant record permission")
+    }
+
 }
 
 extension ActionsForPreviews: OwnedDeviceExpriginSoonTipViewActions {
@@ -1522,7 +1625,8 @@ private struct PreviewView: View {
                                    dataSource: dataSourceForPreviews,
                                    avatarViewDataSource: dataSourceForPreviews,
                                    actions: actionsForPreviews,
-                                   configuration: configurationForPreviews)
+                                   configuration: configurationForPreviews,
+                                   scrollToTopWrapper: ObvDiscussionsListScrollToTopWrapper())
         }
     }
 }

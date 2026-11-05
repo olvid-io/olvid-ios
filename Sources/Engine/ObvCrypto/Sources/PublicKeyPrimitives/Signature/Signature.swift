@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -155,15 +155,18 @@ extension SignatureECSDSA256overEdwardsCurve {
         }
         let resultingPoints: (point1: PointOnCurve, point2: PointOnCurve)
         if let point = publicKey.point {
-            let resultingPoint = curve.mulAdd(a: y, point1: curve.parameters.G, b: e, point2: point)!
+            guard let resultingPoint = curve.mulAdd(a: y, point1: curve.parameters.G, b: e, point2: point) else { return false }
             resultingPoints = (resultingPoint, resultingPoint)
         } else {
-            resultingPoints = curve.mulAdd(a: y, point1: curve.parameters.G, b: e, yCoordinateOfPoint2: publicKey.yCoordinate)!
+            guard let points = curve.mulAdd(a: y, point1: curve.parameters.G, b: e, yCoordinateOfPoint2: publicKey.yCoordinate) else { return false }
+            resultingPoints = points
         }
         let pLength = curve.parameters.p.byteSize()
-        let Ay = publicKey.yCoordinate.encode(withInnerLength: pLength)!.innerData
-        let Ay1 = resultingPoints.point1.y.encode(withInnerLength: pLength)!.innerData
-        let Ay2 = resultingPoints.point2.y.encode(withInnerLength: pLength)!.innerData
+        guard let Ay = publicKey.yCoordinate.encode(withInnerLength: pLength)?.innerData,
+              let Ay1 = resultingPoints.point1.y.encode(withInnerLength: pLength)?.innerData,
+              let Ay2 = resultingPoints.point2.y.encode(withInnerLength: pLength)?.innerData else {
+            return false
+        }
         var dataToHash1 = Ay1
         dataToHash1.append(Ay)
         dataToHash1.append(message)
@@ -172,7 +175,10 @@ extension SignatureECSDSA256overEdwardsCurve {
         dataToHash2.append(message)
         let h1 = hashFunction.hash(dataToHash1)
         let h2 = hashFunction.hash(dataToHash2)
-        return h == h1 || h == h2
+        // Always make the two comparisons and return h == h1 || h == h2
+        let matchesFirstPoint = h.isEqualInConstantTime(to: h1)
+        let matchesSecondPoint = h.isEqualInConstantTime(to: h2)
+        return matchesFirstPoint || matchesSecondPoint
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import Foundation
 import CoreData
 import ObvEngine
 import ObvTypes
-import os.log
+import OSLog
 import ObvCrypto
 import OlvidUtils
 import ObvUIObvCircledInitials
@@ -212,7 +212,8 @@ public class PersistedContactGroup: NSManagedObject {
                 .map { $0.cryptoId }
             )
             for pendingMember in groupOwned.pendingMembers {
-                let newDeclined = declinedMemberIdentites.contains(pendingMember.cryptoId)
+                guard let pendingMemberCryptoId = try? pendingMember.cryptoId else { continue }
+                let newDeclined = declinedMemberIdentites.contains(pendingMemberCryptoId)
                 pendingMember.setDeclined(to: newDeclined)
             }
 
@@ -269,11 +270,11 @@ public class PersistedContactGroup: NSManagedObject {
 
     func processWipeMessageRequest(of messagesToDelete: [MessageReferenceJSON], receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> [InfoAboutWipedOrDeletedPersistedMessage] {
         
-        guard self.contactIdentities.contains(contact) || self.ownerIdentity == contact.cryptoId.getIdentity() else {
+        guard self.contactIdentities.contains(contact) || self.ownerIdentity == contact.identity else {
             let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
             throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
                 groupIdentifier: groupIdentifier,
-                contactCryptoId: contact.cryptoId)
+                contactCryptoId: try contact.cryptoId)
         }
         
         let infos = try discussion.processWipeMessageRequest(of: messagesToDelete, from: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -340,13 +341,22 @@ public class PersistedContactGroup: NSManagedObject {
     
     // MARK: - Receiving messages and attachments from a contact or another owned device
 
-    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, source: ObvMessageSource, receivedLocation: ReceivedLocation?) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?) {
-        
+    func createOrOverridePersistedMessageReceived(
+        from contact: PersistedObvContactIdentity,
+        obvMessage: ObvMessage,
+        messageJSON: MessageJSON,
+        returnReceiptJSON: ReturnReceiptJSON?,
+        source: ObvMessageSource,
+        receivedLocation: ReceivedLocation?,
+        pendingSiriReadIntentDate: Date?,
+        nseAlreadyPostedDeliveredReceipt: Bool
+    ) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?, deliveredReceiptToSend: ObvReturnReceiptToSend?, readReceiptToSend: ObvReturnReceiptToSend?, attachmentDeliveredReceiptsToSend: [ObvReturnReceiptToSend]) {
+
         guard self.contactIdentities.contains(contact) else {
             let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
             throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
                 groupIdentifier: groupIdentifier,
-                contactCryptoId: contact.cryptoId)
+                contactCryptoId: try contact.cryptoId)
         }
 
         return try discussion.createOrOverridePersistedMessageReceived(
@@ -355,8 +365,10 @@ public class PersistedContactGroup: NSManagedObject {
             messageJSON: messageJSON,
             returnReceiptJSON: returnReceiptJSON,
             source: source,
-            receivedLocation: receivedLocation)
-        
+            receivedLocation: receivedLocation,
+            pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+            nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt)
+
     }
     
     
@@ -383,7 +395,7 @@ public class PersistedContactGroup: NSManagedObject {
             let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
             throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
                 groupIdentifier: groupIdentifier,
-                contactCryptoId: contact.cryptoId)
+                contactCryptoId: try contact.cryptoId)
         }
 
         let updatedMessage = try discussion.processUpdateMessageRequest(updateMessageJSON, receivedFromContactCryptoId: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -415,17 +427,7 @@ public class PersistedContactGroup: NSManagedObject {
         
     }
     
-//    func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newLocation: ObvLocation?) throws {
-//        
-//        guard self.ownedIdentity == ownedIdentity else {
-//            throw ObvUICoreDataError.unexpectedContact
-//        }
-//
-//        try discussion.processLocalUpdateMessageRequest(from: ownedIdentity, for: messageSent, newLocation: newLocation)
-//        
-//    }
-    
-    
+
     // MARK: - Process reaction requests
 
     func processSetOrUpdateReactionOnMessageLocalRequest(from ownedIdentity: PersistedObvOwnedIdentity, for message: PersistedMessage, newEmoji: String?) throws {
@@ -439,17 +441,17 @@ public class PersistedContactGroup: NSManagedObject {
     }
 
     
-    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage? {
-        
+    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> (updatedMessage: PersistedMessage, reactionUpdateOutcome: ReactionUpdateOutcome)? {
+
         guard self.contactIdentities.contains(contact) else {
             let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
             throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
                 groupIdentifier: groupIdentifier,
-                contactCryptoId: contact.cryptoId)
+                contactCryptoId: try contact.cryptoId)
         }
 
-        let updatedMessage = try discussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
-        return updatedMessage
+        let updatedMessageAndOutcome = try discussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+        return updatedMessageAndOutcome
 
     }
     
@@ -483,17 +485,17 @@ public class PersistedContactGroup: NSManagedObject {
     }
 
     
-    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
-        
+    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> (updatedMessage: PersistedMessage, votesVisiblyChanged: Bool)? {
+
         guard self.contactIdentities.contains(contact) else {
             let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
             throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
                 groupIdentifier: groupIdentifier,
-                contactCryptoId: contact.cryptoId)
+                contactCryptoId: try contact.cryptoId)
         }
 
-        let updatedMessage = try discussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-        return updatedMessage
+        let updatedMessageAndOutcome = try discussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        return updatedMessageAndOutcome
 
     }
     
@@ -517,7 +519,7 @@ public class PersistedContactGroup: NSManagedObject {
             let groupIdentifier = ObvGroupIdentifier.groupV1(try self.obvGroupIdentifier)
             throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
                 groupIdentifier: groupIdentifier,
-                contactCryptoId: contact.cryptoId)
+                contactCryptoId: try contact.cryptoId)
         }
 
         try discussion.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -745,7 +747,7 @@ extension PersistedContactGroup {
             throw ObvUICoreDataError.noContext
         }
         let pendingMembers: Set<PersistedPendingGroupMember> = try Set(pendingIdentities.map { (obvGenericIdentity) in
-            if let pendingMember = (self.pendingMembers.filter { $0.cryptoId == obvGenericIdentity.cryptoId }).first {
+            if let pendingMember = (self.pendingMembers.filter { (try? $0.cryptoId) == obvGenericIdentity.cryptoId }).first {
                 return pendingMember
             } else {
                 let newPendingMember = try PersistedPendingGroupMember(genericIdentity: obvGenericIdentity, contactGroup: self)
@@ -804,11 +806,36 @@ extension PersistedContactGroup {
                 withGroupIdentifier(groupId.groupV1Identifier),
             ])
         }
+        static var withNonHiddenOwnedIdentity: NSPredicate {
+            let hiddenProfileHash: String = [Key.rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.hiddenProfileHash.rawValue].joined(separator: ".")
+            let hiddenProfileSalt: String = [Key.rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.hiddenProfileSalt.rawValue].joined(separator: ".")
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.rawOwnedIdentity),
+                NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    NSPredicate(withNilValueForRawKey: hiddenProfileHash),
+                    NSPredicate(withNilValueForRawKey: hiddenProfileSalt),
+                ])
+            ])
+        }
     }
     
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedContactGroup> {
         return NSFetchRequest<PersistedContactGroup>(entityName: PersistedContactGroup.entityName)
+    }
+
+    
+    public static func getAllPersistedGroupV1(restrictToGroupssOfNonHiddenOwnedIdentities: Bool, within context: NSManagedObjectContext) throws -> [PersistedContactGroup] {
+        let request: NSFetchRequest<PersistedContactGroup> = PersistedContactGroup.fetchRequest()
+        request.fetchBatchSize = 500
+        // Prefetch the discussion relationship so callers that access group.discussion (e.g.
+        // SiriVocabularyManager) do not fire one fault per group, reducing N+1 queries to 2.
+        request.relationshipKeyPathsForPrefetching = [Predicate.Key.discussion.rawValue]
+        var predicates = [NSPredicate]()
+        if restrictToGroupssOfNonHiddenOwnedIdentities {
+            predicates.append(Predicate.withNonHiddenOwnedIdentity)
+        }
+        return try context.fetch(request)
     }
 
 
@@ -863,7 +890,8 @@ extension PersistedContactGroup {
             NSPredicate(withStrictlyPositiveCountForKey: Predicate.Key.pendingMembers),
         ])
         let groups = Set(try context.fetch(request))
-        return groups.filter { $0.pendingMembers.map({ $0.cryptoId }).contains(contactIdentity.cryptoId) }
+        let contactCryptoId = try contactIdentity.cryptoId
+        return groups.filter { $0.pendingMembers.compactMap({ try? $0.cryptoId }).contains(contactCryptoId) }
     }
     
     

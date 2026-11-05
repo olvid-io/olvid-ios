@@ -554,6 +554,8 @@ public enum ObvEngineNotificationNew {
 		let name = Name.forInternalNotification(self)
 		let label = "Queue for posting \(name.rawValue) notification"
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		backgroundQueue.async {
 			appNotificationCenter.post(name: name, object: nil, userInfo: userInfo)
 		}
@@ -561,6 +563,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactGroupHasUpdatedPendingMembersAndGroupMembers(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.contactGroupHasUpdatedPendingMembersAndGroupMembers.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
 			block(obvContactGroup)
@@ -569,6 +573,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNewContactGroup(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.newContactGroup.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
 			block(obvContactGroup)
@@ -577,6 +583,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNewPendingGroupMemberDeclinedStatus(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.newPendingGroupMemberDeclinedStatus.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
 			block(obvContactGroup)
@@ -585,6 +593,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactGroupDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedIdentity, ObvCryptoId, UID) -> Void) -> NSObjectProtocol {
 		let name = Name.contactGroupDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvOwnedIdentity
 			let groupOwner = notification.userInfo!["groupOwner"] as! ObvCryptoId
@@ -595,6 +605,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactGroupHasUpdatedPublishedDetails(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.contactGroupHasUpdatedPublishedDetails.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
 			block(obvContactGroup)
@@ -603,6 +615,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactGroupJoinedHasUpdatedTrustedDetails(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.contactGroupJoinedHasUpdatedTrustedDetails.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
 			block(obvContactGroup)
@@ -611,6 +625,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactGroupOwnedDiscardedLatestDetails(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.contactGroupOwnedDiscardedLatestDetails.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
 			block(obvContactGroup)
@@ -619,6 +635,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactGroupOwnedHasUpdatedLatestDetails(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.contactGroupOwnedHasUpdatedLatestDetails.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
 			block(obvContactGroup)
@@ -627,6 +645,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeDeletedObliviousChannelWithContactDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.deletedObliviousChannelWithContactDevice.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentifier = notification.userInfo!["obvContactIdentifier"] as! ObvContactIdentifier
 			block(obvContactIdentifier)
@@ -635,6 +655,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedIdentityWasDeactivated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasDeactivated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			block(ownedIdentity)
@@ -643,6 +665,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedIdentityWasReactivated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasReactivated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			block(ownedIdentity)
@@ -651,6 +675,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNetworkOperationFailedSinceOwnedIdentityIsNotActive(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.networkOperationFailedSinceOwnedIdentityIsNotActive.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			block(ownedIdentity)
@@ -659,6 +685,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeServerRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.serverRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			block()
 		}
@@ -666,6 +694,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeEngineRequiresOwnedIdentityToRegisterToPushNotifications(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Bool) -> Void) -> NSObjectProtocol {
 		let name = Name.engineRequiresOwnedIdentityToRegisterToPushNotifications.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let performOwnedDeviceDiscoveryOnFinish = notification.userInfo!["performOwnedDeviceDiscoveryOnFinish"] as! Bool
@@ -675,6 +705,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping ([(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)]) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let messageIdsAndTimestampsFromServer = notification.userInfo!["messageIdsAndTimestampsFromServer"] as! [(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)]
 			block(messageIdsAndTimestampsFromServer)
@@ -683,6 +715,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOutboxMessageCouldNotBeSentToServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (Data, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessageCouldNotBeSentToServer.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
@@ -692,6 +726,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeMessageWasAcknowledged(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Date, Bool, Bool) -> Void) -> NSObjectProtocol {
 		let name = Name.messageWasAcknowledged.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
@@ -704,6 +740,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAttachmentWasAcknowledgedByServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentWasAcknowledgedByServer.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
@@ -714,6 +752,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAttachmentDownloadCancelledByServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvAttachment) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentDownloadCancelledByServer.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvAttachment = notification.userInfo!["obvAttachment"] as! ObvAttachment
 			block(obvAttachment)
@@ -722,6 +762,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeCannotReturnAnyProgressForMessageAttachments(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data) -> Void) -> NSObjectProtocol {
 		let name = Name.cannotReturnAnyProgressForMessageAttachments.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
@@ -731,6 +773,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAttachmentDownloaded(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvAttachment) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentDownloaded.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvAttachment = notification.userInfo!["obvAttachment"] as! ObvAttachment
 			block(obvAttachment)
@@ -739,6 +783,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAttachmentDownloadWasResumed(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentDownloadWasResumed.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownCryptoId = notification.userInfo!["ownCryptoId"] as! ObvCryptoId
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
@@ -749,6 +795,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAttachmentDownloadWasPaused(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentDownloadWasPaused.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownCryptoId = notification.userInfo!["ownCryptoId"] as! ObvCryptoId
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
@@ -759,6 +807,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.contactWasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
@@ -768,6 +818,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, APIKeyStatus, APIPermissions, Date?) -> Void) -> NSObjectProtocol {
 		let name = Name.newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			let apiKeyStatus = notification.userInfo!["apiKeyStatus"] as! APIKeyStatus
@@ -780,6 +832,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNewObliviousChannelWithContactDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.newObliviousChannelWithContactDevice.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentifier = notification.userInfo!["obvContactIdentifier"] as! ObvContactIdentifier
 			block(obvContactIdentifier)
@@ -788,6 +842,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeLatestPhotoOfContactGroupOwnedHasBeenUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.latestPhotoOfContactGroupOwnedHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let group = notification.userInfo!["group"] as! ObvContactGroup
 			block(group)
@@ -796,6 +852,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observePublishedPhotoOfContactGroupOwnedHasBeenUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.publishedPhotoOfContactGroupOwnedHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let group = notification.userInfo!["group"] as! ObvContactGroup
 			block(group)
@@ -804,6 +862,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observePublishedPhotoOfContactGroupJoinedHasBeenUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.publishedPhotoOfContactGroupJoinedHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let group = notification.userInfo!["group"] as! ObvContactGroup
 			block(group)
@@ -812,6 +872,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeTrustedPhotoOfContactGroupJoinedHasBeenUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
 		let name = Name.trustedPhotoOfContactGroupJoinedHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let group = notification.userInfo!["group"] as! ObvContactGroup
 			block(group)
@@ -820,6 +882,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observePublishedPhotoOfOwnedIdentityHasBeenUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.publishedPhotoOfOwnedIdentityHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvOwnedIdentity
 			block(ownedIdentity)
@@ -828,6 +892,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observePublishedPhotoOfContactIdentityHasBeenUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.publishedPhotoOfContactIdentityHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvContactIdentity
 			block(contactIdentity)
@@ -836,6 +902,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeTrustedPhotoOfContactIdentityHasBeenUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.trustedPhotoOfContactIdentityHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvContactIdentity
 			block(contactIdentity)
@@ -844,6 +912,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeWellKnownDownloadedSuccess(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (URL, [String: AppInfo]) -> Void) -> NSObjectProtocol {
 		let name = Name.wellKnownDownloadedSuccess.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let serverURL = notification.userInfo!["serverURL"] as! URL
 			let appInfo = notification.userInfo!["appInfo"] as! [String: AppInfo]
@@ -853,6 +923,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeWellKnownDownloadedFailure(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (URL) -> Void) -> NSObjectProtocol {
 		let name = Name.wellKnownDownloadedFailure.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let serverURL = notification.userInfo!["serverURL"] as! URL
 			block(serverURL)
@@ -861,6 +933,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeWellKnownUpdatedSuccess(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (URL, [String: AppInfo]) -> Void) -> NSObjectProtocol {
 		let name = Name.wellKnownUpdatedSuccess.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let serverURL = notification.userInfo!["serverURL"] as! URL
 			let appInfo = notification.userInfo!["appInfo"] as! [String: AppInfo]
@@ -870,6 +944,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeCreatedOrUpdatedContactIdentity(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.createdOrUpdatedContactIdentity.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
 			block(obvContactIdentity)
@@ -878,6 +954,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedIdentityUnbindingFromKeycloakPerformed(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityUnbindingFromKeycloakPerformed.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			block(ownedIdentity)
@@ -886,6 +964,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeUpdatedOwnedIdentity(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.updatedOwnedIdentity.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvOwnedIdentity = notification.userInfo!["obvOwnedIdentity"] as! ObvOwnedIdentity
 			block(obvOwnedIdentity)
@@ -894,6 +974,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeMessageExtendedPayloadAvailable(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvMessageOrObvOwnedMessage) -> Void) -> NSObjectProtocol {
 		let name = Name.messageExtendedPayloadAvailable.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let message = notification.userInfo!["message"] as! ObvMessageOrObvOwnedMessage
 			block(message)
@@ -902,6 +984,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactWasRevokedAsCompromisedWithinEngine(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.contactWasRevokedAsCompromisedWithinEngine.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentifier = notification.userInfo!["obvContactIdentifier"] as! ObvContactIdentifier
 			block(obvContactIdentifier)
@@ -910,6 +994,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactObvCapabilitiesWereUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.ContactObvCapabilitiesWereUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let contact = notification.userInfo!["contact"] as! ObvContactIdentity
 			block(contact)
@@ -918,6 +1004,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedIdentityCapabilitiesWereUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.OwnedIdentityCapabilitiesWereUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvOwnedIdentity
 			block(ownedIdentity)
@@ -926,6 +1014,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNewUserDialogToPresent(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvDialog) -> Void) -> NSObjectProtocol {
 		let name = Name.newUserDialogToPresent.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvDialog = notification.userInfo!["obvDialog"] as! ObvDialog
 			block(obvDialog)
@@ -934,6 +1024,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAPersistedDialogWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UUID) -> Void) -> NSObjectProtocol {
 		let name = Name.aPersistedDialogWasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let uuid = notification.userInfo!["uuid"] as! UUID
@@ -943,6 +1035,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeGroupV2WasCreatedOrUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvGroupV2, ObvGroupV2.CreationOrUpdateInitiator) -> Void) -> NSObjectProtocol {
 		let name = Name.groupV2WasCreatedOrUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvGroupV2 = notification.userInfo!["obvGroupV2"] as! ObvGroupV2
 			let initiator = notification.userInfo!["initiator"] as! ObvGroupV2.CreationOrUpdateInitiator
@@ -952,6 +1046,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeGroupV2WasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data) -> Void) -> NSObjectProtocol {
 		let name = Name.groupV2WasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
@@ -961,6 +1057,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeGroupV2UpdateDidFail(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data) -> Void) -> NSObjectProtocol {
 		let name = Name.groupV2UpdateDidFail.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
@@ -970,6 +1068,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAPushTopicWasReceivedViaWebsocket(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (String) -> Void) -> NSObjectProtocol {
 		let name = Name.aPushTopicWasReceivedViaWebsocket.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let pushTopic = notification.userInfo!["pushTopic"] as! String
 			block(pushTopic)
@@ -978,6 +1078,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedIdentityWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			block()
 		}
@@ -985,6 +1087,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAKeycloakTargetedPushNotificationReceivedViaWebsocket(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.aKeycloakTargetedPushNotificationReceivedViaWebsocket.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			block(ownedIdentity)
@@ -993,6 +1097,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeDeletedObliviousChannelWithRemoteOwnedDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.deletedObliviousChannelWithRemoteOwnedDevice.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			block()
 		}
@@ -1000,6 +1106,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNewConfirmedObliviousChannelWithRemoteOwnedDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.newConfirmedObliviousChannelWithRemoteOwnedDevice.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			block()
 		}
@@ -1007,6 +1115,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNewRemoteOwnedDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.newRemoteOwnedDevice.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			block()
 		}
@@ -1014,6 +1124,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedAttachmentDownloaded(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedAttachment) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedAttachmentDownloaded.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvOwnedAttachment = notification.userInfo!["obvOwnedAttachment"] as! ObvOwnedAttachment
 			block(obvOwnedAttachment)
@@ -1022,6 +1134,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedAttachmentDownloadWasResumed(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedAttachmentDownloadWasResumed.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownCryptoId = notification.userInfo!["ownCryptoId"] as! ObvCryptoId
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
@@ -1032,6 +1146,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedAttachmentDownloadWasPaused(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedAttachmentDownloadWasPaused.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownCryptoId = notification.userInfo!["ownCryptoId"] as! ObvCryptoId
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
@@ -1042,6 +1158,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeKeycloakSynchronizationRequired(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.keycloakSynchronizationRequired.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownCryptoId = notification.userInfo!["ownCryptoId"] as! ObvCryptoId
 			block(ownCryptoId)
@@ -1050,6 +1168,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeContactIntroductionInvitationSent(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.contactIntroductionInvitationSent.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			let contactIdentityA = notification.userInfo!["contactIdentityA"] as! ObvCryptoId
@@ -1060,6 +1180,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAnOwnedDeviceWasUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.anOwnedDeviceWasUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			block(ownedCryptoId)
@@ -1068,6 +1190,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAnOwnedDeviceWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.anOwnedDeviceWasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			block(ownedCryptoId)
@@ -1076,6 +1200,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeOwnedAttachmentDownloadCancelledByServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedAttachment) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedAttachmentDownloadCancelledByServer.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvOwnedAttachment = notification.userInfo!["obvOwnedAttachment"] as! ObvOwnedAttachment
 			block(obvOwnedAttachment)
@@ -1084,6 +1210,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeNewContactDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.newContactDevice.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentifier = notification.userInfo!["obvContactIdentifier"] as! ObvContactIdentifier
 			block(obvContactIdentifier)
@@ -1092,6 +1220,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeUpdatedContactDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactDeviceIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.updatedContactDevice.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let deviceIdentifier = notification.userInfo!["deviceIdentifier"] as! ObvContactDeviceIdentifier
 			block(deviceIdentifier)
@@ -1100,6 +1230,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAnOwnedIdentityTransferProtocolFailed(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UID, Error) -> Void) -> NSObjectProtocol {
 		let name = Name.anOwnedIdentityTransferProtocolFailed.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let protocolInstanceUID = notification.userInfo!["protocolInstanceUID"] as! UID
@@ -1110,6 +1242,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeServerAndInboxContainNoMoreUnprocessedMessages(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Date) -> Void) -> NSObjectProtocol {
 		let name = Name.serverAndInboxContainNoMoreUnprocessedMessages.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let downloadTimestampFromServer = notification.userInfo!["downloadTimestampFromServer"] as! Date
@@ -1119,6 +1253,8 @@ public enum ObvEngineNotificationNew {
 
 	public static func observeAPersistedTrustOriginWasInserted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvTrustOrigin) -> Void) -> NSObjectProtocol {
 		let name = Name.aPersistedTrustOriginWasInserted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let trustOrigin = notification.userInfo!["trustOrigin"] as! ObvTrustOrigin
 			block(trustOrigin)

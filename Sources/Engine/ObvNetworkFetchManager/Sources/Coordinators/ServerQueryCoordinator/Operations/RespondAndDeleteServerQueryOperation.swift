@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,11 +35,13 @@ final class RespondAndDeleteServerQueryOperation: ContextualOperationWithSpecifi
     private let objectIdOfPendingServerQuery: NSManagedObjectID
     private let prng: PRNGService
     private let channelDelegate: ObvChannelDelegate
-    
-    init(objectIdOfPendingServerQuery: NSManagedObjectID, prng: PRNGService, channelDelegate: ObvChannelDelegate) {
+    private let pendingUserDataUploads: URL
+
+    init(objectIdOfPendingServerQuery: NSManagedObjectID, prng: PRNGService, channelDelegate: ObvChannelDelegate, pendingUserDataUploads: URL) {
         self.objectIdOfPendingServerQuery = objectIdOfPendingServerQuery
         self.prng = prng
         self.channelDelegate = channelDelegate
+        self.pendingUserDataUploads = pendingUserDataUploads
         super.init()
     }
     
@@ -130,13 +132,62 @@ final class RespondAndDeleteServerQueryOperation: ContextualOperationWithSpecifi
                 }
             }
 
+            // Capture the staged upload file URL (if any) before deletion so we can clean it up once the
+            // row deletion is durably persisted. Doing this *after* `deletePendingServerQuery()` and only
+            // via a `contextDidSaveCompletionHandler` ensures we never remove a staged file while the
+            // owning row still exists — and therefore never strand a retry without its source bytes.
+            //
+            // The switch is exhaustive on purpose: if a new query type that carries a caller-owned file
+            // ever shows up, the compiler will force a decision here instead of silently treating it as
+            // "no staged file to clean up".
+            let stagedUploadFileURL: URL?
+            switch serverQuery.queryType {
+            case .putUserData(label: _, dataURL: let dataURL, dataKey: _):
+                if dataURL.path.hasPrefix(pendingUserDataUploads.path) {
+                    stagedUploadFileURL = dataURL
+                } else {
+                    // Legacy `PendingServerQuery` rows created by older app versions referenced
+                    // caller-owned files directly. Those files belong to somebody else.
+                    stagedUploadFileURL = nil
+                }
+            case .deviceDiscovery,
+                    .getUserData,
+                    .checkKeycloakRevocation,
+                    .createGroupBlob,
+                    .getGroupBlob,
+                    .deleteGroupBlob,
+                    .putGroupLog,
+                    .requestGroupBlobLock,
+                    .updateGroupBlob,
+                    .getKeycloakData,
+                    .ownedDeviceDiscovery,
+                    .setOwnedDeviceName,
+                    .deactivateOwnedDevice,
+                    .setUnexpiringOwnedDevice,
+                    .sourceGetSessionNumber,
+                    .sourceWaitForTargetConnection,
+                    .targetSendEphemeralIdentity,
+                    .transferRelay,
+                    .transferWait,
+                    .closeWebsocketConnection,
+                    .uploadPreKeyForCurrentDevice:
+                stagedUploadFileURL = nil
+            }
+
             try serverQuery.deletePendingServerQuery()
-            
+
+            if let stagedUploadFileURL {
+                try? obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    try? FileManager.default.removeItem(at: stagedUploadFileURL)
+                }
+            }
+
         } catch {
             assertionFailure()
             return cancel(withReason: .coreDataError(error: error))
         }
-        
+
     }
-    
+
 }

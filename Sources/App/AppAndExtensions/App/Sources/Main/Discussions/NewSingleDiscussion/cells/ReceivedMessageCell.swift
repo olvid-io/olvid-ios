@@ -162,7 +162,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
 
         if let contact = message.contactIdentity {
             content.contactPictureAndNameViewConfiguration =
-            ContactPictureAndNameView.Configuration(foregroundColor: contact.cryptoId.colors.text,
+            ContactPictureAndNameView.Configuration(foregroundColor: (try? contact.cryptoId.colors.text) ?? .label,
                                                     contactName: contact.nameForContactNameInGroupDiscussion,
                                                     contactObjectID: contact.typedObjectID,
                                                     circledInitialsConfiguration: contact.circledInitialsConfiguration)
@@ -295,8 +295,16 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         }
 
         // We choose to show audioPlayer only for the first audio song.
-        
+
         otherAttachments += audioAttachments
+
+        // Video joins are kept in their own category by the message model (so the Intents extension can
+        // surface them to Siri as `.mediaVideo`), so they are *not* part of `fyleMessageJoinWithStatusesOfOtherTypes`.
+        // We add them back here so they are displayed as attachment cards, otherwise received videos would
+        // silently disappear from the discussion even though they exist in database.
+
+        let videoAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfVideoType
+        otherAttachments += videoAttachments
 
         // The first pdf/docx/... attachment must have a large preview
 
@@ -1538,8 +1546,8 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
                 // If the multipleReactionsView is not already shown, we show it and animate its alpha and size with a nice pop effect
                 if multipleReactionsView.alpha == 0.0 {
                     multipleReactionsView.transform = CGAffineTransform(scaleX: 0.0, y: 0.0)
-                    DispatchQueue.main.async {
-                        UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0, options: []) { [weak self] in
+                    DispatchQueue.main.async { [weak self] in
+                        UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0, options: []) {
                             guard self?.messageObjectID == newConfig.messageObjectID else { return }
                             self?.multipleReactionsView.alpha = 1.0
                             self?.multipleReactionsView.transform = .identity

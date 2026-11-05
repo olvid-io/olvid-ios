@@ -45,6 +45,12 @@
             "value": "중단"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przerwij"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "Отмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vazgeç"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy bỏ"
           }
         },
         "zh-Hans": {
@@ -123,6 +141,12 @@
             "value": "수락"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akceptuj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -141,10 +165,22 @@
             "value": "Принять"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabul et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прийняти"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chấp nhận"
           }
         },
         "zh-Hans": {
@@ -199,6 +235,12 @@
             "value": "정말로 연락처에서 %@를 삭제하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czy na pewno chcesz usunąć użytkownika %@ z kontaktów?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -217,10 +259,22 @@
             "value": "Вы уверены, что хотите удалить %@ из ваших контактов?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kişilerinizden kaldırılsın mı?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви впевнені, що хочете видалити %@ зі своїх контактів?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có chắc muốn xóa %@ khỏi danh bạ của mình không?"
           }
         },
         "zh-Hans": {
@@ -275,6 +329,12 @@
             "value": "계정에서 %@를 영구적으로 삭제하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czy na pewno chcesz trwale usunąć użytkownika %@ ze swojego konta?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -293,10 +353,22 @@
             "value": "Вы уверены, что хотите навсегда удалить %@ из своей учётной записи?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hesabınızdan kalıcı olarak silinsin mi?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви впевнені, що хочете назавжди видалити %@ зі свого облікового запису?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có chắc muốn xóa vĩnh viễn %@ khỏi tài khoản của mình không?"
           }
         },
         "zh-Hans": {
@@ -351,6 +423,12 @@
             "value": "채널 연결 시도 중 최소 하나가 실패하여 재시도할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się ponownie uruchomić nawiązywania co najmniej jednego kanału"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -369,10 +447,22 @@
             "value": "По крайней мере, одна из попыток установить канал не удалась"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanal kurulumlarından en az biri yeniden başlatılamadı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновити з’єднання не вдалося, оскільки виникла помилка в одному або декількох каналах."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ít nhất một trong số các kênh đã không thể được thiết lập lại"
           }
         },
         "zh-Hans": {
@@ -427,6 +517,12 @@
             "value": "뒤로"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstecz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -445,10 +541,22 @@
             "value": "Назад"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Назад"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quay lại"
           }
         },
         "zh-Hans": {
@@ -505,6 +613,12 @@
             "value": "취소"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anuluj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -523,10 +637,22 @@
             "value": "Отмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy"
           }
         },
         "zh-Hans": {
@@ -581,6 +707,12 @@
             "value": "두 분 모두 속한 공통 그룹이 있어 사용자 %@를 삭제할 수 없습니다. 진행하려면 해당 그룹에서 나가야 합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie możesz usunąć użytkownika %@, ponieważ należycie do tych samych grup. Aby kontynuować, musisz opuścić te grupy."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -599,10 +731,22 @@
             "value": "Вы не можете удалить пользователя %@, так как вы оба состоите в общих группах. Вам необходимо покинуть эти группы, чтобы продолжить."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ adlı kullanıcıyı silemezsiniz çünkü ikiniz de bazı ortak grupların üyesisiniz. Devam etmek için bu gruplardan ayrılmanız gerekecek."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви не можете видалити користувача %@, оскільки ви обидва належите до спільних груп. Вам потрібно покинути ці групи, щоб продовжити."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn không thể xóa người dùng %@ vì cả hai bạn đều thuộc một số nhóm chung. Bạn cần rời khỏi các nhóm này trước khi tiếp tục."
           }
         },
         "zh-Hans": {
@@ -657,6 +801,12 @@
             "value": "현재는 연락처를 삭제할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie można teraz usunąć kontaktu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -675,10 +825,22 @@
             "value": "Удалить контакт пока невозможно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi şimdilik silinemiyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакт поки не може бути видалено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện tại không thể xóa liên hệ này."
           }
         },
         "zh-Hans": {
@@ -733,6 +895,12 @@
             "value": "기능"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Możliwości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -751,10 +919,22 @@
             "value": "Возможности"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yetenekler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Функції"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính năng"
           }
         },
         "zh-Hans": {
@@ -809,6 +989,12 @@
             "value": "그룹 (v2)"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy v2"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -827,10 +1013,22 @@
             "value": "Группы v2"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar v2"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи v2"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm v2"
           }
         },
         "zh-Hans": {
@@ -885,6 +1083,12 @@
             "value": "일대일 연락처"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakty One2One "
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -903,10 +1107,22 @@
             "value": "Контакты личных сообщений"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Birebir kişiler "
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакти один на один"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh bạ trò chuyện riêng"
           }
         },
         "zh-Hans": {
@@ -961,6 +1177,12 @@
             "value": "VoIP v2"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP v2"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -979,10 +1201,22 @@
             "value": "VoIP v2"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP v2"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "VoIP v2"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP phiên bản 2"
           }
         },
         "zh-Hans": {
@@ -1037,6 +1271,12 @@
             "value": "ID 공급업체 인증"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certyfikowany przez dostawcę tożsamości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1055,10 +1295,22 @@
             "value": "Подтверждено поставщиком удостоверений"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcısı tarafından onaylı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Сертифіковано провайдером ідентифікації"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã được nhà cung cấp danh tính xác thực"
           }
         },
         "zh-Hans": {
@@ -1113,6 +1365,12 @@
             "value": "채널 연결이 다시 시작되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nawiązywanie kanału zostało uruchomione ponownie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1131,10 +1389,22 @@
             "value": "Установление канала было перезапущено"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanal kurulumu yeniden başlatıldı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Встановлення каналу було перезапущено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quá trình thiết lập kênh đã được khởi động lại"
           }
         },
         "zh-Hans": {
@@ -1191,6 +1461,12 @@
             "value": "공유 그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wspólne grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1209,10 +1485,22 @@
             "value": "Общие группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ortak gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Спільні групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm đã chia sẻ"
           }
         },
         "zh-Hans": {
@@ -1395,6 +1683,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ ma jedno urządzenie"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ ma %2$lld urządzenia"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ ma %2$lld urządzenia"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ ma %2$lld urządzeń"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ nie ma żadnego urządzenia"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -1463,6 +1787,42 @@
                   "state": "translated",
                   "value": "%1$@ не имеет устройств"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ имеет %2$lld устройства"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ имеет %2$lld устройств"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ adlı kişinin bir cihazı var"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ adlı kişinin %2$lld cihazı var"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ adlı kişinin hiç cihazı yok"
+                }
               }
             }
           }
@@ -1486,6 +1846,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%1$@ не має жодного пристрою"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ має %2$lld пристрої"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ має %2$lld пристроїв"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ có 1 thiết bị"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ có %2$lld thiết bị"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ không có thiết bị nào"
                 }
               }
             }
@@ -1561,6 +1957,12 @@
             "value": "네트워크에 있는 누군가와 %@을 연결하세요. 상대방은 채팅을 시작하기 위해 초대만 수락하면 됩니다. QR 코드나 코드는 필요하지 않습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przedstaw kontakt %@ komuś ze swoich kontaktów. Wystarczy, że obie osoby zaakceptują zaproszenie, aby zacząć rozmawiać — bez skanowania kodów QR ani wpisywania kodów."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1579,10 +1981,22 @@
             "value": "Подключите %@ к кому-нибудь из вашей сети. Им потребуется только принять приглашение, чтобы начать чат — не нужны QR-коды или коды."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ adlı kişiyi ağınızdaki biriyle tanıştırın. Sohbete başlamak için yalnızca daveti kabul etmeleri yeterli; QR kodu veya başka bir koda gerek yok."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зв’яжіть %@ з кимось у вашій мережі. Їм потрібно буде лише прийняти запрошення, щоб почати спілкування – не потрібні QR-коди чи коди."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kết nối %@ với ai đó trong mạng lưới của bạn. Họ chỉ cần chấp nhận lời mời để bắt đầu trò chuyện—không cần mã QR hoặc mã nào cả."
           }
         },
         "zh-Hans": {
@@ -1637,6 +2051,12 @@
             "value": "%@를 소개합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przedstaw kontakt %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1655,10 +2075,22 @@
             "value": "Представьтесь %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ adlı kişiyi tanıştır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Представтеся %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giới thiệu %@"
           }
         },
         "zh-Hans": {
@@ -1715,6 +2147,12 @@
             "value": "이 연락처는 회사에서 사용하는 신원 제공업체에 의해 차단되었습니다. 해당 사용자의 Olvid ID가 손상되었을 수 있으며, 통신의 보안을 보장할 수 없습니다.\n\n연락처의 Olvid ID가 손상되지 않았다고 확신하는 경우 수동으로 차단을 해제할 수 있습니다. 자세한 내용은 관리자에게 문의하십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten kontakt został unieważniony przez dostawcę tożsamości twojej firmy. Jego Olvid ID mogło zostać naruszone i nie można zagwarantować bezpieczeństwa twojej komunikacji.\n\nJeśli masz pewność, że Olvid ID tego kontaktu nigdy nie zostało naruszone, możesz go ręcznie odblokować.\nSkontaktuj się z administratorem, aby uzyskać więcej informacji."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1733,10 +2171,22 @@
             "value": "Этот контакт был отозван вашим поставщиком удостоверений. Их Olvid ID мог быть скомпрометирован, и безопасность ваших коммуникаций не может быть гарантирована.\n\nЕсли вы уверены, что Olvid ID вашего контакта никогда не был скомпрометирован, вы можете вручную разблокировать его.\nПожалуйста, свяжитесь с вашим администратором для получения дополнительной информации."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişi, şirketinizin kimlik sağlayıcısı tarafından geçersiz kılındı. Kişinin Olvid ID'sinin güvenliği tehlikeye girmiş olabilir ve iletişimlerinizin güvenliği garanti edilemez.\n\nKişinizin Olvid ID'sinin güvenliğinin hiçbir zaman tehlikeye girmediğinden eminseniz engelini elle kaldırabilirsiniz.\nDaha fazla bilgi için lütfen yöneticinize başvurun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей контакт було відкликано вашим провайдером ідентифікації. Їхній Olvid ID міг бути скомпрометовано, і безпека вашого спілкування не може бути гарантована.\n\nЯкщо ви впевнені, що Olvid ID вашого контакту ніколи не був скомпрометований, ви можете вручну розблокувати його.\nЗверніться до адміністратора для отримання додаткової інформації."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ này đã bị thu hồi bởi nhà cung cấp danh tính của công ty bạn. Có thể ID Olvid của họ đã bị xâm phạm và tính bảo mật của các cuộc giao tiếp của bạn không thể được đảm bảo.\n\nNếu bạn chắc chắn rằng ID Olvid của liên hệ không bị xâm phạm, bạn có thể bỏ chặn thủ công.\nVui lòng liên hệ với quản trị viên của bạn để biết thêm chi tiết."
           }
         },
         "zh-Hans": {
@@ -1793,6 +2243,12 @@
             "value": "귀사의 ID 공급업체에서 연락처 권한을 해지했습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakt unieważniony przez dostawcę tożsamości twojej firmy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1811,10 +2267,22 @@
             "value": "Контакт был отозван поставщиком удостоверений вашей компании"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi, şirketinizin kimlik sağlayıcısı tarafından geçersiz kılındı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакт було відкликано вашим корпоративним провайдером ідентифікації"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ đã bị nhà cung cấp danh tính của công ty bạn thu hồi"
           }
         },
         "zh-Hans": {
@@ -1871,6 +2339,12 @@
             "value": "이 연락처는 Olvid를 오랫동안 사용하지 않은 것 같습니다. 메시지가 제대로 전달될 수 있는지 보장할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wygląda na to, że ten kontakt od dłuższego czasu nie korzysta z Olvid. Nie możemy zagwarantować, że wiadomości będą do niego prawidłowo dostarczane."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1889,10 +2363,22 @@
             "value": "Похоже, этот контакт долгое время не использовал Olvid. Мы не можем гарантировать, что сообщения будут доставлены ему должным образом."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişi uzun süredir Olvid'i kullanmıyor gibi görünüyor. Mesajların kendisine düzgün şekilde ulaşacağını garanti edemeyiz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Здається, цей контакт тривалий час не використовував Olvid. Ми не можемо гарантувати, що повідомлення будуть правильно доставлені йому."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có vẻ như liên hệ này đã không sử dụng Olvid trong một thời gian dài. Chúng tôi không thể đảm bảo rằng tin nhắn sẽ được gửi đến họ một cách chính xác."
           }
         },
         "zh-Hans": {
@@ -1949,6 +2435,12 @@
             "value": "연락처가 장시간 오프라인 상태입니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakt od dłuższego czasu offline"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1967,10 +2459,22 @@
             "value": "Контакт долгое время не в сети"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi uzun süredir çevrimdışı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакт неактивний протягом тривалого часу"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ không hoạt động trong một khoảng thời gian dài."
           }
         },
         "zh-Hans": {
@@ -2027,6 +2531,12 @@
             "value": "%@와 함께 그룹을 만드세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utwórz grupę z kontaktem %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2045,10 +2555,22 @@
             "value": "Создать группу с %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ile grup oluştur"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Створити групу з %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo một nhóm với %@"
           }
         },
         "zh-Hans": {
@@ -2103,6 +2625,12 @@
             "value": "이 연락처는 주소록에 더 이상 존재하지 않습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten kontakt nie istnieje już w twojej książce adresowej."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2121,10 +2649,22 @@
             "value": "Этот контакт больше не существует в вашей адресной книге."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişi artık rehberinizde yok."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей контакт більше не існує у вашій адресній книзі."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ này không còn tồn tại trong danh bạ của bạn."
           }
         },
         "zh-Hans": {
@@ -2179,6 +2719,12 @@
             "value": "연락처 삭제됨"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usunięto kontakt"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2197,10 +2743,22 @@
             "value": "Контакт удален"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi Silindi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакт видалено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ đã bị xóa"
           }
         },
         "zh-Hans": {
@@ -2257,6 +2815,12 @@
             "value": "연락처 삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń kontakt"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2275,10 +2839,22 @@
             "value": "Удалить контакт"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiyi sil"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити контакт"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa liên hệ"
           }
         },
         "zh-Hans": {
@@ -2335,6 +2911,12 @@
             "value": "이 사용자를 삭제합니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń tego użytkownika"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2353,10 +2935,22 @@
             "value": "Удалить этого пользователя"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kullanıcıyı sil"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити цього користувача"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa người dùng này"
           }
         },
         "zh-Hans": {
@@ -2411,6 +3005,12 @@
             "value": "장치 %lld"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urządzenie %lld"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2429,10 +3029,22 @@
             "value": "Устройство %lld"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz %lld"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пристрій %lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị %lld"
           }
         },
         "zh-Hans": {
@@ -2489,6 +3101,12 @@
             "value": "기기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2507,10 +3125,22 @@
             "value": "Устройства"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пристрої"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị"
           }
         },
         "zh-Hans": {
@@ -2567,6 +3197,12 @@
             "value": "연락처에서 제거"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń z kontaktów"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2585,10 +3221,22 @@
             "value": "Удалить из контактов"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişilerden kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити з контактів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa khỏi danh bạ"
           }
         },
         "zh-Hans": {
@@ -2645,6 +3293,12 @@
             "value": "사용자 지정 이름 및 사진 편집"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj niestandardową nazwę i zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2663,10 +3317,22 @@
             "value": "Редактировать имя и фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel adı ve fotoğrafı düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Редагувати власне ім'я та фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa tên và ảnh đại diện tùy chỉnh"
           }
         },
         "zh-Hans": {
@@ -2723,6 +3389,12 @@
             "value": "개인 메모 수정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj notatkę osobistą"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2741,10 +3413,22 @@
             "value": "Изменить личную заметку"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişisel notu düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Редагувати особисту нотатку"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa ghi chú cá nhân"
           }
         },
         "zh-Hans": {
@@ -2801,6 +3485,12 @@
             "value": "안전한 대화 채널을 설정 중입니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nawiązywanie bezpiecznego kanału dyskusji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2819,10 +3509,22 @@
             "value": "Установление защищенного канала связи"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli sohbet kanalı kuruluyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Встановлення захищеного каналу зв’язку"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang thiết lập kênh trò chuyện an toàn"
           }
         },
         "zh-Hans": {
@@ -2879,6 +3581,12 @@
             "value": "안전한 대화 채널을 생성하는 중입니다. 사용자와 상대방 모두 온라인 상태라면 몇 초 안에 완료됩니다.\n\n문제가 발생한 것으로 판단되면 채널 생성을 다시 시작할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trwa tworzenie bezpiecznego kanału dyskusji. Jeśli ty i twój kontakt jesteście online, powinno to potrwać kilka sekund.\n\nJeśli uważasz, że coś poszło nie tak, możesz ponownie uruchomić tworzenie kanału."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2897,10 +3605,22 @@
             "value": "Сейчас создается защищенный канал обсуждения. Этот процесс займет несколько секунд, если вы и ваш контакт находитесь в сети.\n\nЕсли вы считаете, что что-то пошло не так, вы можете перезапустить создание канала."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu anda güvenli bir sohbet kanalı oluşturuluyor. Siz ve kişiniz çevrimiçiyseniz bu işlem birkaç saniye sürer.\n\nBir sorun olduğunu düşünüyorsanız kanal oluşturmayı yeniden başlatabilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зараз створюється захищений канал обговорення. Якщо ви та ваш контакт онлайн, цей процес має зайняти кілька секунд.\n\nЯкщо ви вважаєте, що щось пішло не так, ви можете перезапустити створення каналу."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Một kênh thảo luận an toàn đang được tạo. Quá trình này sẽ mất vài giây nếu cả bạn và người liên hệ của bạn đều trực tuyến.\n\nNếu bạn cho rằng có sự cố xảy ra, bạn có thể khởi động lại quá trình tạo kênh."
           }
         },
         "zh-Hans": {
@@ -2957,6 +3677,12 @@
             "value": "이 연락처는 귀사의 ID 공급업체에서 사용 중지했습니다. 해당 사용자의 Olvid ID가 손상되었을 수 있으며, 통신의 보안을 보장할 수 없습니다.\n\n이전에 해당 사용자를 수동으로 차단 해제했습니다. 결정에 대해 확신이 없다면 이 연락처를 다시 차단하는 것이 좋습니다. 자세한 내용은 관리자에게 문의하십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten kontakt został unieważniony przez dostawcę tożsamości twojej firmy. Jego Olvid ID mogło zostać naruszone i nie można zagwarantować bezpieczeństwa twojej komunikacji.\n\nTen kontakt został wcześniej przez ciebie ręcznie odblokowany. Jeśli nie masz pewności co do tej decyzji, zalecamy ponowne zablokowanie tego kontaktu.\nSkontaktuj się z administratorem, aby uzyskać więcej informacji."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2975,10 +3701,22 @@
             "value": "Этот контакт был отозван вашим поставщиком идентификационных данных. Их Olvid ID мог быть скомпрометирован, и безопасность ваших коммуникаций не может быть гарантирована.\n\nВы ранее решили вручную разблокировать их. Если вы не уверены в своем решении, рекомендуется снова заблокировать этого контакта.\nПожалуйста, свяжитесь с вашим администратором для получения более подробной информации."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişi, şirketinizin kimlik sağlayıcısı tarafından geçersiz kılındı. Kişinin Olvid ID'sinin güvenliği tehlikeye girmiş olabilir ve iletişimlerinizin güvenliği garanti edilemez.\n\nDaha önce bu kişinin engelini elle kaldırmaya karar verdiniz. Kararınızdan emin değilseniz bu kişiyi yeniden engellemeniz önerilir.\nDaha fazla bilgi için lütfen yöneticinize başvurun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей контакт було відкликано вашим провайдером ідентифікації. Їхній Olvid ID міг бути скомпрометовано, і безпеку вашого спілкування не можна гарантувати.\n\nВи раніше вирішили вручну розблокувати їх. Якщо ви не впевнені у своєму рішенні, рекомендується повторно заблокувати цей контакт.\nЗверніться до свого адміністратора для отримання додаткової інформації."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ này đã bị thu hồi quyền truy cập bởi nhà cung cấp danh tính của công ty bạn. Có thể ID Olvid của họ đã bị xâm phạm và tính bảo mật của các cuộc trò chuyện của bạn không thể được đảm bảo.\n\nTrước đây, bạn đã chọn bỏ chặn liên hệ này theo cách thủ công. Nếu bạn không chắc chắn về quyết định của mình, nên chặn lại liên hệ này.\nVui lòng liên hệ với quản trị viên của bạn để biết thêm chi tiết."
           }
         },
         "zh-Hans": {
@@ -3033,6 +3771,12 @@
             "value": "활성"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktywny"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3051,10 +3795,22 @@
             "value": "Активный"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etkin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Активний"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang hoạt động"
           }
         },
         "zh-Hans": {
@@ -3109,6 +3865,12 @@
             "value": "회사"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firma"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3127,10 +3889,22 @@
             "value": "Компания"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şirket"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Компанія"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Công ty"
           }
         },
         "zh-Hans": {
@@ -3185,6 +3959,12 @@
             "value": "이름"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imię"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3203,10 +3983,22 @@
             "value": "Имя"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ad"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên"
           }
         },
         "zh-Hans": {
@@ -3261,6 +4053,12 @@
             "value": "신원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tożsamość"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3279,10 +4077,22 @@
             "value": "Личность"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ідентичність"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh tính"
           }
         },
         "zh-Hans": {
@@ -3337,6 +4147,12 @@
             "value": "성"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nazwisko"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3355,10 +4171,22 @@
             "value": "Фамилия"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyadı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прізвище"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Họ"
           }
         },
         "zh-Hans": {
@@ -3413,6 +4241,12 @@
             "value": "닉네임"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pseudonim"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3431,10 +4265,22 @@
             "value": "Прозвище"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma ad"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прізвисько"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biệt danh"
           }
         },
         "zh-Hans": {
@@ -3489,6 +4335,12 @@
             "value": "위치"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stanowisko"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3507,10 +4359,22 @@
             "value": "Позиция"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unvan"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Позиція"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí"
           }
         },
         "zh-Hans": {
@@ -3565,6 +4429,12 @@
             "value": "가입한 그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dołączone grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3583,10 +4453,22 @@
             "value": "Присоединенные группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Katılınan gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Приєднані групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các nhóm đã tham gia"
           }
         },
         "zh-Hans": {
@@ -3641,6 +4523,12 @@
             "value": "관리하는 그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy, którymi administrujesz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3659,10 +4547,22 @@
             "value": "Группы, которыми вы управляете"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yöneticisi olduğunuz gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи, які ви адмініструєте"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các nhóm mà bạn quản lý"
           }
         },
         "zh-Hans": {
@@ -3719,6 +4619,12 @@
             "value": "소개할 연락처를 선택하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybierz kontakt do przedstawienia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3737,10 +4643,22 @@
             "value": "Выберите контакт для представления"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanıştırılacak Kişiyi Seçin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оберіть контакт для знайомства"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn một liên hệ để giới thiệu"
           }
         },
         "zh-Hans": {
@@ -3797,6 +4715,12 @@
             "value": "초대"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaproś"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3815,10 +4739,22 @@
             "value": "Пригласить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запросити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mời"
           }
         },
         "zh-Hans": {
@@ -3873,6 +4809,12 @@
             "value": "초대 필요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymagane zaproszenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3891,10 +4833,22 @@
             "value": "Требуется приглашение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet gerekli"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Потрібне запрошення"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần có lời mời"
           }
         },
         "zh-Hans": {
@@ -3949,6 +4903,12 @@
             "value": "그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3967,10 +4927,22 @@
             "value": "Группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm"
           }
         },
         "zh-Hans": {
@@ -4025,6 +4997,12 @@
             "value": "%@ 그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy z kontaktem %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4043,10 +5021,22 @@
             "value": "Группы с %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ile ortak gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи з %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các nhóm có %@"
           }
         },
         "zh-Hans": {
@@ -4101,6 +5091,12 @@
             "value": "아니요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4119,10 +5115,22 @@
             "value": "Нет"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ні"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không"
           }
         },
         "zh-Hans": {
@@ -4177,6 +5185,12 @@
             "value": "없음"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4195,10 +5209,22 @@
             "value": "Нет"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yok"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Жоден"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có"
           }
         },
         "zh-Hans": {
@@ -4253,6 +5279,12 @@
             "value": "귀하께서 %@님을 개인 대화에 초대했습니다. 상대방이 수락할 때까지 기다려 주세요. 💬"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaproszono kontakt %@ do prywatnej dyskusji. Poczekaj, aż zaproszenie zostanie zaakceptowane 🤞."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4271,10 +5303,22 @@
             "value": "Вы пригласили %@ к приватной беседе. Пожалуйста, подождите, пока они примут приглашение 🤞."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ adlı kişiyi özel bir sohbete davet ettiniz. Lütfen daveti kabul etmesini bekleyin 🤞."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви запросили %@ до приватної розмови. Будь ласка, зачекайте, поки вони приймуть запрошення 🤞."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn đã mời %@ tham gia một cuộc trò chuyện riêng tư. Vui lòng đợi họ chấp nhận."
           }
         },
         "zh-Hans": {
@@ -4329,6 +5373,12 @@
             "value": " %@님과 개인적인 대화를 나누고 연락처에 추가하려면 \"초대\"를 누르세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aby prowadzić prywatną dyskusję z użytkownikiem %@ i dodać go do kontaktów, stuknij „Zaproś”."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4347,10 +5397,22 @@
             "value": "Чтобы начать приватную беседу с %@ и добавить их в контакты, нажмите «Пригласить»."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ile özel bir sohbet başlatmak ve kişilerinize eklemek için \"Davet et\" seçeneğine dokunun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Щоб приватно поспілкуватися з %@ та додати їх до контактів, натисніть \"Запросити\"."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để có một cuộc trò chuyện riêng tư với %@ và thêm họ vào danh bạ của bạn, hãy chạm vào \"Mời\"."
           }
         },
         "zh-Hans": {
@@ -4407,6 +5469,12 @@
             "value": "차단된 연락처 다시 차단"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zablokuj kontakt ponownie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4425,10 +5493,22 @@
             "value": "Снова заблокировать контакт"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiyi yeniden engelle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Знову заблокувати контакт"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chặn lại liên hệ"
           }
         },
         "zh-Hans": {
@@ -4485,6 +5565,12 @@
             "value": "정말로 해당 연락처를 다시 차단하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czy na pewno chcesz ponownie zablokować ten kontakt?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4503,10 +5589,22 @@
             "value": "Вы действительно хотите снова заблокировать контакт?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiyi gerçekten yeniden engellemek istiyor musunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви дійсно хочете знову заблокувати контакт?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có thực sự muốn chặn lại liên hệ này không?"
           }
         },
         "zh-Hans": {
@@ -4563,6 +5661,12 @@
             "value": "안전 채널 생성을 다시 시작"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uruchom ponownie tworzenie bezpiecznego kanału"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4581,10 +5685,22 @@
             "value": "Перезапустить создание защищенного канала"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturmayı yeniden başlat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Перезапустити створення захищеного каналу"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khởi động lại quá trình tạo kênh bảo mật"
           }
         },
         "zh-Hans": {
@@ -4641,6 +5757,12 @@
             "value": "다시 시작"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uruchom ponownie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4659,10 +5781,22 @@
             "value": "Перезапустить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden başlat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Перезапустити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khởi động lại"
           }
         },
         "zh-Hans": {
@@ -4717,6 +5851,12 @@
             "value": "그룹 검색"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Szukaj grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4735,10 +5875,22 @@
             "value": "Поиск группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup ara"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пошук групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tìm kiếm nhóm"
           }
         },
         "zh-Hans": {
@@ -4793,6 +5945,12 @@
             "value": "세부 정보"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Szczegóły"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4811,10 +5969,22 @@
             "value": "Подробности"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıntılar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Деталі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chi tiết"
           }
         },
         "zh-Hans": {
@@ -4869,6 +6039,12 @@
             "value": "안전한 채널이 생성되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utworzono bezpieczny kanał"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4887,10 +6063,22 @@
             "value": "Безопасный канал создан"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturuldu"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Захищений канал створено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kênh bảo mật đã được tạo"
           }
         },
         "zh-Hans": {
@@ -4945,6 +6133,12 @@
             "value": "안전한 채널 생성 중"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trwa tworzenie bezpiecznego kanału"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4963,10 +6157,22 @@
             "value": "Создание защищенного канала в процессе"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturuluyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Створення захищеного каналу в процесі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tạo kênh bảo mật."
           }
         },
         "zh-Hans": {
@@ -5021,6 +6227,12 @@
             "value": "안전 채널 상태를 확인할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stan bezpiecznego kanału niedostępny."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5039,10 +6251,22 @@
             "value": "Статус защищенного канала недоступен."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal durumu kullanılamıyor."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Статус безпечного каналу недоступний."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thể xác định trạng thái kênh bảo mật."
           }
         },
         "zh-Hans": {
@@ -5165,6 +6389,48 @@
             }
           }
         },
+        "ko": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld개의 그룹 보기"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pokaż grupę"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pokaż %lld grupy"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pokaż %lld grupy"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pokaż %lld grup"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -5215,6 +6481,36 @@
                   "state": "translated",
                   "value": "Просмотреть %lld группы"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Просмотреть %lld группы"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Просмотреть %lld групп"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grubu görüntüle"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld grubu görüntüle"
+                }
               }
             }
           }
@@ -5233,6 +6529,36 @@
                   "state": "translated",
                   "value": "Переглянути %lld групи"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Переглянути %lld групи"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Переглянути %lld груп"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Xem nhóm"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Xem %lld nhóm"
+                }
               }
             }
           }
@@ -5250,18 +6576,6 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "查看 %lld 个群组"
-                }
-              }
-            }
-          }
-        },
-        "ko": {
-          "variations": {
-            "plural": {
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld개의 그룹 보기"
                 }
               }
             }
@@ -5315,6 +6629,12 @@
             "value": "모든 연락처 정보 보기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż wszystkie szczegóły kontaktu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5333,10 +6653,22 @@
             "value": "Показать все контактные данные"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm kişi ayrıntılarını göster"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати всі деталі контакту"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị tất cả thông tin liên hệ"
           }
         },
         "zh-Hans": {
@@ -5391,6 +6723,12 @@
             "value": "동기화"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizuj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5409,10 +6747,22 @@
             "value": "Синхронизация"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eşzamanla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Синхронізація"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đồng bộ"
           }
         },
         "zh-Hans": {
@@ -5467,6 +6817,12 @@
             "value": "동기화 요청 전송"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysłano prośbę o synchronizację"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5485,10 +6841,22 @@
             "value": "Запрос на синхронизацию отправлен"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eşzamanlama isteği gönderildi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запит на синхронізацію відправлено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã gửi yêu cầu đồng bộ hóa"
           }
         },
         "zh-Hans": {
@@ -5545,6 +6913,12 @@
             "value": "연락처 이름이 업데이트되었습니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizowano imię i nazwisko kontaktu:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5563,10 +6937,22 @@
             "value": "Имя контакта было обновлено:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı ve soyadı güncellendi:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я контакту оновлено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên của liên hệ đã được cập nhật:"
           }
         },
         "zh-Hans": {
@@ -5623,6 +7009,12 @@
             "value": "연락처의 이름과 사진이 업데이트되었습니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizowano imię i zdjęcie kontaktu:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5641,10 +7033,22 @@
             "value": "Имя и фотография контакта были обновлены:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı ve fotoğrafı güncellendi:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я та фото контакту оновлено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên và ảnh đại diện của người liên hệ đã được cập nhật:"
           }
         },
         "zh-Hans": {
@@ -5701,6 +7105,12 @@
             "value": "연락처의 이름과 사진이 업데이트되었습니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizowano imię, nazwisko i zdjęcie kontaktu:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5719,10 +7129,22 @@
             "value": "Имя и фотография контакта были обновлены:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı, soyadı ve fotoğrafı güncellendi:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я та фото контакту оновлено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên và ảnh của liên hệ đã được cập nhật:"
           }
         },
         "zh-Hans": {
@@ -5779,6 +7201,12 @@
             "value": "연락처의 이름이 업데이트되었습니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizowano imię kontaktu:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5797,10 +7225,22 @@
             "value": "Имя контакта было обновлено:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı güncellendi:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я контакту оновлено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên của liên hệ đã được cập nhật:"
           }
         },
         "zh-Hans": {
@@ -5857,6 +7297,12 @@
             "value": "연락처의 성과 사진이 업데이트되었습니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizowano nazwisko i zdjęcie kontaktu:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5875,10 +7321,22 @@
             "value": "Фамилия и фотография контакта были обновлены:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin soyadı ve fotoğrafı güncellendi:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прізвище та фото контакту оновлено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Họ và ảnh đại diện của người liên hệ đã được cập nhật:"
           }
         },
         "zh-Hans": {
@@ -5935,6 +7393,12 @@
             "value": "연락처의 성이 업데이트되었습니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizowano nazwisko kontaktu:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5953,10 +7417,22 @@
             "value": "Фамилия контакта была обновлена:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin soyadı güncellendi:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прізвище контакту оновлено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Họ của người liên hệ đã được cập nhật:"
           }
         },
         "zh-Hans": {
@@ -6013,6 +7489,12 @@
             "value": "연락처의 이름, 설명 또는 사진이 업데이트되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizowano nazwę, opis lub zdjęcie kontaktu:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6031,10 +7513,22 @@
             "value": "Имя, описание или фотография контакта были обновлены:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin adı, açıklaması veya fotoğrafı güncellendi:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я контакту, опис або фотографію було оновлено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên, mô tả hoặc ảnh của liên hệ đã được cập nhật:"
           }
         },
         "zh-Hans": {
@@ -6091,6 +7585,12 @@
             "value": "연락처의 사진이 업데이트되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizowano zdjęcie kontaktu:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6109,10 +7609,22 @@
             "value": "Фото контакта было обновлено:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin fotoğrafı güncellendi:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Фото контакту оновлено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ảnh đại diện của người liên hệ đã được cập nhật:"
           }
         },
         "zh-Hans": {
@@ -6169,6 +7681,12 @@
             "value": "이 업데이트가 기기에 적용되려면 업데이트를 승인해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aby te zmiany zostały zastosowane na twoim urządzeniu, zaakceptuj je."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6187,10 +7705,22 @@
             "value": "Чтобы эти обновления вступили в силу на вашем устройстве, пожалуйста, примите их."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu güncellemelerin cihazınızda geçerli olması için lütfen bunları kabul edin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Щоб ці оновлення набули чинності на вашому пристрої, будь ласка, прийміть їх."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để các bản cập nhật này có hiệu lực trên thiết bị của bạn, vui lòng chấp nhận chúng."
           }
         },
         "zh-Hans": {
@@ -6247,6 +7777,12 @@
             "value": "출처 확인"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Źródła zaufania"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6265,10 +7801,22 @@
             "value": "Доверять источникам"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güven kaynakları"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Довіряти джерелам"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nguồn tin cậy"
           }
         },
         "zh-Hans": {
@@ -6325,6 +7873,12 @@
             "value": "차단 해제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odblokuj kontakt"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6343,10 +7897,22 @@
             "value": "Разблокировать контакт"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişinin engelini kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Розблокувати контакт"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ chặn liên hệ"
           }
         },
         "zh-Hans": {
@@ -6403,6 +7969,12 @@
             "value": "유효성 검사 필요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymagana weryfikacja"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6421,10 +7993,22 @@
             "value": "Требуется подтверждение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğrulama gerekli"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Потрібна перевірка"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần xác thực"
           }
         },
         "zh-Hans": {
@@ -6479,6 +8063,12 @@
             "value": "방금 온라인에 접속했었나요?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ostatnio online?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6497,10 +8087,22 @@
             "value": "Недавно был(а) в сети?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yakın zamanda çevrimiçi miydi?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Нещодавно був онлайн?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vừa mới trực tuyến?"
           }
         },
         "zh-Hans": {
@@ -6557,6 +8159,12 @@
             "value": "네"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tak"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6575,10 +8183,22 @@
             "value": "Да"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Так"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có"
           }
         },
         "zh-Hans": {
@@ -6633,6 +8253,12 @@
             "value": "귀하와 %1$@님은 %2$@개의 그룹을 공유합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ty i %1$@ macie wspólne grupy: %2$@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6651,10 +8277,22 @@
             "value": "У_ВАС_И_У_%1$@_%2$@_ОБЩИХ_ГРУПП"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ ile %2$@ ortak grubunuz var."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "У ВАС І %1$@ СПІЛЬНО %2$@ ГРУП"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BẠN VÀ %1$@ CÙNG THAM GIA %2$@ NHÓM"
           }
         },
         "zh-Hans": {
@@ -6795,6 +8433,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ty i %1$@ jesteście razem w jednej grupie."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ty i %1$@ jesteście razem w %2$lld grupy."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ty i %1$@ jesteście razem w %2$lld grupach."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ty i %1$@ jesteście razem w %2$lld grupach."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -6845,6 +8513,36 @@
                   "state": "translated",
                   "value": "Вы и %1$@ состоите в %2$lld группах."
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы и %1$@ состоите в %2$lld группах."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы и %1$@ состоите в %2$lld группах."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ ile ortak bir grubunuz var."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ ile %2$lld ortak grubunuz var."
+                }
               }
             }
           }
@@ -6862,6 +8560,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Ви з %1$@ в %2$lld групах."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви з %1$@ в %2$lld групах."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви з %1$@ в %2$lld групах."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn và %1$@ cùng ở trong một nhóm."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn và %1$@ cùng ở trong %2$lld nhóm."
                 }
               }
             }
@@ -6933,6 +8661,12 @@
             "value": "귀하와 %@님은 아직 함께 가입한 그룹이 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ty i %@ nie jesteście jeszcze razem w żadnej grupie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6951,10 +8685,22 @@
             "value": "У вас и %@ пока нет общих групп."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ile henüz ortak bir grubunuz yok."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви та %@ ще не в жодній спільній групі."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn và %@ hiện chưa có nhóm chung nào."
           }
         },
         "zh-Hans": {
@@ -7011,6 +8757,12 @@
             "value": "%@님이 연락처에 추가될 때까지 비공개 대화를 할 수 없습니다. 지금 초대하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie możesz prowadzić prywatnej dyskusji z użytkownikiem %@, dopóki nie znajdzie się wśród twoich kontaktów. Czy chcesz teraz zaprosić tę osobę?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7029,10 +8781,22 @@
             "value": "Вы не можете начать личную переписку с %@, пока он/она не будет в ваших контактах. Хотите пригласить его/её сейчас?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kişileriniz arasına katılana kadar bu kişiyle özel bir sohbet başlatamazsınız. Şimdi davet etmek ister misiniz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви не можете мати приватну розмову з %@, поки вони не будуть у вашому списку контактів. Чи бажаєте ви запросити їх зараз?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn không thể có cuộc trò chuyện riêng tư với %@ cho đến khi họ là một trong danh bạ của bạn. Bạn có muốn mời họ ngay bây giờ không?"
           }
         },
         "zh-Hans": {
@@ -7089,6 +8853,12 @@
             "value": "네"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tak"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7107,10 +8877,22 @@
             "value": "Да"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Так"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có"
           }
         },
         "zh-Hans": {

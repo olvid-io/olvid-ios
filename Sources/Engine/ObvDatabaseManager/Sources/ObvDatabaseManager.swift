@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,6 @@
  */
 
 import Foundation
-import os.log
 import CoreData
 import ObvCoreDataStack
 import ObvMetaManager
@@ -26,7 +25,20 @@ import ObvTypes
 import OlvidUtils
 
 
-public final class ObvDatabaseManager: ObvCreateContextDelegate {
+/// **`@unchecked Sendable`, and what is being promised is an order rather than a lock.**
+///
+/// The conformance is not asked for here: `ObvCreateContextDelegate` inherits `ObvContextCreator`, which is `Sendable`, so this class is required to be one
+/// from two protocols away. Two of its stored properties are written after `init` — ``coreDataStack``, in `finalizeInitialization(flowId:runningLog:)`, and
+/// ``logSubsystem``, in `prependLogSubsystem(with:)` — which is what the compiler objects to, and it is right to: it cannot see when either happens.
+///
+/// **What makes it safe is the engine's startup sequence, and it is explicit rather than incidental.** `ObvMetaManager` finds the context delegate among the
+/// registered managers and finalises *it* before all the others, precisely because the others need the stack it makes. Both writes therefore happen while the
+/// engine is being built, on one thread, before anything holds this object to use it; everything afterwards only reads.
+///
+/// So this is the house pattern for an engine manager rather than a shortcut — and it is the promise that would have to be revisited if a write ever moved
+/// out of startup. A stack handed in at `init` would need no promise at all, but `finalizeInitialization` is mandated by `ObvManager` and has to run the
+/// migration first, so that is a change to how the engine starts rather than to this line.
+public final class ObvDatabaseManager: ObvCreateContextDelegate, @unchecked Sendable {
     
     public class var containerURL: URL? {
         get {
@@ -49,8 +61,6 @@ public final class ObvDatabaseManager: ObvCreateContextDelegate {
     public func prependLogSubsystem(with prefix: String) {
         logSubsystem = "\(prefix).\(logSubsystem)"
     }
-
-    lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvDatabaseManager")
 
     public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
     

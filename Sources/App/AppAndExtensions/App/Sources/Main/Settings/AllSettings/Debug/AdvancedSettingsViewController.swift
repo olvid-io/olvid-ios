@@ -52,20 +52,96 @@ final class AdvancedSettingsViewController: UITableViewController {
         
     private var currentWebSocketStatus: (state: URLSessionTask.State, pingInterval: TimeInterval?)?
     private static let websocketRefreshTimeInterval = 2 // In seconds
-        
+
+    /// The one task that refreshes the websocket status, owned by this screen and stopped when it goes.
+    ///
+    /// **It used to be started from `cellForRowAt`, and each one perpetuated itself**: the task slept two seconds and called `reconfigureRows`, which called
+    /// `cellForRowAt`, which started another. So a chain was born every time that row was built for any other reason — every `reloadData()`, every visit to
+    /// this screen, and every time the row was scrolled back into view — and none of them ever ended. With several running, the row was re-measured several
+    /// times every two seconds, and a re-measure during a scroll is a jump. One task, started when the screen appears and cancelled when it leaves.
+    private var webSocketStatusRefreshTask: Task<Void, Never>?
+
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = CommonString.Word.Advanced
     }
-    
+
+    deinit {
+        // **Cancelled here as well as in `viewWillDisappear`, because a task is not cancelled by being released.** This screen's own teardown is the only
+        // thing that used to stop the poll, and a screen can be deallocated without it — the settings flow going away while some other screen is the one
+        // being popped. The task holds this controller weakly, so nothing kept it alive; it simply went on running. Belt and braces with the guard in the
+        // loop: this ends it at once, that one ends it at the next tick.
+        webSocketStatusRefreshTask?.cancel()
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         tableView.reloadData()
+        startRefreshingTheWebSocketStatusIfRequired()
     }
-    
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        webSocketStatusRefreshTask?.cancel()
+        webSocketStatusRefreshTask = nil
     }
+
+
+    /// Refreshes the websocket status every couple of seconds, for as long as this screen is on show.
+    private func startRefreshingTheWebSocketStatusIfRequired() {
+
+        guard webSocketStatusRefreshTask == nil else { return }
+        let ownedCryptoId = self.ownedCryptoId
+
+        webSocketStatusRefreshTask = Task { [weak self] in
+            let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
+            while !Task.isCancelled {
+                let status: (state: URLSessionTask.State, pingInterval: TimeInterval?)? = await withCheckedContinuation { continuation in
+                    let hasResumed = OSAllocatedUnfairLock<Bool>(initialState: false)
+                    Task {
+                        await obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId) { result in
+                            // The engine's callback is not promised to arrive exactly once, and resuming a continuation twice traps.
+                            let isOurs = hasResumed.withLock { alreadyResumed in
+                                guard !alreadyResumed else { return false }
+                                alreadyResumed = true
+                                return true
+                            }
+                            guard isOurs else { return }
+                            continuation.resume(returning: try? result.get())
+                        }
+                    }
+                }
+                guard !Task.isCancelled else { return }
+
+                // **The `guard` for a screen that has gone has to end the *task*, and it used to end the closure.** Written as
+                // `await MainActor.run { guard let self else { return } … }`, its `return` leaves the closure and the loop carries on — so a screen that was
+                // deallocated left this asking the engine for the websocket state every two seconds, for the lifetime of the process, with nothing to show
+                // it to. Answering whether the screen is still there, and reading the answer out here, is what makes the guard mean what it looks like it
+                // means.
+                let theScreenIsStillThere = await MainActor.run { () -> Bool in
+                    guard let self else { return false }
+                    self.currentWebSocketStatus = status
+                    self.reconfigureTheWebSocketRow()
+                    return true
+                }
+                guard theScreenIsStillThere else { return }
+
+                try? await Task.sleep(seconds: Double(Self.websocketRefreshTimeInterval))
+            }
+        }
+
+    }
+
+
+    private func reconfigureTheWebSocketRow() {
+        guard let section = Section.shown.firstIndex(of: .websockedStatus) else { return }
+        let indexPath = IndexPath(row: 0, section: section)
+        guard indexPath.section < tableView.numberOfSections else { return }
+        guard indexPath.row < tableView.numberOfRows(inSection: indexPath.section) else { return }
+        tableView.reconfigureRows(at: [indexPath])
+    }
+
 
     private func pingIntervalFormatter(pingInterval: TimeInterval) -> String {
         "\(Int(pingInterval * 1000.0)) ms"
@@ -78,16 +154,20 @@ final class AdvancedSettingsViewController: UITableViewController {
         case websockedStatus
         case diskUsage
         case logs
+        case consoleLogs
         case exportsDatabasesAndCopyURLs
-        
+
         static var shown: [Section] {
+            // **The diagnostics and the inbox maintenance are no longer here**, having moved to a panel of their own in the main settings. They were the only
+            // two things in this drawer addressed to a reader rather than to us — one says *send us this*, the other *tap this and wait* — and a reader
+            // following a support mail should not have to walk past caches, websocket status and database exports to reach them.
             var result = [Section.clearCache, .troubleshooting, .customKeyboards, .websockedStatus, .diskUsage]
             if ObvMessengerConstants.showExperimentalFeature {
-                result += [Section.logs, .exportsDatabasesAndCopyURLs]
+                result += [Section.logs, .consoleLogs, .exportsDatabasesAndCopyURLs]
             }
             return result
         }
-        
+
         var numberOfItems: Int {
             switch self {
             case .clearCache: return ClearCacheItem.shown.count
@@ -96,6 +176,7 @@ final class AdvancedSettingsViewController: UITableViewController {
             case .websockedStatus: return WebsockedStatusItem.shown.count
             case .diskUsage: return DiskUsageItem.shown.count
             case .logs: return LogsItem.shown.count
+            case .consoleLogs: return ConsoleLogsItem.shown.count
             case .exportsDatabasesAndCopyURLs: return ExportsDatabasesAndCopyURLsItem.shown.count
             }
         }
@@ -212,6 +293,24 @@ final class AdvancedSettingsViewController: UITableViewController {
         }
     }
     
+    /// The system console, which is **not** the in-app logs of ``LogsItem`` above and is in a section of its own for exactly that reason: those
+    /// are files a reader can list and share, this reaches the unified log and needs the device attached to be read at all.
+    private enum ConsoleLogsItem: CaseIterable {
+        case logTranscriptFrames
+        static var shown: [ConsoleLogsItem] {
+            return ObvMessengerConstants.showExperimentalFeature ? self.allCases : []
+        }
+        static func shownItemAt(item: Int) -> ConsoleLogsItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .logTranscriptFrames: return "LogTranscriptFrames"
+            }
+        }
+    }
+
     private enum ExportsDatabasesAndCopyURLsItem: CaseIterable {
         case copyDocumentsURL
         case copyDatabaseURL
@@ -294,7 +393,7 @@ extension AdvancedSettingsViewController {
                 cell.contentConfiguration = content
                 return cell
             }
-            
+
         case .customKeyboards:
             guard let item = CustomKeyboardsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
             switch item {
@@ -329,27 +428,9 @@ extension AdvancedSettingsViewController {
                     cell.detailTextLabel?.text = nil
                 }
                 cell.selectionStyle = .none
-                let ownedCryptoId = self.ownedCryptoId
-                Task {
-                    let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-                    await obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId) { (result: Result<(URLSessionTask.State, TimeInterval?), Error>) in
-                        Task { @MainActor [weak self] in
-                            switch result {
-                            case .failure(_):
-                                break
-                            case .success(let newWebSocketStatus):
-                                self?.currentWebSocketStatus = newWebSocketStatus
-                                try await Task.sleep(seconds: Double(AdvancedSettingsViewController.websocketRefreshTimeInterval))
-                                guard let tableView = self?.tableView else { return }
-                                guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                                tableView.reconfigureRows(at: [indexPath])
-                            }
-                        }
-                    }
-                }
                 return cell
             }
-            
+
         case .diskUsage:
             guard let item = DiskUsageItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
             switch item {
@@ -393,6 +474,20 @@ extension AdvancedSettingsViewController {
                 return cell
             }
             
+        case .consoleLogs:
+            guard let item = ConsoleLogsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .logTranscriptFrames:
+                let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.selectionStyle = .none
+                cell.title = Strings.logTranscriptFrames
+                cell.switchIsOn = ObvMessengerSettings.Advanced.logTranscriptFrames
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.Advanced.logTranscriptFrames = value
+                }
+                return cell
+            }
+
         case .exportsDatabasesAndCopyURLs:
             guard let item = ExportsDatabasesAndCopyURLsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
             switch item {
@@ -479,7 +574,7 @@ extension AdvancedSettingsViewController {
                     await showThenHideHUD(type: finalHUDTypeToShow, andDeselectRowAt: indexPath)
                 }
             }
-            
+
         case .customKeyboards:
             return
         case .websockedStatus:
@@ -517,6 +612,12 @@ extension AdvancedSettingsViewController {
                 ObvMessengerInternalNotification.betaUserWantsToDebugCoordinatorsQueue
                     .postOnDispatchQueue()
                 tableView.deselectRow(at: indexPath, animated: true)
+            }
+        case .consoleLogs:
+            guard let item = ConsoleLogsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .logTranscriptFrames:
+                return
             }
         case .exportsDatabasesAndCopyURLs:
             guard let item = ExportsDatabasesAndCopyURLsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
@@ -578,6 +679,7 @@ extension AdvancedSettingsViewController {
         case .customKeyboards: return Strings.customKeyboardsManagement
         case .websockedStatus: return Strings.webSocketStatus
         case .logs: return Strings.inAppLogs
+        case .consoleLogs: return Strings.systemConsoleLogs
         case .diskUsage: return nil
         case .exportsDatabasesAndCopyURLs: return nil
         }
@@ -592,6 +694,7 @@ extension AdvancedSettingsViewController {
         case .websockedStatus: return nil
         case .diskUsage: return nil
         case .logs: return nil
+        case .consoleLogs: return Strings.logTranscriptFramesExplanation
         case .exportsDatabasesAndCopyURLs: return nil
         }
     }
@@ -609,6 +712,12 @@ extension AdvancedSettingsViewController {
         static let copyDocumentsURL = NSLocalizedString("Copy Documents URL", comment: "Button title, only in dev mode")
         static let copyAppDatabaseURL = NSLocalizedString("Copy App Database URL", comment: "Button title, only in dev mode")
         static let cacheManagement = NSLocalizedString("Cache management", comment: "")
+        // English as the key, like `Cache management` and `Troubleshooting` beside them rather than the shouting-case keys elsewhere in this
+        // struct: those have catalogue entries already, and a key with none renders as the key itself — which in a TestFlight build a tester can
+        // reach is a screen showing `SYSTEM_CONSOLE_LOGS`.
+        static let systemConsoleLogs = String(localized: "System console logs")
+        static let logTranscriptFrames = String(localized: "Log discussion frames")
+        static let logTranscriptFramesExplanation = String(localized: "In-app logs, above, are written to files you can view and share. This is different: it goes to the system console, is meant for developers investigating scrolling, and writes one entry for every frame displayed — several thousand a minute while a discussion is moving. Leave it off unless you have been asked to turn it on.")
         static let troubleshooting = String(localized: "Troubleshooting")
         static let customKeyboardsManagement = NSLocalizedString("CUSTOM_KEYBOARD_MANAGEMENT", comment: "")
         static let customKeyboardsManagementExplanation = NSLocalizedString("CUSTOM_KEYBOARD_MANAGEMENT_EXPLANATION", comment: "")
@@ -648,3 +757,5 @@ private extension URLSessionTask.State {
 protocol AdvancedSettingsViewControllerDelegate: AnyObject {
     func userRequestedAppDatabaseSyncWithEngine(advancedSettingsViewController: AdvancedSettingsViewController) async throws
 }
+
+

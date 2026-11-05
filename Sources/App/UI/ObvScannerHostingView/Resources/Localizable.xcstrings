@@ -45,6 +45,12 @@
             "value": "뒤로"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstecz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "Назад"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Назад"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quay lại"
           }
         },
         "zh-Hans": {
@@ -121,6 +139,12 @@
             "value": "내 ID 표시"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż moje ID"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -139,10 +163,22 @@
             "value": "Показать мой ID"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID'mi göster"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати мій ID"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị ID của tôi"
           }
         },
         "zh-Hans": {

@@ -53,21 +53,23 @@ class AllSettingsTableViewController: UITableViewController {
         case discussions
         case privacy
         case voip
-        
+        case siri
+
         // Section 1
         case backup
         case historyTransfer
 
         // Section 2
         case about
+        case troubleshooting
         case advanced
 
         private var section: Int {
             // Please follow Setting declaration order
             switch self {
-            case .contactsAndGroups, .downloads, .interface, .discussions, .privacy, .voip: return 0
+            case .contactsAndGroups, .downloads, .interface, .discussions, .privacy, .voip, .siri: return 0
             case .backup, .historyTransfer: return 1
-            case .about, .advanced: return 2
+            case .about, .troubleshooting, .advanced: return 2
             }
         }
 
@@ -90,9 +92,11 @@ class AllSettingsTableViewController: UITableViewController {
             case .discussions: return CommonString.Word.Discussions
             case .privacy: return CommonString.Word.Privacy
             case .about: return CommonString.Word.About
+            case .troubleshooting: return String(localized: "Troubleshooting")
             case .advanced: return CommonString.Word.Advanced
             case .backup: return CommonString.Word.Backup
             case .voip: return CommonString.Word.VoIP
+            case .siri: return CommonString.Word.Siri
             case .historyTransfer: return String(localized: "SETTINGS_TITLE_HISTORY_TRANSFER")
             }
         }
@@ -115,8 +119,12 @@ class AllSettingsTableViewController: UITableViewController {
                 return UIImage(systemIcon: .phoneFill)
             case .about:
                 return UIImage(systemIcon: .infoCircle)
+            case .troubleshooting:
+                return UIImage(systemIcon: .wrenchAdjustable)
             case .advanced:
                 return UIImage(systemIcon: .hammerCircle)
+            case .siri:
+                return UIImage(systemIcon: .siri)
             case .historyTransfer:
                 return UIImage(systemIcon: .repeatCircle)
             }
@@ -140,10 +148,14 @@ class AllSettingsTableViewController: UITableViewController {
                 return .systemPink
             case .about:
                 return .systemIndigo
+            case .troubleshooting:
+                return .systemOrange
             case .advanced:
                 return .systemRed
             case .historyTransfer:
                 return .systemOrange
+            case .siri:
+                return .systemBlue
             }
         }
         
@@ -158,7 +170,9 @@ class AllSettingsTableViewController: UITableViewController {
             case .backup: return "AllSettingsTableViewController.backup"
             case .historyTransfer: return "AllSettingsTableViewController.historyTransfer"
             case .about: return "AllSettingsTableViewController.about"
+            case .troubleshooting: return "AllSettingsTableViewController.troubleshooting"
             case .advanced: return "AllSettingsTableViewController.advanced"
+            case .siri: return "AllSettingsTableViewController.siri"
             }
         }
         

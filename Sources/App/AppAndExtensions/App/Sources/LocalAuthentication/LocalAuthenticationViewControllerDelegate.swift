@@ -20,6 +20,8 @@
 import Foundation
 
 
+/// Main-actor isolated: both implementations are view controllers, and the calls come from a view controller.
+@MainActor
 protocol LocalAuthenticationViewControllerDelegate: AnyObject {
     func userLocalAuthenticationDidSucceed(authenticationWasPerformed: Bool) async
     func tooManyWrongPasscodeAttemptsCausedLockOut() async

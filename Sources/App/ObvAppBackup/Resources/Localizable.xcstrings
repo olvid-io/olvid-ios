@@ -194,6 +194,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Znaleziono jeden profil z kopii zapasowej"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Znaleziono %lld profilu z kopii zapasowej"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Znaleziono %lld profile z kopii zapasowej"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Znaleziono %lld profili z kopii zapasowej"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nie znaleziono profili z kopii zapasowej"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -262,6 +298,42 @@
                   "state": "translated",
                   "value": "Резервные профили не найдены"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Найдено %lld резервных профиля"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Найдено %lld резервных профилей"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 yedeklenmiş profil bulundu"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld yedeklenmiş profil bulundu"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Yedeklenmiş profil bulunamadı"
+                }
               }
             }
           }
@@ -285,6 +357,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Збережених профілів не знайдено"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Знайдено %lld збережені профілі"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Знайдено %lld збережених профілів"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tìm thấy 1 bản sao lưu hồ sơ"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tìm thấy %lld bản sao lưu hồ sơ"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Không tìm thấy bản sao lưu hồ sơ nào"
                 }
               }
             }
@@ -486,6 +594,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Znaleziono jedną kopię zapasową"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Znaleziono %lld kopii zapasowej"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Znaleziono %lld kopie zapasowe"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Znaleziono %lld kopii zapasowych"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nie znaleziono kopii zapasowych"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -554,6 +698,42 @@
                   "state": "translated",
                   "value": "Резервные файлы не найдены"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Найдено %lld резервных файла"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Найдено %lld резервных файлов"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 yedek bulundu"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld yedek bulundu"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Yedek bulunamadı"
+                }
               }
             }
           }
@@ -577,6 +757,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Резервні копії не знайдені"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Знайдено %lld резервні копії"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Знайдено %lld резервних копій"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tìm thấy một bản sao lưu"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tìm thấy %lld bản sao lưu"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Không tìm thấy bản sao lưu nào"
                 }
               }
             }
@@ -754,6 +970,60 @@
             }
           }
         },
+        "ko": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "연락처 %lld명"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "연락처 없음"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Jeden kontakt"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld kontaktu"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld kontakty"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld kontaktów"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Brak kontaktów"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -822,6 +1092,42 @@
                   "state": "translated",
                   "value": "Нет контактов"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld контакта"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld контактов"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 kişi"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld kişi"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kişi yok"
+                }
               }
             }
           }
@@ -846,6 +1152,42 @@
                   "state": "translated",
                   "value": "Контакти відсутні"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld контакти"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld контактів"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Một liên hệ"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld liên hệ"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Không có liên hệ"
+                }
               }
             }
           }
@@ -863,24 +1205,6 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "无联系人"
-                }
-              }
-            }
-          }
-        },
-        "ko": {
-          "variations": {
-            "plural": {
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "연락처 %lld명"
-                }
-              },
-              "zero": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "연락처 없음"
                 }
               }
             }
@@ -1034,6 +1358,60 @@
             }
           }
         },
+        "ko": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "그룹 %lld개"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "그룹 없음"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Jedna grupa"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld grupy"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld grupy"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld grup"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Brak grup"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -1102,6 +1480,42 @@
                   "state": "translated",
                   "value": "Нет групп"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld группы"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld групп"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 grup"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld grup"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grup yok"
+                }
               }
             }
           }
@@ -1126,6 +1540,42 @@
                   "state": "translated",
                   "value": "Груп не знайдено"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld групи"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld груп"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Một nhóm"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld nhóm"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Không có nhóm nào"
+                }
               }
             }
           }
@@ -1149,24 +1599,6 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "没有群组"
-                }
-              }
-            }
-          }
-        },
-        "ko": {
-          "variations": {
-            "plural": {
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "그룹 %lld개"
-                }
-              },
-              "zero": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "그룹 없음"
                 }
               }
             }
@@ -1218,6 +1650,12 @@
             "value": "자동 백업 활성화"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Włącz automatyczne kopie zapasowe"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1236,10 +1674,22 @@
             "value": "Включить автоматическое резервное копирование"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik yedeklemeyi etkinleştir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Увімкнути автоматичне резервне копіювання"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bật tính năng sao lưu tự động"
           }
         },
         "zh-Hans": {
@@ -1294,6 +1744,12 @@
             "value": "장치 추가"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj urządzenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1312,10 +1768,22 @@
             "value": "Добавить устройство"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz ekle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додати пристрій"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm thiết bị"
           }
         },
         "zh-Hans": {
@@ -1370,6 +1838,12 @@
             "value": "고급 설정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ustawienia zaawansowane"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1388,10 +1862,22 @@
             "value": "Дополнительные настройки"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelişmiş ayarlar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додаткові налаштування"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cài đặt nâng cao"
           }
         },
         "zh-Hans": {
@@ -1446,6 +1932,12 @@
             "value": "오류가 발생했습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wystąpił błąd"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1464,10 +1956,22 @@
             "value": "Произошла ошибка"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir hata oluştu"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Сталася помилка"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã xảy ra lỗi"
           }
         },
         "zh-Hans": {
@@ -1522,6 +2026,12 @@
             "value": "백업 키를 확인하려면 인증해주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uwierzytelnij się, aby zobaczyć klucz kopii zapasowej."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1540,10 +2050,22 @@
             "value": "Пожалуйста, авторизуйтесь, чтобы увидеть ваш ключ резервной копии."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme anahtarınızı görmek için lütfen kimliğinizi doğrulayın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Будь ласка, авторизуйтеся, щоб побачити ваш ключ резервної копії."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng xác thực để xem khóa sao lưu của bạn."
           }
         },
         "zh-Hans": {
@@ -1598,6 +2120,12 @@
             "value": "백업이 성공적으로 활성화되었습니다!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie zapasowe zostały włączone!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1616,10 +2144,22 @@
             "value": "Резервные копии успешно активированы!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme başarıyla etkinleştirildi!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервні копії успішно активовано!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu đã được kích hoạt thành công!"
           }
         },
         "zh-Hans": {
@@ -1674,6 +2214,12 @@
             "value": "이 키에 대해 사용 가능한 백업된 프로필"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile z kopii zapasowej dostępne dla tego klucza"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1692,10 +2238,22 @@
             "value": "Доступные резервные копии профилей для этого ключа"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu anahtar için kullanılabilir yedeklenmiş profiller"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Доступні резервні профілі для цього ключа"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các bản sao lưu khả dụng cho khóa này"
           }
         },
         "zh-Hans": {
@@ -1750,6 +2308,12 @@
             "value": "백업된 프로필"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile objęte kopią zapasową"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1768,10 +2332,22 @@
             "value": "Резервные копии профилей"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklenen profiller"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервні копії профілів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu hồ sơ"
           }
         },
         "zh-Hans": {
@@ -1826,6 +2402,12 @@
             "value": "모든 기기에서"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Według profilu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1844,10 +2426,22 @@
             "value": "На всех устройствах"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile göre"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "На всіх пристроях"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trên nhiều thiết bị"
           }
         },
         "zh-Hans": {
@@ -1902,6 +2496,12 @@
             "value": "기기별"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Według urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1920,10 +2520,22 @@
             "value": "На устройство"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaza göre"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "На пристрій"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cho mỗi thiết bị"
           }
         },
         "zh-Hans": {
@@ -1978,6 +2590,12 @@
             "value": "백업"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopia zapasowa"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1996,10 +2614,22 @@
             "value": "Резервная копия"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервна копія"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu"
           }
         },
         "zh-Hans": {
@@ -2054,6 +2684,12 @@
             "value": "백업"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie zapasowe"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2072,10 +2708,22 @@
             "value": "Резервные копии"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервні копії"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bản sao lưu"
           }
         },
         "zh-Hans": {
@@ -2130,6 +2778,12 @@
             "value": "이 기기에 있는 프로필은 자동으로 백업됩니다. 백업은 암호화된 후 Olvid 서버에 저장됩니다. 암호화 키는 iCloud 키체인에 저장되어 모든 기기에서 동기화됩니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie zapasowe profili z tego urządzenia są tworzone automatycznie. Są one szyfrowane, a następnie przechowywane na serwerach Olvid. Klucz szyfrowania jest zapisywany w pęku kluczy iCloud i synchronizowany między twoimi urządzeniami."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2148,10 +2802,22 @@
             "value": "Профили, присутствующие на этом устройстве, автоматически резервируются. Резервные копии зашифровываются и затем хранятся на серверах Olvid. Ключ шифрования сохраняется в iCloud Keychain и синхронизируется между вашими устройствами."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki profiller otomatik olarak yedeklenir. Yedekler şifrelenir ve ardından Olvid'in sunucularında saklanır. Şifreleme anahtarı iCloud Anahtar Zinciri'ne kaydedilir ve cihazlarınız arasında eşzamanlanır."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Профілі, присутні на цьому пристрої, автоматично резервно копіюються. Резервні копії зашифровані та зберігаються на серверах Olvid. Ключ шифрування зберігається в iCloud Keychain і синхронізується між вашими пристроями."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các hồ sơ có trên thiết bị này sẽ được sao lưu tự động. Bản sao lưu được mã hóa và lưu trữ trên máy chủ của Olvid. Khóa mã hóa được lưu trong iCloud Keychain và đồng bộ hóa trên tất cả các thiết bị của bạn."
           }
         },
         "zh-Hans": {
@@ -2206,6 +2872,12 @@
             "value": "이 장치에 있는 프로필은 자동으로 백업됩니다. 백업은 암호화된 후 Olvid 서버에 저장됩니다. 암호화 키를 기록하여 안전한 곳에 보관해야 합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie zapasowe profili z tego urządzenia są tworzone automatycznie. Są one szyfrowane, a następnie przechowywane na serwerach Olvid. Musisz zapisać klucz szyfrowania i przechowywać go w bezpiecznym miejscu."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2224,10 +2896,22 @@
             "value": "Профили, присутствующие на этом устройстве, автоматически резервируются. Резервные копии шифруются и затем хранятся на серверах Olvid. Вам потребуется записать ключ шифрования и хранить его в безопасном месте."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki profiller otomatik olarak yedeklenir. Yedekler şifrelenir ve ardından Olvid'in sunucularında saklanır. Şifreleme anahtarını not edip güvenli bir yerde saklamanız gerekir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Профілі, присутні на цьому пристрої, автоматично резервно копіюються. Резервні копії шифруються, а потім зберігаються на серверах Olvid. Вам потрібно записати ключ шифрування та зберігати його в безпечному місці."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các hồ sơ có trên thiết bị này sẽ được sao lưu tự động. Bản sao lưu được mã hóa và lưu trữ trên máy chủ của Olvid. Bạn cần ghi lại khóa mã hóa và lưu giữ ở nơi an toàn."
           }
         },
         "zh-Hans": {
@@ -2282,6 +2966,12 @@
             "value": "이 장치에 저장된 프로필은 백업되지 않습니다. 따라서 장치에 대한 접근 권한을 잃으면 프로필이 영구적으로 삭제될 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie zapasowe profili z tego urządzenia nigdy nie są tworzone. W związku z tym utrata dostępu do tego urządzenia może oznaczać bezpowrotną utratę profili."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2300,10 +2990,22 @@
             "value": "Профили, хранящиеся на этом устройстве, не резервируются. Следовательно, потеря доступа к этому устройству может привести к безвозвратной потере профилей."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki profiller hiçbir zaman yedeklenmez. Bu nedenle, bu cihaza erişiminizi kaybederseniz profilleriniz kalıcı olarak kaybolabilir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Профілі, що зберігаються на цьому пристрої, ніколи не резервуються. Відповідно, втрата доступу до цього пристрою може призвести до безповоротної втрати профілів."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các hồ sơ có trên thiết bị này sẽ không bao giờ được sao lưu. Do đó, việc mất quyền truy cập vào thiết bị này có thể dẫn đến việc mất vĩnh viễn các hồ sơ."
           }
         },
         "zh-Hans": {
@@ -2358,6 +3060,12 @@
             "value": "자동 백업 및 키 관리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatyczne kopie zapasowe i zarządzanie kluczem"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2376,10 +3084,22 @@
             "value": "Автоматическое резервное копирование и управление ключами"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik yedekleme ve anahtar yönetimi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Автоматичне резервне копіювання та керування ключами"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu tự động và quản lý khóa"
           }
         },
         "zh-Hans": {
@@ -2434,6 +3154,12 @@
             "value": "자동 백업, 수동 키 관리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatyczne kopie zapasowe, ale ręczne zarządzanie kluczem"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2452,10 +3178,22 @@
             "value": "Автоматическое резервное копирование, но ручное управление ключами"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik yedekleme, ancak elle anahtar yönetimi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Автоматичне резервне копіювання, але ручне керування ключами"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu tự động, nhưng quản lý khóa thủ công"
           }
         },
         "zh-Hans": {
@@ -2510,6 +3248,12 @@
             "value": "백업 없음"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak kopii zapasowych"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2528,10 +3272,22 @@
             "value": "Резервные копии отсутствуют"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme yok"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервних копій немає"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có bản sao lưu"
           }
         },
         "zh-Hans": {
@@ -2586,6 +3342,12 @@
             "value": "iCloud 키체인에 백업 (권장)"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopia zapasowa w pęku kluczy iCloud (zalecane)"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2604,10 +3366,22 @@
             "value": "Создать резервную копию в iCloud Keychain (рекомендуется)"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Anahtar Zinciri'ne yedekle (önerilir)"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервне копіювання в iCloud Keychain (рекомендовано)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu vào iCloud Keychain (khuyến nghị)"
           }
         },
         "zh-Hans": {
@@ -2788,6 +3562,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Przywracając swój profil %1$@ na tym urządzeniu, dezaktywujesz swoje stare urządzenie:"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Przywracając swój profil %1$@ na tym urządzeniu, dezaktywujesz %2$lld starego urządzenia:"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Przywracając swój profil %1$@ na tym urządzeniu, dezaktywujesz %2$lld stare urządzenia:"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Przywracając swój profil %1$@ na tym urządzeniu, dezaktywujesz %2$lld starych urządzeń:"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Przywracając swój profil %1$@ na tym urządzeniu, dezaktywujesz swoje stare urządzenie:"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -2856,6 +3666,42 @@
                   "state": "translated",
                   "value": "Восстанавливая ваш профиль %1$@ на этом устройстве, вы деактивируете ваш старый девайс:"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Восстанавливая ваш профиль %1$@ на этом устройстве, вы деактивируете %2$lld старых девайса:"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Восстанавливая ваш профиль %1$@ на этом устройстве, вы деактивируете %2$lld старых девайсов:"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ adlı profilinizi bu cihazda geri yüklerseniz eski cihazınız devre dışı bırakılacak:"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ adlı profilinizi bu cihazda geri yüklerseniz %2$lld eski cihazınız devre dışı bırakılacak:"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$@ adlı profilinizi bu cihazda geri yüklerseniz eski cihazınız devre dışı bırakılacak:"
+                }
               }
             }
           }
@@ -2879,6 +3725,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Відновлюючи свій профіль %1$@ на цьому пристрої, ви деактивуєте старий пристрій:"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Відновлюючи свій профіль %1$@ на цьому пристрої, ви деактивуєте %2$lld старі пристрої:"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Відновлюючи свій профіль %1$@ на цьому пристрої, ви деактивуєте %2$lld старих пристроїв:"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Khi khôi phục hồ sơ %1$@ của bạn trên thiết bị này, thiết bị cũ của bạn sẽ bị hủy kích hoạt:"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Khi khôi phục hồ sơ %1$@ của bạn trên thiết bị này, %2$lld thiết bị cũ của bạn sẽ bị hủy kích hoạt:"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Khi khôi phục hồ sơ %1$@ của bạn trên thiết bị này, thiết bị cũ của bạn sẽ bị hủy kích hoạt:"
                 }
               }
             }
@@ -2954,6 +3836,12 @@
             "value": "취소"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anuluj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2972,10 +3860,22 @@
             "value": "Отмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy"
           }
         },
         "zh-Hans": {
@@ -3030,6 +3930,12 @@
             "value": "기본적으로 백업은 자동으로 관리됩니다. 다른 옵션을 선택하려면 고급 설정을 확인하십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Domyślnie kopie zapasowe będą zarządzane automatycznie. Aby wybrać inną opcję, przejdź do ustawień zaawansowanych."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3048,10 +3954,22 @@
             "value": "По умолчанию, резервные копии будут управляться автоматически. Пожалуйста, изучите расширенные настройки, чтобы выбрать другой вариант."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan olarak yedeklemeler otomatik olarak yönetilir. Başka bir seçenek belirlemek için lütfen gelişmiş ayarlara göz atın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "За замовчуванням, резервні копії керуватимуться автоматично. Будь ласка, перегляньте розширені налаштування, щоб вибрати інший варіант."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theo mặc định, bản sao lưu sẽ được quản lý tự động. Vui lòng khám phá các cài đặt nâng cao để chọn tùy chọn khác."
           }
         },
         "zh-Hans": {
@@ -3106,6 +4024,12 @@
             "value": "기본적으로 백업이 자동으로 수행됩니다(더 이상 백업 키를 적어둘 필요가 없습니다). 다른 옵션을 선택하려면 고급 설정을 살펴보세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Domyślnie kopie zapasowe będą tworzone automatycznie (nie trzeba już zapisywać klucza kopii zapasowej). Aby wybrać inną opcję, przejdź do ustawień zaawansowanych."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3124,10 +4048,22 @@
             "value": "По умолчанию резервные копии будут создаваться автоматически (больше не нужно записывать ключ резервной копии). Пожалуйста, изучите расширенные настройки, чтобы выбрать другой вариант."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varsayılan olarak yedeklemeler otomatik olarak yapılır (artık bir yedekleme anahtarı not etmenize gerek yok). Başka bir seçenek belirlemek için lütfen gelişmiş ayarlara göz atın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "За замовчуванням, резервні копії будуть виконуватися автоматично (не потрібно більше записувати ключ резервної копії). Будь ласка, перегляньте розширені налаштування, щоб вибрати інший варіант."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theo mặc định, các bản sao lưu sẽ được thực hiện tự động (bạn không cần phải ghi nhớ khóa sao lưu nữa). Vui lòng khám phá các cài đặt nâng cao để chọn một tùy chọn khác."
           }
         },
         "zh-Hans": {
@@ -3182,6 +4118,12 @@
             "value": "정말로 하시겠습니까? 이 작업은 되돌릴 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na pewno? Tej operacji nie można cofnąć."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3200,10 +4142,22 @@
             "value": "Вы уверены? Это действие необратимо."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emin misiniz? Bu işlem geri alınamaz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви впевнені? Ця дія незворотна."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có chắc không? Hành động này không thể hoàn tác."
           }
         },
         "zh-Hans": {
@@ -3258,6 +4212,12 @@
             "value": "키를 복사하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj klucz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3276,10 +4236,22 @@
             "value": "Скопировать ключ"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarı kopyala"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скопіюйте ключ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép khóa"
           }
         },
         "zh-Hans": {
@@ -3334,6 +4306,12 @@
             "value": "복사 오류를 클립보드에 복사"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj błąd do schowka"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3352,10 +4330,22 @@
             "value": "Ошибка копирования в буфер обмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hatayı panoya kopyala"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Помилка копіювання в буфер обміну"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép lỗi vào khay nhớ tạm"
           }
         },
         "zh-Hans": {
@@ -3410,6 +4400,12 @@
             "value": "삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3428,10 +4424,22 @@
             "value": "Удалить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sil"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa"
           }
         },
         "zh-Hans": {
@@ -3486,6 +4494,12 @@
             "value": "삭제 중..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuwanie…"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3504,10 +4518,22 @@
             "value": "Удаление…"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siliniyor…"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалення…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang xóa..."
           }
         },
         "zh-Hans": {
@@ -3562,6 +4588,12 @@
             "value": "내 백업 키"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mój klucz kopii zapasowej"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3580,10 +4612,22 @@
             "value": "Мой ключ резервного копирования"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme anahtarım"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Мій ключ резервної копії"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khóa sao lưu của tôi"
           }
         },
         "zh-Hans": {
@@ -3638,6 +4682,12 @@
             "value": "백업 키를 입력하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wpisz klucz kopii zapasowej"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3656,10 +4706,22 @@
             "value": "Введите ключ резервного копирования"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir yedekleme anahtarı girin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Введіть резервний ключ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhập khóa sao lưu"
           }
         },
         "zh-Hans": {
@@ -3714,6 +4776,12 @@
             "value": "백업 키를 입력하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wpisz klucz kopii zapasowej"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3732,10 +4800,22 @@
             "value": "Введите ключ резервного копирования"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir yedekleme anahtarı girin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Введіть ключ резервної копії"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhập khóa sao lưu"
           }
         },
         "zh-Hans": {
@@ -3790,6 +4870,12 @@
             "value": "백업 키를 입력하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wpisz klucz kopii zapasowej"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3808,10 +4894,22 @@
             "value": "Введите ключ резервной копии"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleme anahtarını girin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Введіть ключ резервної копії"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhập khóa sao lưu"
           }
         },
         "zh-Hans": {
@@ -3866,6 +4964,12 @@
             "value": "이 기기의 백업 키가 도난당하거나 유출되었을 가능성이 있지만 아직 악용되지는 않았다고 생각되면, 해당 키를 삭제하고 새 키를 생성할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeśli uważasz, że klucz kopii zapasowej tego urządzenia został skradziony lub ujawniony, ale nie został jeszcze wykorzystany, możesz go wymazać i wygenerować nowy."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3884,10 +4988,22 @@
             "value": "Если вы считаете, что ключ резервной копии этого устройства был украден или скомпрометирован, но еще не использован, вы можете стереть его и сгенерировать новый."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın yedekleme anahtarının çalındığını veya ele geçirildiğini, ancak henüz kötüye kullanılmadığını düşünüyorsanız anahtarı silip yenisini oluşturabilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Якщо ви вважаєте, що ключ резервної копії цього пристрою було викрадено або скомпрометовано, але ще не використано, ви можете стерти його та згенерувати новий."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nếu bạn nghi ngờ khóa sao lưu thiết bị này đã bị đánh cắp hoặc xâm phạm, nhưng chưa bị sử dụng, bạn có thể xóa khóa này và tạo một khóa mới."
           }
         },
         "zh-Hans": {
@@ -3942,6 +5058,12 @@
             "value": "기존 키를 삭제하고 새 키를 생성합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymaż i wygeneruj nowy klucz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3960,10 +5082,22 @@
             "value": "Удалить и сгенерировать новый ключ"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sil ve yeni anahtar oluştur"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити та згенерувати новий ключ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa và tạo một khóa mới"
           }
         },
         "zh-Hans": {
@@ -4018,6 +5152,12 @@
             "value": "기존 키를 삭제하고 새 키를 생성하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czy na pewno chcesz wymazać klucz i wygenerować nowy?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4036,10 +5176,22 @@
             "value": "Вы уверены, что хотите стереть и сгенерировать новый ключ?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarı silip yenisini oluşturmak istediğinizden emin misiniz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви впевнені, що хочете стерти та згенерувати новий ключ?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có chắc chắn muốn xóa và tạo một khóa mới không?"
           }
         },
         "zh-Hans": {
@@ -4094,6 +5246,12 @@
             "value": "모든 항목 재설정에 실패했습니다: %@"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się zresetować wszystkiego: %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4112,10 +5270,22 @@
             "value": "Не удалось сбросить все: %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümü sıfırlanamadı: %@"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося скинути все: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thể khôi phục tất cả: %@"
           }
         },
         "zh-Hans": {
@@ -4170,6 +5340,12 @@
             "value": "*%@* 님으로부터"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z urządzenia *%@*"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4188,10 +5364,22 @@
             "value": "От *%@*"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "*%@* cihazından"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Від *%@*"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Từ *%@*"
           }
         },
         "zh-Hans": {
@@ -4246,6 +5434,12 @@
             "value": "이 장치"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To urządzenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4264,10 +5458,22 @@
             "value": "Это устройство"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей пристрій"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị này"
           }
         },
         "zh-Hans": {
@@ -4322,6 +5528,12 @@
             "value": "힌트"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wskazówka"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4340,10 +5552,22 @@
             "value": "Подсказка"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İpucu"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підказка"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gợi ý"
           }
         },
         "zh-Hans": {
@@ -4398,6 +5622,12 @@
             "value": "iCloud 키체인은 종단 간 암호화를 통해 사용자의 정보를 보호합니다. [자세히 알아보기…](_)"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pęk kluczy iCloud chroni twoje dane za pomocą szyfrowania end-to-end. [Więcej informacji…](_)"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4416,10 +5646,22 @@
             "value": "Ключница iCloud защищает вашу информацию сквозным шифрованием. [Узнать больше…](_)"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Anahtar Zinciri, bilgilerinizi uçtan uca şifrelemeyle korur. [Daha fazla bilgi…](_)"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ключі iCloud захищають вашу інформацію за допомогою наскріпного шифрування. [Дізнатися більше…](_)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Keychain bảo vệ thông tin của bạn bằng cách sử dụng mã hóa đầu cuối. [Tìm hiểu thêm…](_)"
           }
         },
         "zh-Hans": {
@@ -4474,6 +5716,12 @@
             "value": "이미 활성화됨"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Już aktywny"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4492,10 +5740,22 @@
             "value": "Уже активировано"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaten etkin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вже активовано"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã kích hoạt"
           }
         },
         "zh-Hans": {
@@ -4550,6 +5810,12 @@
             "value": "알아들었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zanotowane"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4568,10 +5834,22 @@
             "value": "Принято к сведению"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not ettim"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відмічено."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tôi đã ghi nhớ."
           }
         },
         "zh-Hans": {
@@ -4626,6 +5904,12 @@
             "value": "Olvid+로 모두 보관하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zachowaj je wszystkie dzięki Olvid+"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4644,10 +5928,22 @@
             "value": "Сохраните их все с Olvid+"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+ ile hepsini etkin tutun"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Залишити їх усі з Olvid+"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lưu giữ tất cả với Olvid+"
           }
         },
         "zh-Hans": {
@@ -4702,6 +5998,12 @@
             "value": "자세히 알아보기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Więcej informacji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4720,10 +6022,22 @@
             "value": "Узнать больше"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha fazla bilgi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Дізнатися більше"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tìm hiểu thêm"
           }
         },
         "zh-Hans": {
@@ -4778,6 +6092,12 @@
             "value": "백업된 프로필"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dostępne profile z kopii zapasowych"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4796,10 +6116,22 @@
             "value": "Доступные профили с резервной копией"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanılabilir yedeklenmiş profiller"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Доступні профілі з резервними копіями"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh sách các bản sao lưu khả dụng"
           }
         },
         "zh-Hans": {
@@ -4854,6 +6186,12 @@
             "value": "안녕하세요 Olvid!\n\n제 프로필을 복원할 수 없습니다. 이 문제를 확인해 주시겠습니까? 오류는 다음과 같습니다:\n\n%@"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Witaj, Olvid!\n\nNie udało mi się przywrócić mojego profilu. Czy możecie przyjrzeć się temu problemowi? Oto błąd:\n\n%@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4872,10 +6210,22 @@
             "value": "Привет, Olvid!\n\nЯ не могу восстановить свой профиль. Не могли бы вы посмотреть, в чем проблема? Вот ошибка:\n\n%@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merhaba Olvid!\n\nProfilimi geri yükleyemedim. Bu sorunu inceleyebilir misiniz? Hata şu:\n\n%@"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Привіт, Olvid!\n\nЯ не зміг відновити свій профіль. Чи не могли б ви поглянути на цю проблему? Ось помилка:\n\n%@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chào Olvid!\n\nTôi không thể khôi phục hồ sơ của mình. Bạn có thể giúp tôi xem xét vấn đề này không? Đây là lỗi:\n\n%@"
           }
         },
         "zh-Hans": {
@@ -4930,6 +6280,12 @@
             "value": "내 프로필을 복원할 수 없었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało mi się przywrócić profilu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4948,10 +6304,22 @@
             "value": "Не удалось восстановить мой профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi geri yükleyemedim"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Я не зміг відновити свій профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tôi không thể khôi phục hồ sơ của mình"
           }
         },
         "zh-Hans": {
@@ -5006,6 +6374,12 @@
             "value": "지금 백업"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utwórz kopię zapasową teraz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5024,10 +6398,22 @@
             "value": "Сделать резервную копию сейчас"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdi yedekle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Створити резервну копію зараз"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu ngay"
           }
         },
         "zh-Hans": {
@@ -5082,6 +6468,12 @@
             "value": "백업 관리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zarządzaj kopiami zapasowymi"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5100,10 +6492,22 @@
             "value": "Управление резервными копиями"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemeleri yönet"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Керувати резервними копіями"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản lý bản sao lưu"
           }
         },
         "zh-Hans": {
@@ -5158,6 +6562,12 @@
             "value": "여러 기기에서 Olvid를 사용하세요. 다른 기기에서 키 없이 계정을 복구할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Używaj Olvid na wielu urządzeniach. Możesz przywrócić swoje konto bez klucza z innych urządzeń."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5176,10 +6586,22 @@
             "value": "Используйте Olvid на нескольких устройствах. Вы можете восстановить свою учетную запись без ключа с других ваших устройств."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'i birden fazla cihazda kullanın. Hesabınızı diğer cihazlarınızdan anahtar olmadan geri yükleyebilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Використовуйте Olvid на декількох пристроях. Ви можете відновити свій обліковий запис без ключа з ваших інших пристроїв."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sử dụng Olvid trên nhiều thiết bị. Bạn có thể khôi phục tài khoản của mình mà không cần sử dụng mã từ các thiết bị khác."
           }
         },
         "zh-Hans": {
@@ -5234,6 +6656,12 @@
             "value": "여러 기기에서 Olvid를 사용하세요. 다른 기기에서 키 없이 계정을 복원할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Używaj Olvid na wielu urządzeniach. Możesz przywrócić swoje konto bez klucza z innych urządzeń."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5252,10 +6680,22 @@
             "value": "Используйте Olvid на нескольких устройствах. Вы можете восстановить свою учетную запись без ключа с других устройств."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'i birden fazla cihazda kullanın. Hesabınızı diğer cihazlarınızdan anahtar olmadan geri yükleyebilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Використовуйте Olvid на кількох пристроях. Ви можете відновити свій обліковий запис без ключа з інших ваших пристроїв."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sử dụng Olvid trên nhiều thiết bị. Bạn có thể khôi phục tài khoản của mình mà không cần khóa từ các thiết bị khác."
           }
         },
         "zh-Hans": {
@@ -5310,6 +6750,12 @@
             "value": "여러 기기에서 Olvid를 사용하세요. 다른 기기에서 계정을 복원할 때 키가 필요하지 않습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Używaj Olvid na wielu urządzeniach. Możesz przywrócić swoje konto bez klucza z innych urządzeń."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5328,10 +6774,22 @@
             "value": "Используйте Olvid на нескольких устройствах. Вы можете восстановить свою учетную запись без ключа с других устройств."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'i birden fazla cihazda kullanın. Hesabınızı diğer cihazlarınızdan anahtar olmadan geri yükleyebilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Використовуйте Olvid на кількох пристроях. Ви можете відновити свій обліковий запис без ключа з ваших інших пристроїв."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sử dụng Olvid trên nhiều thiết bị. Bạn có thể khôi phục tài khoản của mình mà không cần sử dụng mã từ các thiết bị khác."
           }
         },
         "zh-Hans": {
@@ -5386,6 +6844,12 @@
             "value": "백업 파일을 찾을 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie znaleziono kopii zapasowej."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5404,10 +6868,22 @@
             "value": "Резервная копия не найдена."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedek bulunamadı."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервну копію не знайдено."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy bản sao lưu."
           }
         },
         "zh-Hans": {
@@ -5462,6 +6938,12 @@
             "value": "알겠습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5480,10 +6962,22 @@
             "value": "Ок"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Добре"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Được rồi"
           }
         },
         "zh-Hans": {
@@ -5538,6 +7032,12 @@
             "value": "잠시만 기다려 주세요..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chwileczkę…"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5556,10 +7056,22 @@
             "value": "Пожалуйста, подождите…"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen bekleyin…"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зачекайте, будь ласка…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xin vui lòng chờ một lát..."
           }
         },
         "zh-Hans": {
@@ -5614,6 +7126,12 @@
             "value": "이 프로필을 엽니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz ten profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5632,10 +7150,22 @@
             "value": "Открыть этот профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profili aç"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відкрити цей профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở trang cá nhân này"
           }
         },
         "zh-Hans": {
@@ -5690,6 +7220,12 @@
             "value": "다른 기기에서 백업한 프로필"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile z kopii zapasowej innego urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5708,10 +7244,22 @@
             "value": "Профили сохранены на другом устройстве"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir cihaz tarafından yedeklenen profiller"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Профілі збережено іншим пристроєм"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thông tin cá nhân đã được sao lưu trên một thiết bị khác"
           }
         },
         "zh-Hans": {
@@ -5766,6 +7314,12 @@
             "value": "저희는 사용자의 백업 파일을 찾고 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Szukamy twoich kopii zapasowych"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5784,10 +7338,22 @@
             "value": "Мы ищем ваши резервные копии"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklerinizi arıyoruz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ми шукаємо ваші резервні копії"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi đang tìm kiếm bản sao lưu của bạn"
           }
         },
         "zh-Hans": {
@@ -5842,6 +7408,12 @@
             "value": "프로필을 복원 중입니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywracamy twój profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5860,10 +7432,22 @@
             "value": "Мы восстанавливаем ваш профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizi geri yüklüyoruz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ми відновлюємо ваш профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi đang khôi phục hồ sơ của bạn."
           }
         },
         "zh-Hans": {
@@ -5918,6 +7502,12 @@
             "value": "다시 시도해 주세요. 문제가 계속되면 다음 오류를 [%@](mailto:%@)로 보내주세요. 최선을 다해 도와드리겠습니다!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spróbuj ponownie. Jeśli problem będzie się powtarzał, wyślij poniższy błąd na adres [%@](mailto:%@). Zrobimy wszystko, co w naszej mocy, aby pomóc!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5936,10 +7526,22 @@
             "value": "Пожалуйста, попробуйте еще раз. Если проблема не исчезнет, отправьте следующее сообщение об ошибке по адресу [%@](mailto:%@). Мы сделаем все возможное, чтобы вам помочь!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen tekrar deneyin. Sorun devam ederse aşağıdaki hatayı [%@](mailto:%@) adresine gönderin. Size yardımcı olmak için elimizden geleni yapacağız!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Будь ласка, спробуйте ще раз. Якщо проблема не зникає, надішліть наступну помилку на адресу [%@](mailto:%@). Ми докладемо всіх зусиль, щоб вам допомогти!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng thử lại. Nếu sự cố vẫn tiếp diễn, vui lòng gửi thông báo lỗi sau đến [%@](mailto:%@). Chúng tôi sẽ cố gắng hết sức để hỗ trợ bạn!"
           }
         },
         "zh-Hans": {
@@ -5994,6 +7596,12 @@
             "value": "하지만 다시 시도해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ale spróbuj ponownie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6012,10 +7620,22 @@
             "value": "Но, пожалуйста, попробуйте еще раз"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ama lütfen tekrar deneyin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Але, будь ласка, спробуйте ще раз"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhưng vui lòng thử lại"
           }
         },
         "zh-Hans": {
@@ -6070,6 +7690,12 @@
             "value": "프로필을 복원할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się przywrócić twojego profilu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6088,10 +7714,22 @@
             "value": "Не удалось восстановить ваш профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizi geri yükleyemedik"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося відновити ваш профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể khôi phục hồ sơ của bạn."
           }
         },
         "zh-Hans": {
@@ -6146,6 +7784,12 @@
             "value": "프로필이 복원되었습니다!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twój profil został przywrócony!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6164,10 +7808,22 @@
             "value": "Ваш профиль восстановлен!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz geri yüklendi!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваш профіль відновлено!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ của bạn đã được khôi phục!"
           }
         },
         "zh-Hans": {
@@ -6222,6 +7878,12 @@
             "value": "추천"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zalecane"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6240,10 +7902,22 @@
             "value": "Рекомендованные"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önerilen"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Рекомендовані"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đề xuất"
           }
         },
         "zh-Hans": {
@@ -6298,6 +7972,12 @@
             "value": "나중에 다시 알려주세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przypomnij mi później"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6316,10 +7996,22 @@
             "value": "Напомнить позже"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha sonra hatırlat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Нагадати пізніше"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhắc tôi sau"
           }
         },
         "zh-Hans": {
@@ -6374,6 +8066,12 @@
             "value": "모두 재설정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resetuj wszystko"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6392,10 +8090,22 @@
             "value": "Сбросить все"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümünü sıfırla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скинути все"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đặt lại tất cả"
           }
         },
         "zh-Hans": {
@@ -6450,6 +8160,12 @@
             "value": "이 장치의 백업 구성을 초기 상태로 재설정합니다. 다음 단계가 수행됩니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywraca konfigurację kopii zapasowych tego urządzenia do stanu początkowego. Zostaną wykonane następujące kroki:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6468,10 +8184,22 @@
             "value": "Сбрасывает конфигурацию резервного копирования этого устройства до исходного состояния. Будут выполнены следующие шаги:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın yedekleme yapılandırmasını ilk durumuna sıfırlar. Şu adımlar gerçekleştirilir:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скидає конфігурацію резервного копіювання цього пристрою до початкового стану. Будуть виконані наступні кроки:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục cấu hình sao lưu của thiết bị này về trạng thái ban đầu. Các bước sau sẽ được thực hiện:"
           }
         },
         "zh-Hans": {
@@ -6526,6 +8254,12 @@
             "value": "이 장치의 백업 키를 삭제합니다(존재하는 경우 iCloud 키체인에서 제거합니다)."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usunięcie klucza kopii zapasowej tego urządzenia (także z pęku kluczy iCloud, jeśli się tam znajduje)."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6544,10 +8278,22 @@
             "value": "Удалить ключ резервной копии этого устройства (и удалить его из Keychain iCloud, если он там есть)."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın yedekleme anahtarını siler (varsa iCloud Anahtar Zinciri'nden de kaldırır)."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити ключ резервної копії цього пристрою (та видалити його з брелка iCloud, якщо він існує)."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa khóa sao lưu của thiết bị này (và xóa khỏi iCloud Keychain nếu có)."
           }
         },
         "zh-Hans": {
@@ -6602,6 +8348,12 @@
             "value": "이 장치에서 생성된 모든 암호화된 백업 파일을 클라우드에서 삭제합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usunięcie z chmury wszystkich zaszyfrowanych kopii zapasowych utworzonych przez to urządzenie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6620,10 +8372,22 @@
             "value": "Удалить все зашифрованные резервные копии, созданные этим устройством в облаке."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazın oluşturduğu tüm şifreli yedekleri buluttan siler."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити всі зашифровані резервні копії, створені цим пристроєм у хмарі."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa tất cả bản sao lưu được mã hóa do thiết bị này tạo trên đám mây."
           }
         },
         "zh-Hans": {
@@ -6678,6 +8442,12 @@
             "value": "복원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróć"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6696,10 +8466,22 @@
             "value": "Восстановить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri yükle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục"
           }
         },
         "zh-Hans": {
@@ -6754,6 +8536,12 @@
             "value": "다른 프로필 복원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróć inny profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6772,10 +8560,22 @@
             "value": "Восстановить другой профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir profili geri yükle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновити інший профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục một hồ sơ khác"
           }
         },
         "zh-Hans": {
@@ -6830,6 +8630,12 @@
             "value": "iCloud 키체인에서 자동으로 복원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróć automatycznie z pęku kluczy iCloud"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6848,10 +8654,22 @@
             "value": "Восстановить автоматически из iCloud Keychain"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Anahtar Zinciri'nden otomatik olarak geri yükle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Автоматично відновити з iCloud Keychain"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tự động khôi phục từ iCloud Keychain"
           }
         },
         "zh-Hans": {
@@ -6906,6 +8724,12 @@
             "value": "내 프로필 복원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróć mój profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6924,10 +8748,22 @@
             "value": "Восстановить мой профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi geri yükle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновити мій профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục hồ sơ của tôi"
           }
         },
         "zh-Hans": {
@@ -6982,6 +8818,12 @@
             "value": "저장된 백업 중 하나를 복원해 보세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróćmy jedną z twoich kopii zapasowych"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7000,10 +8842,22 @@
             "value": "Восстановим одну из ваших резервных копий"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklerinizden birini geri yükleyelim"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновимо одну з ваших копій"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãy khôi phục một trong các bản sao lưu của bạn."
           }
         },
         "zh-Hans": {
@@ -7058,6 +8912,12 @@
             "value": "이전 백업을 복원합니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróć tę starą kopię zapasową"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7076,10 +8936,22 @@
             "value": "Восстановить эту старую резервную копию"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu eski yedeği geri yükle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновити це старе резервне копіювання"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục bản sao lưu cũ này"
           }
         },
         "zh-Hans": {
@@ -7134,6 +9006,12 @@
             "value": "복원 중..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywracanie…"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7152,10 +9030,22 @@
             "value": "Восстановление…"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri yükleniyor…"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновлення…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang khôi phục..."
           }
         },
         "zh-Hans": {
@@ -7210,6 +9100,12 @@
             "value": "백업 파일을 직접 검색"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyszukaj kopię zapasową ręcznie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7228,10 +9124,22 @@
             "value": "Поиск резервной копии вручную"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeği elle ara"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пошук резервної копії вручну"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tìm kiếm bản sao lưu thủ công"
           }
         },
         "zh-Hans": {
@@ -7286,6 +9194,12 @@
             "value": "보안"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezpieczeństwo"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7304,10 +9218,22 @@
             "value": "Безопасность"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenlik"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Безпека"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảo mật"
           }
         },
         "zh-Hans": {
@@ -7362,6 +9288,12 @@
             "value": "귀하의 프로필 백업은 암호화되어 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie zapasowe twoich profili są szyfrowane."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7380,10 +9312,22 @@
             "value": "Резервные копии ваших профилей зашифрованы."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profillerinizin yedekleri şifrelidir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваші резервні копії профілів зашифровані."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bản sao lưu thông tin cá nhân của bạn được mã hóa."
           }
         },
         "zh-Hans": {
@@ -7438,6 +9382,12 @@
             "value": "이메일로 오류 전송"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyślij błąd e-mailem"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7456,10 +9406,22 @@
             "value": "Отправить сообщение об ошибке по электронной почте"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hatayı e-postayla gönder"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Надіслати помилку електронною поштою"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gửi thông báo lỗi qua email"
           }
         },
         "zh-Hans": {
@@ -7514,6 +9476,12 @@
             "value": "내 키 표시"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż mój klucz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7532,10 +9500,22 @@
             "value": "Показать мой ключ"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarımı göster"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати мій ключ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị khóa của tôi"
           }
         },
         "zh-Hans": {
@@ -7590,6 +9570,12 @@
             "value": "새 키를 표시"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż mój nowy klucz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7608,10 +9594,22 @@
             "value": "Отобразить мой новый ключ"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni anahtarımı göster"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати мій новий ключ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị khóa mới của tôi"
           }
         },
         "zh-Hans": {
@@ -7666,6 +9664,12 @@
             "value": "완벽합니다! 이제 프로필 %@을 안전하게 복원할 수 있습니다. 기존에 사용하던 모든 장치는 이전과 동일하게 작동합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Świetnie! Możesz bezpiecznie przywrócić swój profil %@. Wszystkie twoje dotychczasowe urządzenia będą działać tak jak wcześniej."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7684,10 +9688,22 @@
             "value": "Отлично! Вы можете безопасно восстановить свой профиль %@. Все ваши предыдущие устройства будут продолжать работать как и прежде."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Harika! %@ adlı profilinizi güvenle geri yükleyebilirsiniz. Önceki tüm cihazlarınız eskisi gibi çalışmaya devam edecek."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Чудово! Ви можете безпечно відновити свій профіль %@. Усі ваші попередні пристрої продовжуватимуть працювати як і раніше."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuyệt vời! Bạn có thể khôi phục hồ sơ %@ của mình một cách an toàn. Tất cả các thiết bị trước đây của bạn sẽ tiếp tục hoạt động như bình thường."
           }
         },
         "zh-Hans": {
@@ -7742,6 +9758,12 @@
             "value": "도난 또는 유출된 키"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klucz skradziony lub ujawniony"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7760,10 +9782,22 @@
             "value": "Угробленный или скомпрометированный ключ"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çalınmış veya ele geçirilmiş anahtar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вкрадений або скомпрометований ключ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khóa đã bị đánh cắp hoặc xâm phạm"
           }
         },
         "zh-Hans": {
@@ -7818,6 +9852,12 @@
             "value": "Olvid+ 구독하기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subskrybuj Olvid+"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7836,10 +9876,22 @@
             "value": "Подписаться на Olvid+"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+ abonesi ol"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підписатися на Olvid+"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng ký Olvid+"
           }
         },
         "zh-Hans": {
@@ -7894,6 +9946,12 @@
             "value": "나중에 설정에서 해당 키를 다시 찾을 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klucz znajdziesz też później w ustawieniach."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7912,10 +9970,22 @@
             "value": "Вы также сможете найти этот ключ позже в ваших настройках."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarı daha sonra ayarlarınızda da bulabilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви також зможете знайти цей ключ пізніше в налаштуваннях."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn cũng có thể tìm thấy khóa này trong phần cài đặt của mình sau này."
           }
         },
         "zh-Hans": {
@@ -7970,6 +10040,12 @@
             "value": "iCloud 키체인에 접근할 수 없거나 iCloud 계정을 영구적으로 사용할 수 없게 된 기기에 이 기기의 프로필을 복원하려는 경우 이 키가 필요합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten klucz będzie potrzebny, jeśli zechcesz przywrócić profile z tego urządzenia na urządzeniu bez dostępu do pęku kluczy iCloud lub jeśli trwale utracisz dostęp do swojego konta iCloud."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7988,10 +10064,22 @@
             "value": "Этот ключ потребуется, если вы хотите восстановить профили этого устройства на устройстве без доступа к iCloud Keychain или если вы навсегда потеряете доступ к своей учетной записи iCloud."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazdaki profilleri iCloud Anahtar Zinciri'ne erişimi olmayan bir cihaza geri yüklemek isterseniz veya iCloud hesabınıza erişiminizi kalıcı olarak kaybederseniz bu anahtar gerekecektir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей ключ знадобиться, якщо ви хочете відновити профілі цього пристрою на пристрої без доступу до iCloud Keychain або якщо ви назавжди втратите доступ до свого облікового запису iCloud."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khóa này sẽ được yêu cầu nếu bạn muốn khôi phục các cài đặt của thiết bị này lên một thiết bị khác không có quyền truy cập vào iCloud Keychain hoặc nếu bạn mất quyền truy cập vĩnh viễn vào tài khoản iCloud của mình."
           }
         },
         "zh-Hans": {
@@ -8046,6 +10134,12 @@
             "value": "이 장치로 백업된 프로필"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile z kopii zapasowej tego urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8064,10 +10158,22 @@
             "value": "Профили, сохраненные на этом устройстве"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz tarafından yedeklenen profiller"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Профілі, збережені на цьому пристрої"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ đã được sao lưu trên thiết bị này"
           }
         },
         "zh-Hans": {
@@ -8122,6 +10228,12 @@
             "value": "나중에 다시 시도해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spróbuj ponownie później"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8140,10 +10252,22 @@
             "value": "Пожалуйста, попробуйте еще раз позже"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen daha sonra tekrar deneyin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Будь ласка, спробуйте ще раз пізніше"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng thử lại sau."
           }
         },
         "zh-Hans": {
@@ -8198,6 +10322,12 @@
             "value": "유효성 확인"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zatwierdź"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8216,10 +10346,22 @@
             "value": "Подтвердить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onayla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підтвердити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xác minh"
           }
         },
         "zh-Hans": {
@@ -8274,6 +10416,12 @@
             "value": "백업을 활성화할 수 없습니다. 잠시 후 다시 시도해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się włączyć kopii zapasowych. Spróbuj ponownie później."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8292,10 +10440,22 @@
             "value": "Не удалось активировать ваши резервные копии. Пожалуйста, попробуйте еще раз позже."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemelerinizi etkinleştiremedik. Lütfen daha sonra tekrar deneyin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося активувати ваші резервні копії. Будь ласка, спробуйте ще раз пізніше."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể kích hoạt tính năng sao lưu của bạn. Vui lòng thử lại sau."
           }
         },
         "zh-Hans": {
@@ -8350,6 +10510,12 @@
             "value": "\"iCloud 키체인에 백업\" 설정을 변경할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się zmienić ustawienia „Kopia zapasowa w pęku kluczy iCloud”"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8368,10 +10534,22 @@
             "value": "Не удалось изменить настройку \"Резервное копирование в iCloud Keychain\""
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"iCloud Anahtar Zinciri'ne yedekle\" ayarını değiştiremedik"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося змінити параметр \"Збереження в iCloud Keychain\""
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể thay đổi cài đặt \"Sao lưu vào iCloud Keychain\"."
           }
         },
         "zh-Hans": {
@@ -8426,6 +10604,12 @@
             "value": "백업 비활성화를 완료할 수 없습니다. 잠시 후 다시 시도해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się wyłączyć kopii zapasowych. Spróbuj ponownie później"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8444,10 +10628,22 @@
             "value": "Не удалось отключить резервные копии. Пожалуйста, попробуйте позже."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedeklemelerinizi devre dışı bırakamadık. Lütfen daha sonra tekrar deneyin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося вимкнути ваші резервні копії. Будь ласка, спробуйте ще раз пізніше."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể tắt tính năng sao lưu của bạn. Vui lòng thử lại sau."
           }
         },
         "zh-Hans": {
@@ -8502,6 +10698,12 @@
             "value": "이 백업을 삭제할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się usunąć tej kopii zapasowej"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8520,10 +10722,22 @@
             "value": "Не удалось удалить эту резервную копию"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu yedeği silemedik"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося видалити цю резервну копію"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể xóa bản sao lưu này."
           }
         },
         "zh-Hans": {
@@ -8578,6 +10792,12 @@
             "value": "제공된 백업 키와 연결된 백업을 찾을 수 없습니다. 올바른 백업 키를 입력했는지 확인하고 다시 시도하십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się znaleźć kopii zapasowej powiązanej z podanym kluczem kopii zapasowej. Upewnij się, że wpisany klucz jest prawidłowy, i spróbuj ponownie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8596,10 +10816,22 @@
             "value": "Не удалось найти резервную копию, связанную с предоставленным ключом восстановления. Убедитесь, что вы ввели правильный ключ и повторите попытку."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Girilen yedekleme anahtarıyla ilişkili bir yedek bulamadık. Lütfen doğru yedekleme anahtarını girdiğinizden emin olun ve tekrar deneyin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося знайти резервну копію, пов’язану з наданим ключем резервної копії. Будь ласка, переконайтеся, що ви ввели правильний ключ резервної копії та спробуйте ще раз."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể tìm thấy bản sao lưu nào liên kết với khóa sao lưu bạn đã cung cấp. Vui lòng đảm bảo rằng bạn đã nhập đúng khóa sao lưu và thử lại."
           }
         },
         "zh-Hans": {
@@ -8654,6 +10886,12 @@
             "value": "제공된 백업 키와 연결된 백업 파일을 찾을 수 없습니다. 올바른 백업 키를 입력했는지 확인하고 다시 시도하십시오. [이전 백업에서 복원](_)해 보실 수도 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się znaleźć kopii zapasowej powiązanej z podanym kluczem kopii zapasowej. Upewnij się, że wpisany klucz jest prawidłowy, i spróbuj ponownie. Możesz też spróbować [przywrócić kopię zapasową starego typu](_)."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8672,10 +10910,22 @@
             "value": "Не удалось найти резервную копию, связанную с предоставленным ключом восстановления. Пожалуйста, убедитесь, что вы ввели правильный ключ и повторите попытку. Вы также можете попробовать [восстановить из устаревшей резервной копии](_)."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Girilen yedekleme anahtarıyla ilişkili bir yedek bulamadık. Lütfen doğru yedekleme anahtarını girdiğinizden emin olun ve tekrar deneyin. Ayrıca [eski tip bir yedekten geri yüklemeyi](_) deneyebilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося знайти резервну копію, пов’язану з наданим ключем резервної копії. Будь ласка, переконайтеся, що ви ввели правильний ключ резервної копії та спробуйте ще раз. Ви також можете спробувати [відновити з попередньої резервної копії](_)."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể tìm thấy bản sao lưu nào liên kết với khóa sao lưu bạn đã cung cấp. Vui lòng đảm bảo bạn đã nhập đúng khóa sao lưu và thử lại. Bạn cũng có thể thử [khôi phục từ bản sao lưu cũ](_)."
           }
         },
         "zh-Hans": {
@@ -8730,6 +10980,12 @@
             "value": "프로필을 복원할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się przywrócić twojego profilu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8748,10 +11004,22 @@
             "value": "Не удалось восстановить ваш профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizi geri yükleyemedik"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося відновити ваш профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể khôi phục hồ sơ của bạn."
           }
         },
         "zh-Hans": {
@@ -8806,6 +11074,12 @@
             "value": "어떤 백업을 복원하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Którą kopię zapasową chcesz przywrócić?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8824,10 +11098,22 @@
             "value": "Какой резервный экземпляр вы хотите восстановить?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hangi yedeği geri yüklemek istiyorsunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Який бекап ви хочете відновити?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn muốn khôi phục bản sao lưu nào?"
           }
         },
         "zh-Hans": {
@@ -8882,6 +11168,12 @@
             "value": "귀하의 백업"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoje kopie zapasowe"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8900,10 +11192,22 @@
             "value": "Ваши резервные копии"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekleriniz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваші резервні копії"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bản sao lưu của bạn"
           }
         },
         "zh-Hans": {
@@ -8958,6 +11262,12 @@
             "value": "백업을 통해 기기를 분실하더라도 프로필과 연락처를 복원할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie zapasowe pozwalają przywrócić twoje profile i kontakty, nawet jeśli utracisz dostęp do urządzenia."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8976,10 +11286,22 @@
             "value": "Резервные копии позволяют восстановить ваши профили и контакты, даже если вы потеряете доступ к устройству."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yedekler, cihazınıza erişiminizi kaybetseniz bile profillerinizi ve kişilerinizi geri yüklemenizi sağlar."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервні копії дозволяють відновити ваші профілі та контакти, навіть якщо ви втратите доступ до свого пристрою."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính năng sao lưu cho phép bạn khôi phục hồ sơ và danh bạ của mình ngay cả khi bạn không còn quyền truy cập vào thiết bị."
           }
         },
         "zh-Hans": {
@@ -9034,6 +11356,12 @@
             "value": "메시지와 첨부 파일은 **백업되지 않으며** **복원되지 않습니다**. 이 점을 유념해 주시기 바랍니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pamiętaj, że wiadomości i załączniki **nie są objęte kopią zapasową** i **nie zostaną przywrócone**."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9052,10 +11380,22 @@
             "value": "Обратите внимание, что сообщения и вложения **не сохраняются** и **не будут восстановлены**."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen mesajların ve eklerin **yedeklenmediğini** ve **geri yüklenmeyeceğini** unutmayın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Будь ласка, зверніть увагу, що повідомлення та вкладення **не зберігаються** та **не будуть відновлені**."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xin lưu ý rằng tin nhắn và tệp đính kèm **không được sao lưu** và **sẽ không được khôi phục**."
           }
         },
         "zh-Hans": {
@@ -9110,6 +11450,12 @@
             "value": "귀하의 키"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twój klucz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9128,10 +11474,22 @@
             "value": "Ваш ключ"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarınız"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваш ключ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khóa của bạn"
           }
         },
         "zh-Hans": {
@@ -9186,6 +11544,12 @@
             "value": "복원 후에는 프로필 설정에서 활성 상태로 유지할 장치를 선택할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Po przywróceniu możesz w ustawieniach profilu wybrać, które urządzenie ma pozostać aktywne."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9204,10 +11568,22 @@
             "value": "После восстановления вы сможете выбрать, какое устройство оставить активным, в настройках вашего профиля."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri yükleme sonrasında hangi cihazın etkin kalacağını profil ayarlarınızdan seçebilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Після відновлення ви зможете вибрати, який пристрій залишити активним, у налаштуваннях профілю."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sau khi khôi phục, bạn có thể chọn thiết bị nào sẽ tiếp tục hoạt động trong phần cài đặt hồ sơ của mình."
           }
         },
         "zh-Hans": {
@@ -9262,6 +11638,12 @@
             "value": "주의: 더 최신 백업이 있습니다!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uwaga, dostępna jest nowsza kopia zapasowa!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9280,10 +11662,22 @@
             "value": "Внимание, доступна более новая резервная копия!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dikkat, daha yeni bir yedek mevcut!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Увага, доступна новіша резервна копія!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cảnh báo, có bản sao lưu mới hơn khả dụng!"
           }
         },
         "zh-Hans": {

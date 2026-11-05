@@ -38,8 +38,9 @@ final class DeleteDraftFyleJoinOperation: OperationWithSpecificReasonForCancel<D
 
     override func main() {
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
+            // An attachment that is already gone is what this operation was asked for, not a failure.
             guard let persistedDraftFyleJoin = PersistedDraftFyleJoin.get(objectID: draftFyleJoinObjectID, within: context) else {
-                return cancel(withReason: .couldNotFindDraftFyleJoin)
+                return
             }
             let draft = persistedDraftFyleJoin.draft
             let draftFyleJoinPermanentID = try? persistedDraftFyleJoin.objectPermanentID
@@ -65,14 +66,11 @@ final class DeleteDraftFyleJoinOperation: OperationWithSpecificReasonForCancel<D
 enum DeleteDraftFyleJoinOperationReasonForCancel: LocalizedErrorWithLogType {
 
     case coreDataError(error: Error)
-    case couldNotFindDraftFyleJoin
 
     var logType: OSLogType {
         switch self {
         case .coreDataError:
             return .fault
-        case .couldNotFindDraftFyleJoin:
-            return .error
         }
     }
 
@@ -80,8 +78,6 @@ enum DeleteDraftFyleJoinOperationReasonForCancel: LocalizedErrorWithLogType {
         switch self {
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
-        case .couldNotFindDraftFyleJoin:
-            return "Could not find draft fyle join in database"
         }
     }
 

@@ -236,10 +236,13 @@ public struct ObvMapView: View {
                         .padding(.horizontal, 4)
                         .padding(.vertical, 4)
                 }
+                .keyboardShortcut(.cancelAction)
                 .buttonStyle(.borderedProminent)
                 .padding(.bottom)
             }
         }
+        // Presented full screen with nothing else that can hold focus: without it, Esc never reaches the Close button.
+        .takesKeyboardFocusOnAppear()
     }
 
 

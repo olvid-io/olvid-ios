@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -44,6 +44,8 @@ protocol NetworkFetchFlowDelegate {
     func attachmentWasDownloaded(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
     func attachmentWasCancelledByServer(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
     func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float]
+    func getAsyncStreamOfDownloadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentDownloadProgress>)
+    func finishAsyncStreamOfDownloadProgress(streamUUID: UUID) async throws
     
     // MARK: - Push notification's related methods
     
@@ -52,7 +54,7 @@ protocol NetworkFetchFlowDelegate {
 
     // MARK: - Handling Server Queries
 
-    func postServerQuery(_ serverQuery: ServerQuery, within context: NSManagedObjectContext)
+    func postServerQuery(_ serverQuery: ServerQuery, within context: NSManagedObjectContext) throws
 
     // MARK: - Forwarding urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) and notifying successfull/failed listing (for performing fetchCompletionHandlers within the engine)
 

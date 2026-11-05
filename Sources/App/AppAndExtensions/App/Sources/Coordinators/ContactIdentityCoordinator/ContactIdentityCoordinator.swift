@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,6 +48,9 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchec
         self.queueForComposedOperations = queueForComposedOperations
         self.queueForSyncHintsComputationOperation = queueForSyncHintsComputationOperation
         listenToNotifications()
+        Task {
+            await PersistedObvContactIdentity.addObvObserver(self)
+        }
     }
     
     deinit {
@@ -100,9 +103,6 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchec
             ObvEngineNotificationNew.observeUpdatedContactDevice(within: NotificationCenter.default) { [weak self] deviceIdentifier in
                 Task { [weak self] in await self?.processUpdatedContactDevice(deviceIdentifier: deviceIdentifier) }
             },
-            ObvMessengerCoreDataNotification.observePersistedContactWasInserted { [weak self] contactPermanentID, _, _, _ in
-                Task { [weak self] in await self?.processPersistedContactWasInsertedNotification(contactPermanentID: contactPermanentID) }
-            },
         ])
 
     }
@@ -141,6 +141,17 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchec
 }
 
 
+// MARK: - Implement PersistedObvContactIdentityObserver
+
+extension ContactIdentityCoordinator: PersistedObvContactIdentityObserver {
+    
+    func aPersistedObvContactIdentityWasInserted(contactIdentifier: ObvTypes.ObvContactIdentifier, isOneToOne: Bool) async {
+        await processPersistedContactWasInsertedNotification(contactIdentifier: contactIdentifier, isOneToOne: isOneToOne)
+    }
+    
+}
+
+
 // MARK: - Observing Notifications
 
 extension ContactIdentityCoordinator {
@@ -170,6 +181,35 @@ extension ContactIdentityCoordinator {
     }
     
     
+    /// The user declined a contact suggestion, or removed a one-to-one contact, on this device: that contact is never suggested again, and the
+    /// other owned devices are told. A decline received from another owned device goes through `ProcessObvDialogOperation` instead, so it is
+    /// not sent back.
+    func processUserWantsToStopSuggestingContact(contactIdentifier: ObvContactIdentifier) async throws {
+        let op1 = StopSuggestingContactOperation(contactIdentifier: contactIdentifier)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            assertionFailure()
+            throw Self.makeError(message: "StopSuggestingContactOperation cancelled: \(String(describing: op1.reasonForCancel))")
+        }
+        if op1.stopSuggestingWasChangedInDatabase {
+            assert(syncAtomRequestDelegate != nil)
+            await syncAtomRequestDelegate?.requestPropagationToOtherOwnedDevices(
+                of: .stopSuggestingContact(contactCryptoId: contactIdentifier.contactCryptoId),
+                for: contactIdentifier.ownedCryptoId)
+        }
+    }
+
+
+    /// The user opened or closed a contacts suggestions deck holding these cards, so they no longer make the badge of the contacts tab red.
+    func processContactSuggestionsWereSeen(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, invitationUUIDs: Set<UUID>) {
+        guard !contactCryptoIds.isEmpty || !invitationUUIDs.isEmpty else { return }
+        let op1 = MarkContactSuggestionsAsSeenOperation(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, invitationUUIDs: invitationUUIDs)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
+    }
+
+
     /// Updates the personal note associated with a specific contact.
     ///
     /// This method is triggered when the user edits or saves a note for a contact.
@@ -273,7 +313,7 @@ extension ContactIdentityCoordinator {
     }
 
     
-    private func processPersistedContactWasInsertedNotification(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>) async {
+    private func processPersistedContactWasInsertedNotification(contactIdentifier: ObvTypes.ObvContactIdentifier, isOneToOne: Bool) async {
         /* When receiving a PersistedContactWasInsertedNotification, we re-sync the groups from the engine. This is required when the following situation occurs :
          * Bob creates a group with Alice and Charlie, who do not know each other. Alice receives a new list of group members including Charlie *before* she includes
          * Charlie in her contacts. In that case, Charlie stays in the list of pending members. Here, we re-sync the groups members, making sure Charlie appears in

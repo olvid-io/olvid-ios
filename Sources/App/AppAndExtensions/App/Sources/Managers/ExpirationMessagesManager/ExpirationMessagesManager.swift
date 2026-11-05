@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -98,10 +98,10 @@ final class ExpirationMessagesManager {
     
     
     private func observeCleanExpiredMessagesBackgroundTaskWasLaunched() {
-        observationTokens.append(ObvMessengerInternalNotification.observeCleanExpiredMessagesBackgroundTaskWasLaunched { (completion) in
-            Task { [weak self] in
+        observationTokens.append(ObvMessengerInternalNotification.observeCleanExpiredMessagesBackgroundTaskWasLaunched { [weak self] (completion) in
+            Task {
                 guard let self else { return completion(false) }
-                guard let delegate else { return completion(false) }
+                guard let delegate = self.delegate else { return completion(false) }
                 do {
                     try await delegate.wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: true)
                     return completion(true)
@@ -218,8 +218,12 @@ fileprivate final class ScheduleNextTimerOperation: Operation, @unchecked Sendab
              * we pass in a weak reference (we checked with the debugger, this works ;-).
              * Note that we cannot simply was [weak self] to the block (so as to access self?.delegate),
              * since self is deallocated as soon as the operation finishes.
+             *
+             * **`weak let` and not `let`**: what the compiler asks for is the immutability, and dropping the `weak` with it would make the block hold the
+             * delegate strongly, which is the one thing this paragraph is about. A copy of a weak reference is still a weak reference, so the block sees
+             * nil once the delegate has gone, exactly as it did.
              */
-            weak var delegate = self.delegate
+            weak let delegate: (any ScheduleNextTimerOperationDelegate)? = self.delegate
             let newTimer = Timer(fire: expirationDate, interval: 0, repeats: false) { timer in
                 delegate?.timerFired(timer: timer)
             }

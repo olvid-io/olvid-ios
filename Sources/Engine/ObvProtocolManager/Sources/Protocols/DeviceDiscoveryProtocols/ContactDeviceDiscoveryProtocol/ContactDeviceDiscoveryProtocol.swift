@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -33,7 +33,11 @@ public struct ContactDeviceDiscoveryProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.contactDeviceDiscovery
     
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.childProtocolStateProcessed, StateId.cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [
+        StateId.childProtocolStateProcessed,
+        StateId.cancelled,
+        StateId.childProtocolFailed,
+    ]
 
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

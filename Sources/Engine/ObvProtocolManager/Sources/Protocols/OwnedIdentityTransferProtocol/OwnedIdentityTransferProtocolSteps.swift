@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,20 @@ import ObvMetaManager
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
+
+
+/// Called from the catch blocks of the steps below: certain errors of the owned identity transfer protocol are expected at runtime
+/// (a network issue preventing the transfer server from being reached, or a profile that already exists on the target device)
+/// and are reported to the user on dedicated screens. We only assert on the other, unexpected, errors.
+private func assertionFailureOnUnexpectedOwnedIdentityTransferError(_ error: Error) {
+    switch error {
+    case OwnedIdentityTransferError.serverRequestFailed,
+         OwnedIdentityTransferError.tryingToTransferAnOwnedIdentityThatAlreadyExistsOnTargetDevice:
+        break
+    default:
+        assertionFailure()
+    }
+}
 
 
 // MARK: - Protocol Steps
@@ -161,7 +175,7 @@ extension OwnedIdentityTransferProtocol {
                 
             } catch {
                 
-                assertionFailure()
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 
@@ -249,8 +263,8 @@ extension OwnedIdentityTransferProtocol {
                 }
                 
             } catch {
-                
-                assertionFailure()
+
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 
@@ -365,8 +379,8 @@ extension OwnedIdentityTransferProtocol {
                 }
                 
             } catch {
-                
-                assertionFailure()
+
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 
@@ -500,7 +514,7 @@ extension OwnedIdentityTransferProtocol {
                 
             } catch {
                 
-                assertionFailure()
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 
@@ -741,7 +755,7 @@ extension OwnedIdentityTransferProtocol {
                                 
             } catch {
                 
-                assertionFailure()
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return input.startState
                 
@@ -852,7 +866,7 @@ extension OwnedIdentityTransferProtocol {
                 
             } catch {
                 
-                assertionFailure()
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 
@@ -969,7 +983,7 @@ extension OwnedIdentityTransferProtocol {
                     // Makre sure that the owned identity we are about to transfer from the source device to this target device is not one that we have already
                     
                     guard try !identityDelegate.isOwned(transferredIdentity, within: obvContext) else {
-                        throw OwnedIdentityTransferError.tryingToTransferAnOwnedIdentityThatAlreadyExistsOnTargetDevice
+                        throw OwnedIdentityTransferError.tryingToTransferAnOwnedIdentityThatAlreadyExistsOnTargetDevice(ownedCryptoId: ObvCryptoId(cryptoIdentity: transferredIdentity))
                     }
                     
                     // Compute the target part of the SAS
@@ -1020,8 +1034,8 @@ extension OwnedIdentityTransferProtocol {
                 }
                 
             } catch {
-                
-                assertionFailure()
+
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 
@@ -1151,7 +1165,7 @@ extension OwnedIdentityTransferProtocol {
                 
             } catch {
                 
-                assertionFailure()
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 
@@ -1244,9 +1258,9 @@ extension OwnedIdentityTransferProtocol {
                             deviceUidToKeepActive = nil
                         }
 
-                        // Get the sync snapshot
+                        // Get the sync snapshot (the correspondence between the transferred identity and the owned identity is validated by the identity manager)
                         
-                        let syncSnapshot = try syncSnapshotDelegate.decodeSyncSnapshot(from: obvDictionary, context: .transfer(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity)))
+                        let syncSnapshot = try syncSnapshotDelegate.decodeSyncSnapshot(from: obvDictionary, context: .transfer(ownedCryptoId: ObvCryptoId(cryptoIdentity: transferredIdentity)))
                         
                         // Notify that the sync snapshot was is received and is about to be processed
                         
@@ -1389,7 +1403,7 @@ extension OwnedIdentityTransferProtocol {
                 
             } catch {
                 
-                assertionFailure()
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 
@@ -1487,7 +1501,7 @@ extension OwnedIdentityTransferProtocol {
                 
             } catch {
                 
-                assertionFailure()
+                assertionFailureOnUnexpectedOwnedIdentityTransferError(error)
                 postOwnedIdentityTransferProtocolNotification(withError: error)
                 return startState
 

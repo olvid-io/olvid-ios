@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -209,7 +209,7 @@ extension ObvSingleContact.ObvSingleContactView.Model {
         let trustedIdentityDetails: ObvIdentityDetails = try contact.identityDetails
         
         if let contactIdentity {
-            guard contact.cryptoId == contactIdentity.cryptoId else {
+            guard try contact.cryptoId == contactIdentity.cryptoId else {
                 assertionFailure()
                 throw ObvSingleContactObvSingleContactViewModelError.inconsistentIdentity
             }
@@ -292,8 +292,8 @@ extension ObvSingleContact.ObvSingleContactView.Model.CustomDetails {
         
         let nickname: String? = contact.customDisplayName
         let avatarModel: ObvAvatarViewModel?
-        if let customPhotoURL = contact.customPhotoURL {
-            let colors = ObvDesignSystem.AppTheme.shared.identityColors(for: contact.cryptoId, using: .hue)
+        if let customPhotoURL = contact.customPhotoURL, let contactCryptoId = try? contact.cryptoId {
+            let colors = ObvDesignSystem.AppTheme.shared.identityColors(for: contactCryptoId)
             avatarModel = .init(characterOrIcon: .icon(.person),
                                 colors: .init(foreground: colors.text, background: colors.background),
                                 photoURL: customPhotoURL)
@@ -324,7 +324,7 @@ extension ObvDesignSystem.ObvAvatarViewModel {
             characterOrIcon = .icon(.person)
         }
 
-        let colors = ObvDesignSystem.AppTheme.shared.identityColors(for: contactCryptoId, using: .hue)
+        let colors = ObvDesignSystem.AppTheme.shared.identityColors(for: contactCryptoId)
 
         self.init(characterOrIcon: characterOrIcon,
                   colors: .init(foreground: colors.text, background: colors.background),

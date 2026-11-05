@@ -176,6 +176,14 @@ extension LocalNetworkImportView: AcceptingOrRejectingTransferRequestFromSourceV
     fileprivate func userWantsToRejectHistoryTransferRequest(_ view: AcceptingOrRejectingTransferRequestFromSourceView) async throws {
         let transferService = try await self.getTransferService()
         try await transferService.userWantsToCancelHistoryTransfer(self, localNetorkType: localNetworkType)
+        // The reject above already tears down the (not-yet-accepted) transfer, so mark the global state as done
+        // to prevent `onDisappear` from also calling `userWantsToCancelImport` (which would send a redundant
+        // interrupt message to the source).
+        globalState = .done
+        // Dismiss the confirmation view. Unlike the accept path (which transitions to `.transferAccepted`),
+        // rejecting leaves nothing on screen, so we must dismiss explicitly. On macOS (Catalyst) there is no
+        // swipe-to-dismiss to fall back on, so without this the Cancel button appears to do nothing.
+        actions.userWantsToDismissView(self)
     }
     
 }
@@ -229,7 +237,7 @@ private struct AcceptingOrRejectingTransferRequestFromSourceView: View {
         isInterfaceDisabled = true
         Task {
             defer { isInterfaceDisabled = false }
-            try await internalActions.userWantsToAcceptHistoryTransferRequest(self)
+            try? await internalActions.userWantsToAcceptHistoryTransferRequest(self)
         }
     }
     
@@ -237,7 +245,7 @@ private struct AcceptingOrRejectingTransferRequestFromSourceView: View {
         isInterfaceDisabled = true
         Task {
             defer { isInterfaceDisabled = false }
-            try await internalActions.userWantsToRejectHistoryTransferRequest(self)
+            try? await internalActions.userWantsToRejectHistoryTransferRequest(self)
         }
     }
     
@@ -526,8 +534,9 @@ struct ReceivingAttachmentsStatusView: View {
         switch receivingAttachmentstatus {
         case .starting:
             return .inProgress
-        case .inProgress(receivedFylesCount: let receivedFylesCount, failedFylesCount: let failedFylesCount, byteCountReceived: _, byteCountFailedToReceive: _, numberOfFylesToReceive: let numberOfFylesToReceive, byteCountToReceive: _, bytesPerSecond: _, eta: _):
-            if receivedFylesCount + failedFylesCount >= numberOfFylesToReceive {
+        case .inProgress(let receivedFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToReceive, _, _, _):
+            if receivedFylesCount + failedFylesCount + skippedFylesCount >= numberOfFylesToReceive {
+                // Skipped attachments (declined by this device) are not an error, so they don't trigger a warning.
                 return failedFylesCount > 0 ? .warning : .success
             } else {
                 return .inProgress
@@ -539,9 +548,10 @@ struct ReceivingAttachmentsStatusView: View {
         switch receivingAttachmentstatus {
         case .starting:
             return nil
-        case .inProgress(receivedFylesCount: _, failedFylesCount: _, byteCountReceived: let byteCountReceived, byteCountFailedToReceive: _, numberOfFylesToReceive: _, byteCountToReceive: let byteCountToReceive, bytesPerSecond: _, eta: _):
-            if byteCountReceived < byteCountToReceive {
-                return (Double(min(byteCountReceived, byteCountToReceive)), Double(byteCountToReceive))
+        case .inProgress(_, _, _, let byteCountReceived, let byteCountFailedToReceive, let byteCountSkipped, _, let byteCountToReceive, _, _):
+            let byteCountDone = byteCountReceived + byteCountFailedToReceive + byteCountSkipped
+            if byteCountDone < byteCountToReceive {
+                return (Double(byteCountDone), Double(byteCountToReceive))
             } else {
                 return nil
             }
@@ -552,11 +562,13 @@ struct ReceivingAttachmentsStatusView: View {
         switch receivingAttachmentstatus {
         case .starting:
             return String(localizedInThisBundle: "STARTING")
-        case .inProgress(receivedFylesCount: let receivedFylesCount, failedFylesCount: _, byteCountReceived: _, byteCountFailedToReceive: _, numberOfFylesToReceive: let numberOfFylesToReceive, byteCountToReceive: _, bytesPerSecond: _, eta: _):
-            if receivedFylesCount < numberOfFylesToReceive {
+        case .inProgress(let receivedFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToReceive, _, _, _):
+            if receivedFylesCount + failedFylesCount + skippedFylesCount < numberOfFylesToReceive {
                 return String(localizedInThisBundle: "RECEIVING_ATTACHMENTS_STATUS_VIEW_RECEIVING_\(numberOfFylesToReceive)_ATTACHMENTS")
             } else {
-                return String(localizedInThisBundle: "RECEIVING_ATTACHMENTS_STATUS_VIEW_DID_RECEIVE_\(numberOfFylesToReceive)_ATTACHMENTS")
+                // Report the count actually received, which may be lower than the expected total if this device
+                // declined some attachments (see subtitleForSkippedAttachments).
+                return String(localizedInThisBundle: "RECEIVING_ATTACHMENTS_STATUS_VIEW_DID_RECEIVE_\(receivedFylesCount)_ATTACHMENTS")
             }
         }
     }
@@ -565,9 +577,19 @@ struct ReceivingAttachmentsStatusView: View {
         switch receivingAttachmentstatus {
         case .starting:
             return nil
-        case .inProgress(receivedFylesCount: _, failedFylesCount: let failedFylesCount, byteCountReceived: _, byteCountFailedToReceive: _, numberOfFylesToReceive: _, byteCountToReceive: _, bytesPerSecond: _, eta: _):
+        case .inProgress(_, let failedFylesCount, _, _, _, _, _, _, _, _):
             guard failedFylesCount > 0 else { return nil }
             return String(localizedInThisBundle: "RECEIVING_ATTACHMENTS_STATUS_VIEW_\(failedFylesCount)_ATTACHMENTS_COULD_NOT_BE_TRANSFERRED")
+        }
+    }
+
+    private var subtitleForSkippedAttachments: String? {
+        switch receivingAttachmentstatus {
+        case .starting:
+            return nil
+        case .inProgress(_, _, let skippedFylesCount, _, _, _, _, _, _, _):
+            guard skippedFylesCount > 0 else { return nil }
+            return String(localizedInThisBundle: "RECEIVING_ATTACHMENTS_STATUS_VIEW_\(skippedFylesCount)_ATTACHMENTS_NOT_NEEDED_BY_THIS_DEVICE")
         }
     }
 
@@ -581,7 +603,7 @@ struct ReceivingAttachmentsStatusView: View {
         switch receivingAttachmentstatus {
         case .starting:
             return nil
-        case .inProgress(receivedFylesCount: _, failedFylesCount: _, byteCountReceived: _, byteCountFailedToReceive: _, numberOfFylesToReceive: _, byteCountToReceive: _, bytesPerSecond: _, eta: let eta):
+        case .inProgress(_, _, _, _, _, _, _, _, _, let eta):
             return progressItemState == .inProgress ? eta : nil
         }
     }
@@ -590,7 +612,7 @@ struct ReceivingAttachmentsStatusView: View {
         switch receivingAttachmentstatus {
         case .starting:
             return nil
-        case .inProgress(receivedFylesCount: _, failedFylesCount: _, byteCountReceived: _, byteCountFailedToReceive: _, numberOfFylesToReceive: _, byteCountToReceive: _, bytesPerSecond: let bytesPerSecond, eta: _):
+        case .inProgress(_, _, _, _, _, _, _, _, let bytesPerSecond, _):
             return bytesPerSecond
         }
     }
@@ -612,8 +634,8 @@ struct ReceivingAttachmentsStatusView: View {
         switch receivingAttachmentstatus {
         case .starting:
             return String(localizedInThisBundle: "RECEIVING_ATTACHMENTS_VIEW_TITLE")
-        case .inProgress(let receivedFylesCount, let failedFylesCount, _, _, let numberOfFylesToReceive, _, _, _):
-            if receivedFylesCount + failedFylesCount >= numberOfFylesToReceive {
+        case .inProgress(let receivedFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToReceive, _, _, _):
+            if receivedFylesCount + failedFylesCount + skippedFylesCount >= numberOfFylesToReceive {
                 return String(localizedInThisBundle: "RECEIVING_ATTACHMENTS_VIEW_TITLE_DONE")
             } else {
                 return String(localizedInThisBundle: "RECEIVING_ATTACHMENTS_VIEW_TITLE")
@@ -628,6 +650,10 @@ struct ReceivingAttachmentsStatusView: View {
                     .foregroundStyle(.secondary)
                 if let subtitleForFailedAttachments {
                     Text(subtitleForFailedAttachments)
+                        .foregroundStyle(.secondary)
+                }
+                if let subtitleForSkippedAttachments {
+                    Text(subtitleForSkippedAttachments)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -998,8 +1024,10 @@ extension MockTransferServiceForNetworkImportView: TransferServiceForLocalNetwor
                             status: .inProgress(
                                 receivedFylesCount: receivedFylesCount,
                                 failedFylesCount: 0,
+                                skippedFylesCount: 0,
                                 byteCountReceived: byteCountReceived,
                                 byteCountFailedToReceive: 0,
+                                byteCountSkipped: 0,
                                 numberOfFylesToReceive: numberOfFylesToTransfer,
                                 byteCountToReceive: totalByteCountToTransfer,
                                 bytesPerSecond: bytesPerSecondToSimulate,

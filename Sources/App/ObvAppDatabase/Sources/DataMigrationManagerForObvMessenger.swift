@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -110,9 +110,15 @@ public final class DataMigrationManagerForObvMessenger: DataMigrationManager<Obv
         case version78 = "ObvMessengerModel-v78"
         case version79 = "ObvMessengerModel-v79"
         case version80 = "ObvMessengerModel-v80"
+        case version81 = "ObvMessengerModel-v81"
+        case version82 = "ObvMessengerModel-v82"
+        case version83 = "ObvMessengerModel-v83"
+        case version84 = "ObvMessengerModel-v84"
+        case version85 = "ObvMessengerModel-v85"
+        case version86 = "ObvMessengerModel-v86"
 
         static var latest: ObvMessengerModelVersion {
-            return .version80
+            return .version86
         }
 
         var identifier: String {
@@ -270,7 +276,13 @@ public final class DataMigrationManagerForObvMessenger: DataMigrationManager<Obv
         case .version77: migrationType = .heavyweight; destinationVersion = .version78
         case .version78: migrationType = .heavyweight; destinationVersion = .version79
         case .version79: migrationType = .lightweight; destinationVersion = .version80
-        case .version80: migrationType = .heavyweight; destinationVersion = .version80
+        case .version80: migrationType = .lightweight; destinationVersion = .version81
+        case .version81: migrationType = .lightweight; destinationVersion = .version82
+        case .version82: migrationType = .lightweight; destinationVersion = .version83
+        case .version83: migrationType = .lightweight; destinationVersion = .version84
+        case .version84: migrationType = .lightweight; destinationVersion = .version85
+        case .version85: migrationType = .lightweight; destinationVersion = .version86
+        case .version86: migrationType = .heavyweight; destinationVersion = .version86
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

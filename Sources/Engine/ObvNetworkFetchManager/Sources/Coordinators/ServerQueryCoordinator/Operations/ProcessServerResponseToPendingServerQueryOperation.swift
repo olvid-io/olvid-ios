@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -315,7 +315,7 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
                 }
                 
-            case .getUserData(of: _, label: let label): // ok
+            case .getUserData(of: _, label: let label, retryIfNotFound: let retryIfNotFound):
 
                 guard let status = ObvServerGetUserDataMethod.parseObvServerResponse(responseData: responseData, using: log, downloadedUserData: downloadedUserData, serverLabel: label) else {
                     
@@ -336,13 +336,17 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
                     serverQuery.responseType = serverResponseType
                     return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
 
-                case .deletedFromServer:
-                    
-                    logger.info("Server reported deleted form server data during the ObvServerGetUserDataMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public)")
-                    
-                    let serverResponseType = ServerResponse.ResponseType.getUserData(result: .deletedFromServer)
-                    serverQuery.responseType = serverResponseType
-                    return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
+                case .deletedFromServerOrNotYetAvailable:
+
+                    if retryIfNotFound && abs(serverQuery.creationDate.timeIntervalSinceNow) <= ObvConstants.ServerQueryExpirationDelay {
+                        logger.info("Server reports data deleted or not yet available during the ObvServerGetUserDataMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public) — retrying later")
+                        return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
+                    } else {
+                        logger.info("Server reports data deleted or not yet available during the ObvServerGetUserDataMethod task for pending server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public) — giving up")
+                        let serverResponseType = ServerResponse.ResponseType.getUserData(result: .deletedFromServer)
+                        serverQuery.responseType = serverResponseType
+                        return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
+                    }
 
                 }
                 

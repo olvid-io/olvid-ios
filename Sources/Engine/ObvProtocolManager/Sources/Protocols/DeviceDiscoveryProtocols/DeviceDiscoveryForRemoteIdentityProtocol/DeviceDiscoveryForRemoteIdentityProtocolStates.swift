@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -39,6 +39,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         case waitingForDeviceUids = 1
         case deviceUidsReceived = 2 // Final
         case cancelled = 3 // Final
+        case serverQueryFailed = 4 // Final
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
@@ -46,6 +47,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             case .waitingForDeviceUids : return WaitingForDeviceUidsState.self
             case .deviceUidsReceived   : return DeviceUidsReceivedState.self
             case .cancelled            : return CancelledState.self
+            case .serverQueryFailed    : return ServerQueryFailedState.self
             }
         }
     }
@@ -106,6 +108,21 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         init() {}
         
         func obvEncode() -> ObvEncoded { return 0.obvEncode() }
+    }
+    
+    
+    // MARK: - ServerQueryFailed
+    
+    struct ServerQueryFailedState: TypeConcreteProtocolState {
+        
+        let id: ConcreteProtocolStateId = StateId.serverQueryFailed
+        
+        init(_: ObvEncoded) {}
+        
+        init() {}
+        
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
+
     }
 
 }

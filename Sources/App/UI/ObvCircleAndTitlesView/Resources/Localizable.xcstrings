@@ -45,6 +45,12 @@
             "value": "%@, 이미지를 사용할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, obraz dostępny."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "%@, изображение доступно."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, resim var."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "%@, зображення доступне."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, hình ảnh đã có."
           }
         },
         "zh-Hans": {
@@ -121,6 +139,12 @@
             "value": "%@, 이미지 없음."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, brak obrazu."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -139,10 +163,22 @@
             "value": "%@, изображения нет."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, resim yok."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "%@, немає зображення."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, không có ảnh."
           }
         },
         "zh-Hans": {
@@ -197,6 +233,12 @@
             "value": "파일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pliki"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -215,10 +257,22 @@
             "value": "Файлы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosyalar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Файли"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp"
           }
         },
         "zh-Hans": {
@@ -273,6 +327,12 @@
             "value": "사진 라이브러리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biblioteka zdjęć"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -291,10 +351,22 @@
             "value": "Фототека"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf arşivi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Фототека"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thư viện ảnh"
           }
         },
         "zh-Hans": {
@@ -349,6 +421,12 @@
             "value": "사진 제거"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -367,10 +445,22 @@
             "value": "Удалить фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğrafı kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa ảnh"
           }
         },
         "zh-Hans": {
@@ -425,6 +515,12 @@
             "value": "사진 찍기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrób zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -443,93 +539,28 @@
             "value": "Сделать фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf çek"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зробити фото"
           }
         },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp ảnh"
+          }
+        },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "拍照"
-          }
-        }
-      }
-    },
-    "TAP_TO_SHOW_IMAGE": {
-      "comment": "Accessibility hint",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tippen, um das Bild anzuzeigen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to show the image"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toca para mostrar la imagen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Touchez pour montrer l’image"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tocca per visualizzare l'immagine"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "画像をタップして表示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이미지를 보려면 탭하세요"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toque para exibir a imagem"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toque para mostrar a imagem"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нажмите, чтобы показать изображение"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Торкніться, щоб показати зображення"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点击以显示图片"
           }
         }
       }

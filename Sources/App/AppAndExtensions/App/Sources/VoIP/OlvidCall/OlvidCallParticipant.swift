@@ -44,7 +44,7 @@ protocol OlvidCallParticipantDelegate: AnyObject {
     func receivedHangedUpMessage(from callParticipant: OlvidCallParticipant, messagePayload: String) async
     
     func localVideoTrackWasAdded(for callParticipant: OlvidCallParticipant, videoTrack: RTCVideoTrack) async
-    func reevalutateScreenDimming() async
+    func reevaluateKeepingTheScreenAwake() async
 
     func sendStartCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription) async throws
     func sendAnswerCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription) async throws
@@ -120,7 +120,7 @@ final class OlvidCallParticipant: ObservableObject {
         let caller = OlvidCallParticipant(
             kind: .callerOfIncomingCall(contactObjectID: persistedContact.typedObjectID, contactIdentifier: callerDeviceIdentifier.contactIdentifier, contactDeviceUID: callerDeviceIdentifier.deviceUID),
             peerConnectionHolder: peerConnectionHolder,
-            cryptoId: persistedContact.cryptoId, 
+            cryptoId: try persistedContact.cryptoId,
             displayName: persistedContact.customOrNormalDisplayName,
             isOneToOne: persistedContact.isOneToOne,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
@@ -146,7 +146,7 @@ final class OlvidCallParticipant: ObservableObject {
         let callee = OlvidCallParticipant(
             kind: .calleeOfOutgoingCall(contactObjectID: persistedContact.typedObjectID, contactIdentifier: calleeId, contactDeviceUID: nil),
             peerConnectionHolder: peerConnectionHolder,
-            cryptoId: persistedContact.cryptoId, 
+            cryptoId: try persistedContact.cryptoId, 
             displayName: persistedContact.customOrNormalDisplayName, 
             isOneToOne: persistedContact.isOneToOne,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
@@ -363,13 +363,13 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
                 let videoCameraEnabledMessage = try VideoCameraEnabledJSON.jsonDecode(serializedMessage: message.serializedMessage)
                 os_log("☎️ videoCameraEnabledMessage received on data channel", log: Self.log, type: .info)
                 self.remoteCameraVideoTrackIsEnabled = videoCameraEnabledMessage.isVideoCameraEnabled
-                await delegate?.reevalutateScreenDimming()
+                await delegate?.reevaluateKeepingTheScreenAwake()
 
             case .videoScreencastEnabled:
                 let videoScreencastEnabledMessage = try VideoScreencastEnabledJSON.jsonDecode(serializedMessage: message.serializedMessage)
                 os_log("☎️ videoScreencastEnabledMessage received on data channel", log: Self.log, type: .info)
                 self.remoteScreenCastVideoTrackIsEnabled = videoScreencastEnabledMessage.isVideoScreencastEnabled
-                await delegate?.reevalutateScreenDimming()
+                await delegate?.reevaluateKeepingTheScreenAwake()
 
             }
         } catch {
@@ -852,7 +852,7 @@ extension OlvidCallParticipant {
         
         if self.state.isFinalState {
             Task {
-                try await closeConnection()
+                try? await closeConnection()
             }
         }
 

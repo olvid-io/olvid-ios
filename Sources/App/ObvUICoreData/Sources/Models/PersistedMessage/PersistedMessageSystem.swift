@@ -37,7 +37,10 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
 
     // MARK: System message categories
 
-    public enum Category: Int, CustomStringConvertible, CaseIterable {
+    /// **`Sendable` is declared rather than inferred, and that is the whole of why it is written here.** This is an `Int`-backed enum with no associated
+    /// values, so it is one by construction — but a `public` type gets no implicit conformance, its clients being in other modules. Saying so lets it be
+    /// carried by the values that describe a screen's contents, `PersistedMessage.MessagesShownByTheScreen` among them.
+    public enum Category: Int, CustomStringConvertible, CaseIterable, Sendable {
         case contactJoinedGroup = 0
         case contactLeftGroup = 1
         case numberOfNewMessages = 2
@@ -404,6 +407,16 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
         }
     }
     
+    /// What a discussion says about itself before anything else, in the length the reader has chosen.
+    ///
+    /// Public, and computed from nothing, because a screen may want to say it **without a message to say it with**: the SwiftUI screen draws it as a fixed first row
+    /// rather than as one of the messages it lists, which is how it makes "above everything" an invariant rather than an ordering it has to hope for. The wording and
+    /// the setting that chooses between its long and short forms stay here, with the other sentences of a system message.
+    public static var sentenceSayingTheDiscussionIsEndToEndEncrypted: String {
+        Strings.discussionIsEndToEndEncrypted(shortVersion: ObvMessengerSettings.Interface.shortenIntroductoryMessage)
+    }
+
+
     public var textBodyWithoutTimestamp: String? {
         let contactDisplayName: String
         if let optionalContactIdentity {
@@ -1177,6 +1190,10 @@ extension PersistedMessageSystem {
     }
 
     
+    /// The oldest system message of this discussion that the owned identity has not seen and that counts as unread.
+    ///
+    /// Fetched with a limit of one rather than by sorting the whole set afterwards, so that a discussion the reader has been away from for a while costs no
+    /// more than one they have just left.
     public static func getFirstNewRelevantSystemMessage(in discussion: PersistedDiscussion) throws -> PersistedMessageSystem? {
         guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
@@ -1212,6 +1229,21 @@ extension PersistedMessageSystem {
             Predicate.isRelevantForCountingUnread,
         ])
         return try context.fetch(request)
+    }
+
+
+    /// The number of system messages of this discussion that the owned identity has not seen and that count as unread.
+    ///
+    /// Counted in the store rather than by fetching them: no message is materialized.
+    public static func getNumberOfNewRelevantSystemMessages(in discussion: PersistedDiscussion) throws -> Int {
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
+        let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.isNew,
+            Predicate.withinDiscussion(discussion),
+            Predicate.isRelevantForCountingUnread,
+        ])
+        return try context.count(for: request)
     }
 
     

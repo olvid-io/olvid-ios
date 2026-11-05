@@ -68,6 +68,7 @@ struct BetaSettingsActivationView: View {
                             Image(systemIcon: .xmarkSealFill)
                         }
                     })
+                    .keyboardShortcut(.cancelAction)
                 }
             }
         }

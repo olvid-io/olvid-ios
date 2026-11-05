@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -17,10 +17,10 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UserNotifications
+@preconcurrency import UserNotifications
 import OSLog
 import CoreData
-import ObvEngine
+@preconcurrency import ObvEngine
 import ObvTypes
 import ObvAppTypes
 import ObvCrypto
@@ -37,7 +37,6 @@ final class NotificationService: UNNotificationServiceExtension {
     
 
     private var contentHandler: ((UNNotificationContent) -> Void)?
-    private var notificationContent = NotificationContent()
 
     private static let coordinatorsQueue = OperationQueue.createSerialQueue(name: "UserNotificationsCoordinator queue", qualityOfService: .userInteractive)
     private static let queueForComposedOperations = {
@@ -47,11 +46,9 @@ final class NotificationService: UNNotificationServiceExtension {
         return queue
     }()
 
-    private var obvEngine: ObvEngine?
     private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: NotificationService.self))
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: NotificationService.self))
     private static let runningLog = RunningLogError()
-    private static let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)
 
     
     
@@ -64,29 +61,32 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     
-    override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
+    /// The task started here must not use `self`: the system may hand this process several notifications at once, and their tasks run
+    /// concurrently. What a request needs of its own is created inside its task, and what the process shares is started by ``TheEngineAndTheStacksOfThisProcess``.
+    override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping @Sendable (UNNotificationContent) -> Void) {
 
         ObvDisplayableLogs.shared.setContainerURLForDisplayableLogs(to: ObvUICoreDataConstants.ContainerURL.forDisplayableLogs.url)
         ObvDisplayableLogs.shared.doEnableRunningLogs(ObvMessengerSettings.Advanced.enableRunningLogs)
         ObvDisplayableLogs.shared.log("[NotificationService] didReceive request")
-        
+
         self.contentHandler = contentHandler
-        self.notificationContent = NotificationContent()
-        
+
         Task {
 
-            // Initialize the engine if required
-            
+            // Start the engine, unless another notification already did
+
             let engine: ObvEngine
-            if let _engine = self.obvEngine {
-                engine = _engine
-            } else {
-                engine = try await initializeObvEngine()
-                self.obvEngine = engine
-            }
-            
             do {
-                try await didReceive(request, engine: engine)
+                engine = try await TheEngineAndTheStacksOfThisProcess.shared.engine()
+            } catch {
+                Self.logger.fault("Could not initialize the engine, so the remote user notification cannot be processed. The content handler is not called, exactly as it was not before.")
+                return
+            }
+
+            let notificationContent = NotificationContent()
+
+            do {
+                try await Self.didReceive(request, engine: engine, notificationContent: notificationContent)
             } catch {
                 if let obvError = error as? ObvError {
                     switch obvError {
@@ -102,10 +102,8 @@ final class NotificationService: UNNotificationServiceExtension {
                 }
             }
             
-            let bestAttemptContent = await self.notificationContent.bestAttemptContent
-            contentHandler(bestAttemptContent)
-            
-            //self.obvEngine = nil
+            contentHandler(ObvUserNotificationContentCreator.ensuringPrivacy(of: notificationContent.bestAttemptContent))
+
             Self.runningLog.removeAllEvents()
 
         }
@@ -113,19 +111,12 @@ final class NotificationService: UNNotificationServiceExtension {
     }
     
     
-    private func didReceive(_ request: UNNotificationRequest, engine: ObvEngine) async throws {
-                        
-        // Initialize the CoreData Stack allowing to access the App database
-        
-        try ObvStack.initSharedInstance(transactionAuthor: ObvUICoreDataConstants.AppCategory.notificationExtension.transactionAuthor, runningLog: Self.runningLog, enableMigrations: false)
-        
-        // Initialize the CoreData Stack allowing to access the ObvUserNotificationsDataModel database
-        
-        try ObvUserNotificationsStack.initSharedInstance(transactionAuthor: ObvUICoreDataConstants.AppCategory.notificationExtension.transactionAuthor,
-                                                         runningLog: Self.runningLog,
-                                                         enableMigrations: false,
-                                                         deleteStoreOnFailure: true)
-        
+    private static func didReceive(_ request: UNNotificationRequest, engine: ObvEngine, notificationContent: NotificationContent) async throws {
+
+        // Initialize the Core Data stacks of the App database and of the ObvUserNotificationsDataModel database, unless another notification already did
+
+        try await TheEngineAndTheStacksOfThisProcess.shared.initializeTheStacks()
+
         // Parse the information of the received notification
         
         guard let encryptedRemoteUserNotification = ObvEncryptedRemoteUserNotification(content: request.content) else {
@@ -140,15 +131,15 @@ final class NotificationService: UNNotificationServiceExtension {
             decryptedNotification = try await engine.decrypt(encryptedPushNotification: encryptedRemoteUserNotification)
         } catch {
             Self.logger.error("Failed to decrypt encrypted remote user notification: \(error.localizedDescription).")
-            await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+            notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
             throw ObvError.couldNotDecrypt
         }
 
         switch decryptedNotification {
         case .obvMessageOrObvOwnedMessage(let obvMessageOrObvOwnedMessage):
-            try await didReceive(obvMessageOrObvOwnedMessage, requestIdentifier: request.identifier, engine: engine)
+            try await didReceive(obvMessageOrObvOwnedMessage, requestIdentifier: request.identifier, engine: engine, notificationContent: notificationContent)
         case .protocolMessage(let obvProtocolMessage):
-            try await didReceive(obvProtocolMessage, requestIdentifier: request.identifier)
+            try await didReceive(obvProtocolMessage, requestIdentifier: request.identifier, notificationContent: notificationContent)
         }
         
         
@@ -156,7 +147,7 @@ final class NotificationService: UNNotificationServiceExtension {
     }
     
     
-    private func didReceive(_ obvProtocolMessage: ObvProtocolMessage, requestIdentifier: String) async throws {
+    private static func didReceive(_ obvProtocolMessage: ObvProtocolMessage, requestIdentifier: String, notificationContent: NotificationContent) async throws {
 
         // Determine the kind of notification to show
 
@@ -167,12 +158,12 @@ final class NotificationService: UNNotificationServiceExtension {
 
         // Construct the actual notification depending on the kind of notification to show
 
-        await self.notificationContent.setBestAttemptContentFromObvProtocolMessage(to: notificationToShow)
+        notificationContent.setBestAttemptContentFromObvProtocolMessage(to: notificationToShow)
 
     }
     
     
-    private func didReceive(_ obvMessageOrObvOwnedMessage: ObvMessageOrObvOwnedMessage, requestIdentifier: String, engine: ObvEngine) async throws {
+    private static func didReceive(_ obvMessageOrObvOwnedMessage: ObvMessageOrObvOwnedMessage, requestIdentifier: String, engine: ObvEngine, notificationContent: NotificationContent) async throws {
         
         switch obvMessageOrObvOwnedMessage {
             
@@ -180,7 +171,7 @@ final class NotificationService: UNNotificationServiceExtension {
             
             // Determine the kind of notification to show
 
-            var notificationToShow = try await ObvUserNotificationContentCreator.determineNotificationToShow(obvMessage: obvMessage, obvStackShared: ObvStack.shared)
+            var notificationToShow = try await ObvUserNotificationContentCreator.determineNotificationToShow(obvMessage: obvMessage, receivedMessageSave: .notYetSaved, obvStackShared: ObvStack.shared)
 
             // Construct the actual notification depending on the kind of notification to show
             
@@ -190,7 +181,7 @@ final class NotificationService: UNNotificationServiceExtension {
 
                 break
 
-            case .addReceivedMessage(content: _, messageAppIdentifier: let messageAppIdentifier, userNotificationCategory: let userNotificationCategory, contactDeviceUIDs: let contactDeviceUIDs):
+            case .addReceivedMessage(content: _, messageAppIdentifier: let messageAppIdentifier, userNotificationCategory: let userNotificationCategory):
 
                 // Make sure we are in charge of posting the notification by trying to create a PersistedUserNotification
                 
@@ -205,14 +196,14 @@ final class NotificationService: UNNotificationServiceExtension {
                 
                 guard let result = op1.result else {
                     Self.logger.error("Could not create PersistedUserNotification. We don't schedule any user notification.")
-                    await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+                    notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
                     return
                 }
                 
                 switch result {
                 case .existed:
                     Self.logger.info("We don't schedule any user notification as one already exists for this ObvMessage")
-                    await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+                    notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
                     return
                 case .created:
                     Self.logger.info("We just persisted the ObvMessage in the user notification DB, we will schedule a local user notification.")
@@ -225,12 +216,15 @@ final class NotificationService: UNNotificationServiceExtension {
                         let returnReceiptToSend = ObvReturnReceiptToSend(elements: returnReceipt.elements,
                                                                          status: .delivered,
                                                                          contactIdentifier: obvMessage.fromContactIdentity,
-                                                                         contactDeviceUIDs: contactDeviceUIDs,
                                                                          attachmentNumber: nil)
-                        try await engine.postReturnReceiptsWithElements(returnReceiptsToSend: [returnReceiptToSend])
+                        // Waited for: this extension is about to finish and only the app sweeps that store, so
+                        // otherwise the receipt would sit there until the next foreground and the sender would stop
+                        // seeing a prompt delivery tick for exactly the messages that arrive by push. If this
+                        // extension is killed while waiting, the row is already there and the app's next sweep sends it.
+                        await engine.postReturnReceiptsWithElements(returnReceiptsToSend: [returnReceiptToSend], waitUntilSent: true)
                     }
                 } catch {
-                    Self.logger.fault("The Return Receipt could not be posted")
+                    Self.logger.fault("The payload of a message could not be decoded, so it has no return receipt to post")
                     // Continue anyway
                 }
                 
@@ -295,14 +289,14 @@ final class NotificationService: UNNotificationServiceExtension {
                 
                 guard let result = op1.result else {
                     Self.logger.error("Could not create PersistedUserNotification. We don't schedule any user notification.")
-                    await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+                    notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
                     return
                 }
                 
                 switch result {
                 case .existed:
                     Self.logger.info("We don't schedule any user notification as one already exists for this ObvMessage")
-                    await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+                    notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
                     return
                 case .created:
                     Self.logger.info("We just persisted the ObvMessage in the user notification DB, we will schedule a local user notification.")
@@ -360,14 +354,14 @@ final class NotificationService: UNNotificationServiceExtension {
                 
                 guard let result = op1.result else {
                     Self.logger.error("Could not create PersistedUserNotification. We don't schedule any user notification.")
-                    await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+                    notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
                     return
                 }
                 
                 switch result {
                 case .existed:
                     Self.logger.info("We don't schedule any user notification as one already exists for this ObvMessage")
-                    await self.notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
+                    notificationContent.setBestAttemptContentFromObvMessage(to: .silent)
                     return
                 case .created:
                     Self.logger.info("We just persisted the ObvMessage in the user notification DB, we will schedule a local user notification.")
@@ -384,7 +378,7 @@ final class NotificationService: UNNotificationServiceExtension {
                                 
                 notificationToShow = notificationToShow.withUpdatedBadgeCount(newBadgeValue)
                 
-                await self.notificationContent.setBestAttemptContentFromObvMessage(to: notificationToShow)
+                notificationContent.setBestAttemptContentFromObvMessage(to: notificationToShow)
 
                 for requestIdentifier in requestIdentifiers {
                     let op1 = UpdateStatusOfPersistedUserNotificationOperation(requestIdentifier: requestIdentifier, newStatus: .removed)
@@ -405,7 +399,7 @@ final class NotificationService: UNNotificationServiceExtension {
                                 
                 notificationToShow = notificationToShow.withUpdatedBadgeCount(newBadgeValue)
                 
-                await self.notificationContent.setBestAttemptContentFromObvMessage(to: notificationToShow)
+                notificationContent.setBestAttemptContentFromObvMessage(to: notificationToShow)
 
                 for requestIdentifier in requestIdentifiers {
                     let op1 = UpdateStatusOfPersistedUserNotificationOperation(requestIdentifier: requestIdentifier, newStatus: .removed)
@@ -480,13 +474,13 @@ final class NotificationService: UNNotificationServiceExtension {
             
             // If we reach this point, we can use the notificationToShow to update the best attempt
 
-            await self.notificationContent.setBestAttemptContentFromObvMessage(to: notificationToShow)
+            notificationContent.setBestAttemptContentFromObvMessage(to: notificationToShow)
 
         case .obvOwnedMessage(let obvOwnedMessage):
             
             // By default, we consider that an ObvOwnedMessage should never show any user notification
             
-            await self.notificationContent.setBestAttemptContentFromObvOwnedMessage(to: .silent)
+            notificationContent.setBestAttemptContentFromObvOwnedMessage(to: .silent)
             
             // Determine the kind of notification to show
 
@@ -498,7 +492,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 
             case .silent, .silentWithUpdatedBadgeCount:
                 
-                await self.notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
+                notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
 
             case .removePreviousNotificationsBasedOnObvDiscussionIdentifier(content: _, obvDiscussionIdentifier: let discussionIdentifier, lastReadMessageServerTimestamp: let lastReadMessageServerTimestamp):
                 
@@ -513,7 +507,7 @@ final class NotificationService: UNNotificationServiceExtension {
                                 
                 notificationToShow = notificationToShow.withUpdatedBadgeCount(newBadgeValue)
                 
-                await self.notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
+                notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
 
                 for requestIdentifier in requestIdentifiers {
                     let op1 = UpdateStatusOfPersistedUserNotificationOperation(requestIdentifier: requestIdentifier, newStatus: .removed)
@@ -532,7 +526,7 @@ final class NotificationService: UNNotificationServiceExtension {
                                 
                 notificationToShow = notificationToShow.withUpdatedBadgeCount(newBadgeValue)
                 
-                await self.notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
+                notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
 
                 for requestIdentifier in requestIdentifiers {
                     let op1 = UpdateStatusOfPersistedUserNotificationOperation(requestIdentifier: requestIdentifier, newStatus: .removed)
@@ -546,7 +540,7 @@ final class NotificationService: UNNotificationServiceExtension {
                                 
                 notificationToShow = notificationToShow.withUpdatedBadgeCount(newBadgeValue+1)
 
-                await self.notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
+                notificationContent.setBestAttemptContentFromObvOwnedMessage(to: notificationToShow)
 
             }
             
@@ -586,22 +580,9 @@ final class NotificationService: UNNotificationServiceExtension {
     }
     
     
-    private func initializeObvEngine() async throws -> ObvEngine {
-        let mainEngineContainer = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url
-        ObvEngine.mainContainerURL = mainEngineContainer
-        let obvEngine = try await ObvEngine.startLimitedToDecrypting(
-            sharedContainerIdentifier: ObvAppCoreConstants.appGroupIdentifier,
-            logPrefix: "DecryptingLimitedEngine",
-            remoteNotificationByteIdentifierForServer: ObvAppCoreConstants.remoteNotificationByteIdentifierForServer,
-            appType: .notificationExtension,
-            runningLog: Self.runningLog)
-        return obvEngine
-    }
-    
-    
     /// When receiving an `ObvOwnedMessage` with a "discussion read" payload, we want to remove all notifications for messages within that discussion, with a server timestamp earlier or equal to the date until when the messages
     /// were read on another owned device. This method allows to fetch the request identifiers of the user notifications to remove.
-    private func getRequestIdentifiersOfShownUserNotifications(discussionIdentifier: ObvDiscussionIdentifier, lastReadMessageServerTimestamp: Date?) async throws -> [String] {
+    private static func getRequestIdentifiersOfShownUserNotifications(discussionIdentifier: ObvDiscussionIdentifier, lastReadMessageServerTimestamp: Date?) async throws -> [String] {
 
         let op1 = GetRequestIdentifiersOfShownUserNotificationsOperation(.discussionAndLastReadMessageServerTimestamp(
             discussionIdentifier: discussionIdentifier,
@@ -622,7 +603,7 @@ final class NotificationService: UNNotificationServiceExtension {
     
     
     /// When receiving an `ObvOwnedMessage` with a "delete message" or discussion payload, we want to remove all notifications for deleted messages within that discussion. This method allows to fetch the request identifiers of the user notifications to remove.
-    private func getRequestIdentifiersOfShownUserNotifications(messageAppIdentifiers: [ObvMessageAppIdentifier]) async throws -> [String] {
+    private static func getRequestIdentifiersOfShownUserNotifications(messageAppIdentifiers: [ObvMessageAppIdentifier]) async throws -> [String] {
         
         let op1 = GetRequestIdentifiersOfShownUserNotificationsOperation(.messageIdentifiers(messageAppIdentifiers: messageAppIdentifiers))
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
@@ -636,15 +617,72 @@ final class NotificationService: UNNotificationServiceExtension {
         } else {
             return op1.requestIdentifiers
         }
-        
+
     }
-    
+
+}
+
+
+// MARK: - The engine and the Core Data stacks of this process
+
+extension NotificationService {
+
+    /// Starts the engine, and initializes the Core Data stacks, once for the whole process however many notifications ask at the same time.
+    ///
+    /// Neither may run twice at once: starting the engine writes statics of the engine, and each stack checks for an existing instance
+    /// before making one. A start that fails is forgotten, so that the next notification tries again.
+    fileprivate actor TheEngineAndTheStacksOfThisProcess {
+
+        static let shared = TheEngineAndTheStacksOfThisProcess()
+
+        private var startOfTheEngine: Task<ObvEngine, Error>?
+
+        func engine() async throws -> ObvEngine {
+            if let startOfTheEngine {
+                return try await startOfTheEngine.value
+            } else {
+                let startOfTheEngine = Task {
+                    try await ObvEngine.startLimitedToDecrypting(
+                        sharedContainerIdentifier: ObvAppCoreConstants.appGroupIdentifier,
+                        mainContainerURL: ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url,
+                        logPrefix: "DecryptingLimitedEngine",
+                        remoteNotificationByteIdentifierForServer: ObvAppCoreConstants.remoteNotificationByteIdentifierForServer,
+                        appType: .notificationExtension,
+                        runningLog: NotificationService.runningLog)
+                }
+                self.startOfTheEngine = startOfTheEngine
+                do {
+                    return try await startOfTheEngine.value
+                } catch {
+                    self.startOfTheEngine = nil
+                    throw error
+                }
+            }
+        }
+
+        func initializeTheStacks() throws {
+            try ObvStack.initSharedInstance(
+                transactionAuthor: ObvUICoreDataConstants.AppCategory.notificationExtension.transactionAuthor,
+                runningLog: NotificationService.runningLog,
+                enableMigrations: false
+            )
+            try ObvUserNotificationsStack.initSharedInstance(
+                transactionAuthor: ObvUICoreDataConstants.AppCategory.notificationExtension.transactionAuthor,
+                runningLog: NotificationService.runningLog,
+                enableMigrations: false,
+                deleteStoreOnFailure: true
+            )
+        }
+
+    }
+
 }
 
 
 // MARK: - NotificationContent
 
-fileprivate actor NotificationContent {
+/// Owned by the task of a single request, which is why it needs no isolation of its own.
+fileprivate final class NotificationContent {
     private(set) var bestAttemptContent: UNNotificationContent = ObvUserNotificationContentCreator.createMinimalNotificationContent(badge: .unchanged).content
     func setBestAttemptContentFromObvMessage(to newContent: ObvUserNotificationContentTypeForObvMessage) {
         self.bestAttemptContent = newContent.content
@@ -719,7 +757,7 @@ fileprivate extension ObvEncryptedRemoteUserNotification {
 
 extension NotificationService {
     
-    func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
+    static func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
         let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvUserNotificationsStack.shared, queueForComposedOperations: Self.queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
         composedOp.completionBlock = { [weak composedOp] in
             assert(composedOp != nil)

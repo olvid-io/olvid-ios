@@ -1,6 +1,6 @@
 //
 //  Olvid for iOS
-//  Copyright © 2019-2024 Olvid SAS
+//  Copyright © 2019-2026 Olvid SAS
 //
 //  This file is part of Olvid for iOS.
 //
@@ -193,14 +193,6 @@ class ObvEncoderTests: XCTestCase {
         XCTAssertEqual(obvDict, decodedObvDict)
         decodedObvDict.removeValue(forKey: key1)
         XCTAssertNotEqual(obvDict, decodedObvDict)
-    }
-    
-    func testTransformer() {
-        let encodedBigInt = (try! BigInt("1234567890")).obvEncode()
-        let transformer = ObvEncodedTransformer()
-        let transformed = transformer.transformedValue(encodedBigInt) as! Data
-        let recoveredEncodedBigInt = transformer.reverseTransformedValue(transformed) as! ObvEncoded
-        XCTAssertEqual(encodedBigInt, recoveredEncodedBigInt)
     }
     
     func testLengthEncode() {

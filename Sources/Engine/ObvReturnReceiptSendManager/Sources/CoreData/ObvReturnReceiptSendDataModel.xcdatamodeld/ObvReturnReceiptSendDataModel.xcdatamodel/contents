@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23605" systemVersion="24D70" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="ObvReturnReceiptSendDataModel-v1">
+    <entity name="PersistedReturnReceiptToSend" representedClassName="PersistedReturnReceiptToSend" syncable="YES">
+        <attribute name="contactIdentity" attributeType="Binary"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="key" attributeType="Binary"/>
+        <attribute name="nonce" attributeType="Binary"/>
+        <attribute name="ownedIdentity" attributeType="Binary"/>
+        <attribute name="rawAttachmentNumber" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <attribute name="rawStatus" attributeType="Integer 16" usesScalarValueType="YES"/>
+        <attribute name="serverURL" attributeType="URI"/>
+        <fetchIndex name="byServerURLAndCreatedAt">
+            <fetchIndexElement property="serverURL" type="Binary" order="ascending"/>
+            <fetchIndexElement property="createdAt" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="ownedIdentity"/>
+                <constraint value="contactIdentity"/>
+                <constraint value="nonce"/>
+                <constraint value="rawStatus"/>
+                <constraint value="rawAttachmentNumber"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+</model>

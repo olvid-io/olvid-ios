@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -131,7 +131,7 @@ extension PersistedProfileBackupThreadId {
         let fetchRequest = Self.fetchRequest()
         fetchRequest.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
         fetchRequest.fetchLimit = 1
-        fetchRequest.propertiesToFetch = []
+        fetchRequest.includesPropertyValues = false
         let item = try context.fetch(fetchRequest).first
         try item?.deletePersistedProfileBackupThreadId()
     }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,6 +49,12 @@ final class MultipleUsersHostingViewController: UIHostingController<HorizontalAn
     
     private weak var delegate: MultipleContactsHostingViewControllerDelegate?
     
+    /// What the Cancel bar button does, and what Esc does once any search has been left. Set by whoever presents this controller; while nil
+    /// there is no Cancel button and Esc is not answered, which is the case when this controller is embedded in the contacts tab.
+    var whatCancelDoes: (() -> Void)? {
+        didSet { configureCancelButton() }
+    }
+
     init(ownedCryptoId: ObvCryptoId, mode: Mode, groupMembersMode: GroupMembersMode = .none, configuration: HorizontalAndVerticalUsersViewConfiguration, delegate: MultipleContactsHostingViewControllerDelegate?) {
         
         let store = UsersViewStore(ownedCryptoId: ownedCryptoId, mode: mode, groupMembersMode: groupMembersMode, configuration: configuration)
@@ -77,8 +83,39 @@ final class MultipleUsersHostingViewController: UIHostingController<HorizontalAn
     }
     
 
+    // MARK: - Cancel, and the Esc key
+
+    private func configureCancelButton() {
+        if whatCancelDoes == nil {
+            navigationItem.rightBarButtonItem = nil
+        } else {
+            let cancel = UIAction { [weak self] _ in self?.whatCancelDoes?() }
+            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .cancel, primaryAction: cancel)
+        }
+    }
+
+    /// Esc is offered only while there is a Cancel to run. The Cancel is a UIKit bar button, so no SwiftUI shortcut can carry the key. The selector
+    /// is named after this class, UIKit sending a key command's action to the first responder in the chain that implements it rather than to the
+    /// controller that offered it.
+    override var keyCommands: [UIKeyCommand]? {
+        guard whatCancelDoes != nil else { return super.keyCommands }
+        return (super.keyCommands ?? []) + [UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(multipleUsersAnswerTheEscapeKey))]
+    }
+
+    /// Leaves a search first, and only then cancels, as Forward does.
+    @objc private func multipleUsersAnswerTheEscapeKey() {
+        if searchController.isActive || !(searchController.searchBar.text ?? "").isEmpty {
+            searchController.searchBar.text = ""
+            searchController.isActive = false
+        } else {
+            whatCancelDoes?()
+        }
+    }
+
+
     func selectRowOfContactIdentity(_ contactIdentity: PersistedObvContactIdentity) {
-        guard let user = store.users.first(where: { $0.cryptoId == contactIdentity.cryptoId }) else { assertionFailure(); return }
+        guard let contactCryptoId = try? contactIdentity.cryptoId else { return }
+        guard let user = store.users.first(where: { $0.cryptoId == contactCryptoId }) else { assertionFailure(); return }
         store.selectRowOfUser(user)
     }
 

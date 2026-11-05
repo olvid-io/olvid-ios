@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,7 @@ import ObvSettings
 import ObvUI
 import ObvAppTypes
 import ObvDesignSystem
+import OlvidUtils
 
 
 protocol DraftSettingsHostingViewControllerDelegate: AnyObject {
@@ -32,7 +33,7 @@ protocol DraftSettingsHostingViewControllerDelegate: AnyObject {
 }
 
 
-final class DraftSettingsHostingViewController: KeyboardHostingController<DraftExpirationSettingsWrapperView> {
+final class DraftSettingsHostingViewController: UIHostingController<DraftExpirationSettingsWrapperView> {
 
     fileprivate let model: DraftExpirationSettingsViewModel
 
@@ -318,7 +319,16 @@ fileprivate struct DraftExpirationSettingsView: View {
                 }
             }
             .navigationBarTitle("", displayMode: .inline)
+            #if targetEnvironment(macCatalyst)
+            // A Mac sheet cannot be swiped away, so it gets a button that closes it.
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    ObvButtonWithCancelRole(action: dismiss)
+                }
+            }
+            #else
             .navigationBarHidden(true)
+            #endif
         }
         .navigationViewStyle(StackNavigationViewStyle()) // Prevents split on iPad
     }

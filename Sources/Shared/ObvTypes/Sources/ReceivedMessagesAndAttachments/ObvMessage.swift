@@ -42,6 +42,10 @@ public struct ObvMessage: Equatable, Hashable {
     public var messageUID: UID {
         return messageId.uid
     }
+    
+    public var timeSpentOnServer: TimeInterval {
+        return downloadTimestampFromServer.timeIntervalSince(messageUploadTimestampFromServer)
+    }
 
     /// Non-nil when the contact device is known
     public var contactDeviceIdentifier: ObvContactDeviceIdentifier? {

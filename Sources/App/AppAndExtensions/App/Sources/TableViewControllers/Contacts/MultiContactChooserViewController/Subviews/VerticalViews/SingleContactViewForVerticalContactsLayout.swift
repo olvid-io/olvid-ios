@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,9 +25,10 @@ import ObvUI
 import ObvTypes
 import ObvCircleAndTitlesView
 import ObvAccessibility
+import ObvDesignSystem
 
 
-/// Expected to be implemented by `PersistedUser` (and thus by `PersistedObvContactIdentity` and `PersistedGroupV2Member`)
+/// Expected to be implemented by `PersistedUser`
 protocol ManagedUserViewForVerticalUsersLayoutModelProtocol: Equatable, Hashable, SingleUserViewForVerticalUsersLayoutModelProtocol {
     var cryptoId: ObvCryptoId { get }
 }

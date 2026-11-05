@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,27 +59,36 @@ public final class ObvOwnedCryptoIdentity: NSObject, NSCopying {
     }
 }
 
+
 // MARK: Create an ObvCryptoIdentity from an ObvOwnedCryptoIdentity
+
 extension ObvOwnedCryptoIdentity {
+    
     public func getObvCryptoIdentity() -> ObvCryptoIdentity {
-        return ObvCryptoIdentity(serverURL: serverURL, publicKeyForAuthentication: publicKeyForAuthentication, publicKeyForPublicKeyEncryption: publicKeyForPublicKeyEncryption)
+        return ObvCryptoIdentity(
+            serverURL: serverURL,
+            publicKeyForAuthentication: publicKeyForAuthentication,
+            publicKeyForPublicKeyEncryption: publicKeyForPublicKeyEncryption
+        )
     }
+    
 }
+
 
 // MARK: Implementing Equatable
 
 /// Replacing the NSObject default implementation
 extension ObvOwnedCryptoIdentity {
+    
     static func == (lhs: ObvOwnedCryptoIdentity, rhs: ObvOwnedCryptoIdentity) -> Bool {
-        guard lhs.publicKeyForAuthentication.isEqualTo(other: rhs.publicKeyForAuthentication) else { return false }
-        guard lhs.publicKeyForPublicKeyEncryption.isEqualTo(other: rhs.publicKeyForPublicKeyEncryption) else { return false }
+        guard lhs.getObvCryptoIdentity() == rhs.getObvCryptoIdentity() else { return false }
         guard lhs.privateKeyForAuthentication.isEqualTo(other: rhs.privateKeyForAuthentication) else { return false }
         guard lhs.privateKeyForPublicKeyEncryption.isEqualTo(other: rhs.privateKeyForPublicKeyEncryption) else { return false }
         return true
     }
-    static func != (lhs: ObvOwnedCryptoIdentity, rhs: ObvOwnedCryptoIdentity) -> Bool {
-        return !(lhs == rhs)
-    }
+    
+    static func != (lhs: ObvOwnedCryptoIdentity, rhs: ObvOwnedCryptoIdentity) -> Bool { !(lhs == rhs) }
+    
     public override func isEqual(_ object: Any?) -> Bool {
         if let o = object as? ObvOwnedCryptoIdentity {
             return self == o
@@ -87,34 +96,48 @@ extension ObvOwnedCryptoIdentity {
             return false
         }
     }
+    
+    /// Hashes the public identity only. Equal owned identities have equal public identities, so they hash alike, which is all
+    /// `Hashable` requires; the private keys add nothing and stay out of the hasher.
+    public override var hash: Int {
+        getObvCryptoIdentity().hash
+    }
+    
 }
+
 
 // MARK: Implementing NSCopying
 
 /// This solves a bug we encoutered while using `ObvCryptoIdentity`s with Core Data
 extension ObvOwnedCryptoIdentity {
+    
     public func copy(with zone: NSZone? = nil) -> Any {
-        return ObvOwnedCryptoIdentity(serverURL: serverURL,
-                                      publicKeyForAuthentication: publicKeyForAuthentication,
-                                      publicKeyForPublicKeyEncryption: publicKeyForPublicKeyEncryption,
-                                      privateKeyForAuthentication: privateKeyForAuthentication,
-                                      privateKeyForPublicKeyEncryption: privateKeyForPublicKeyEncryption,
-                                      secretMACKey: secretMACKey)
+        return ObvOwnedCryptoIdentity(
+            serverURL: serverURL,
+            publicKeyForAuthentication: publicKeyForAuthentication,
+            publicKeyForPublicKeyEncryption: publicKeyForPublicKeyEncryption,
+            privateKeyForAuthentication: privateKeyForAuthentication,
+            privateKeyForPublicKeyEncryption: privateKeyForPublicKeyEncryption,
+            secretMACKey: secretMACKey
+        )
     }
 }
 
 extension ObvOwnedCryptoIdentity: ObvCodable {
     
     public func obvEncode() -> ObvEncoded {
-        let listOfEncodedValues = [self.serverURL.obvEncode(),
-                                   self.publicKeyForAuthentication.obvEncode(),
-                                   self.publicKeyForPublicKeyEncryption.obvEncode(),
-                                   self.privateKeyForAuthentication.obvEncode(),
-                                   self.privateKeyForPublicKeyEncryption.obvEncode(),
-                                   self.secretMACKey.obvEncode()]
+        let listOfEncodedValues = [
+            self.serverURL.obvEncode(),
+            self.publicKeyForAuthentication.obvEncode(),
+            self.publicKeyForPublicKeyEncryption.obvEncode(),
+            self.privateKeyForAuthentication.obvEncode(),
+            self.privateKeyForPublicKeyEncryption.obvEncode(),
+            self.secretMACKey.obvEncode(),
+        ]
         let obvEncoded = listOfEncodedValues.obvEncode()
         return obvEncoded
     }
+    
 
     public convenience init?(_ encodedList: ObvEncoded) {
         guard let listOfEncodedValues = [ObvEncoded](encodedList) else { return nil }
@@ -144,35 +167,6 @@ extension ObvOwnedCryptoIdentity: ObvCodable {
     
 }
 
-/// Implementing a ValueTransformer for an ObvCryptoIdentity. This transformer makes it possible to easily store an identity in Core Data.
-
-//public class ObvOwnedCryptoIdentityTransformer: ValueTransformer {
-//    
-//    override public class func transformedValueClass() -> AnyClass {
-//        return ObvOwnedCryptoIdentity.self
-//    }
-//    
-//    override public class func allowsReverseTransformation() -> Bool {
-//        return true
-//    }
-//    
-//    /// Transform an ObvCryptoIdentity into an instance of Data (which actually is the raw representation of an ObvEncoded object)
-//    override public func transformedValue(_ value: Any?) -> Any? {
-//        guard let obvCryptoIdentity = value as? ObvOwnedCryptoIdentity else { return nil }
-//        let obvEncoded = obvCryptoIdentity.obvEncode()
-//        return obvEncoded.rawData
-//    }
-//    
-//    override public func reverseTransformedValue(_ value: Any?) -> Any? {
-//        guard let data = value as? Data else { return nil }
-//        guard let encodedList = ObvEncoded(withRawData: data) else { return nil }
-//        return ObvOwnedCryptoIdentity(encodedList)
-//    }
-//}
-//
-//public extension NSValueTransformerName {
-//    static let obvOwnedCryptoIdentityTransformerName = NSValueTransformerName(rawValue: "ObvOwnedCryptoIdentityTransformer")
-//}
 
 // MARK: - For backup purposes
 
@@ -183,6 +177,7 @@ extension ObvOwnedCryptoIdentity {
     }
     
 }
+
 
 public struct ObvOwnedCryptoIdentityPrivateBackupItem: Codable, Hashable, Sendable {
     

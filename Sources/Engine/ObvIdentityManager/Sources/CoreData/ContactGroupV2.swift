@@ -226,7 +226,7 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
     private(set) var creationOrUpdateInitiator = ObvGroupV2.CreationOrUpdateInitiator.createdOrUpdatedBySomeoneElse // Kept in memory, reset to an appropriate value if required
 
     /// Expected to be non-nil
-    var identifierVersionAndKeys: GroupV2.IdentifierVersionAndKeys? {
+    private var identifierVersionAndKeys: GroupV2.IdentifierVersionAndKeys? {
         guard let blobKeys = self.blobKeys else {
             assert(rawCategory == GroupV2.Identifier.Category.keycloak.rawValue, "blobKeys are nil iff this is a keycloak group")
             return nil
@@ -235,6 +235,17 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
         return GroupV2.IdentifierVersionAndKeys(groupIdentifier: groupIdentifier, groupVersion: groupVersion, blobKeys: blobKeys)
     }
 
+    
+    /// The keys to send a member of this group. The admin key stays with the admins: a member without the
+    /// group-admin permission is not given it, whatever we hold.
+    func identifierVersionAndKeys(forAMemberWhoIsAdmin recipientIsAdmin: Bool) -> GroupV2.IdentifierVersionAndKeys? {
+        guard let identifierVersionAndKeys else { return nil }
+        return GroupV2.IdentifierVersionAndKeys(
+            groupIdentifier: identifierVersionAndKeys.groupIdentifier,
+            groupVersion: identifierVersionAndKeys.groupVersion,
+            blobKeys: identifierVersionAndKeys.blobKeys.forAMember(whoIsAdmin: recipientIsAdmin))
+    }
+    
     
     func getTrustedPhotoURL() throws -> URL? {
         try trustedDetails?.getPhotoURL()
@@ -579,7 +590,7 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
                                   trustedDetails: trustedDetails,
                                   otherGroupMembers: otherGroupMembers,
                                   serializedGroupType: serverBlob.serializedGroupType,
-                                  groupAdminServerAuthenticationPrivateKey: blobKeys.groupAdminServerAuthenticationPrivateKey,
+                                  groupAdminServerAuthenticationPrivateKey: blobKeys.forAMember(whoIsAdmin: ownMember.hasGroupAdminPermission).groupAdminServerAuthenticationPrivateKey,
                                   serializedSharedSettings: nil,
                                   lastModificationTimestamp: lastModificationTimestamp)
         
@@ -635,7 +646,8 @@ final class ContactGroupV2: NSManagedObject, ObvErrorMaker {
             // We transform these SignedObvKeycloakUserDetails into ObvIdentityCoreDetails (that also contain the signed details in that case)
             // We serialize these ObvIdentityCoreDetails to create the GroupV2.IdentityAndPermissionsAndDetails for that group member.
 
-            let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(otherKeycloakGroupMember.signedUserDetails, with: jwks).signedUserDetails
+            let otherKeycloakGroupMemberCryptoId = ObvCryptoId(cryptoIdentity: otherKeycloakGroupMember.identity)
+            let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(otherKeycloakGroupMember.signedUserDetails, with: jwks, binding: .mustBeBound(to: otherKeycloakGroupMemberCryptoId)).signedUserDetails
             let obvIdentityCoreDetails = try signedObvKeycloakUserDetails.toObvIdentityCoreDetails() // These details contain the signedUserDetails
             let serializedIdentityCoreDetails = try obvIdentityCoreDetails.jsonEncode()
             
@@ -1009,7 +1021,7 @@ extension ContactGroupV2 {
         
         self.blobMainSeed = newBlobKeys.blobMainSeed
         self.blobVersionSeed = newBlobKeys.blobVersionSeed
-        self.groupAdminServerAuthenticationPrivateKey = newBlobKeys.groupAdminServerAuthenticationPrivateKey
+        // self.groupAdminServerAuthenticationPrivateKey set later, once ownMember is known
         self.lastModificationTimestamp = lastModificationTimestamp
         
         guard consolidatedServerBlob.administratorsChain.integrityChecked else { throw Self.makeError(message: "Cannot update group if the administrators chain is not checked") }
@@ -1028,6 +1040,8 @@ extension ContactGroupV2 {
             throw Self.makeError(message: "We are not indicated as part of the group")
         }
         
+        self.groupAdminServerAuthenticationPrivateKey = newBlobKeys.forAMember(whoIsAdmin: ownMember.hasGroupAdminPermission).groupAdminServerAuthenticationPrivateKey
+
         if ownMember.hasGroupAdminPermission {
             guard self.groupAdminServerAuthenticationPrivateKey != nil else {
                 throw Self.makeError(message: "Although we are indicated as an admin of the group, we do not have the authentication private key")

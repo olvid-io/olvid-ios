@@ -48,7 +48,7 @@ final class SourceTransferStepsAppDataSource {
 extension SourceTransferStepsAppDataSource: SourceTransferStepsDataSource {
     
     /// Called by the source device at the beginning of the history transfer process. We should return all the discussion identifiers (excluding pre-discussions) for the given owned identity.
-    func historyTransferRequiresAllDiscussionIdentifiers(_ actor: ObvHistoryTransfer.SourceTransferSteps, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> [ObvAppTypes.ObvDiscussionIdentifier] {
+    func historyTransferRequiresAllDiscussionIdentifiers(_ actor: ObvHistoryTransfer.SourceTransferSteps, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> Set<ObvAppTypes.ObvDiscussionIdentifier> {
         return try await self.historyTransferDataSourceHelper.getAllDiscussionIdentifiers(ownedCryptoId: ownedCryptoId)
     }
     
@@ -321,7 +321,7 @@ private extension ObvHistoryTransfer.JsonReactionToMessage {
             }
             sender = ownedCryptoId
         } else if let reactionReceived = reaction as? PersistedMessageReactionReceived {
-            guard let contactCryptoId = reactionReceived.contact?.cryptoId else {
+            guard let contactCryptoId = try? reactionReceived.contact?.cryptoId else {
                 return nil
             }
             sender = contactCryptoId
@@ -349,7 +349,7 @@ private extension ObvHistoryTransfer.JsonPollVoteForMessage {
             }
             sender = ownedCryptoId
         } else if let voteReceived = vote as? PersistedPollVoteReceived {
-            guard let contactCryptoId = voteReceived.contact?.cryptoId else {
+            guard let contactCryptoId = try? voteReceived.contact?.cryptoId else {
                 return nil
             }
             sender = contactCryptoId

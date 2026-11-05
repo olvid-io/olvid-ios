@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvAppTypes
 import ObvDesignSystem
 import ObvSystemIcon
 import ObvAppCoreConstants
+import OlvidUtils
 import OSLog
 
 
@@ -400,14 +401,9 @@ private struct DiscussionCellInternalViewButtonContent: View {
                 //
                 // First line
                 //
-                if #available(iOS 16, *) {
-                    // Under iOS16+, we align the leading edge of the separator (required, as it otherwise automatically aligns on the character in the avatar view)
-                    TitleView(viewModel: viewModel)
-                        .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] }
-                } else {
-                    // Under iOS15, the separators are hidden (see `ObvDiscussionsListView`)
-                    TitleView(viewModel: viewModel)
-                }
+                // Under iOS16+, we align the leading edge of the separator (required, as it otherwise automatically aligns on the character in the avatar view)
+                TitleView(viewModel: viewModel)
+                    .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] }
                 
                 //
                 // Second line
@@ -478,7 +474,7 @@ private struct TitleView: View {
             Spacer()
             // Date
             if let date = viewModel.date {
-                Text(date.discussionCellFormat)
+                DiscussionDateView(date: date)
                     .lineLimit(1)
                     .foregroundStyle(.secondary)
                     .font(.caption)
@@ -489,7 +485,37 @@ private struct TitleView: View {
 }
 
 
-// MARK: - Internal view
+// MARK: - Internal view: DiscussionDateView
+
+/// A view that displays a date in the context-aware format returned by `Date.discussionCellFormat(relativeTo:)`: the
+/// time for today's messages, then the abbreviated weekday, then the day and the month, and finally a two-digit year
+/// for messages older than a year.
+///
+/// The displayed date never changes, so that format can only change when the calendar day changes. This view therefore
+/// formats it relative to the start of the current day, which it takes from the shared `ObvCurrentDayMonitor`: the label
+/// is refreshed at each day change, and only then. The monitor is shared by every cell, so however many discussions are
+/// on screen, a single wake-up per day keeps all of them up to date.
+private struct DiscussionDateView: View {
+
+    /// The date to be displayed. This is the fixed date being formatted, not the current time.
+    let date: Date
+
+    /// Seeded for the first paint, then kept up to date by the monitor's stream.
+    @State private var startOfCurrentDay = Calendar.current.startOfDay(for: .now)
+
+    var body: some View {
+        Text(date.discussionCellFormat(relativeTo: startOfCurrentDay))
+            .task {
+                for await startOfCurrentDay in ObvCurrentDayMonitor.shared.startOfCurrentDayStream() {
+                    self.startOfCurrentDay = startOfCurrentDay
+                }
+            }
+    }
+
+}
+
+
+// MARK: - Internal view: TextOfMessage
 
 private struct TextOfMessage: View {
     

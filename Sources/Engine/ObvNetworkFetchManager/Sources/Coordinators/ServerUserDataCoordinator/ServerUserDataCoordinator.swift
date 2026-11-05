@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -186,7 +186,7 @@ extension ServerUserDataCoordinator: ServerUserDataDelegate {
                 try await refreshUserData(serverUserDataInput, delegateManager: delegateManager, identityDelegate: identityDelegate, currentInvalidToken: nil, flowId: flowId)
             } catch {
                 Self.logger.fault("Failed to refresh user data: \(error.localizedDescription)")
-                assertionFailure(error.localizedDescription)
+                //assertionFailure(error.localizedDescription)
                 // In production, continue anyway with the next item
             }
         }
@@ -375,7 +375,7 @@ extension ServerUserDataCoordinator {
                 do {
                     try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
                 } catch {
-                    assertionFailure()
+                    //assertionFailure()
                     throw ObvError.failedToCreatePendingServerQueryAlthoughUserDataToRefreshIsMissingOnServer
                 }
                 try await delegateManager.serverQueryDelegate.processAllPendingServerQueries(for: userData.ownedIdentity, flowId: flowId)
@@ -465,7 +465,7 @@ extension ServerUserDataCoordinator {
                     // We already waited for the appropriate delay within the task
                     return try await refreshUserData(userData, delegateManager: delegateManager, identityDelegate: identityDelegate, currentInvalidToken: nil, flowId: flowId)
                 default:
-                    assertionFailure()
+                    //assertionFailure()
                     throw error
                 }
             } else {

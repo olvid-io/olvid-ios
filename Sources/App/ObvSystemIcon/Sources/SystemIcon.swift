@@ -146,12 +146,14 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case figureStandLineDottedFigureStand
     case figureTwoAndChildHoldinghands
     case fileMenuAndSelection
+    case flame
     case flameFill
     case folder
     case folderCircle
     case folderFill
     case forwardFill
     case gear
+    case gearshape
     case gearshapeFill
     case giftcardFill
     case globe
@@ -159,6 +161,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case globeAsiaAustraliaFill
     case globeEuropeAfricaFill
     case hammerCircle
+    case handDraw
     case handTap
     case handThumbsup
     case handThumbsupFill
@@ -264,6 +267,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case phoneArrowDownLeftFill
     case phoneArrowUpRightFill
     case photo
+    case photoBadgeExclamationMark
     case photoOnRectangleAngled
     case pin
     case pinFill
@@ -286,6 +290,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case rectangleDashedAndPaperclip
     case rectangleCompressVertical
     case rectangleSplit3x3
+    case rectangleStackBadgePlus
     case repeatIcon
     case repeatCircle
     case repeatCircleFill
@@ -293,6 +298,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case scanner
     case serverRack
     case shieldFill
+    case siri
     case shieldSlash
     case smartphone
     case speakerWave3Fill
@@ -321,6 +327,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
     case umbrella
     case unpin
     case videoFill
+    case videoFillSlash
     case visionpro
     case waveform
     case waveformCircle
@@ -373,11 +380,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .docRichtext:
             return "doc.richtext"
         case .photoOnRectangleAngled:
-            if #available(iOS 14, *) {
-                return "photo.on.rectangle.angled"
-            } else {
-                return "photo.on.rectangle"
-            }
+            return "photo.on.rectangle.angled"
         case .arrowLeft:
             return "arrow.left"
         case .arrowUp:
@@ -401,11 +404,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .arrowDownToLine:
             return "arrow.down.to.line"
         case .arrowDownToLineCircle:
-            if #available(iOS 15, *) {
-                return "arrow.down.to.line.circle"
-            } else {
-                return "arrow.down.to.line"
-            }
+            return "arrow.down.to.line.circle"
         case .barcodeViewfinder:
             return "barcode.viewfinder"
         case .bell(let fillOptions):
@@ -417,37 +416,19 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "bell.fill"
             }
         case .hammerCircle:
-            if #available(iOS 15, *) {
-                return "hammer.circle"
-            } else {
-                return "hammer"
-            }
+            return "hammer.circle"
+        case .handDraw:
+            return "hand.draw"
         case .handTap:
-            if #available(iOS 14, *) {
-                return "hand.tap"
-            } else {
-                return "hand.draw"
-            }
+            return "hand.tap"
         case .arrowshapeTurnUpLeftCircleFill:
             return "arrowshape.turn.up.left.circle.fill"
         case .arrowTriangle2CirclepathCamera:
-            if #available(iOS 14, *) {
-                return "arrow.triangle.2.circlepath.camera"
-            } else {
-                return "arrow.clockwise.circle.fill"
-            }
+            return "arrow.triangle.2.circlepath.camera"
         case .arrowTriangle2CirclepathCircle:
-            if #available(iOS 14, *) {
-                return "arrow.triangle.2.circlepath.circle"
-            } else {
-                return "arrow.clockwise.circle"
-            }
+            return "arrow.triangle.2.circlepath.circle"
         case .arrowTriangle2CirclepathCircleFill:
-            if #available(iOS 14, *) {
-                return "arrow.triangle.2.circlepath.circle.fill"
-            } else {
-                return "arrow.clockwise.circle.fill"
-            }
+            return "arrow.triangle.2.circlepath.circle.fill"
         case .trashFill:
             return "trash.fill"
         case .trashCircle:
@@ -475,11 +456,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "house"
             }
         case .scanner:
-            if #available(iOS 14, *) {
-                return "scanner"
-            } else {
-                return "viewfinder.circle"
-            }
+            return "scanner"
         case .camera(let option):
             return "camera" + (option?.complement ?? "")
         case .chartBarYaxis:
@@ -492,6 +469,12 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "car"
         case .photo:
             return "photo"
+        case .photoBadgeExclamationMark:
+            if #available(iOS 18.0, *) {
+                return "photo.badge.exclamationmark"
+            } else {
+                return "exclamationmark.bubble.fill"
+            }
         case .paperclip:
             return "paperclip"
         case .paperclipCircle:
@@ -519,17 +502,9 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .ipad:
             return "ipad"
         case .ipadLandscape:
-            if #available(iOS 14.0, *) {
-                return "ipad.landscape"
-            } else {
-                return "dot.square"
-            }
+            return "ipad.landscape"
         case .iphone:
-            if #available(iOS 14.0, *) {
-                return "iphone"
-            } else {
-                return "dot.square"
-            }
+            return "iphone"
         case .iphoneAndArrowForwardInward:
             if #available(iOS 18.0, *) {
                 return "iphone.and.arrow.forward.inward"
@@ -545,19 +520,13 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .iphoneGen3CircleFill:
             if #available(iOS 16.1, *) {
                 return "iphone.gen3.circle.fill"
-            } else if #available(iOS 14, *) {
-                return "iphone"
             } else {
-                return "checkmark.circle"
+                return "iphone"
             }
         case .iphoneRadiowavesLeftAndRight:
             return "iphone.radiowaves.left.and.right"
         case .laptopcomputerAndIphone:
-        if #available(iOS 14, *) {
-            return "laptopcomputer.and.iphone"
-        } else {
-            return "desktopcomputer"
-        }
+        return "laptopcomputer.and.iphone"
         case .key:
             return "key"
         case .keyboard:
@@ -571,35 +540,15 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "key"
             }
         case .personFillQuestionmark:
-            if #available(iOS 14, *) {
-                return "person.fill.questionmark"
-            } else {
-                return "person.fill"
-            }
+            return "person.fill.questionmark"
         case .personFillViewfinder:
-            if #available(iOS 14, *) {
-                return "person.fill.viewfinder"
-            } else {
-                return "qrcode.viewfinder"
-            }
+            return "person.fill.viewfinder"
         case .personFillXmark:
-            if #available(iOS 14, *) {
-                return "person.fill.xmark"
-            } else {
-                return "qrcode.viewfinder"
-            }
+            return "person.fill.xmark"
         case .personLineDottedPerson:
-            if #available(iOS 16, *) {
-                return "person.line.dotted.person"
-            } else {
-                return "person.2"
-            }
+            return "person.line.dotted.person"
         case .personLineDottedPersonFill:
-            if #available(iOS 16, *) {
-                return "person.line.dotted.person.fill"
-            } else {
-                return "person.2.fill"
-            }
+            return "person.line.dotted.person.fill"
         case .personSlash:
             if #available(iOS 17, *) {
                 return "person.slash"
@@ -607,17 +556,9 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "person.fill.xmark"
             }
         case .personBust:
-            if #available(iOS 16, *) {
-                return "person.bust"
-            } else {
-                return "person"
-            }
+            return "person.bust"
         case .personBustFill:
-            if #available(iOS 16, *) {
-                return "person.bust.fill"
-            } else {
-                return "person.fill"
-            }
+            return "person.bust.fill"
         case .personCropBadgeMagnifyingglass:
             if #available(iOS 18.0, *) {
                 return "person.crop.badge.magnifyingglass"
@@ -645,17 +586,9 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .folderCircle:
             return "folder.circle"
         case .arrowshapeTurnUpForward:
-            if #available(iOS 14, *) {
-                return "arrowshape.turn.up.forward"
-            } else {
-                return "arrowshape.turn.up.right"
-            }
+            return "arrowshape.turn.up.forward"
         case .arrowshapeTurnUpForwardCircleFill:
-            if #available(iOS 14, *) {
-                return "arrowshape.turn.up.forward.circle.fill"
-            } else {
-                return "arrowshape.turn.up.right.circle.fill"
-            }
+            return "arrowshape.turn.up.forward.circle.fill"
         case .personCropCircle:
             return "person.crop.circle"
         case .checkmark:
@@ -669,11 +602,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .arrowClockwise:
             return "arrow.clockwise"
         case .arrowClockwiseHeart:
-            if #available(iOS 14, *) {
-                return "arrow.clockwise.heart"
-            } else {
-                return "heart"
-            }
+            return "arrow.clockwise.heart"
         case .arrowCounterclockwise:
             return "arrow.counterclockwise"
         case .arrowCounterclockwiseCircle:
@@ -693,11 +622,9 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .questionmarkSquare:
             return "questionmark.square"
         case .rectangleAndPencilAndEllipsis:
-            if #available(iOS 14, *) {
-                return "rectangle.and.pencil.and.ellipsis"
-            } else {
-                return "square.and.pencil"
-            }
+            return "rectangle.and.pencil.and.ellipsis"
+        case .flame:
+            return "flame"
         case .flameFill:
             return "flame.fill"
         case .cartFill:
@@ -707,11 +634,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .handThumbsupFill:
             return "hand.thumbsup.fill"
         case .arrowUturnForwardCircleFill:
-            if #available(iOS 14, *) {
-                return "arrow.uturn.forward.circle.fill"
-            } else {
-                return "arrow.uturn.right.circle.fill"
-            }
+            return "arrow.uturn.forward.circle.fill"
         case .clock:
             return "clock"
         case .cloud:
@@ -737,11 +660,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .lockRectangleOnRectangle:
             return "lock.rectangle.on.rectangle"
         case .giftcardFill:
-            if #available(iOS 14, *) {
-                return "giftcard.fill"
-            } else {
-                return "checkmark"
-            }
+            return "giftcard.fill"
         case .globe:
             return "globe"
         case .globeAmericasFill:
@@ -766,6 +685,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "qrcode"
         case .gear:
             return "gear"
+        case .gearshape:
+            return "gearshape"
         case .gearshapeFill:
             return "gearshape.fill"
         case .earBadgeCheckmark:
@@ -783,18 +704,12 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .personBadgePlus:
             return "person.badge.plus"
         case .personBadgeShieldCheckmark:
-            if #available(iOS 16, *) {
-                return "person.badge.shield.checkmark"
-            } else {
-                return "person"
-            }
+            return "person.badge.shield.checkmark"
         case .personBadgeShieldExclamationmark:
             if #available(iOS 18, *) {
                 return "person.badge.shield.exclamationmark"
-            } else if #available(iOS 16, *) {
-                return "person.badge.shield.checkmark"
             } else {
-                return "person"
+                return "person.badge.shield.checkmark"
             }
         case .chevronDown:
             return "chevron.down"
@@ -831,17 +746,9 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .phoneFill:
             return "phone.fill"
         case .phoneArrowDownLeftFill:
-            if #available(iOS 16.0, *) {
-                return "phone.arrow.down.left.fill"
-            } else {
-                return "phone.fill"
-            }
+            return "phone.arrow.down.left.fill"
         case .phoneArrowUpRightFill:
-            if #available(iOS 16.0, *) {
-                return "phone.arrow.up.right.fill"
-            } else {
-                return "phone.fill"
-            }
+            return "phone.arrow.up.right.fill"
         case .ellipsis:
             return "ellipsis"
         case .ellipsisCircleFill:
@@ -910,6 +817,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
             return "server.rack"
         case .shieldFill:
             return "shield.fill"
+        case .siri:
+            return "siri"
         case .exclamationmarkCircle:
             return "exclamationmark.circle"
         case .exclamationmarkCircleFill:
@@ -993,11 +902,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .power:
             return "power"
         case .poweroff:
-            if #available(iOS 14.0, *) {
-                return "poweroff"
-            } else {
-                return "circle"
-            }
+            return "poweroff"
         case .arrowForward:
            return "arrow.forward"
         case .pencilSlash:
@@ -1021,11 +926,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .circleFill:
             return "circle.fill"
         case .circleDashed:
-            if #available(iOS 14.0, *) {
-                return "circle.dashed"
-            } else {
-                return "circle"
-            }
+            return "circle.dashed"
         case .muliplyCircleFill:
             return "multiply.circle.fill"
         case .musicNote:
@@ -1039,11 +940,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .arrowDown:
             return "arrow.down"
         case .network:
-            if #available(iOS 14.0, *) {
-                return "network"
-            } else {
-                return "link"
-            }
+            return "network"
         case .networkSlash:
             if #available(iOS 17.0, *) {
                 return "network.slash"
@@ -1053,11 +950,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .noteText:
             return "note.text"
         case .laptopcomputer:
-            if #available(iOS 14.0, *) {
-                return "laptopcomputer"
-            } else {
-                return "desktopcomputer"
-            }
+            return "laptopcomputer"
         case .macbook:
             if #available(iOS 17.0, *) {
                 return "macbook"
@@ -1067,10 +960,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .macbookAndIphone:
             if #available(iOS 16.1, *) {
                 return "macbook.and.iphone"
-            } else if #available(iOS 15.0, *) {
-                return "ipad.and.iphone"
             } else {
-                return "desktopcomputer"
+                return "ipad.and.iphone"
             }
         case .magnifyingglass:
             return "magnifyingglass"
@@ -1099,11 +990,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .docFill:
             return "doc.fill"
         case .rectangleDashedAndPaperclip:
-            if #available(iOS 14, *) {
-                return "rectangle.dashed.and.paperclip"
-            } else {
-                return "rectangle.and.paperclip"
-            }
+            return "rectangle.dashed.and.paperclip"
         case .rectangleCompressVertical:
             return "rectangle.compress.vertical"
         case .envelope:
@@ -1123,17 +1010,9 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "candybarphone"
             }
         case .speakerWave3Fill:
-            if #available(iOS 14.0, *) {
-                return "speaker.wave.3.fill"
-            } else {
-                return "speaker.3.fill"
-            }
+            return "speaker.wave.3.fill"
         case .calendarBadgeClock:
-            if #available(iOS 14.0, *) {
-                return "calendar.badge.clock"
-            } else {
-                return "calendar"
-            }
+            return "calendar.badge.clock"
         case .musicNoteList:
             return "music.note.list"
         case .oneCircleFill:
@@ -1141,11 +1020,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .personCropRectangle:
             return "person.crop.rectangle"
         case .personTextRectangle:
-            if #available(iOS 15.0, *) {
-                return "person.text.rectangle"
-            } else {
-                return "person.crop.circle"
-            }
+            return "person.text.rectangle"
         case .personFillBadgeMinus:
             return "person.fill.badge.minus"
         case .personFillBadgePlus:
@@ -1167,13 +1042,11 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .desktopcomputer:
             return "desktopcomputer"
         case .display:
-            if #available(iOS 14.0, *) {
-                return "display"
-            } else {
-                return "desktopcomputer"
-            }
+            return "display"
         case .rectangleSplit3x3:
             return "rectangle.split.3x3"
+        case .rectangleStackBadgePlus:
+            return "rectangle.stack.badge.plus"
         case .repeatIcon:
             return "repeat"
         case .repeatCircle:
@@ -1183,19 +1056,11 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .textformat:
             return "textformat"
         case .docBadgeGearshape:
-            if #available(iOS 14.0, *) {
-                return "doc.badge.gearshape"
-            } else {
-                return "gear"
-            }
+            return "doc.badge.gearshape"
         case .chevronLeft:
             return "chevron.left"
         case .chevronLeftForwardslashChevronRight:
-            if #available(iOS 15.0, *) {
-                return "chevron.left.forwardslash.chevron.right"
-            } else {
-                return "chevron.left.slash.chevron.right"
-            }
+            return "chevron.left.forwardslash.chevron.right"
         case .alarm: return "alarm"
         case .appBadge:
             return "app.badge"
@@ -1208,11 +1073,7 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .tortoise: return "tortoise"
         case .umbrella: return "umbrella"
         case .musicQuarterNote3:
-            if #available(iOS 14.0, *) {
-                return "music.quarternote.3"
-            } else {
-                return SystemIcon.musicNoteList.name
-            }
+            return "music.quarternote.3"
         case .pin: return "pin"
         case .pinFill: return "pin.fill"
         case .pinSlash:
@@ -1221,6 +1082,8 @@ public enum SystemIcon: SymbolIcon, Sendable {
         case .unpin: return "pin.slash"
         case .videoFill:
             return "video.fill"
+        case .videoFillSlash:
+            return "video.slash.fill"
         case .visionpro:
             if #available(iOS 17.0, *) {
                 return "visionpro"
@@ -1235,17 +1098,9 @@ public enum SystemIcon: SymbolIcon, Sendable {
                 return "wand.and.rays"
             }
         case .wrenchAdjustable:
-            if #available(iOS 16, *) {
-                return "wrench.adjustable"
-            } else {
-                return "hammer"
-            }
+            return "wrench.adjustable"
         case .wrenchAdjustableFill:
-            if #available(iOS 16, *) {
-                return "wrench.adjustable.fill"
-            } else {
-                return "hammer.fill"
-            }
+            return "wrench.adjustable.fill"
         case .zipperPage:
             if #available(iOS 18, *) {
                 return "zipper.page"

@@ -152,6 +152,7 @@ public enum ObvUICoreDataError: Error, Sendable {
     case theFyleShouldHaveBeenCreatedByTheSuperclassInitializer
     case callMustBePerformedOnMainThread
     case couldNotFindFyle
+    case aVariantAlreadyExistsForThisMediaFormat
     case couldNotFindReceivedFyleMessageJoinWithStatus
     case fyleIsNil
     case cannotCreateSentFyleMessageJoinWithStatusForWipedMessage
@@ -346,6 +347,8 @@ public enum ObvUICoreDataError: Error, Sendable {
             return "Could not find ReceivedFyleMessageJoinWithStatus"
         case .couldNotFindFyle:
             return "Could not find Fyle"
+        case .aVariantAlreadyExistsForThisMediaFormat:
+            return "A variant already exists for this media format"
         case .callMustBePerformedOnMainThread:
             return "Call must be performed on the main thread"
         case .theFyleShouldHaveBeenCreatedByTheSuperclassInitializer:

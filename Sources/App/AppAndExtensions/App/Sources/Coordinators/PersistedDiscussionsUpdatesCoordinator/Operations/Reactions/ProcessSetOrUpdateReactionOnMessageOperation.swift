@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -66,7 +66,11 @@ final class ProcessSetOrUpdateReactionOnMessageOperation: ContextualOperationWit
 
     private(set) var result: Result?
 
-    
+    /// For a reaction from a contact, whether it visibly changed the message. Deciding whether to notify must use this rather than
+    /// ask the database again, which answers "no change" once the reaction is saved.
+    private(set) var visiblyChanged: Bool?
+
+
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         guard let discussionIdentifier = reactionJSON.getDiscussionIdentifier(ownedCryptoId: requester.ownedCryptoId) else {
@@ -109,7 +113,9 @@ final class ProcessSetOrUpdateReactionOnMessageOperation: ContextualOperationWit
                     }
                 }
                 
-                updatedMessage = try contact.processSetOrUpdateReactionOnMessageRequestFromThisContact(reactionJSON: reactionJSON, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+                let processed = try contact.processSetOrUpdateReactionOnMessageRequestFromThisContact(reactionJSON: reactionJSON, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+                updatedMessage = processed?.updatedMessage
+                visiblyChanged = (processed?.reactionUpdateOutcome ?? .noChange) != .noChange
                 
             case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
                 

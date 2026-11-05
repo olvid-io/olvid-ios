@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,8 +20,9 @@
 import Foundation
 import CoreData
 
-public protocol ObvContextCreator {
+public protocol ObvContextCreator: Sendable {
     func newBackgroundContext(flowId: FlowIdentifier, file: StaticString, line: Int, function: StaticString) -> ObvContext
+    func performBackgroundTask(file: StaticString, line: Int, function: StaticString, _ block: @escaping (NSManagedObjectContext) -> Void)
     var viewContext: NSManagedObjectContext { get }
 }
 
@@ -32,4 +33,8 @@ public extension ObvContextCreator {
         newBackgroundContext(flowId: flowId, file: file, line: line, function: function)
     }
     
+    func performBackgroundTask(file: StaticString = #file, line: Int = #line, function: StaticString = #function, _ block: @escaping (NSManagedObjectContext) -> Void) {
+        performBackgroundTask(file: file, line: line, function: function, block)
+    }
+
 }

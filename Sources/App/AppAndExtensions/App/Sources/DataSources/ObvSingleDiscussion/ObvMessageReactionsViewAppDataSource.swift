@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -141,67 +141,9 @@ final class ObvMessageReactionsViewAppDataSource: ObvMessageReactionsViewDataSou
 
 // MARK: - Internal managers
 
-extension ObvMessageReactionsViewAppDataSource {
-    
-    /// This manager produces the stream of the model allowing to display all the reactions on a specific message, and their count.
-    private final class ObvReactionsCountViewModelStreamManager: ObvDataSourceStreamManagerWithTwoFetchedResultsController<ObvSingleDiscussion.ObvReactionsCountViewModel, PersistedMessageReactionSent, PersistedMessageReactionReceived>, @unchecked Sendable {
-                
-        init(messageIdentifier: ObvSingleDiscussion.ObvMessageReactionsViewModel.MessageIdentifier, context: NSManagedObjectContext) throws {
-            let messageObjectID: TypeSafeManagedObjectID<PersistedMessage>
-            switch messageIdentifier {
-            case .objectID(let objectID):
-                messageObjectID = TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
-            case .forPreview:
-                assertionFailure()
-                throw ObvError.unexpectedMessageIdentifierType
-            }
-            let frc1 = PersistedMessageReactionSent.getFetchedResultsControllerForSentReactionOnMessage(
-                messageObjectID: messageObjectID,
-                within: context)
-            let frc2 = PersistedMessageReactionReceived.getFetchedResultsControllerForReceivedReactionOnMessage(
-                messageObjectID: messageObjectID,
-                within: context)
-            super.init(frc1: frc1, frc2: frc2)
-        }
-        
-        
-        override func createModel(fetchedObjects1: [PersistedMessageReactionSent], fetchedObjects2: [PersistedMessageReactionReceived]) throws -> ObvReactionsCountViewModel {
-
-            let reactionsSent = fetchedObjects1
-            let reactionsReceived = fetchedObjects2
-
-            var reactions = [Character]()
-            if let reactionSent = reactionsSent.first, let emoji = reactionSent.emoji, let reaction = emoji.first {
-                reactions.append(reaction)
-            }
-            reactions.append(contentsOf: reactionsReceived.compactMap({ reactionReceived in
-                guard let emoji = reactionReceived.emoji, let reaction = emoji.first else { return nil }
-                return reaction
-                
-            }))
-            
-            var countForReaction = [Character: Int]()
-            for reaction in reactions {
-                var count = countForReaction[reaction, default: 0]
-                count += 1
-                countForReaction[reaction] = count
-            }
-            
-            let reactionsAndCount: [ObvReactionsCountViewModel.ReactionAndCount] = countForReaction.map { (reaction, count) in
-                return ObvReactionsCountViewModel.ReactionAndCount(emoji: reaction, count: count)
-            }
-            
-            return .init(reactionsAndCount: reactionsAndCount)
-        }
-        
-        
-        enum ObvError: Error {
-            case unexpectedMessageIdentifierType
-        }
-
-    }
-    
-}
+// The manager producing the stream of the reactions of a message and their count is not here: it is
+// `ObvReactionsCountViewModelStreamManager`, in a file of its own, because the SwiftUI discussion screen asks the very
+// same question of a message it draws a chip under.
 
 extension ObvMessageReactionsViewAppDataSource {
     

@@ -18,9 +18,10 @@
  */
 
 import UIKit
+import CoreData
 import ObvEngine
 import ObvUICoreData
-import Intents
+@preconcurrency import Intents
 import OSLog
 import ObvSettings
 import ObvAppCoreConstants
@@ -481,6 +482,7 @@ final class RootViewController: UIViewController, LocalAuthenticationViewControl
         case couldNotGetStoreKitDelegate
         case metaFlowViewControllerIsNotSet
         case appCoordinatorsHolderIsNil
+        case appManagersHolderIsNil
         case failedToAddAttachmentToDraft
     }
     
@@ -557,18 +559,39 @@ extension RootViewController: MetaFlowControllerDelegate {
     }
     
     
+    /// The one request that ends at a *manager* rather than at a coordinator, which is why it reads `appManagersHolder` where its neighbours read
+    /// `appCoordinatorsHolder`.
+    func requestHardLinkToFyle(_ metaFlowController: MetaFlowController, fyleElement: FyleElement) async throws -> HardLinkToFyle {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appManagersHolder = await appDelegate.appMainManager.appManagersHolder else { assertionFailure(); throw ObvError.appManagersHolderIsNil }
+        return try await appManagersHolder.requestHardLinkToFyle(fyleElement: fyleElement)
+    }
+
+
     func userRequiresMessageHistoryTransferService(_ metaFlowController: MetaFlowController) async throws -> TransferService {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
         guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
         return appCoordinatorsHolder.transferService
     }
 
-    func userWantsToForwardMessage(_ vc: MetaFlowController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
+    func userWantsToForwardMessages(
+        _ vc: MetaFlowController,
+        identifiersOfMessagesToForward: [ObvMessageAppIdentifier],
+        identifiersOfDiscussionsWhereMessagesShouldBeForwarded: Set<ObvDiscussionIdentifier>
+    ) async throws {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
         guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
-        try await appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator.processUserWantsToForwardMessage(
-            identifierOfMessageToForwad: identifierOfMessageToForwad,
-            identifiersOfDiscussionsWhereMessageShouldBeForwarded: identifiersOfDiscussionsWhereMessageShouldBeForwarded)
+        try await appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator.processUserWantsToForwardMessages(
+            identifiersOfMessagesToForward: identifiersOfMessagesToForward,
+            identifiersOfDiscussionsWhereMessagesShouldBeForwarded: identifiersOfDiscussionsWhereMessagesShouldBeForwarded)
+    }
+
+    func userWantsToDeleteMessages(_ vc: MetaFlowController, persistedMessageObjectIDs: Set<NSManagedObjectID>, deletionType: DeletionType) async throws {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
+        try await appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator.processUserWantsToDeleteMessages(
+            persistedMessageObjectIDs: persistedMessageObjectIDs,
+            deletionType: deletionType)
     }
     
     func userWantsToUpdateDiscussionLocalConfiguration(_ vc: MetaFlowController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws {
@@ -620,6 +643,20 @@ extension RootViewController: MetaFlowControllerDelegate {
         }
     }
     
+    func userWantsToStopSuggestingContact(_ metaFlowController: MetaFlowController, contactIdentifier: ObvContactIdentifier) async throws {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
+        try await appCoordinatorsHolder.contactIdentityCoordinator.processUserWantsToStopSuggestingContact(contactIdentifier: contactIdentifier)
+    }
+
+    func contactSuggestionsWereSeen(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, invitationUUIDs: Set<UUID>) {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); return }
+        Task {
+            guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); return }
+            appCoordinatorsHolder.contactIdentityCoordinator.processContactSuggestionsWereSeen(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, invitationUUIDs: invitationUUIDs)
+        }
+    }
+
     func userWantsToUpdatePersonalNote(_ metaFlowController: MetaFlowController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); return }
         guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); return }
@@ -666,9 +703,9 @@ extension RootViewController: MetaFlowControllerDelegate {
     
     /// Helper method for the `userWantsToArchiveDiscussion(...)` method.
     private func showToastAsUserArchivedDiscussion(discussionObjectIDs: [TypeSafeManagedObjectID<PersistedDiscussion>]) {
-        Task {
+        Task { [weak self] in
             let toast = Toast(style: .success, message: NSLocalizedString("ARCHIVED_DISCUSSION", comment: ""))
-            Toaster.showToast(toast: toast) { [weak self] in
+            Toaster.showToast(toast: toast) {
                 Task { [weak self] in
                     guard let self else { return }
                     try? await userWantsToUnarchiveDiscussions(discussionObjectIDs: discussionObjectIDs)
@@ -1068,8 +1105,17 @@ extension RootViewController: MetaFlowControllerDelegate {
     }
     
     
+    func userWantsToChangeTheMediaFormatOfTheDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, format: ObvMediaFormat) async throws {
+
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
+        try await appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator.processUserWantsToChangeMediaFormatOfDraft(draftObjectID: draftObjectID, format: format)
+
+    }
+
+
     func userWantsToAddAttachmentsToDraftFromURLs(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws {
-        
+
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
         guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
         try await appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator.processUserWantsToAddAttachmentsToDraft(draftObjectID: draftObjectID, urls: urls)
@@ -1095,6 +1141,21 @@ extension RootViewController: MetaFlowControllerDelegate {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
         
         try await appDelegate.appMainManager.appCoordinatorsHolder?.bootstrapCoordinator.userRequestedAppDatabaseSyncWithEngine(rootViewController: self)
+
+    }
+
+
+    func userRequestedDrainOfTheEngineInbox(metaFlowController: MetaFlowController, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport {
+
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); return .couldNotBeRun(trigger: .userRequestedItInTheSettings) }
+
+        // The holder is actor-isolated, so it is read inside this one `await` expression rather than bound first — exactly as the sync above it does.
+        guard let report = await appDelegate.appMainManager.appCoordinatorsHolder?.bootstrapCoordinator.userRequestedDrainOfTheEngineInbox(rootViewController: self, run: run) else {
+            assertionFailure()
+            return .couldNotBeRun(trigger: .userRequestedItInTheSettings)
+        }
+
+        return report
 
     }
     
@@ -1176,20 +1237,20 @@ extension RootViewController {
     
     private func observeVoIPNotifications() {
         observationTokens.append(contentsOf: [
-            VoIPNotification.observeNewCallToShow { model in
-                Task(priority: .userInitiated) { [weak self] in
+            VoIPNotification.observeNewCallToShow { [weak self] model in
+                Task(priority: .userInitiated) {
                     self?.preferMetaViewControllerOverCallViewController = false
                     await self?.setCallViewControllerModel(to: model)
                 }
             },
-            VoIPNotification.observeNoMoreCallInProgress {
-                Task(priority: .userInitiated) { [weak self] in
+            VoIPNotification.observeNoMoreCallInProgress { [weak self] in
+                Task(priority: .userInitiated) {
                     self?.preferMetaViewControllerOverCallViewController = false
                     await self?.setCallViewControllerModel(to: nil)
                 }
             },
-            VoIPNotification.observeHideCallView {
-                Task(priority: .userInitiated) { [weak self] in
+            VoIPNotification.observeHideCallView { [weak self] in
+                Task(priority: .userInitiated) {
                     self?.preferMetaViewControllerOverCallViewController = true
                     do {
                         try await self?.switchToNextViewController()
@@ -1198,8 +1259,8 @@ extension RootViewController {
                     }
                 }
             },
-            VoIPNotification.observeShowCallView {
-                Task(priority: .userInitiated) { [weak self] in
+            VoIPNotification.observeShowCallView { [weak self] in
+                Task(priority: .userInitiated) {
                     self?.preferMetaViewControllerOverCallViewController = false
                     do {
                         try await self?.switchToNextViewController()
@@ -1238,34 +1299,25 @@ extension RootViewController {
     
 
     /// This called, in particular, when the user taps on a previous call in the call log of the phone system app.
-    private func processINStartCallIntent(startCallIntent: INStartCallIntent, obvEngine: ObvEngine) {
-        
+    private func processINStartCallIntent(startCallIntent: INStartCallIntent) async {
+
+        let logger = Self.logger
         Self.logger.info("📲 Process INStartCallIntent")
-        
-        guard let handle = startCallIntent.contacts?.first?.personHandle?.value else {
-            Self.logger.error("📲 Could not get appropriate value of INStartCallIntent")
-            return
-        }
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            
-            if let callUUID = UUID(handle), let item = try? PersistedCallLogItem.get(callUUID: callUUID, within: context), let ownedCryptoId = item.ownedCryptoId {
-                let contactCryptoIds = item.logContacts.compactMap { $0.contactIdentity?.cryptoId }
-                let groupId = item.groupIdentifier
-                Self.logger.info("📲 Posting a userWantsToCallButWeShouldCheckSheIsAllowedTo notification following an INStartCallIntent")
-                ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId, startCallIntent: startCallIntent)
-                    .postOnDispatchQueue()
-            } else if let contact = try? PersistedObvContactIdentity.getAll(within: context).first(where: { $0.getGenericHandleValue(engine: obvEngine) == handle }) {
-                // To be compatible with previous 1to1 versions
-                let contactCryptoId = contact.cryptoId
-                guard let ownedCryptoId = contact.ownedIdentity?.cryptoId else { return }
-                ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set([contactCryptoId]), groupId: nil, startCallIntent: startCallIntent)
-                    .postOnDispatchQueue()
-            } else {
-                Self.logger.fault("📲 Could not parse INStartCallIntent")
+
+        ObvStack.shared.performBackgroundTask { context in
+            guard let params = startCallIntent.callParameters(within: context) else {
+                logger.fault("📲 Could not parse INStartCallIntent")
+                return
             }
-            
+            logger.info("📲 Posting a userWantsToCallButWeShouldCheckSheIsAllowedTo notification following an INStartCallIntent")
+            ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(
+                ownedCryptoId: params.ownedCryptoId,
+                contactCryptoIds: params.contactCryptoIds,
+                groupId: params.groupId,
+                startCallIntent: startCallIntent)
+                .postOnDispatchQueue()
         }
+        
     }
 
     
@@ -1277,17 +1329,32 @@ extension RootViewController {
             assertionFailure()
             return
         }
-        
-        guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>(handle) else { assertionFailure(); return }
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            guard let contact = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: objectPermanentID, within: context) else { assertionFailure(); return }
-            let deepLink: ObvDeepLink
-            if let oneToOneDiscussion = contact.oneToOneDiscussion, let discussionIdentifier = try? oneToOneDiscussion.discussionIdentifier {
-                deepLink = .singleDiscussion(discussionIdentifier: discussionIdentifier)
-            } else { assertionFailure(); return }
-            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink).postOnDispatchQueue()
+
+        if let discussionIdentifier = ObvDiscussionIdentifier(handle) {
+            
+            ObvStack.shared.performBackgroundTaskAndWait { (context) in
+                let deepLink: ObvDeepLink = .singleDiscussion(discussionIdentifier: discussionIdentifier)
+                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink).postOnDispatchQueue()
+            }
+            
+        } else if let objectPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>(handle) {
+            
+            ObvStack.shared.performBackgroundTaskAndWait { (context) in
+                guard let contact = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: objectPermanentID, within: context) else { assertionFailure(); return }
+                let deepLink: ObvDeepLink
+                if let oneToOneDiscussion = contact.oneToOneDiscussion, let discussionIdentifier = try? oneToOneDiscussion.discussionIdentifier {
+                    deepLink = .singleDiscussion(discussionIdentifier: discussionIdentifier)
+                } else { assertionFailure(); return }
+                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink).postOnDispatchQueue()
+            }
+            
+        } else {
+            
+            assertionFailure()
+            return
+            
         }
+
     }
 
 }
@@ -1306,12 +1373,12 @@ extension RootViewController {
     }
     
     func continueUserActivity(_ userActivity: NSUserActivity) async {
-        let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
+        _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
         if let url = userActivity.webpageURL {
             // Called when tapping the "open in" button on an "identity" webpage or when tapping a call entry in the system call log (?)
             await handleOlvidURL(url)
         } else if let startCallIntent = userActivity.interaction?.intent as? INStartCallIntent {
-            processINStartCallIntent(startCallIntent: startCallIntent, obvEngine: obvEngine)
+            await processINStartCallIntent(startCallIntent: startCallIntent)
         } else if let sendMessageIntent = userActivity.interaction?.intent as? INSendMessageIntent {
             processINSendMessageIntent(sendMessageIntent: sendMessageIntent)
         } else if let olvidUserActivity = OlvidUserActivity(receivedNSUserActivity: userActivity) {
@@ -1502,7 +1569,7 @@ extension RootViewController.ChildViewControllerType: CustomDebugStringConvertib
 }
 
 
-fileprivate extension PersistedObvContactIdentity {
+extension PersistedObvContactIdentity {
 
     func getGenericHandleValue(engine: ObvEngine) -> String? {
         guard let context = self.managedObjectContext else { assertionFailure(); return nil }

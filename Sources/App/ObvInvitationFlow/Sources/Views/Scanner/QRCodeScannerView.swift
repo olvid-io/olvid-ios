@@ -109,12 +109,28 @@ final class QRCodeScannerViewController: UIViewController {
     private let captureSession = AVCaptureSession()
     private var videoPreviewLayer: AVCaptureVideoPreviewLayer!
     
+    /// The session is started and stopped here, never on the main thread. `startRunning()` blocks until the camera
+    /// is up, and on Catalyst it waits by running the main run loop, so from `viewDidLoad`, which SwiftUI calls
+    /// inside its own layout pass, it let that pass be re-entered and a stale placeholder size be committed over
+    /// the real one.
+    private let sessionQueue = DispatchQueue(label: "io.olvid.messenger.QRCodeScannerViewController.session")
+
     var delegate: AVCaptureMetadataOutputObjectsDelegate?
     
+    private func startTheSession() {
+        let session = captureSession
+        sessionQueue.async { session.startRunning() }
+    }
+
+    private func stopTheSession() {
+        let session = captureSession
+        sessionQueue.async { session.stopRunning() }
+    }
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        captureSession.stopRunning()
+        stopTheSession()
     }
     
     override func viewDidLoad() {
@@ -171,7 +187,7 @@ final class QRCodeScannerViewController: UIViewController {
         }
 
         if AVCaptureDevice.authorizationStatus(for: AVMediaType.video) == .authorized {
-            self.captureSession.startRunning()
+            startTheSession()
         }
         
     }
@@ -210,12 +226,12 @@ final class QRCodeScannerViewController: UIViewController {
             #else
             switch AVCaptureDevice.authorizationStatus(for: AVMediaType.video) {
             case .authorized:
-                self.captureSession.startRunning()
+                startTheSession()
             case .notDetermined:
                 AVCaptureDevice.requestAccess(for: .video) { granted in
                     if granted {
                         Task { @MainActor [weak self] in
-                            self?.captureSession.startRunning()
+                            self?.startTheSession()
                         }
                     }
                 }
@@ -225,7 +241,7 @@ final class QRCodeScannerViewController: UIViewController {
                 showCaptureAutorisationError(captureAutorisationError: .denied)
             @unknown default:
                 assertionFailure()
-                self.captureSession.startRunning()
+                startTheSession()
             }
             #endif
                         

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -69,11 +69,7 @@ struct AllInvitationsView<Model: AllInvitationsViewModelProtocol>: View {
         if !model.sortedInvitations.isEmpty {
             contentViewWithContentMargin
                 .apply {
-                    if #available(iOS 16.0, *) {
-                        $0.scrollDismissesKeyboard(.interactively)
-                    } else {
-                        $0
-                    }
+                    $0.scrollDismissesKeyboard(.interactively)
                 }
         } else {
             ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_INVITATIONS_TEXT"),

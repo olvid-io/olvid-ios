@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 import OlvidUtils
 import ObvEngine
-import os.log
+import OSLog
 import CoreData
 import ObvTypes
 import ObvUICoreData
@@ -121,21 +121,6 @@ final class SyncPersistedObvContactIdentityWithEngineOperation: ContextualOperat
                 // Update the contact within the app
                 _ = try persistedOwnedIdentity.setContactCapabilities(contactCryptoId: contactIdentifier.contactCryptoId, newCapabilities: contactCapabilitiesWithinEngine)
 
-                if obvContext.context.hasChanges {
-                    if let objectID = obvContext.context.registeredObjects
-                        .compactMap({ $0 as? PersistedObvContactIdentity })
-                        .first(where: { $0.ownedIdentity?.cryptoId == contactIdentifier.ownedCryptoId && $0.cryptoId == contactIdentifier.contactCryptoId }) {
-                        try? obvContext.addContextDidSaveCompletionHandler { error in
-                            guard error == nil else { return }
-                            ObvStack.shared.viewContext.perform {
-                                if let objectToRefresh = ObvStack.shared.viewContext.registeredObjects.first(where: { $0.objectID == objectID }) {
-                                    ObvStack.shared.viewContext.refresh(objectToRefresh, mergeChanges: true)
-                                }
-                            }
-                        }
-                    }
-                }
-                
             }
             
         } catch {

@@ -29,7 +29,7 @@ import ObvHistoryTransfer
 import ObvSettings
 
 
-final class SettingsFlowViewController: KeyboardNavigationController {
+final class SettingsFlowViewController: UINavigationController {
 
     private(set) var ownedCryptoId: ObvCryptoId!
     private(set) var obvEngine: ObvEngine!
@@ -93,7 +93,30 @@ extension SettingsFlowViewController {
         }
 
     }
-    
+
+}
+
+
+// MARK: - The Esc key
+
+extension SettingsFlowViewController {
+
+    /// Esc goes back one screen, and closes the settings from the first one, as the close button there does.
+    ///
+    /// The selector is named after this class because UIKit sends a key command's action to the first responder in the chain that implements it,
+    /// not to the controller that offered the command: a screen pushed here with an action of the same name would receive this one.
+    override var keyCommands: [UIKeyCommand]? {
+        (super.keyCommands ?? []) + [UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(settingsFlowAnswersTheEscapeKey))]
+    }
+
+    @objc private func settingsFlowAnswersTheEscapeKey() {
+        if viewControllers.count > 1 {
+            popViewController(animated: true)
+        } else {
+            dismiss(animated: true)
+        }
+    }
+
 }
 
 
@@ -148,8 +171,12 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
                 assertionFailure()
                 return
             }
+        case .siri:
+            settingViewController = SiriSettingsHostingController()
         case .about:
             settingViewController = AboutSettingsTableViewController()
+        case .troubleshooting:
+            settingViewController = TroubleshootingSettingsViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, delegate: self)
         case .advanced:
             settingViewController = AdvancedSettingsViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, delegate: self)
         case .voip:
@@ -475,8 +502,26 @@ extension SettingsFlowViewController: AdvancedSettingsViewControllerDelegate {
         assert(settingsFlowViewControllerDelegate != nil)
         try await settingsFlowViewControllerDelegate?.userRequestedAppDatabaseSyncWithEngine(settingsFlowViewController: self)
     }
-    
+
 }
+
+// MARK: - Implementing TroubleshootingSettingsViewControllerDelegate
+
+extension SettingsFlowViewController: TroubleshootingSettingsViewControllerDelegate {
+
+    /// Forwarded to exactly where the advanced settings used to send it. A protocol of its own rather than reusing
+    /// `AdvancedSettingsViewControllerDelegate`, whose method is typed on the screen that no longer offers this — and the four hops beyond this one are
+    /// already typed on `settingsFlowViewController:`, so nothing past here had to change.
+    func userRequestedDrainOfTheEngineInbox(_ vc: TroubleshootingSettingsViewController, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport {
+        assert(settingsFlowViewControllerDelegate != nil)
+        guard let report = await settingsFlowViewControllerDelegate?.userRequestedDrainOfTheEngineInbox(settingsFlowViewController: self, run: run) else {
+            return .couldNotBeRun(trigger: .userRequestedItInTheSettings)
+        }
+        return report
+    }
+
+}
+
 
 // MARK: - Implementing BackupTableViewControllerDelegate
 
@@ -494,6 +539,7 @@ extension SettingsFlowViewController: BackupTableViewControllerDelegate {
 @MainActor
 protocol SettingsFlowViewControllerDelegate: AnyObject {
     func userRequestedAppDatabaseSyncWithEngine(settingsFlowViewController: SettingsFlowViewController) async throws
+    func userRequestedDrainOfTheEngineInbox(settingsFlowViewController: SettingsFlowViewController, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport
     func userWantsToConfigureNewBackups(_ settingsFlowViewController: SettingsFlowViewController, context: ObvAppBackupSetupContext)
     func usersWantsToGetBackupParameterIsSynchronizedWithICloud(_ settingsFlowViewController: SettingsFlowViewController) async throws -> Bool
     func usersWantsToChangeBackupParameterIsSynchronizedWithICloud(_ settingsFlowViewController: SettingsFlowViewController, newIsSynchronizedWithICloud: Bool) async throws

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import ObvUI
 import ObvUICoreData
-import os.log
+import OSLog
 import QuickLook
 import UIKit
 import ObvDesignSystem
@@ -151,8 +151,8 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
 
         // Request hardlinks
         
-        HardLinksToFylesNotifications.requestAllHardLinksToFyles(fyleElements: fyleElements) { hardlinks in
-            DispatchQueue.main.async { [weak self] in
+        HardLinksToFylesNotifications.requestAllHardLinksToFyles(fyleElements: fyleElements) { [weak self] hardlinks in
+            DispatchQueue.main.async {
                 var cellNeedsToUpdateItsConfiguration = false
                 for (joinObjectID, hardlink) in zip(joinObjectIDs, hardlinks) {
                     if let cachedHardlink = self?.hardlinksCache[joinObjectID] {
@@ -280,8 +280,8 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
             hardlinksCacheContinuations[objectID] = [] // We are in charge -> this prevents another call to fall in this branch
             
             return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { result in
-                    DispatchQueue.main.async { [weak self] in
+                HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { [weak self] result in
+                    DispatchQueue.main.async {
                         let error: Error?
                         switch result {
                         case .success(let hardlink):
@@ -356,14 +356,14 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
             return
         } else {
             dataDetectedCacheCompletions[text] = [completionWhenDataDetectionCached]
-            internalQueue.async {
+            internalQueue.async { [weak self] in
                 let matches: [ObvDiscussionDataDetected] = text
                     .detectData()
                     .compactMap { result in
                         guard let link = result.getLinkForAttributedString() else { return nil }
                         return ObvDiscussionDataDetected(range: result.range, resultType: result.resultType, link: link)
                     }
-                DispatchQueue.main.async { [weak self] in
+                DispatchQueue.main.async {
                     guard let _self = self else { return }
                     assert(_self.dataDetectedCache[text] == nil)
                     _self.dataDetectedCache[text] = matches
@@ -506,8 +506,8 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
                 
                 if let contact = received.contactIdentity {
                     name = MessageCellStrings.replyingTo(contact.customOrFullDisplayName)
-                    nameColor = contact.cryptoId.colors.text
-                    lineColor = contact.cryptoId.colors.text
+                    nameColor = (try? contact.cryptoId.colors.text) ?? .label
+                    lineColor = (try? contact.cryptoId.colors.text) ?? .label
                 } else {
                     name = MessageCellStrings.replyingToContact
                     nameColor = .white
@@ -598,19 +598,22 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
                     replyToCacheCompletions[messageObjectID] = [completionWhenCellNeedsUpdateConfiguration]
                     
                     Task { [weak self] in
-                        guard let _self = self else { return }
-                        let hardlink = try await _self.getAppropriateHardlinkForJoinsOfReplyTo(replyTo)
+                        guard let self else { return }
+                        guard let hardlink = try? await self.getAppropriateHardlinkForJoinsOfReplyTo(replyTo) else {
+                            os_log("Failed to get an appropriate hardlink for the joins of a replyTo message. The replyTo bubble configuration is left as it is.", log: Self.log, type: .error)
+                            return
+                        }
                         var augmentedConfig = configuration.replaceHardLink(with: hardlink)
                         do {
                             let size = CGSize(width: MessageCellConstants.replyToImageSize, height: MessageCellConstants.replyToImageSize)
-                            let thumbnail = try await _self.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: size))
+                            let thumbnail = try await self.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: size))
                             augmentedConfig = augmentedConfig.replaceThumbnail(with: thumbnail)
                         } catch {
                             // We could not get an image corresponding to the hardlink. We return the current config.
                             os_log("Failed to get appropriate thumbnail for hardlink for a replyTo Bubble: %{public}@. Augmenting the config with the hardlink only.", log: Self.log, type: .error, error.localizedDescription)
                         }
                         // If we reach this point, we can augment the configuration using both the hardlink and the image found. We then return.
-                        self?.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: augmentedConfig)
+                        self.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: augmentedConfig)
                     }
                     
                 }
@@ -777,7 +780,9 @@ public extension String {
 }
 
 
-private extension NSTextCheckingResult {
+/// Internal rather than private: the SwiftUI discussion screen detects data too, and what a match *means* — a telephone number is a `tel:`, an address is a place
+/// on a map — must be the one rule for both screens rather than two that drift.
+extension NSTextCheckingResult {
     
     /// When data is detected in a string (that will typically be displayed in a message cell), we want to prepare the `NSTextCheckingResult` the best way we
     /// can to facilitate the work at the cell level. We thus return an URL for each `NSTextCheckingResult` which will be used as a link attribute of the attributed string

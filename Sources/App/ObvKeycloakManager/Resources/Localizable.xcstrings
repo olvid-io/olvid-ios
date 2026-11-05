@@ -45,6 +45,12 @@
             "value": "인증"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uwierzytelnij"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "Авторизоваться"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik doğrula"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Авторизуватися"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xác thực"
           }
         },
         "zh-Hans": {
@@ -121,6 +139,12 @@
             "value": "%@(으)로 인증"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uwierzytelnij jako %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -139,10 +163,22 @@
             "value": "Авторизоваться как %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ olarak kimlik doğrula"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Авторизуватися як %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xác thực với tư cách %@"
           }
         },
         "zh-Hans": {
@@ -197,6 +233,12 @@
             "value": "인증 필요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymagane uwierzytelnienie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -215,10 +257,22 @@
             "value": "Требуется аутентификация"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik Doğrulama Gerekli"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Потрібна автентифікація"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yêu cầu xác thực"
           }
         },
         "zh-Hans": {
@@ -273,6 +327,12 @@
             "value": "%@에 대한 인증이 필요합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymagane uwierzytelnienie: %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -291,10 +351,22 @@
             "value": "Требуется аутентификация для %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ için Kimlik Doğrulama Gerekli"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Потрібна автентифікація для %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yêu cầu xác thực cho %@"
           }
         },
         "zh-Hans": {
@@ -349,6 +421,12 @@
             "value": "귀하의 Olvid 계정은 회사에서 제공하는 신원 공급자를 통해 관리됩니다. 계속하려면 해당 신원 공급자로 다시 인증해야 합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoja tożsamość Olvid jest zarządzana przez dostawcę tożsamości twojej firmy. Aby kontynuować, musisz ponownie uwierzytelnić się u tego dostawcy tożsamości."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -367,10 +445,22 @@
             "value": "Ваша личность в Olvid управляется поставщиком удостоверений вашей компании. Вам необходимо повторно аутентифицироваться с помощью этого поставщика, чтобы продолжить."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid kimliğiniz şirketinizin kimlik sağlayıcısı tarafından yönetiliyor. Devam etmek için bu kimlik sağlayıcısıyla yeniden kimlik doğrulamanız gerekiyor."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваша особистість Olvid управляється постачальником ідентифікації вашої компанії. Вам потрібно повторно автентифікуватися з цим постачальником ідентифікації, щоб продовжити."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thông tin đăng nhập Olvid của bạn được quản lý bởi nhà cung cấp danh tính của công ty. Bạn cần xác thực lại với nhà cung cấp này để tiếp tục."
           }
         },
         "zh-Hans": {
@@ -425,6 +515,12 @@
             "value": "귀사의 ID 공급업체에서 Olvid ID를 관리합니다. 평소와 다른 사용자로 인증하신 것 같습니다. 이 기능은 지원되지 않습니다.\n관리자에게 문의하거나 올바른 사용자로 다시 인증해 주십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoje Olvid ID jest zarządzane przez dostawcę tożsamości twojej firmy. Wygląda na to, że uwierzytelniono cię jako innego użytkownika niż zwykle. Nie jest to obsługiwane.\n\nSkontaktuj się z administratorem lub uwierzytelnij się ponownie jako właściwy użytkownik."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -443,10 +539,22 @@
             "value": "Ваш Olvid ID управляется поставщиком удостоверений вашей компании. Похоже, вы вошли в систему под другим пользователем, чем обычно. Это не поддерживается.\n\nПожалуйста, обратитесь к вашему администратору или повторно аутентифицируйтесь под правильным пользователем."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid ID'niz şirketinizin kimlik sağlayıcısı tarafından yönetiliyor. Her zamankinden farklı bir kullanıcı olarak kimlik doğrulaması yapmışsınız gibi görünüyor. Bu desteklenmiyor.\n\nLütfen yöneticinize başvurun veya doğru kullanıcı olarak yeniden kimlik doğrulayın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваш Olvid ID керується постачальником ідентифікації вашої компанії. Здається, ви авторизувалися як інший користувач, ніж зазвичай. Це не підтримується.\n\nЗверніться до адміністратора або повторно авторизуйтеся як правильний користувач."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID Olvid của bạn được quản lý bởi nhà cung cấp danh tính của công ty bạn. Có vẻ như bạn đã xác thực bằng một tài khoản người dùng khác so với bình thường. Hành động này không được hỗ trợ.\nVui lòng liên hệ với quản trị viên hoặc xác thực lại bằng tài khoản người dùng chính xác."
           }
         },
         "zh-Hans": {
@@ -501,6 +609,12 @@
             "value": "키 업데이트"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaktualizuj klucz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -519,10 +633,22 @@
             "value": "Обновить ключ"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anahtarı güncelle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оновити ключ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cập nhật khóa"
           }
         },
         "zh-Hans": {
@@ -577,6 +703,12 @@
             "value": "취소"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anuluj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -595,10 +727,22 @@
             "value": "Отмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy"
           }
         },
         "zh-Hans": {
@@ -653,6 +797,12 @@
             "value": "귀하의 계정이 회사 ID 공급업체에서 제거된 것으로 보입니다. 회사를 떠나신 경우 이는 정상적인 현상이며, Olvid를 무료 사용자로 계속 사용할 수 있습니다.\n\n만약 이것이 오류라고 생각되시면, 회사 관리자에게 문의하여 Olvid에 ID 공급업체를 다시 등록해 주십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wygląda na to, że twoje konto zostało usunięte z systemu dostawcy tożsamości twojej firmy. Jeśli nie pracujesz już w tej firmie, jest to normalne i możesz dalej korzystać z Olvid bezpłatnie.\n\nJeśli uważasz, że to błąd, skontaktuj się z administratorem, aby ponownie zarejestrować tego dostawcę tożsamości w Olvid."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -671,10 +821,22 @@
             "value": "Похоже, что ваша учетная запись была удалена из поставщика удостоверений вашей компании. Если вы покинули компанию, это нормально, и вы можете продолжать использовать Olvid как бесплатный пользователь.\n\nЕсли вы считаете, что это ошибка, обратитесь к своему администратору, чтобы повторно зарегистрировать этого поставщика удостоверений в Olvid."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hesabınız şirketinizin kimlik sağlayıcısından kaldırılmış görünüyor. Şirketinizden ayrıldıysanız bu normaldir ve Olvid'i ücretsiz kullanıcı olarak kullanmaya devam edebilirsiniz.\n\nBunun bir hata olduğunu düşünüyorsanız bu kimlik sağlayıcısını Olvid'e yeniden kaydetmesi için lütfen yöneticinize başvurun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Схоже, ваш обліковий запис було видалено з провайдера ідентифікації вашої компанії. Якщо ви залишили компанію, це нормально і ви можете продовжувати використовувати Olvid як безкоштовний користувач.\n\nЯкщо ви вважаєте, що це помилка, зверніться до свого адміністратора, щоб повторно зареєструвати цього провайдера ідентифікації з Olvid."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có vẻ như tài khoản của bạn đã bị xóa khỏi nhà cung cấp danh tính của công ty. Nếu bạn đã rời công ty, điều này là bình thường và bạn có thể tiếp tục sử dụng Olvid với tư cách là người dùng miễn phí.\n\nNếu bạn cho rằng đây là lỗi, vui lòng liên hệ với quản trị viên để đăng ký lại nhà cung cấp danh tính này với Olvid."
           }
         },
         "zh-Hans": {
@@ -729,6 +891,12 @@
             "value": "Olvid는 ID 공급자의 암호화 서명 키 변경 사항을 감지했습니다. 이는 일반적으로 발생해서는 안 되는 일입니다.\n\n관리자에게 문의하고 관리자가 키 변경이 의도적인 변경 사항인지 확인한 경우에만 \"키 업데이트\"를 누르십시오. 확실하지 않은 경우 \"취소\"를 누르십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplikacja Olvid wykryła zmianę klucza podpisu kryptograficznego twojego dostawcy tożsamości. Normalnie nie powinno się to nigdy zdarzyć.\n\nSkontaktuj się z administratorem i stuknij „Zaktualizuj klucz” tylko wtedy, gdy potwierdzi, że zmiana klucza była zamierzona. W razie wątpliwości stuknij „Anuluj”."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -747,10 +915,22 @@
             "value": "Olvid обнаружил изменение в криптографическом ключе подписи вашего провайдера идентификации. Это не должно происходить в нормальных условиях.\n\nПожалуйста, свяжитесь с вашим администратором и нажимайте \"Обновить ключ\" только в том случае, если она подтвердит, что изменение ключа было преднамеренным. Если вы не уверены, нажмите \"Отмена\"."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid, kimlik sağlayıcınızın kriptografik imza anahtarında bir değişiklik algıladı. Bu normalde asla olmamalıdır.\n\nLütfen yöneticinize başvurun ve \"Anahtarı güncelle\" düğmesine yalnızca yöneticiniz anahtar değişikliğinin kasıtlı olduğunu onaylayabilirse dokunun. Emin değilseniz \"İptal\" düğmesine dokunun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Olvid виявив зміну в криптографічному ключі підпису вашого провайдера ідентифікації. Це не повинно відбуватися за нормальних обставин.\n\nЗверніться до вашого адміністратора і натисніть кнопку \"Оновити ключ\" лише якщо він підтвердить, що зміна ключа була навмисною. Якщо ви не впевнені, натисніть кнопку \"Скасувати\"."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid đã phát hiện thay đổi trong khóa chữ ký mật mã của nhà cung cấp danh tính của bạn. Điều này thường không nên xảy ra.\nVui lòng liên hệ với quản trị viên của bạn và chỉ nhấn \"Cập nhật khóa\" nếu họ xác nhận rằng việc thay đổi khóa là có chủ ý. Nếu không chắc chắn, hãy nhấn \"Hủy\"."
           }
         },
         "zh-Hans": {
@@ -805,6 +985,12 @@
             "value": "계정 제공업체가 제거되었습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usunięto dostawcę tożsamości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -823,10 +1009,22 @@
             "value": "Поставщик удостоверений удален"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcısı kaldırıldı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Постачальника ідентифікаційних даних видалено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhà cung cấp dịch vụ xác thực đã bị xóa"
           }
         },
         "zh-Hans": {
@@ -881,6 +1079,12 @@
             "value": "ID 공급업체 키 변경"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmiana klucza dostawcy tożsamości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -899,10 +1103,22 @@
             "value": "Изменение ключа поставщика идентификации"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcısı anahtar değişikliği"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зміна ключа провайдера ідентифікації"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thay đổi khóa nhà cung cấp danh tính"
           }
         },
         "zh-Hans": {
@@ -957,6 +1173,12 @@
             "value": "이전 Olvid ID를 취소합니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unieważnij poprzednie Olvid ID"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -975,10 +1197,22 @@
             "value": "Отменить предыдущий Olvid ID"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önceki Olvid ID'sini geçersiz kıl"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати попередній Olvid ID"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy ID Olvid trước đó"
           }
         },
         "zh-Hans": {
@@ -1033,6 +1267,12 @@
             "value": "이전 ID를 취소합니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unieważnij poprzednie ID"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1051,10 +1291,22 @@
             "value": "Отменить предыдущий ID"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önceki ID'yi geçersiz kıl"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відкликати попередній ID"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thu hồi ID trước đó"
           }
         },
         "zh-Hans": {
@@ -1109,6 +1361,12 @@
             "value": "관리자에게 문의해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skontaktuj się z administratorem."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1127,10 +1385,22 @@
             "value": "Пожалуйста, обратитесь к вашему администратору."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lütfen yöneticinize başvurun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зверніться до адміністратора."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng liên hệ với quản trị viên của bạn."
           }
         },
         "zh-Hans": {
@@ -1185,6 +1455,12 @@
             "value": "본인 정보를 취소할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie możesz unieważnić swojej tożsamości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1203,10 +1479,22 @@
             "value": "Вы не можете отменить подтверждение своей личности"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimliğinizi geçersiz kılamazsınız"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви не можете відкликати свою особистість"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn không thể thu hồi danh tính của mình."
           }
         },
         "zh-Hans": {
@@ -1261,6 +1549,12 @@
             "value": "귀하의 회사 ID 공급자에 귀하의 계정과 연결된 다른 Olvid ID가 있습니다. 새 ID를 생성한 경우 이전 ID를 해지해야 합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z twoim kontem u dostawcy tożsamości twojej firmy jest powiązane inne Olvid ID. Jeśli wygenerowano nowe ID, musisz unieważnić poprzednie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1279,10 +1573,22 @@
             "value": "К вашей учетной записи на сервере идентификации вашей компании привязан другой Olvid ID. Если вы сгенерировали новый ID, необходимо отозвать предыдущий."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şirketinizin kimlik sağlayıcısındaki hesabınızla başka bir Olvid ID'si ilişkilendirilmiş. Yeni bir ID oluşturduysanız öncekini geçersiz kılmanız gerekir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "До вашого облікового запису на провайдері ідентифікації вашої компанії прив’язано інший Olvid ID. Якщо ви згенерували новий ID, вам потрібно відкликати попередній."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Một Olvid ID khác đã được liên kết với tài khoản của bạn trên hệ thống xác thực của công ty. Nếu bạn đã tạo một ID mới, bạn cần hủy bỏ ID cũ."
           }
         },
         "zh-Hans": {
@@ -1337,6 +1643,12 @@
             "value": "알겠습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1355,10 +1667,22 @@
             "value": "Ок"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Добре"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Được rồi"
           }
         },
         "zh-Hans": {
@@ -1413,6 +1737,12 @@
             "value": "사용자 변경 사항 감지"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wykryto zmianę użytkownika"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1431,10 +1761,22 @@
             "value": "Обнаружено изменение пользователя"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanıcı değişikliği algılandı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зміна користувача виявлено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phát hiện thay đổi người dùng"
           }
         },
         "zh-Hans": {

@@ -41,8 +41,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple 파일 앱 파일"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plik z aplikacji Pliki (Apple)"
           }
         },
         "pt-BR": {
@@ -63,10 +69,22 @@
             "value": "Файл из приложения «Файлы» Apple"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Dosyalar uygulaması dosyası"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Файл з програми «Файли» від Apple"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp từ ứng dụng Apple Files"
           }
         },
         "zh-Hans": {
@@ -117,8 +135,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "macOS의 Apple Finder 노드"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Węzeł Findera Apple w systemie macOS"
           }
         },
         "pt-BR": {
@@ -139,10 +163,22 @@
             "value": "Узел Apple Finder в macOS"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS altında Apple Finder düğümü"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вузол Apple Finder під macOS"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mục Apple Finder trên macOS"
           }
         },
         "zh-Hans": {
@@ -193,8 +229,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple 링크 프리젠테이션 메타데이터"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metadane prezentacji linku Apple"
           }
         },
         "pt-BR": {
@@ -215,10 +257,22 @@
             "value": "Метаданные Apple Link Presentation"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple bağlantı sunumu meta verileri"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Метадані презентації Apple Link"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siêu dữ liệu Apple Link Presentation"
           }
         },
         "zh-Hans": {
@@ -269,8 +323,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple m4a 오디오"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dźwięk Apple m4a"
           }
         },
         "pt-BR": {
@@ -291,10 +351,22 @@
             "value": "Аудио Apple m4a"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple m4a Ses"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Аудіо Apple m4a"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp âm thanh m4a của Apple"
           }
         },
         "zh-Hans": {
@@ -351,6 +423,12 @@
             "value": "Olvid"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -369,7 +447,19 @@
             "value": "Ольвид"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
         "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "vi": {
           "stringUnit": {
             "state": "translated",
             "value": "Olvid"
@@ -429,6 +519,12 @@
             "value": "Olvid"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -447,7 +543,19 @@
             "value": "Оливье"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
         "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid"
+          }
+        },
+        "vi": {
           "stringUnit": {
             "state": "translated",
             "value": "Olvid"
@@ -501,8 +609,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "크로미움에서 드래그 시작"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przeciąganie zainicjowane przez Chromium"
           }
         },
         "pt-BR": {
@@ -523,10 +637,22 @@
             "value": "Перетаскивание инициировано Chromium"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chromium tarafından başlatılan sürükleme"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Перетягування ініційовано Chromium"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chromium bắt đầu thao tác kéo"
           }
         },
         "zh-Hans": {
@@ -577,8 +703,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Microsoft Excel 문서"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dokument Microsoft Excel"
           }
         },
         "pt-BR": {
@@ -599,10 +731,22 @@
             "value": "Документ Microsoft Excel"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Excel belgesi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Документ Microsoft Excel"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tài liệu Microsoft Excel"
           }
         },
         "zh-Hans": {
@@ -653,8 +797,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Microsoft PowerPoint 문서"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dokument Microsoft Powerpoint"
           }
         },
         "pt-BR": {
@@ -675,10 +825,22 @@
             "value": "Документ Microsoft PowerPoint"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Powerpoint belgesi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Документ Microsoft PowerPoint"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tài liệu Microsoft PowerPoint"
           }
         },
         "zh-Hans": {
@@ -729,8 +891,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Microsoft Word 97 문서"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dokument Microsoft Word 97"
           }
         },
         "pt-BR": {
@@ -751,10 +919,22 @@
             "value": "Документ Microsoft Word 97"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word 97 belgesi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Документ Microsoft Word 97"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tài liệu Microsoft Word 97"
           }
         },
         "zh-Hans": {
@@ -805,8 +985,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Microsoft Word 문서"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dokument Microsoft Word"
           }
         },
         "pt-BR": {
@@ -827,10 +1013,22 @@
             "value": "Документ Microsoft Word"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft Word belgesi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Документ Microsoft Word"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tài liệu Microsoft Word"
           }
         },
         "zh-Hans": {
@@ -883,8 +1081,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "카메라 접근 권한을 통해 연락처의 QR 코드를 스캔하고, 대화 내에서 바로 사진과 비디오를 촬영할 수 있습니다."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dostęp do aparatu pozwala skanować kody QR kontaktów oraz robić zdjęcia i nagrywać wideo bezpośrednio w dyskusji."
           }
         },
         "pt-BR": {
@@ -905,10 +1109,22 @@
             "value": "Доступ к камере позволяет сканировать QR-коды контактов и делать фотографии и видео прямо в диалоге."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kameraya erişim, kişilerinizin QR kodunu taramanızı ve doğrudan bir sohbetin içinden fotoğraf ve video çekmenizi sağlar."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Надання доступу до камери дозволяє сканувати QR-коди ваших контактів, а також робити фотографії та відео безпосередньо в чаті."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cho phép truy cập vào camera để bạn có thể quét mã QR của danh bạ và chụp ảnh, quay video ngay trong cuộc trò chuyện."
           }
         },
         "zh-Hans": {
@@ -961,8 +1177,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Face ID를 사용하여 Olvid에 접속하세요."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Używaj Face ID, aby uzyskać dostęp do Olvid"
           }
         },
         "pt-BR": {
@@ -983,10 +1205,22 @@
             "value": "Используйте Face ID для доступа к Olvid"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'e erişmek için Face ID'yi kullanın"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Використовуйте Face ID для доступу до Olvid"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sử dụng Face ID để truy cập Olvid"
           }
         },
         "zh-Hans": {
@@ -1039,8 +1273,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "저작권 © 2019-2026 Olvid SAS"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2019-2026 Olvid SAS"
           }
         },
         "pt-BR": {
@@ -1061,10 +1301,22 @@
             "value": "Copyright © 2019-2026 Olvid SAS"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telif Hakkı © 2019-2026 Olvid SAS"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Copyright © 2019-2026 Olvid SAS"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bản quyền © 2019-2026 Olvid SAS"
           }
         },
         "zh-Hans": {
@@ -1117,8 +1369,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "다른 사용자와 위치를 공유하기로 결정하면 위치 정보가 필요합니다."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoja lokalizacja jest potrzebna, gdy zdecydujesz się udostępnić ją innym użytkownikom."
           }
         },
         "pt-BR": {
@@ -1139,10 +1397,22 @@
             "value": "Ваше местоположение необходимо, когда вы решите поделиться им с другими пользователями."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu diğer kullanıcılarla paylaşmayı seçtiğinizde konum bilginiz gereklidir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваше місцезнаходження необхідне, коли ви вирішите поділитися ним з іншими користувачами."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí của bạn cần thiết khi bạn quyết định chia sẻ nó với những người dùng khác."
           }
         },
         "zh-Hans": {
@@ -1195,8 +1465,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "다른 사용자와 위치를 공유하기로 결정하면 위치 정보가 필요합니다."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoja lokalizacja jest potrzebna, gdy zdecydujesz się udostępnić ją innym użytkownikom."
           }
         },
         "pt-BR": {
@@ -1217,10 +1493,22 @@
             "value": "Ваше местоположение необходимо, когда вы решите поделиться им с другими пользователями."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu diğer kullanıcılarla paylaşmayı seçtiğinizde konum bilginiz gereklidir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваше місцезнаходження необхідне, коли ви вирішите поділитися ним з іншими користувачами."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí của bạn cần thiết khi bạn quyết định chia sẻ nó với những người dùng khác."
           }
         },
         "zh-Hans": {
@@ -1273,8 +1561,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "다른 사용자와 위치를 공유하기로 결정하면 위치 정보가 필요합니다."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoja lokalizacja jest potrzebna, gdy zdecydujesz się udostępnić ją innym użytkownikom."
           }
         },
         "pt-BR": {
@@ -1295,10 +1589,22 @@
             "value": "Ваше местоположение необходимо, когда вы решите поделиться им с другими пользователями."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu diğer kullanıcılarla paylaşmayı seçtiğinizde konum bilginiz gereklidir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваше місцезнаходження необхідне, коли ви вирішите поділитися ним з іншими користувачами."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí của bạn cần thiết khi bạn quyết định chia sẻ nó với những người dùng khác."
           }
         },
         "zh-Hans": {
@@ -1351,8 +1657,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "다른 사용자와 위치를 공유하기로 결정하면 위치 정보가 필요합니다."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoja lokalizacja jest potrzebna, gdy zdecydujesz się udostępnić ją innym użytkownikom."
           }
         },
         "pt-BR": {
@@ -1373,10 +1685,22 @@
             "value": "Ваше местоположение необходимо, когда вы решите поделиться им с другими пользователями."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumunuzu diğer kullanıcılarla paylaşmayı seçtiğinizde konum bilginiz gereklidir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваше місцезнаходження необхідне, коли ви вирішите поділитися ним з іншими користувачами."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí của bạn cần thiết khi bạn quyết định chia sẻ nó với những người dùng khác."
           }
         },
         "zh-Hans": {
@@ -1429,8 +1753,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "안전한 오디오 통화를 하고 동영상 및 음성 메시지를 녹음하려면 마이크 액세스 권한을 허용해야 합니다."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dostęp do mikrofonu jest wymagany do prowadzenia bezpiecznych połączeń głosowych oraz nagrywania filmów i wiadomości głosowych."
           }
         },
         "pt-BR": {
@@ -1451,10 +1781,22 @@
             "value": "Для осуществления защищенных аудиозвонков и записи видео и голосовых сообщений требуется доступ к микрофону."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli sesli aramalar yapmak, video ve sesli mesaj kaydetmek için mikrofona erişim izni gereklidir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Надання доступу до мікрофона необхідне для здійснення безпечних аудіо- та відеодзвінків, а також для запису відео та голосових повідомлень."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Việc cấp quyền truy cập vào micro là cần thiết để thực hiện các cuộc gọi thoại an toàn và để ghi lại video và tin nhắn thoại."
           }
         },
         "zh-Hans": {
@@ -1507,8 +1849,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "사진을 사진 보관함에 저장하려면 쓰기 권한이 필요합니다. Olvid은 사진 보관함의 다른 사진에 접근할 수 없다는 점을 참고해 주시기 바랍니다."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dostęp do zapisu jest wymagany, aby zapisać zdjęcie w bibliotece zdjęć. Olvid nie będzie mieć dostępu do pozostałych zdjęć w twojej bibliotece."
           }
         },
         "pt-BR": {
@@ -1529,16 +1877,123 @@
             "value": "Для сохранения фотографии в вашу фотобиблиотеку требуется доступ к записи. Обратите внимание, что Olvid не будет иметь доступа к другим фотографиям в вашей фотобиблиотеке."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir resmi fotoğraf arşivinize kaydetmek için yazma erişimi gereklidir. Olvid'in fotoğraf arşivinizdeki diğer fotoğraflara erişimi olmayacağını lütfen unutmayın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Для збереження зображення в бібліотеку фотографій потрібен доступ до запису. Зверніть увагу, що Olvid не матиме доступу до інших фотографій у вашій бібліотеці."
           }
         },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quyền ghi là bắt buộc để lưu ảnh vào thư viện ảnh của bạn. Xin lưu ý rằng Olvid sẽ không có quyền truy cập vào các ảnh khác trong thư viện ảnh của bạn."
+          }
+        },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "为了将图片保存到您的照片库，需要写入权限。请注意，Olvid不会访问您照片库中的其他照片。"
+          }
+        }
+      }
+    },
+    "NSSiriUsageDescription": {
+      "comment": "Privacy - Siri Usage Description",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid nutzt Siri, um Nachrichten zu senden, vorzulesen und freihändig Anrufe zu tätigen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid uses Siri to send messages, read them aloud, and place calls hands-free."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid usa Siri para enviar mensajes, leerlos en voz alta y hacer llamadas con manos libres."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid utilise Siri pour envoyer des messages, vous les lire à voix haute et passer des appels en mode mains libres."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid usa Siri per inviare messaggi, leggerli ad alta voce ed effettuare chiamate in vivavoce."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid は Siri を使用してメッセージの送信、読み上げ、ハンズフリーでの通話を行います。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid는 Siri를 사용하여 메시지를 보내고, 소리 내어 읽어주며, 핸즈프리로 전화를 걸 수 있도록 합니다."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid używa Siri do wysyłania wiadomości, odczytywania ich na głos i nawiązywania połączeń bez użycia rąk."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid usa a Siri para enviar mensagens, lê-las em voz alta e fazer chamadas com as mãos livres."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid usa a Siri para enviar mensagens, lê-las em voz alta e fazer chamadas em mãos-livres."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid использует Siri, чтобы отправлять сообщения, зачитывать их вслух и совершать звонки без помощи рук."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid, mesaj göndermek, mesajları sesli okumak ve eller serbest arama yapmak için Siri'yi kullanır."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid використовує Siri, щоб надсилати повідомлення, зачитувати їх уголос та здійснювати дзвінки без допомоги рук."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid sử dụng Siri để gửi tin nhắn, đọc tin nhắn và thực hiện cuộc gọi rảnh tay."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid 使用 Siri 发送消息、朗读消息并免提拨打电话。"
           }
         }
       }
@@ -1583,8 +2038,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Olvid 백업"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopia zapasowa Olvid"
           }
         },
         "pt-BR": {
@@ -1605,10 +2066,22 @@
             "value": "Резервная копия Olvid"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid Yedeği"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Резервна копія Olvid"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu Olvid"
           }
         },
         "zh-Hans": {
@@ -1659,8 +2132,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Olvid 링크 미리보기"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Podgląd linku Olvid"
           }
         },
         "pt-BR": {
@@ -1681,10 +2160,22 @@
             "value": "Предпросмотр ссылки Olvid"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid Bağlantı Önizlemesi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Перегляд посилання Olvid"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem trước liên kết Olvid"
           }
         },
         "zh-Hans": {
@@ -1735,8 +2226,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "웹 인터넷 위치"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokalizacja internetowa"
           }
         },
         "pt-BR": {
@@ -1757,10 +2254,22 @@
             "value": "Интернет-адрес"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnternet Konumu"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Веб-інтернет-локація"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí trên web/internet"
           }
         },
         "zh-Hans": {

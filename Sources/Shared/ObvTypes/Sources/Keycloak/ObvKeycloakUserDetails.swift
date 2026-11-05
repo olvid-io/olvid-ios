@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,20 +32,33 @@ public struct SignedObvKeycloakUserDetails: Sendable, Equatable {
         self.userDetails.identical(to: other.userDetails, acceptableTimestampsDifference: acceptableTimestampsDifference)
     }
     
-    public static func verifySignedUserDetails(_ signedUserDetails: String, with jwks: ObvJWKSet) throws -> (signedUserDetails: SignedObvKeycloakUserDetails, signatureVerificationKey: ObvJWK) {
+    
+    public static func verifySignedUserDetails(
+        _ signedUserDetails: String,
+        with jwks: ObvJWKSet,
+        binding: IdentityBinding
+    ) throws -> (signedUserDetails: SignedObvKeycloakUserDetails, signatureVerificationKey: ObvJWK) {
         let (jsonPayload, signatureVerificationKey) = try JWSUtil.verifySignature(jwks: jwks, signature: signedUserDetails)
         let contactUserDetails = try ObvKeycloakUserDetails(jsonPayload)
+        try binding.check(contactUserDetails)
         let signedUserDetails = self.init(userDetails: contactUserDetails, signedUserDetails: signedUserDetails)
         return (signedUserDetails, signatureVerificationKey)
     }
 
-    public static func verifySignedUserDetails(_ signedUserDetails: String, with jwk: ObvJWK) throws -> SignedObvKeycloakUserDetails {
+    
+    public static func verifySignedUserDetails(
+        _ signedUserDetails: String,
+        with jwk: ObvJWK,
+        binding: IdentityBinding
+    ) throws -> SignedObvKeycloakUserDetails {
         let (jsonPayload, signatureVerificationKey) = try JWSUtil.verifySignature(signatureVerificationKey: jwk, signature: signedUserDetails)
         assert(signatureVerificationKey == jwk)
         let contactUserDetails = try ObvKeycloakUserDetails(jsonPayload)
+        try binding.check(contactUserDetails)
         let signedUserDetails = self.init(userDetails: contactUserDetails, signedUserDetails: signedUserDetails)
         return signedUserDetails
     }
+    
 
     private init(userDetails: ObvKeycloakUserDetails, signedUserDetails: String) {
         self.userDetails = userDetails
@@ -72,6 +85,51 @@ public struct SignedObvKeycloakUserDetails: Sendable, Equatable {
     
     public func toObvIdentityCoreDetails() throws -> ObvIdentityCoreDetails {
         try ObvIdentityCoreDetails(firstName: firstName, lastName: lastName, company: company, position: position, signedUserDetails: signedUserDetails)
+    }
+
+}
+
+
+// MARK: - Binding signed details to an identity
+
+extension SignedObvKeycloakUserDetails {
+
+    /// What the `identity` field of a JWT must contain for its details to be accepted.
+    /// A valid signature is not always enough on its own: most of the time, we need to ensure
+    /// it corresponds to a particular ObvCryptoId.
+    public enum IdentityBinding: Sendable {
+
+        /// The JWT **must** contain this identity.
+        case mustBeBound(to: ObvCryptoId)
+
+        /// The JWT may contain no identity at all, and otherwise must contain this one. This is the case for our own
+        /// details as stored in the engine: the server signs them without an identity until the client has uploaded its key.
+        case mayBeUnbound(ownedIdentity: ObvCryptoId)
+
+        /// The details are not checked against any identity. Only for our own details as returned by the server's `/me`
+        /// entry point: they come from our own authenticated request rather than from a third party, and may still name
+        /// the identity the user had before binding this one.
+        case notCheckedForOurOwnDetailsFromTheServer
+        
+        func check(_ userDetails: ObvKeycloakUserDetails) throws(ObvError) {
+            switch self {
+            case .mustBeBound(to: let expectedIdentity):
+                guard let identity = userDetails.identity else { throw .theDetailsNameNoIdentity }
+                guard identity == expectedIdentity.getIdentity() else { throw .theDetailsNameAnotherIdentity }
+            case .mayBeUnbound(ownedIdentity: let expectedIdentity):
+                guard let identity = userDetails.identity else { return }
+                guard identity == expectedIdentity.getIdentity() else { throw .theDetailsNameAnotherIdentity }
+            case .notCheckedForOurOwnDetailsFromTheServer:
+                return
+            }
+        }
+
+    }
+
+
+    public enum ObvError: Error {
+        case theDetailsNameNoIdentity
+        case theDetailsNameAnotherIdentity
     }
 
 }

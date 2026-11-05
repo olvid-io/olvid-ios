@@ -35,21 +35,12 @@ extension CircledInitialsConfiguration {
         case picture(UIImage)
     }
     
-//    public var icon: SystemIcon {
-//        switch self {
-//        case .contact: return .person
-//        case .group, .groupV2: return .person3Fill
-//        case .icon(let icon): return icon.icon
-//        }
-//    }
-    
-    
-    public func contentType(using style: IdentityColorStyle) -> ContentType {
+    public func contentType() -> ContentType {
         if let image = self.photo {
             return .picture(image)
         } else if let initials = self.initials {
-            return .initial(initials.text, AppTheme.shared.identityColors(for: initials.cryptoId, using: style).text)
-        } else if let iconInfo = self.iconInfo(using: style) {
+            return .initial(initials.text, AppTheme.shared.identityColors(for: initials.cryptoId).text)
+        } else if let iconInfo = self.iconInfo() {
             return .icon(iconInfo.icon, iconInfo.tintColor)
         } else {
             return .none
@@ -57,35 +48,7 @@ extension CircledInitialsConfiguration {
     }
     
     
-//    public func backgroundColor(appTheme: AppTheme, using style: IdentityColorStyle = ObvMessengerSettings.Interface.identityColorStyle) -> UIColor {
-//        switch self {
-//        case .contact(initial: _, photo: _, showGreenShield: _, showRedShield: _, cryptoId: let cryptoId, tintAdjustementMode: _):
-//            return appTheme.identityColors(for: cryptoId, using: style).background
-//        case .group(photo: _, groupUid: let groupUid):
-//            return appTheme.groupColors(forGroupUid: groupUid, using: style).background
-//        case .groupV2(photo: _, groupIdentifier: let groupIdentifier, showGreenShield: _):
-//            return appTheme.groupV2Colors(forGroupIdentifier: groupIdentifier).background
-//        case .icon:
-//            return appTheme.colorScheme.systemFill
-//        }
-//    }
-//
-//
-//    public func foregroundColor(appTheme: AppTheme, using style: IdentityColorStyle = ObvMessengerSettings.Interface.identityColorStyle) -> UIColor {
-//        switch self {
-//        case .contact(initial: _, photo: _, showGreenShield: _, showRedShield: _, cryptoId: let cryptoId, tintAdjustementMode: _):
-//            return appTheme.identityColors(for: cryptoId, using: style).text
-//        case .group(photo: _, groupUid: let groupUid):
-//            return appTheme.groupColors(forGroupUid: groupUid, using: style).text
-//        case .groupV2(photo: _, groupIdentifier: let groupIdentifier, showGreenShield: _):
-//            return appTheme.groupV2Colors(forGroupIdentifier: groupIdentifier).text
-//        case .icon:
-//            return appTheme.colorScheme.secondaryLabel
-//        }
-//    }
-
-
-    private func iconInfo(using style: IdentityColorStyle) -> (icon: SystemIcon, tintColor: UIColor)? {
-        return (icon, foregroundColor(appTheme: AppTheme.shared, using: style))
+    private func iconInfo() -> (icon: SystemIcon, tintColor: UIColor)? {
+        return (icon, foregroundColor(appTheme: AppTheme.shared))
     }
 }

@@ -45,6 +45,12 @@
             "value": "내 프로필"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moje profile"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "Мои профили"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profillerim"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Мої профілі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ của tôi"
           }
         },
         "zh-Hans": {

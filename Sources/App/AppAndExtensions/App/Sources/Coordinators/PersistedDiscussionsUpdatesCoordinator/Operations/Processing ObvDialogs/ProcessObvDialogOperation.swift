@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,11 +21,12 @@
 import Foundation
 import OlvidUtils
 import ObvEngine
-import os.log
+import OSLog
 import ObvUICoreData
 import CoreData
 import ObvTypes
 import ObvSettings
+import ObvAppCoreConstants
 
 
 final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForCancel<ProcessObvDialogOperation.ReasonForCancel>, @unchecked Sendable {
@@ -33,7 +34,9 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
     private let obvDialog: ObvDialog
     private let obvEngine: ObvEngine
     private let syncAtomRequestDelegate: ObvSyncAtomRequestDelegate
-
+    
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ProcessObvDialogOperation.self))
+    
     init(obvDialog: ObvDialog, obvEngine: ObvEngine, syncAtomRequestDelegate: ObvSyncAtomRequestDelegate) {
         self.obvDialog = obvDialog
         self.obvEngine = obvEngine
@@ -150,9 +153,17 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
         
         do {
             switch obvDialog.category {
-            case .oneToOneInvitationSent:
+            case .oneToOneInvitationSent(contactIdentity: let contactIdentity):
                 if try PersistedInvitationOneToOneInvitationSent.getPersistedInvitation(uuid: obvDialog.uuid, ownedCryptoId: obvDialog.ownedCryptoId, within: obvContext.context) == nil {
                     _ = try PersistedInvitationOneToOneInvitationSent(obvDialog: obvDialog, isRestoringSyncSnapshotOrBackup: false, within: obvContext.context)
+                    // A contact we invited is no longer suggested, even if the invitation is declined or aborted. Every owned device receives this
+                    // dialog, so each of them sets the contact aside.
+                    let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactIdentity.cryptoId, ownedCryptoId: obvDialog.ownedCryptoId)
+                    do {
+                        _ = try PersistedObvContactIdentity.stopSuggesting(contactIdentifier: contactIdentifier, within: obvContext.context)
+                    } catch {
+                        Self.logger.fault("Could not stop suggesting the contact of a sent invitation: \(error, privacy: .public)")
+                    }
                 }
             default:
                 try PersistedInvitation.insertOrUpdate(obvDialog, isRestoringSyncSnapshotOrBackup: false, within: obvContext.context)
@@ -278,16 +289,7 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
                     mentionNotificationMode = muteNotification.exceptMentioned ? .alwaysNotifyWhenMentionned : .neverNotifyWhenDiscussionIsMuted
                 }
 
-                let input: UpdateDiscussionLocalConfigurationOperation.Input
-                switch discussionIdentifier {
-                case .oneToOne(let contactCryptoId):
-                    let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-                    input = .discussionWithOneToOneContact(contactIdentifier: contactIdentifier)
-                case .groupV1(let groupIdentifier):
-                    input = .groupV1Discussion(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
-                case .groupV2(let groupIdentifier):
-                    input = .groupV2Discussion(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
-                }
+                let input = Self.input(for: discussionIdentifier, ownedCryptoId: ownedCryptoId)
                 
                 let op1 = UpdateDiscussionLocalConfigurationOperation(
                     value: .mentionNotificationMode(mentionNotificationMode),
@@ -317,11 +319,43 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
             }
         case .settingUnarchiveOnNotification(let unarchiveOnNotification):
             ObvMessengerSettings.Discussions.setUnarchiveDiscussions(to: unarchiveOnNotification, changeMadeFromAnotherOwnedDevice: true)
+        case .preferredReaction(scope: let scope, emoji: let emoji):
+            switch scope {
+            case .global:
+                ObvMessengerSettings.Emoji.setDefaultDoubleTapEmoji(to: emoji, changeMadeFromAnotherOwnedDevice: true)
+            case .discussion(let discussionIdentifier):
+                let op1 = UpdateDiscussionLocalConfigurationOperation(
+                    value: .doubleTapEmoji(emoji),
+                    input: Self.input(for: discussionIdentifier, ownedCryptoId: ownedCryptoId),
+                    makeSyncAtomRequest: false,
+                    syncAtomRequestDelegate: nil)
+                op1.main(obvContext: obvContext, viewContext: viewContext)
+                assert(!op1.isCancelled)
+            }
+        case .stopSuggestingContact(contactCryptoId: let contactCryptoId):
+            let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+            let op1 = StopSuggestingContactOperation(contactIdentifier: contactIdentifier)
+            op1.main(obvContext: obvContext, viewContext: viewContext)
+            assert(!op1.isCancelled)
         }
         
     }
  
     
+    /// Turns the way an `ObvSyncAtom` names a discussion into the way `UpdateDiscussionLocalConfigurationOperation` asks for one.
+    private static func input(for discussionIdentifier: ObvSyncAtom.DiscussionIdentifier, ownedCryptoId: ObvCryptoId) -> UpdateDiscussionLocalConfigurationOperation.Input {
+        switch discussionIdentifier {
+        case .oneToOne(let contactCryptoId):
+            let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+            return .discussionWithOneToOneContact(contactIdentifier: contactIdentifier)
+        case .groupV1(let groupIdentifier):
+            return .groupV1Discussion(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
+        case .groupV2(let groupIdentifier):
+            return .groupV2Discussion(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
+        }
+    }
+
+
     private func getAutoAcceptGroupInviteFromObvSyncAtomAutoJoinGroupsCategory(category:  ObvSyncAtom.AutoJoinGroupsCategory) -> ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom {
         switch category {
         case .everyone:

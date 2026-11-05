@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,7 +36,6 @@ final actor AppManagersHolder {
     
     private let userNotificationsBadgesManager: UserNotificationsBadgesManager
     private let hardLinksToFylesManager: HardLinksToFylesManager
-    private let thumbnailManager: ThumbnailManager
     private let appBackupManager: AppBackupManager
     private let expirationMessagesManager: ExpirationMessagesManager
     private let retentionMessagesManager: RetentionMessagesManager
@@ -44,7 +43,6 @@ final actor AppManagersHolder {
     private let profilePictureManager: ProfilePictureManager
     private let subscriptionManager: SubscriptionManager
     private let muteDiscussionManager: MuteDiscussionManager
-    private let snackBarManager: SnackBarManager
     private let applicationShortcutItemsManager: ApplicationShortcutItemsManager
     private let keycloakManager: KeycloakManager
     private let backgroundTasksManager: BackgroundTasksManager
@@ -80,7 +78,6 @@ final actor AppManagersHolder {
         
         self.userNotificationsBadgesManager = UserNotificationsBadgesManager()
         self.hardLinksToFylesManager = HardLinksToFylesManager.makeHardLinksToFylesManagerForMainApp()
-        self.thumbnailManager = ThumbnailManager.makeThumbnailManagerForMainApp()
         self.appBackupManager = AppBackupManager(obvEngine: obvEngine)
         self.expirationMessagesManager = ExpirationMessagesManager()
         self.retentionMessagesManager = RetentionMessagesManager()
@@ -88,7 +85,6 @@ final actor AppManagersHolder {
         self.profilePictureManager = ProfilePictureManager()
         self.subscriptionManager = SubscriptionManager(obvEngine: obvEngine)
         self.muteDiscussionManager = MuteDiscussionManager()
-        self.snackBarManager = SnackBarManager(obvEngine: obvEngine)
         self.applicationShortcutItemsManager = ApplicationShortcutItemsManager()
         self.keycloakManager = KeycloakManager()
         self.webSocketManager = WebSocketManager(obvEngine: obvEngine)
@@ -113,7 +109,6 @@ final actor AppManagersHolder {
         await keycloakManager.performPostInitialization()
         await webSocketManager.performPostInitialization()
         await localAuthenticationManager.performPostInitialization()
-        await snackBarManager.performPostInitialization()
         await intentManager.performPostInitialization()
         // Set the delegates
         await self.keycloakManager.setDelegate(to: self)
@@ -133,7 +128,6 @@ final actor AppManagersHolder {
         await appBackupManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await applicationShortcutItemsManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await userNotificationsBadgesManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        await snackBarManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
     }
 
     
@@ -154,9 +148,9 @@ final actor AppManagersHolder {
         os_log("🧦 observeAppBasedLifeCycleEvents", log: Self.log, type: .info)
         let didEnterBackgroundNotification = UIApplication.didEnterBackgroundNotification
         let tokens = [
-            NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: nil) { _ in
+            NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
                  os_log("didEnterBackgroundNotification", log: Self.log, type: .info)
-                 Task { [weak self] in
+                 Task {
                      os_log("Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground starts", log: Self.log, type: .info)
                      await self?.scheduleBackgroundTasksWhenAppDidEnterBackground()
                      os_log("Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground ends", log: Self.log, type: .info)
@@ -174,6 +168,15 @@ final actor AppManagersHolder {
     
     private func scheduleBackgroundTasksWhenAppDidEnterBackground() async {
         await backgroundTasksManager.scheduleBackgroundTasks()
+    }
+
+
+    /// A `Fyle` presented under the name it was sent with, which is what anything needing to open it, preview it or take a thumbnail of it requires — a `Fyle`
+    /// being stored under the hexadecimal of its own hash, with no extension to say what it is.
+    ///
+    /// Answered here rather than by handing out ``hardLinksToFylesManager``, so that the managers stay private to this holder as all the others are.
+    func requestHardLinkToFyle(fyleElement: FyleElement) async throws -> HardLinkToFyle {
+        try await hardLinksToFylesManager.requestHardLinkToFyle(fyleElement: fyleElement)
     }
 
 }

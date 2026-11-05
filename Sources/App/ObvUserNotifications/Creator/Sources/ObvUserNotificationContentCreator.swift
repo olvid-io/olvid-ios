@@ -21,6 +21,7 @@ import Foundation
 import UserNotifications
 import AVFAudio
 import OSLog
+import ObvUserNotificationsContent
 @preconcurrency import ObvUICoreData
 import ObvSettings
 import ObvCommunicationInteractor
@@ -36,12 +37,12 @@ import OlvidUtils
 
 public struct ObvUserNotificationContentCreator {
         
-    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ObvUserNotificationContentCreator.self))
+    static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ObvUserNotificationContentCreator.self))
     
     
     /// Called from the main app only, when a new protocol dialog is inserted or updated.
     ///
-    /// To the contrary of ``static determineNotificationToShow(obvMessage:obvStackShared:)``, we don't need to query the app database to construct the notification content.
+    /// To the contrary of ``static determineNotificationToShow(obvMessage:receivedMessageSave:obvStackShared:)``, we don't need to query the app database to construct the notification content.
     /// Since this notification is scheduled by the app (and never by the notification extension), we already have all the information we need in the `PersistedInvitationStructure`.
     ///
     /// The `ObvUserNotificationContentTypeForInvitation` full case also contains an optional `ObvProtocolMessage`.
@@ -76,124 +77,121 @@ public struct ObvUserNotificationContentCreator {
             assertionFailure()
         }
 
-        // The notification content depends on the 'hideNotificationContent' user setting
+        // A dialog that would not be notified with its content shown is not notified with its content hidden either.
+        // The guards within the switch below are only reached when the content is shown.
 
-        switch ObvMessengerSettings.Privacy.hideNotificationContent {
-            
-        case .completely:
-               
-            // We keep the minimal notifications
+        switch invitation.obvDialog.category {
+        case .sasExchange(contactIdentity: _, sasToDisplay: _, numberOfBadEnteredSas: let numberOfBadEnteredSas) where numberOfBadEnteredSas != 0:
+            return .silent
+        case .acceptMediatorInvite, .acceptGroupV2Invite:
+            guard invitation.inviterOrMediator != nil else {
+                assertionFailure("The inviter or mediator should have been set when creating the structure")
+                return .silent
+            }
+        default:
+            break
+        }
+
+        if let concealed = Self.concealedContent(about: .invitation, startingFrom: content, soundOf: nil) {
+            return .full(content: concealed.content, toRemove: Self.protocolMessageNotifiedByTheExtension(for: invitation))
+        }
+
+        switch invitation.obvDialog.category {
+
+        case .acceptInvite(contactIdentity: let contactIdentity):
+            let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
+            content.title = String(localized: "New Invitation!")
+            content.body = String(localized: "You receive a new invitation from \(contactDisplayName). You can accept or silently discard it.")
+            content.setObvCategoryIdentifier(to: .acceptInvite)
             return .full(content: content, toRemove: nil)
 
-        case .partially:
-            
-            // Simply describe the nature of the notification
-            content.title = String(localized: "New invitation")
-            content.body = String(localized: "Tap to see the invitation")
+        case .sasExchange(contactIdentity: let contactIdentity, sasToDisplay: _, numberOfBadEnteredSas: let numberOfBadEnteredSas):
+            guard numberOfBadEnteredSas == 0 else { return .silent } // Do not show any notification when the user enters a bad SAS
+            let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
+            content.title = String(localized: "ONE_MORE_STEP")
+            content.body = String(localized: "EXCHANGE_YOUR_CODES_WITH_\(contactDisplayName)")
+            content.setObvCategoryIdentifier(to: .invitationWithNoAction)
             return .full(content: content, toRemove: nil)
 
-        case .no:
-            
-            switch invitation.obvDialog.category {
-                
-            case .acceptInvite(contactIdentity: let contactIdentity):
-                let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                content.title = String(localized: "New Invitation!")
-                content.body = String(localized: "You receive a new invitation from \(contactDisplayName). You can accept or silently discard it.")
-                content.setObvCategoryIdentifier(to: .acceptInvite)
-                return .full(content: content, toRemove: nil)
+        case .mutualTrustConfirmed(contactIdentity: let contactIdentity):
+            let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
+            content.title = String(localized: "Mutual trust confirmed!")
+            content.body = String(localized: "You now appear in \(contactDisplayName)'s contacts list. A secure channel is being established. When this is done, you will be able to exchange confidential messages and more!")
+            content.setObvCategoryIdentifier(to: .invitationWithNoAction)
+            return .full(content: content, toRemove: nil)
 
-            case .sasExchange(contactIdentity: let contactIdentity, sasToDisplay: _, numberOfBadEnteredSas: let numberOfBadEnteredSas):
-                guard numberOfBadEnteredSas == 0 else { return .silent } // Do not show any notification when the user enters a bad SAS
-                let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                content.title = String(localized: "ONE_MORE_STEP")
-                content.body = String(localized: "EXCHANGE_YOUR_CODES_WITH_\(contactDisplayName)")
-                content.setObvCategoryIdentifier(to: .invitationWithNoAction)
-                return .full(content: content, toRemove: nil)
+        case .acceptMediatorInvite(contactIdentity: let contactIdentity, mediatorIdentity: _):
 
-            case .mutualTrustConfirmed(contactIdentity: let contactIdentity):
-                let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                content.title = String(localized: "Mutual trust confirmed!")
-                content.body = String(localized: "You now appear in \(contactDisplayName)'s contacts list. A secure channel is being established. When this is done, you will be able to exchange confidential messages and more!")
-                content.setObvCategoryIdentifier(to: .invitationWithNoAction)
-                return .full(content: content, toRemove: nil)
+            // We create a notification that must look identical to the one created in
+            // `static createNotificationContentForReceivedProtocolMessage(obvProtocolMessage:contact:oneToOneDiscussion:)`
+            // when receiving a mutualIntroduction protocol message (that can only be posted by the notification extension,
+            // while the invitation we are posting can only be posted by the app).
 
-            case .acceptMediatorInvite(contactIdentity: let contactIdentity, mediatorIdentity: _):
-                
-                // We create a notification that must look identical to the one created in
-                // `static createNotificationContentForReceivedProtocolMessage(obvProtocolMessage:contact:oneToOneDiscussion:)`
-                // when receiving a mutualIntroduction protocol message (that can only be posted by the notification extension,
-                // while the invitation we are posting can only be posted by the app).
-                
-                guard let mediator = invitation.inviterOrMediator else {
-                    assertionFailure("The mediator should have been set when creating the structure")
-                    return .silent
-                }
-                
-                content.title = mediator.customOrFullDisplayName
-                content.body = String(localized: "I would like to introduce you to \(contactIdentity.getDisplayNameWithStyle(.firstNameThenLastName))")
-                
-                content.setObvCategoryIdentifier(to: .acceptInvite)
-                
-                // We want to remove any "identical" ObvProtocolMessage notification posted by the notification extension
-                
-                let toRemove: ObvProtocolMessage = .mutualIntroduction(mediator: mediator.contactIdentifier,
-                                                                       introducedIdentity: contactIdentity.cryptoId,
-                                                                       introducedIdentityCoreDetails: contactIdentity.currentIdentityDetails.coreDetails)
+            guard let mediator = invitation.inviterOrMediator else {
+                assertionFailure("The mediator should have been set when creating the structure")
+                return .silent
+            }
 
-                if let discussion = invitation.oneToOneDiscussionWithInviterOrMediator {
-                    content.threadIdentifier = ObvUserNotificationThread.discussion(discussion.identifier).threadIdentifier
-                    let discussionKind = PersistedDiscussionAbstractStructure.StructureKind.oneToOneDiscussion(structure: discussion)
-                    let communicationType = ObvCommunicationType.incomingMessage(contact: mediator, discussionKind: discussionKind, messageRepliedTo: nil, mentions: [])
-                    do {
-                        let updatedContent = try await ObvCommunicationInteractor.update(notificationContent: content, communicationType: communicationType)
-                        return .full(content: updatedContent, toRemove: toRemove)
-                    } catch {
-                        return .full(content: content, toRemove: toRemove)
-                    }
-                } else {
+            content.title = mediator.customOrFullDisplayName
+            content.body = String(localized: "I would like to introduce you to \(contactIdentity.getDisplayNameWithStyle(.firstNameThenLastName))")
+
+            content.setObvCategoryIdentifier(to: .acceptInvite)
+
+            // We want to remove any "identical" ObvProtocolMessage notification posted by the notification extension
+
+            let toRemove = Self.protocolMessageNotifiedByTheExtension(for: invitation)
+
+            if let discussion = invitation.oneToOneDiscussionWithInviterOrMediator {
+                content.threadIdentifier = ObvUserNotificationThread.discussion(discussion.identifier).threadIdentifier
+                let discussionKind = PersistedDiscussionAbstractStructure.StructureKind.oneToOneDiscussion(structure: discussion)
+                let communicationType = ObvCommunicationType.incomingMessage(contact: mediator, discussionKind: discussionKind, messageRepliedTo: nil, mentions: [])
+                do {
+                    let updatedContent = try await ObvCommunicationInteractor.update(notificationContent: content, communicationType: communicationType)
+                    return .full(content: updatedContent, toRemove: toRemove)
+                } catch {
                     return .full(content: content, toRemove: toRemove)
                 }
-                
-            case .acceptGroupInvite(groupMembers: _, groupOwner: let contactIdentity):
-                let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                content.title = String(localized: "Invitation to join a group")
-                content.body = String(localized: "You are invited to join a group created by \(contactDisplayName).")
-                content.setObvCategoryIdentifier(to: .acceptInvite)
-                return .full(content: content, toRemove: nil)
-
-            case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
-                let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                content.title = String(localized: "New Invitation!")
-                content.body = String(localized: "\(contactDisplayName)_INVITES_YOU_TO_ONE_TO_ONE_DISCUSSION")
-                content.setObvCategoryIdentifier(to: .acceptInvite)
-                return .full(content: content, toRemove: nil)
-
-            case .acceptGroupV2Invite(inviter: _, group: _):
-                guard let inviter = invitation.inviterOrMediator else {
-                    assertionFailure("The inviter should have been set when creating the structure")
-                    return .silent
-                }
-                let inviterDisplayName = inviter.customOrNormalDisplayName
-                content.title = String(localized: "Invitation to join a group")
-                content.body = String(localized: "You are invited to join a group created by \(inviterDisplayName).")
-                content.setObvCategoryIdentifier(to: .acceptInvite)
-                return .full(content: content, toRemove: nil)
-
-            case .inviteSent,
-                    .invitationAccepted,
-                    .sasConfirmed,
-                    .mediatorInviteAccepted,
-                    .oneToOneInvitationSent,
-                    .syncRequestReceivedFromOtherOwnedDevice,
-                    .freezeGroupV2Invite:
-                assert(invitation.obvDialog.category.shouldShowSilentNotification)
-                return .silent
-                
+            } else {
+                return .full(content: content, toRemove: toRemove)
             }
-            
+
+        case .acceptGroupInvite(groupMembers: _, groupOwner: let contactIdentity):
+            let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
+            content.title = String(localized: "Invitation to join a group")
+            content.body = String(localized: "You are invited to join a group created by \(contactDisplayName).")
+            content.setObvCategoryIdentifier(to: .acceptInvite)
+            return .full(content: content, toRemove: nil)
+
+        case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
+            let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
+            content.title = String(localized: "New Invitation!")
+            content.body = String(localized: "\(contactDisplayName)_INVITES_YOU_TO_ONE_TO_ONE_DISCUSSION")
+            content.setObvCategoryIdentifier(to: .acceptInvite)
+            return .full(content: content, toRemove: nil)
+
+        case .acceptGroupV2Invite(inviter: _, group: _):
+            guard let inviter = invitation.inviterOrMediator else {
+                assertionFailure("The inviter should have been set when creating the structure")
+                return .silent
+            }
+            let inviterDisplayName = inviter.customOrNormalDisplayName
+            content.title = String(localized: "Invitation to join a group")
+            content.body = String(localized: "You are invited to join a group created by \(inviterDisplayName).")
+            content.setObvCategoryIdentifier(to: .acceptInvite)
+            return .full(content: content, toRemove: nil)
+
+        case .inviteSent,
+                .invitationAccepted,
+                .sasConfirmed,
+                .mediatorInviteAccepted,
+                .oneToOneInvitationSent,
+                .syncRequestReceivedFromOtherOwnedDevice,
+                .freezeGroupV2Invite:
+            assert(invitation.obvDialog.category.shouldShowSilentNotification)
+            return .silent
+
         }
-                
+
     }
 
     
@@ -221,10 +219,7 @@ public struct ObvUserNotificationContentCreator {
             
         case .historyTransferRequestFromAnotherOwnedDevice:
             
-            let content = Self.createMinimalNotificationContent(badge: .unchanged).mutableContent
-            content.title = String(localized: "HISTORY_TRANSFER_REQUEST_NOTIFICATION_TITLE")
-            content.body = String(localized: "HISTORY_TRANSFER_REQUEST_NOTIFICATION_BODY")
-            return .historyTransferRequestFromAnotherOwnedDevice(content: content)
+            return .historyTransferRequestFromAnotherOwnedDevice(content: historyTransferRequestContent())
 
         case .minimal, .message, .reaction, .messageEdition, .pollAnswer:
             
@@ -264,13 +259,23 @@ public struct ObvUserNotificationContentCreator {
     }
     
 
+    /// Whether the received message is already saved. A reaction or poll vote that does not visibly change the message is not notified,
+    /// and only before the save can the database tell.
+    public enum ReceivedMessageSave {
+        /// The notification extension: the database is asked, by simulating the save.
+        case notYetSaved
+        /// The app, which saves before notifying, and says what the save found.
+        case alreadySaved(isAReactionOrPollVoteThatVisiblyChanged: Bool)
+    }
+
+
     /// Called both by the notification extension and by the main app when receivng an 'ObvMessage'. Depending on the JSON found in the payload, this method will return the notification
     /// that can be published by the caller (who will make sure that it's in charge of posting the notification).
-    public static func determineNotificationToShow(obvMessage: ObvMessage, obvStackShared: CoreDataStack<ObvMessengerPersistentContainer>) async throws -> ObvUserNotificationContentTypeForObvMessage {
-        
+    public static func determineNotificationToShow(obvMessage: ObvMessage, receivedMessageSave: ReceivedMessageSave, obvStackShared: CoreDataStack<ObvMessengerPersistentContainer>) async throws -> ObvUserNotificationContentTypeForObvMessage {
+
         // Parse the (decrypted) ObvMessage to make sure it corresponds to a message or to a reaction.
-        
-        let infosForCreatingContent = try await determineInfosForCreatingContent(obvMessage: obvMessage, obvStackShared: obvStackShared)
+
+        let infosForCreatingContent = try await determineInfosForCreatingContent(obvMessage: obvMessage, receivedMessageSave: receivedMessageSave, obvStackShared: obvStackShared)
         
         switch infosForCreatingContent {
             
@@ -413,7 +418,32 @@ public struct ObvUserNotificationContentCreator {
         content.setObvCategoryIdentifier(to: .postUserNotificationAsAnotherCallParticipantStartedCamera)
 
         return content
-        
+
+    }
+
+
+    /// Why an incoming call was rejected for lack of microphone permission, or `nil` when the permission was granted since.
+    private static func microphonePermissionExplanation() -> MicrophonePermissionExplanation? {
+        switch AVAudioSession.sharedInstance().recordPermission {
+        case .undetermined:
+            return .undetermined
+        case .denied:
+            return .denied
+        case .granted:
+            assertionFailure()
+            return nil
+        @unknown default:
+            return nil
+        }
+    }
+
+
+    /// Shown on this device when another of the user's devices asks to transfer the history of discussions.
+    static func historyTransferRequestContent() -> UNNotificationContent {
+        let content = Self.createMinimalNotificationContent(badge: .unchanged).mutableContent
+        content.title = String(localized: "HISTORY_TRANSFER_REQUEST_NOTIFICATION_TITLE")
+        content.body = String(localized: "HISTORY_TRANSFER_REQUEST_NOTIFICATION_BODY")
+        return content
     }
     
     
@@ -453,6 +483,28 @@ public struct ObvUserNotificationContentCreator {
             assertionFailure()
             throw ObvError.couldNotFindCaller
         }
+
+        // Setting the ObvDiscussionIdentifier on the notification, to make it easier to remove the notification automatically
+
+        content.setObvDiscussionIdentifier(to: callLog.discussionKind.discussionIdentifier)
+        content.setObvContactIdentifier(to: caller.contactIdentity.contactIdentifier)
+
+        let subject: ConcealableSubject
+        let microphonePermissionExplanation: MicrophonePermissionExplanation?
+        switch callReportKind {
+        case .missedIncomingCall, .filteredIncomingCall:
+            microphonePermissionExplanation = nil
+            subject = .missedCall
+        case .rejectedIncomingCallBecauseOfDeniedRecordPermission:
+            microphonePermissionExplanation = Self.microphonePermissionExplanation()
+            subject = .callRejectedForLackOfMicrophonePermission(microphonePermissionExplanation)
+        }
+
+        if let concealed = Self.concealedContent(about: subject, startingFrom: content, soundOf: callLog.discussionKind) {
+            await Self.donateWithoutEnriching(.callLog(callLog: callLog))
+            return concealed.content
+        }
+
         content.title = caller.contactIdentity.customOrNormalDisplayName
 
         switch callLog.discussionKind {
@@ -471,16 +523,8 @@ public struct ObvUserNotificationContentCreator {
         case .filteredIncomingCall:
             content.body = String(localized: "MISSED_CALL_WHILE_IN_DO_NOT_DISTURB_MODE")
         case .rejectedIncomingCallBecauseOfDeniedRecordPermission:
-            switch AVAudioSession.sharedInstance().recordPermission {
-            case .undetermined:
-                content.body = String(localized: "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_UNDETERMINED_NOTIFICATION_BODY")
-            case .denied:
-                content.body = String(localized: "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED_NOTIFICATION_BODY")
-            case .granted:
-                assertionFailure()
-                break
-            @unknown default:
-                break
+            if let microphonePermissionExplanation {
+                content.body = microphonePermissionExplanation.body
             }
         }
         
@@ -492,27 +536,13 @@ public struct ObvUserNotificationContentCreator {
         // Configuring app behavior
         //
 
-        content.badge = NSNumber(integerLiteral: callLog.discussionKind.ownedIdentity.badgeCount+1)
-        
+        // As for a received message, we leave the badge untouched (a nil badge means "leave the app icon badge unchanged").
+        // A missed call inserts a PersistedMessageSystem that counts as unread, so the app icon badge is properly updated by the
+        // RefreshAppBadgeOperation. Setting a badge here would race with that insertion, which happens on another queue.
+
         // Integrating with the system
-        
-        if let notificationSound = callLog.discussionKind.localConfiguration.notificationSound ?? ObvMessengerSettings.Discussions.notificationSound {
-            switch notificationSound {
-            case .none:
-                content.sound = nil
-            case .system:
-                // Keep the sound as it is in the minimal notification content
-                break
-            default:
-                if let sound = notificationSound.unNotificationSound(for: content.body) {
-                    content.sound = sound
-                } else {
-                    // Keep the sound as it is in the minimal notification content
-                }
-            }
-        } else {
-            // Keep the sound as it is in the minimal notification content
-        }
+
+        Self.applySound(of: callLog.discussionKind, to: content)
 
         // For now, we keep the interruptionLevel of the minimal notification
 
@@ -532,12 +562,7 @@ public struct ObvUserNotificationContentCreator {
         //
         // No specific thread identifier
         //
-        
-        // Setting the ObvDiscussionIdentifier on the notification, to make it easier to remove the notification automatically
-        
-        content.setObvDiscussionIdentifier(to: callLog.discussionKind.discussionIdentifier)
-        content.setObvContactIdentifier(to: caller.contactIdentity.contactIdentifier)
-        
+
         // Enrich the notification with communication information and return the content
 
         do {
@@ -629,7 +654,6 @@ extension ObvUserNotificationContentCreator {
             mentionedCryptoIds: message.bodyAndMentions?.mentions.map(\.mentionedCryptoId) ?? [],
             isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction,
             body: message.bodyAndMentions?.body,
-            badgeCount: discussionKind.ownedIdentity.badgeCount,
             locationInfo: locationInfo)
 
         let userNotificationContentType = await Self.createNotificationContentForReceivedMessage(
@@ -692,7 +716,6 @@ extension ObvUserNotificationContentCreator {
             mentionedCryptoIds: message.mentions.map(\.mentionedCryptoId),
             isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction,
             body: message.textBody,
-            badgeCount: message.discussionKind.ownedIdentity.badgeCount,
             locationInfo: locationInfo)
         
         let expectedAttachmentsCount = message.attachmentsCount
@@ -778,12 +801,14 @@ extension ObvUserNotificationContentCreator {
                             case .requestTransfer:
                                 return continuation.resume(returning: .historyTransferRequestFromAnotherOwnedDevice)
                             case .acceptTransfer, .rejectOrAbortTransfer:
-                                break // We want a silent notification in this case
+                                // We want a silent notification in this case
+                                return continuation.resume(returning: .silent)
                             }
+                        } else {
+                            // If we reach this point, it mans we do not deal with the received kind of JSON item
+                            Self.logger.error("For now, we dont deal with that kind of JSON item.")
+                            return continuation.resume(returning: .silent)
                         }
-                        // If we reach this point, it mans we do not deal with the received kind of JSON item
-                        Self.logger.error("For now, we dont deal with that kind of JSON item.")
-                        return continuation.resume(returning: .silent)
                     }
                     
                     guard let persistedDiscussion = try PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: discussionId, within: context) else {
@@ -842,7 +867,7 @@ extension ObvUserNotificationContentCreator {
     }
 
 
-    private static func determineInfosForCreatingContent(obvMessage: ObvMessage, obvStackShared: CoreDataStack<ObvMessengerPersistentContainer>) async throws -> InfosForCreatingContent {
+    private static func determineInfosForCreatingContent(obvMessage: ObvMessage, receivedMessageSave: ReceivedMessageSave, obvStackShared: CoreDataStack<ObvMessengerPersistentContainer>) async throws -> InfosForCreatingContent {
         
         Self.logger.info("Will determine the information required to create the content of the notification")
         
@@ -946,11 +971,19 @@ extension ObvUserNotificationContentCreator {
 
                         let contactIsAllowedToPostMessage: Bool
                         do {
+                            // Simulation only — the receipt obligations resolved by this call are
+                            // discarded along with the rest of the tuple and the context is not
+                            // saved. We pass `pendingSiriReadIntentDate: nil` and
+                            // `nseAlreadyPostedDeliveredReceipt: false` because the simulation is
+                            // solely about contact-permission validation, not about honouring any
+                            // Siri-driven read intent or suppressing a duplicate delivered receipt.
                             _ = try persistedObvOwnedIdentity.createOrOverridePersistedMessageReceived(
                                 obvMessage: obvMessage,
                                 messageJSON: messageJSON,
                                 returnReceiptJSON: persistedItemJSON.returnReceipt,
-                                source: .engine)
+                                source: .engine,
+                                pendingSiriReadIntentDate: nil,
+                                nseAlreadyPostedDeliveredReceipt: false)
                             contactIsAllowedToPostMessage = true
                         } catch {
                             Self.logger.fault("The creation simulation of a PersistedMessageReceived did fail: \(error.localizedDescription, privacy: .public). We consider that the contact is not allowed to post message.")
@@ -986,23 +1019,35 @@ extension ObvUserNotificationContentCreator {
                         return continuation.resume(returning: infosForCreatingContent)
 
                     } else if let reactionJSON = persistedItemJSON.reactionJSON {
-                        
-                        // Check that the notification sender is allowed to react by simulating a database call (note that we shall **NOT** save the context)
 
-                        let contactIsAllowedToSetOrUpdateReaction: Bool
-                        do {
-                            _ = try persistedContactIdentity.processSetOrUpdateReactionOnMessageRequestFromThisContact(
-                                reactionJSON: reactionJSON,
-                                messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
-                                overrideExistingReaction: true)
-                            contactIsAllowedToSetOrUpdateReaction = true
-                        } catch {
-                            contactIsAllowedToSetOrUpdateReaction = false
+                        // Do not notify when the reaction does not visibly change the message: this happens, e.g., when an old reaction
+                        // is replayed by the device of a group member after this user switched back from the pending to the non-pending
+                        // state of a group, and the reaction is already part of the local database.
+
+                        let reactionVisiblyChanges: Bool
+                        switch receivedMessageSave {
+                        case .alreadySaved(isAReactionOrPollVoteThatVisiblyChanged: let visiblyChanged):
+                            // Only in the app, which saved the reaction in the app database before getting here. We notify only if that save changed
+                            // something the user can see: a new reaction, a changed one, or a removed one. Asking the database again would always
+                            // answer "no change", the reaction being already there.
+                            reactionVisiblyChanges = visiblyChanged
+                        case .notYetSaved:
+                            // Only in the notification extension, which never saves to the app database. We simulate what the app does when it
+                            // saves the reaction there, and roll it back, to learn whether the reaction visibly changes the message.
+                            do {
+                                let reactionUpdateOutcome = try persistedContactIdentity.processSetOrUpdateReactionOnMessageRequestFromThisContact(
+                                    reactionJSON: reactionJSON,
+                                    messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                                    overrideExistingReaction: true)?.reactionUpdateOutcome
+                                reactionVisiblyChanges = reactionUpdateOutcome != .noChange
+                            } catch {
+                                // The contact is not allowed to react
+                                reactionVisiblyChanges = false
+                            }
+                            context.rollback()
                         }
-                        
-                        context.rollback()
 
-                        guard contactIsAllowedToSetOrUpdateReaction else {
+                        guard reactionVisiblyChanges else {
                             return continuation.resume(returning: .silent)
                         }
 
@@ -1026,11 +1071,41 @@ extension ObvUserNotificationContentCreator {
                         return continuation.resume(returning: infosForCreatingContent)
                         
                     } else if let pollVoteJSON = persistedItemJSON.pollVoteJSON {
-                        
+
                         Self.logger.info("We received a notification for a poll vote")
-                        
+
+                        // Do not notify when the vote does not visibly change the poll: this happens, e.g., when an old vote is replayed
+                        // by the device of a group member after this user switched back from the pending to the non-pending state of a
+                        // group, and the vote is already part of the local database.
+
+                        let pollVoteVisiblyChanges: Bool
+                        switch receivedMessageSave {
+                        case .alreadySaved(isAReactionOrPollVoteThatVisiblyChanged: let visiblyChanged):
+                            // Only in the app, which saved the vote in the app database before getting here. We notify only if that save changed
+                            // something the user can see: an answer newly chosen or no longer chosen. Asking the database again would always
+                            // answer "no change", the vote being already there.
+                            pollVoteVisiblyChanges = visiblyChanged
+                        case .notYetSaved:
+                            // Only in the notification extension, which never saves to the app database. We simulate what the app does when it
+                            // saves the vote there, and roll it back, to learn whether the vote visibly changes the poll.
+                            do {
+                                let votesVisiblyChanged = try persistedContactIdentity.processSetOrUpdatePollVoteOnMessageRequestFromThisContact(
+                                    pollVoteJSON: pollVoteJSON,
+                                    messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)?.votesVisiblyChanged
+                                pollVoteVisiblyChanges = votesVisiblyChanged != false
+                            } catch {
+                                // The contact is not allowed to vote
+                                pollVoteVisiblyChanges = false
+                            }
+                            context.rollback()
+                        }
+
+                        guard pollVoteVisiblyChanges else {
+                            return continuation.resume(returning: .silent)
+                        }
+
                         // Determine the sent message replied to
-                        
+
                         guard let sentMessageVotedTo = try PersistedMessageSent.findMessageFrom(reference: pollVoteJSON.messageReference, within: persistedDiscussion) as? PersistedMessageSent else {
                             // The poll vote does not concern one of our sent messages, we don't notify the user
                             return continuation.resume(returning: .silent)
@@ -1165,8 +1240,8 @@ extension ObvUserNotificationContentCreator {
                     
                     
                 } catch {
-                    assertionFailure()
                     Self.logger.fault("Core data error: \(error.localizedDescription)")
+                    assertionFailure()
                     return continuation.resume(throwing: error)
                 }
                 
@@ -1263,8 +1338,24 @@ extension ObvUserNotificationContentCreator {
         }
 
         // If we reach this point, we don't silent the notification. We start from a "minimal" content that we enrich.
-        
+
         let content = Self.createMinimalNotificationContent(badge: .unchanged).mutableContent
+
+        //
+        // Set the identifiers of the content.
+        // Used to replace or remove this notification when the reactor changes their reaction, and when deciding what to do with
+        // the notification while the app is in the foreground
+        //
+
+        content.setObvDiscussionIdentifier(to: discussionKind.discussionIdentifier)
+        content.setSentMessageReactedTo(to: sentMessageReactedTo.messageAppIdentifier)
+        content.setReactor(to: reactor.contactIdentifier)
+        content.setUploadTimestampFromServer(to: uploadTimestampFromServer)
+
+        if let concealed = Self.concealedContent(about: .reaction, startingFrom: content, soundOf: discussionKind) {
+            await Self.donateWithoutEnriching(.incomingReaction(reactor: reactor, sentMessageReactedTo: sentMessageReactedTo))
+            return .addReactionOnSentMessage(content: concealed.content, sentMessageReactedTo: sentMessageReactedTo.messageAppIdentifier, reactor: reactor.contactIdentifier, userNotificationCategory: concealed.category)
+        }
 
         //
         // Providing the primary content
@@ -1299,23 +1390,7 @@ extension ObvUserNotificationContentCreator {
         
         // Integrating with the system
         
-        if let notificationSound = discussionKind.localConfiguration.notificationSound ?? ObvMessengerSettings.Discussions.notificationSound {
-            switch notificationSound {
-            case .none:
-                content.sound = nil
-            case .system:
-                // Keep the sound as it is in the minimal notification content
-                break
-            default:
-                if let sound = notificationSound.unNotificationSound(for: content.body) {
-                    content.sound = sound
-                } else {
-                    // Keep the sound as it is in the minimal notification content
-                }
-            }
-        } else {
-            // Keep the sound as it is in the minimal notification content
-        }
+        Self.applySound(of: discussionKind, to: content)
 
         // For now, we keep the interruptionLevel of the minimal notification
 
@@ -1331,16 +1406,6 @@ extension ObvUserNotificationContentCreator {
         //
         
         content.threadIdentifier = ObvUserNotificationThread.discussion(discussionKind.discussionIdentifier).threadIdentifier
-
-        //
-        // Set the messageAppIdentifier of the content.
-        // Used when deciding what to do with the notification while the app is in the foreground
-        //
-        
-        content.setObvDiscussionIdentifier(to: discussionKind.discussionIdentifier)
-        content.setSentMessageReactedTo(to: sentMessageReactedTo.messageAppIdentifier)
-        content.setReactor(to: reactor.contactIdentifier)
-        content.setUploadTimestampFromServer(to: uploadTimestampFromServer)
 
         // Enrich the notification with communication information and return the content
 
@@ -1478,17 +1543,23 @@ extension ObvUserNotificationContentCreator {
         // - The old notification is the most recent one displayed in the discussion thread, there is nothing left to do.
         // - Otherwise, we indicate the fact that the notification was updated in the body of the notification.
 
+        // A hidden notification has nothing to update, and rewriting its body would show the new text
+
+        guard Self.mayRevealContent else {
+            return .silent
+        }
+
         // Make sure the last shown "received message" notification corresponds to the one we wish to update. If not, don't do anything
         
         let deliveredNotifications = await UNUserNotificationCenter.current().deliveredNotifications()
             .filter({ $0.request.content.messageAppIdentifier != nil }) // Restrict to "received message" notifications
-            .filter({ $0.request.content.threadIdentifier == ObvUserNotificationThread.discussion(receivedMessageEdition.messageAppIdentifier.discussionIdentifier).threadIdentifier }) // Restrict to the appropriate user notification thread (for the discussion)
+            .filter({ $0.request.content.threadIdentifier == ObvUserNotificationThread.discussion(receivedMessageEdition.messageAppIdentifier.discussionIdentifier).threadIdentifier }) // Restrict to the appropriate user notification thread (for the discussion). This leaves out hidden notifications, which live in the minimal thread
             .sorted(by: { $0.date < $1.date }) // Sort the notification
         
         guard let oldNotification = deliveredNotifications.first(where: { $0.request.content.messageAppIdentifier == receivedMessageEdition.messageAppIdentifier }) else {
             return .silent
         }
-        
+
         let isMostRecentNotification = oldNotification.request.identifier == deliveredNotifications.last?.request.identifier
         let oldNotificationShowsEditIndication = oldNotification.request.content.showsEditIndication ?? false
         let showEditIndication = !isMostRecentNotification || oldNotificationShowsEditIndication
@@ -1538,112 +1609,78 @@ extension ObvUserNotificationContentCreator {
         
         let content = Self.createMinimalNotificationContent(badge: .unchanged).mutableContent
 
+        // Setting the contact identifier on the notification, to make it easier to navigate to the appropriate invitations tab when the user
+        // taps the notification. The protocol message lets the app remove this notification when it posts the one for the invitation.
+
+        content.setObvContactIdentifier(to: contact.contactIdentifier)
+        do {
+            try content.setObvProtocolMessage(to: obvProtocolMessage)
+        } catch {
+            Self.logger.fault("Failed to set ObvProtocolMessage on a local user notification: \(error.localizedDescription)")
+            assertionFailure()
+        }
+
+        if let concealed = Self.concealedContent(about: .introduction, startingFrom: content, soundOf: discussionKind) {
+            return .addProtocolMessage(content: concealed.content)
+        }
+
         //
-        // Enrich the content, depending on the hideNotificationContent setting
+        // Providing the primary content
         //
 
-        switch ObvMessengerSettings.Privacy.hideNotificationContent {
-            
-        case .completely:
+        content.title = contact.customOrFullDisplayName
 
-            // We keep the minimal notifications
+        switch discussionKind {
+        case .oneToOneDiscussion:
+            // Keep the subtitle as in the minimal notification content
+            break
+        case .groupDiscussion(structure: let structure):
+            content.subtitle = structure.title
+        case .groupV2Discussion(structure: let structure):
+            content.subtitle = structure.title
+        }
+
+        switch obvProtocolMessage {
+        case .mutualIntroduction(mediator: _, introducedIdentity: _, introducedIdentityCoreDetails: let introducedIdentityCoreDetails):
+            content.body = String(localized: "I would like to introduce you to \(introducedIdentityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName))")
+        }
+
+        // Providing supplementary content
+        // For now, we don't deal with attachments and don't use the userInfo dictionary.
+
+        //
+        // Configuring app behavior
+        //
+
+        content.badge = BadgeValue.unchanged.badge
+
+        // Integrating with the system
+
+        Self.applySound(of: discussionKind, to: content)
+
+        // For now, we keep the interruptionLevel of the minimal notification
+
+        //
+        // Specify the appropriate category, allowing the notification to give access to the appropriate actions
+        //
+
+        content.setObvCategoryIdentifier(to: .protocolMessage)
+
+        //
+        // Specify the threadIdentifier, so as to group received message notification by discussion
+        //
+
+        content.threadIdentifier = ObvUserNotificationThread.discussion(discussionKind.discussionIdentifier).threadIdentifier
+
+        // Enrich the notification with communication information and return the content
+
+        do {
+            let communicationType = ObvCommunicationType.incomingMessage(contact: contact, discussionKind: discussionKind, messageRepliedTo: nil, mentions: [])
+            let updatedContent = try await ObvCommunicationInteractor.update(notificationContent: content, communicationType: communicationType)
+            return .addProtocolMessage(content: updatedContent)
+        } catch {
+            assertionFailure()
             return .addProtocolMessage(content: content)
-
-        case .partially:
-
-            // Simply describe the nature of the notification
-            content.title = String(localized: "New invitation")
-            content.body = String(localized: "Tap to see the invitation")
-            return .addProtocolMessage(content: content)
-
-        case .no:
-            
-            //
-            // Providing the primary content
-            //
-            
-            content.title = contact.customOrFullDisplayName
-            
-            switch discussionKind {
-            case .oneToOneDiscussion:
-                // Keep the subtitle as in the minimal notification content
-                break
-            case .groupDiscussion(structure: let structure):
-                content.subtitle = structure.title
-            case .groupV2Discussion(structure: let structure):
-                content.subtitle = structure.title
-            }
-
-            switch obvProtocolMessage {
-            case .mutualIntroduction(mediator: _, introducedIdentity: _, introducedIdentityCoreDetails: let introducedIdentityCoreDetails):
-                content.body = String(localized: "I would like to introduce you to \(introducedIdentityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName))")
-            }
-                        
-            // Providing supplementary content
-            // For now, we don't deal with attachments and don't use the userInfo dictionary.
-            
-            //
-            // Configuring app behavior
-            //
-            
-            content.badge = BadgeValue.unchanged.badge
-            
-            // Integrating with the system
-            
-            if let notificationSound = discussionKind.localConfiguration.notificationSound ?? ObvMessengerSettings.Discussions.notificationSound {
-                switch notificationSound {
-                case .none:
-                    content.sound = nil
-                case .system:
-                    // Keep the sound as it is in the minimal notification content
-                    break
-                default:
-                    if let sound = notificationSound.unNotificationSound(for: content.body) {
-                        content.sound = sound
-                    } else {
-                        // Keep the sound as it is in the minimal notification content
-                    }
-                }
-            } else {
-                // Keep the sound as it is in the minimal notification content
-            }
-            
-            // For now, we keep the interruptionLevel of the minimal notification
-            
-            //
-            // Specify the appropriate category, allowing the notification to give access to the appropriate actions
-            //
-
-            content.setObvCategoryIdentifier(to: .protocolMessage)
-            
-            //
-            // Specify the threadIdentifier, so as to group received message notification by discussion
-            //
-            
-            content.threadIdentifier = ObvUserNotificationThread.discussion(discussionKind.discussionIdentifier).threadIdentifier
-            
-            // Setting the contact identifier on the notification, to make it easier to navigate to the appropriate invitations tab when the user
-            // taps the notification.
-
-            content.setObvContactIdentifier(to: contact.contactIdentifier)
-            do {
-                try content.setObvProtocolMessage(to: obvProtocolMessage)
-            } catch {
-                Self.logger.fault("Failed to set ObvProtocolMessage on a local user notification: \(error.localizedDescription)")
-                assertionFailure()
-            }
-            
-            // Enrich the notification with communication information and return the content
-            
-            do {
-                let communicationType = ObvCommunicationType.incomingMessage(contact: contact, discussionKind: discussionKind, messageRepliedTo: nil, mentions: [])
-                let updatedContent = try await ObvCommunicationInteractor.update(notificationContent: content, communicationType: communicationType)
-                return .addProtocolMessage(content: updatedContent)
-            } catch {
-                assertionFailure()
-                return .addProtocolMessage(content: content)
-            }
-
         }
 
     }
@@ -1675,116 +1712,78 @@ extension ObvUserNotificationContentCreator {
         content.setIsEphemeralMessageWithUserAction(to: isEphemeralMessageWithUserAction)
 
         
-        //
-        // Enrich the content, depending on the hideNotificationContent setting
-        //
-
-        switch ObvMessengerSettings.Privacy.hideNotificationContent {
-            
-        case .completely:
-
-            //
-            // Specify the appropriate category, allowing the notification to give access to the appropriate actions
-            //
-            
-            let userNotificationCategory: ObvUserNotificationCategoryIdentifier = .newMessageWithHiddenContent
-            content.setObvCategoryIdentifier(to: userNotificationCategory)
-
-            // We keep the minimal notifications
-            return .addReceivedMessage(content: content, messageAppIdentifier: receivedMessage.messageAppIdentifier, userNotificationCategory: userNotificationCategory, contactDeviceUIDs: contact.contactDeviceUIDs)
-
-        case .partially:
-            
-            let userNotificationCategory: ObvUserNotificationCategoryIdentifier = .newMessageWithHiddenContent
-            content.setObvCategoryIdentifier(to: userNotificationCategory)
-
-            // Simply describe the nature of the notification
-            content.title = String(localized: "New message")
-            content.body = String(localized: "Tap to see the message")
-            return .addReceivedMessage(content: content, messageAppIdentifier: receivedMessage.messageAppIdentifier, userNotificationCategory: userNotificationCategory, contactDeviceUIDs: contact.contactDeviceUIDs)
-
-        case .no:
-            
-            //
-            // Providing the primary content
-            //
-            
-            content.title = contact.customOrFullDisplayName
-            
-            switch discussionKind {
-            case .oneToOneDiscussion:
-                // Keep the subtitle as in the minimal notification content
-                break
-            case .groupDiscussion(structure: let structure):
-                content.subtitle = structure.title
-            case .groupV2Discussion(structure: let structure):
-                content.subtitle = structure.title
-            }
-
-            content.body = contentBody(isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction, receivedMessageBody: receivedMessage.body, expectedAttachmentsCount: expectedAttachmentsCount, showEditIndication: false, locationInfo: receivedMessage.locationInfo)
-            
-            // Providing supplementary content
-            // For now, we don't deal with attachments and don't use the userInfo dictionary.
-            
-            //
-            // Configuring app behavior
-            //
-            
-            content.badge = NSNumber(integerLiteral: receivedMessage.badgeCount+1)
-            
-            // Integrating with the system
-            
-            if let notificationSound = discussionKind.localConfiguration.notificationSound ?? ObvMessengerSettings.Discussions.notificationSound {
-                switch notificationSound {
-                case .none:
-                    content.sound = nil
-                case .system:
-                    // Keep the sound as it is in the minimal notification content
-                    break
-                default:
-                    if let sound = notificationSound.unNotificationSound(for: content.body) {
-                        content.sound = sound
-                    } else {
-                        // Keep the sound as it is in the minimal notification content
-                    }
-                }
-            } else {
-                // Keep the sound as it is in the minimal notification content
-            }
-            
-            // For now, we keep the interruptionLevel of the minimal notification
-            
-            //
-            // Specify the appropriate category, allowing the notification to give access to the appropriate actions
-            //
-            
-            let userNotificationCategory: ObvUserNotificationCategoryIdentifier
-            if isEphemeralMessageWithUserAction {
-                userNotificationCategory = ObvUserNotificationCategoryIdentifier.newMessageWithLimitedVisibility
-            } else {
-                userNotificationCategory = ObvUserNotificationCategoryIdentifier.newMessage
-            }
-            content.setObvCategoryIdentifier(to: userNotificationCategory)
-            
-            //
-            // Specify the threadIdentifier, so as to group received message notification by discussion
-            //
-            
-            content.threadIdentifier = ObvUserNotificationThread.discussion(discussionKind.discussionIdentifier).threadIdentifier
-            
-            // Enrich the notification with communication information and return the content
-            
-            do {
-                let communicationType = ObvCommunicationType.incomingMessage(contact: contact, discussionKind: discussionKind, messageRepliedTo: messageRepliedTo, mentions: [])
-                let updatedContent = try await ObvCommunicationInteractor.update(notificationContent: content, communicationType: communicationType)
-                return .addReceivedMessage(content: updatedContent, messageAppIdentifier: receivedMessage.messageAppIdentifier, userNotificationCategory: userNotificationCategory, contactDeviceUIDs: contact.contactDeviceUIDs)
-            } catch {
-                assertionFailure()
-                return .addReceivedMessage(content: content, messageAppIdentifier: receivedMessage.messageAppIdentifier, userNotificationCategory: userNotificationCategory, contactDeviceUIDs: contact.contactDeviceUIDs)
-            }
-            
+        if let concealed = Self.concealedContent(about: .message, startingFrom: content, soundOf: discussionKind) {
+            await Self.donateWithoutEnriching(.incomingMessage(contact: contact, discussionKind: discussionKind, messageRepliedTo: messageRepliedTo, mentions: []))
+            return .addReceivedMessage(content: concealed.content, messageAppIdentifier: receivedMessage.messageAppIdentifier, userNotificationCategory: concealed.category)
         }
-        
+
+        //
+        // Providing the primary content
+        //
+
+        content.title = contact.customOrFullDisplayName
+
+        switch discussionKind {
+        case .oneToOneDiscussion:
+            // Keep the subtitle as in the minimal notification content
+            break
+        case .groupDiscussion(structure: let structure):
+            content.subtitle = structure.title
+        case .groupV2Discussion(structure: let structure):
+            content.subtitle = structure.title
+        }
+
+        content.body = contentBody(isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction, receivedMessageBody: receivedMessage.body, expectedAttachmentsCount: expectedAttachmentsCount, showEditIndication: false, locationInfo: receivedMessage.locationInfo)
+
+        // Providing supplementary content
+        // For now, we don't deal with attachments and don't use the userInfo dictionary.
+
+        //
+        // Configuring app behavior
+        //
+
+        // We deliberately leave the badge untouched (a nil badge means "leave the app icon badge unchanged").
+        // Neither of our two callers wants a badge value computed here:
+        // - within the app, the app icon badge is set by the RefreshAppBadgeOperation on the basis of the app database, which
+        //   already accounts for this message by the time we are called. Setting a badge here would double-count it (+1).
+        // - within the notification extension, the app database is usually unaware of the messages received since the app was
+        //   last running, so the badge is recomputed there from the currently shown user notifications instead.
+
+        // Integrating with the system
+
+        Self.applySound(of: discussionKind, to: content)
+
+        // For now, we keep the interruptionLevel of the minimal notification
+
+        //
+        // Specify the appropriate category, allowing the notification to give access to the appropriate actions
+        //
+
+        let userNotificationCategory: ObvUserNotificationCategoryIdentifier
+        if isEphemeralMessageWithUserAction {
+            userNotificationCategory = ObvUserNotificationCategoryIdentifier.newMessageWithLimitedVisibility
+        } else {
+            userNotificationCategory = ObvUserNotificationCategoryIdentifier.newMessage
+        }
+        content.setObvCategoryIdentifier(to: userNotificationCategory)
+
+        //
+        // Specify the threadIdentifier, so as to group received message notification by discussion
+        //
+
+        content.threadIdentifier = ObvUserNotificationThread.discussion(discussionKind.discussionIdentifier).threadIdentifier
+
+        // Enrich the notification with communication information and return the content
+
+        do {
+            let communicationType = ObvCommunicationType.incomingMessage(contact: contact, discussionKind: discussionKind, messageRepliedTo: messageRepliedTo, mentions: [])
+            let updatedContent = try await ObvCommunicationInteractor.update(notificationContent: content, communicationType: communicationType)
+            return .addReceivedMessage(content: updatedContent, messageAppIdentifier: receivedMessage.messageAppIdentifier, userNotificationCategory: userNotificationCategory)
+        } catch {
+            assertionFailure()
+            return .addReceivedMessage(content: content, messageAppIdentifier: receivedMessage.messageAppIdentifier, userNotificationCategory: userNotificationCategory)
+        }
+
     }
 
     
@@ -1830,7 +1829,55 @@ extension ObvUserNotificationContentCreator {
         return contentBody
     }
 
-    
+
+    /// For an introduction by a mediator, the protocol message whose notification the extension posted before the invitation existed, and which
+    /// the notification for the invitation replaces.
+    private static func protocolMessageNotifiedByTheExtension(for invitation: PersistedInvitationStructure) -> ObvProtocolMessage? {
+        guard case .acceptMediatorInvite(contactIdentity: let contactIdentity, mediatorIdentity: _) = invitation.obvDialog.category,
+              let mediator = invitation.inviterOrMediator else {
+            return nil
+        }
+        return .mutualIntroduction(mediator: mediator.contactIdentifier,
+                                   introducedIdentity: contactIdentity.cryptoId,
+                                   introducedIdentityCoreDetails: contactIdentity.currentIdentityDetails.coreDetails)
+    }
+
+
+    /// For a notification whose content is hidden, which must not be enriched: hiding the content does not change whether the interaction is
+    /// donated to the system, which has a setting of its own.
+    private static func donateWithoutEnriching(_ communicationType: ObvCommunicationType) async {
+        do {
+            _ = try await ObvCommunicationInteractor.suggest(communicationType: communicationType)
+        } catch {
+            Self.logger.error("Could not donate the interaction of a hidden notification: \(error.localizedDescription)")
+        }
+    }
+
+
+    /// Applies the sound chosen for the discussion, or the one chosen for all discussions. Called once the body is final, since a polyphonic
+    /// sound picks its note from it. Without a discussion, the content keeps its sound.
+    static func applySound(of discussionKind: PersistedDiscussionAbstractStructure.StructureKind?, to content: UNMutableNotificationContent) {
+        guard let discussionKind else { return }
+        guard let notificationSound = discussionKind.localConfiguration.notificationSound ?? ObvMessengerSettings.Discussions.notificationSound else {
+            // Keep the sound as it is in the minimal notification content
+            return
+        }
+        switch notificationSound {
+        case .none:
+            content.sound = nil
+        case .system:
+            // Keep the sound as it is in the minimal notification content
+            break
+        default:
+            if let sound = notificationSound.unNotificationSound(for: content.body) {
+                content.sound = sound
+            } else {
+                // Keep the sound as it is in the minimal notification content
+            }
+        }
+    }
+
+
 }
 
 
@@ -1882,7 +1929,6 @@ extension ObvUserNotificationContentCreator {
         let mentionedCryptoIds: [ObvCryptoId]
         let isEphemeralMessageWithUserAction: Bool
         let body: String?
-        let badgeCount: Int
         let locationInfo: LocationInfo?
     }
     

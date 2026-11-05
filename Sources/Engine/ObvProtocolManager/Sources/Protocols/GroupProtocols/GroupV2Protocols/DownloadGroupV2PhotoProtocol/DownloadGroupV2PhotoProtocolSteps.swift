@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -78,7 +78,7 @@ extension DownloadGroupV2PhotoProtocol {
                     assertionFailure()
                     return CancelledState()
                 }
-                serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getUserData(of: serverPhotoInfoIdentity, label: receivedMessage.serverPhotoInfo.photoServerKeyAndLabel.label)
+                serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getUserData(of: serverPhotoInfoIdentity, label: receivedMessage.serverPhotoInfo.photoServerKeyAndLabel.label, retryIfNotFound: true)
             case .keycloak:
                 serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getKeycloakData(serverURL: groupIdentifier.serverURL, serverLabel: receivedMessage.serverPhotoInfo.photoServerKeyAndLabel.label)
             }
@@ -117,7 +117,8 @@ extension DownloadGroupV2PhotoProtocol {
             let serverPhotoInfo = startState.serverPhotoInfo
             
             guard let encryptedPhoto = receivedMessage.encryptedPhoto else {
-                // Photo was deleted from the server
+                // The network layer retried (retryIfNotFound: true) but the photo was never uploaded within the TTL.
+                // Nothing more to do — complete without a photo.
                 return PhotoDownloadedState()
             }
             

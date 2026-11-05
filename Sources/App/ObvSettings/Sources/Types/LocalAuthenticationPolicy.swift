@@ -20,7 +20,7 @@
 import Foundation
 
 
-public enum ObvLocalAuthenticationPolicy: Int, CaseIterable {
+public enum ObvLocalAuthenticationPolicy: Int, CaseIterable, Sendable {
     // No authentication
     case none
     // User authentication with biometry, Apple Watch, or the device passcode.

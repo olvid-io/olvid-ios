@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import Foundation
 import OSLog
+import os
 import CoreData
 import ObvTypes
 import OlvidUtils
@@ -36,7 +37,16 @@ protocol BootstrapCoordinatorDelegate: AnyObject {
 }
 
 
-final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
+/// **`@unchecked Sendable`, and the promise covers one property only.**
+///
+/// The conformance is required by ``PersistedObvOwnedIdentityObserver``, which this registers itself with — so this object really is reached from more than
+/// one place, and the requirement is not a formality. What is left mutable after the re-entrancy guard moved under its own lock is ``observationTokens``, and
+/// that one is safe by its lifetime rather than by exclusion: it is written by `listenToNotifications()`, which `init` calls before this object is handed to
+/// anybody, and read again only in `deinit`, when nobody holds it. Nothing writes it in between.
+///
+/// **It is not a blanket.** Any stored property added here that is written while the app runs needs its own answer, as the sync guard did — the compiler will
+/// no longer ask.
+final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker, @unchecked Sendable {
     
     let obvEngine: ObvEngine
     static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: BootstrapCoordinator.self))
@@ -48,12 +58,24 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
     weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
     weak var delegate: BootstrapCoordinatorDelegate?
     
-    private let appInboxService: ObvAppInboxService
-    private var isSyncMessageIdsKeptForLaterIfRequiredInProgress = false
-    
+    /// Not private: the stale-settings pass of the engine-inbox drain lives in an extension of its own, in another file, and walks this service's rows.
+    let appInboxService: ObvAppInboxService
+    /// Whether a sync of the message identifiers kept for later is already running, so a second one stands aside.
+    ///
+    /// **Under a lock because the three callers can genuinely overlap**, and a plain `Bool` cannot express *test it and claim it* as one act. This screen's
+    /// coordinator is reached from the app appearing, from a background task and from the reader asking, each on whatever executor called it — so two of them
+    /// reading `false` before either writes `true` is a thing that can happen, and the guard would then let both through, which is the one outcome it exists to
+    /// prevent. `PersistedDiscussionsUpdatesCoordinator` holds *have I already done this* the same way.
+    private let isSyncMessageIdsKeptForLaterIfRequiredInProgress = OSAllocatedUnfairLock<Bool>(initialState: false)
+    /// Whether a drain of the engine's inbox is already running, so a second one stands aside. Two callers rather than the three above — a background
+    /// processing task and the reader asking in the settings — and the same reason: they can overlap, and on whatever executor called them.
+    let isDrainingTheEngineInboxInProgress = OSAllocatedUnfairLock<Bool>(initialState: false)
+    private let siriVocabularyManager = SiriVocabularyManager()
+
     static let errorDomain = "BootstrapCoordinator"
-    
-    private let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)
+
+    /// Not private: the drain of the engine's inbox writes its report here, from an extension in its own file.
+    let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)
     
     init(obvEngine: ObvEngine, appInboxService: ObvAppInboxService, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue, queueForSyncHintsComputationOperation: OperationQueue) {
         self.obvEngine = obvEngine
@@ -69,23 +91,25 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
     }
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
-        await setDateOfCreationOfFirstProfileIfRequired(withDate: nil)
-        pruneObsoletePersistedInvitations()
-        removeOldCachedPreviewFetched()
-        await resyncPersistedInvitationsWithEngine()
-        downloadPreviewsNotDownloadedYet()
-        if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
-            ObvMessengerInternalNotification.userWantsToStartIncrementalCleanBackup(cleanAllDevices: false).postOnDispatchQueue()
-        }
-        deleteOldPendingRepliedTo()
-        resetOwnObvCapabilities()
-        autoAcceptPendingGroupInvitesIfPossible()
-        
-        if #available(iOS 17.0, *) {
-            await removeDirectoryForLegacyMapSnapshots()
-        }
         
         if forTheFirstTime {
+
+            await setDateOfCreationOfFirstProfileIfRequired(withDate: nil)
+            pruneObsoletePersistedInvitations()
+            removeOldCachedPreviewFetched()
+            await resyncPersistedInvitationsWithEngine()
+            downloadPreviewsNotDownloadedYet()
+            if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
+                ObvMessengerInternalNotification.userWantsToStartIncrementalCleanBackup(cleanAllDevices: false).postOnDispatchQueue()
+            }
+            deleteOldPendingRepliedTo()
+            resetOwnObvCapabilities()
+            autoAcceptPendingGroupInvitesIfPossible()
+            
+            if #available(iOS 17.0, *) {
+                await removeDirectoryForLegacyMapSnapshots()
+            }
+
             await syncAppDatabasesWithEngineIfRequired(queuePriority: .normal, syncRequestType: .foreground)
             await refreshInvitationsBadgeCountsForAllOwnedIdentities()
             deleteOrphanedPersistedAttachmentSentRecipientInfosOperation()
@@ -96,9 +120,15 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
             } catch {
                 Self.logger.fault("Could not sync message IDs kept for later: \(error)")
             }
+            await updateContactsAndDiscussionsVocabularies()
         }
+        
     }
     
+    private func updateContactsAndDiscussionsVocabularies() async {
+        await siriVocabularyManager.performPostInitialization()
+        await siriVocabularyManager.updateContactsVocabularies()
+    }
     
     private func listenToNotifications() {
         
@@ -161,7 +191,12 @@ extension BootstrapCoordinator: BackgroundTasksManagerDelegate {
     func syncMessageIdsKeptForLater(_ backgroundTasksManager: BackgroundTasksManager) async throws {
         try await syncMessageIdsKeptForLaterIfRequired(syncRequestType: .processingBackgroundTask)
     }
-    
+
+
+    func drainEngineInbox(_ backgroundTasksManager: BackgroundTasksManager, deadline: Date, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport {
+        await drainEngineInbox(deadline: deadline, run: run, trigger: .backgroundProcessingTask)
+    }
+
 }
 
 
@@ -324,9 +359,14 @@ extension BootstrapCoordinator {
     
     private func syncMessageIdsKeptForLaterIfRequired(syncRequestType: MessageIdsKeptForLaterSyncRequestType) async throws {
         
-        guard !isSyncMessageIdsKeptForLaterIfRequiredInProgress else { return }
-        isSyncMessageIdsKeptForLaterIfRequiredInProgress = true
-        defer { isSyncMessageIdsKeptForLaterIfRequiredInProgress = false }
+        // Taken and claimed as one act — see ``isSyncMessageIdsKeptForLaterIfRequiredInProgress``. Whoever finds it free owns the sync until the `defer`.
+        let thisSyncIsOurs = isSyncMessageIdsKeptForLaterIfRequiredInProgress.withLock { isInProgress in
+            guard !isInProgress else { return false }
+            isInProgress = true
+            return true
+        }
+        guard thisSyncIsOurs else { return }
+        defer { isSyncMessageIdsKeptForLaterIfRequiredInProgress.withLock { $0 = false } }
         
         guard let delegate else {
             assertionFailure()
@@ -640,6 +680,28 @@ extension BootstrapCoordinator {
 
 extension BootstrapCoordinator {
     
+    /// Runs, on demand, the drain that a background processing task performs at night.
+    ///
+    /// The only way to exercise the drain on a simulator, where `scheduleBackgroundTasks()` submits nothing and there is no window to be launched into — and
+    /// the only place a backlog can be forged to drain. The deadline is the reader's patience rather than a system window.
+    /// - Parameter run: **the caller's** run, not one of our own. It is how the screen that asked for this stops it when the reader leaves, so creating
+    /// another here — which an earlier version did, shadowing this parameter and compiling perfectly — leaves them holding an object nothing reads.
+    ///
+    /// **No deadline, deliberately.** Every other way this run can end says something about the work or about the reader's intent: there is nothing left to
+    /// do, nothing is moving any more, the memory is running out, they left the screen, they backgrounded the app. A clock says neither, and it stops a run
+    /// that is succeeding: a reader holding half a million messages needs the better part of an hour at the rate this clears them, and a five-minute cap
+    /// turned that into ten taps each cut off mid-stride.
+    ///
+    /// What bounds it instead is the screen. The run holds the device awake only while that screen is up, and it is stopped by the screen going away or by
+    /// the app being backgrounded — so a run nobody is watching does not exist. That is the whole of the guarantee, since the drain no longer takes a
+    /// continued processing task and the endings that used to mention one are gone with it.
+    func userRequestedDrainOfTheEngineInbox(rootViewController: RootViewController, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport {
+        let report = await drainEngineInbox(deadline: .distantFuture, run: run, trigger: .userRequestedItInTheSettings)
+        report.store(in: userDefaults)
+        return report
+    }
+
+
     func userRequestedAppDatabaseSyncWithEngine(rootViewController: RootViewController) async throws {
         await syncAppDatabasesWithEngineIfRequired(queuePriority: .veryHigh, syncRequestType: .userRequested)
         do {

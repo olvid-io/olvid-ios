@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -507,6 +507,16 @@ extension OwnedIdentityDeletionProtocol {
                         continue
                     }
                     let groupIdentifier = GroupV2.Identifier(obvGroupV2Identifier: obvGroupV2Identifier)
+                    
+                    // Keycloak groups can be neither left nor disbanded, since the keycloak server manages their members.
+                    // They are deleted locally below, with the other groups.
+
+                    switch groupIdentifier.category {
+                    case .keycloak:
+                        continue
+                    case .server:
+                        break
+                    }
                     
                     // If we are the sole administrator of the group, we add it to the set of groups to disband
                     

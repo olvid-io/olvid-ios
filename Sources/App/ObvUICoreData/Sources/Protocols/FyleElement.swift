@@ -20,7 +20,9 @@
 import Foundation
 import UniformTypeIdentifiers
 
-public protocol FyleElement {
+/// `Sendable`: a fyle element is a value describing a file, built on one queue and consumed on another (the
+/// hardlinks are made on a background queue for cells on the main one). Every conformer is a struct of values.
+public protocol FyleElement: Sendable {
     var fileName: String { get }
     // var uti: String { get }
     var contentType: UTType { get }

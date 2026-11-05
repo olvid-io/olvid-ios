@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -113,7 +113,8 @@ final class ReorderDiscussionsOperation: ContextualOperationWithSpecificReasonFo
         switch discussionKind {
         case .oneToOne(withContactIdentity: let persistedContact):
             guard let persistedContact else { assertionFailure(); return nil }
-            return .oneToOne(contactCryptoId: persistedContact.cryptoId)
+            guard let contactCryptoId = try? persistedContact.cryptoId else { return nil }
+            return .oneToOne(contactCryptoId: contactCryptoId)
         case .groupV1(withContactGroup: let groupV1):
             guard let groupV1 else { assertionFailure(); return nil }
             guard let groupId = try? groupV1.getGroupId() else { assertionFailure(); return nil }

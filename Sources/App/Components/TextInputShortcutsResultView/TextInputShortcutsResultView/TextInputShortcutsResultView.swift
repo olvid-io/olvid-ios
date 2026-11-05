@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -289,13 +289,7 @@ public final class TextInputShortcutsResultView: UIView {
         }
 
         guard animated else {
-            if #available(iOS 15.5, *) {
-                shortcutsDiffableDatasource.applySnapshotUsingReloadData(snapshot)
-            } else {
-                shortcutsDiffableDatasource.apply(snapshot, animatingDifferences: false)
-
-                shortcutsTableCollectionView.reloadData()
-            }
+            shortcutsDiffableDatasource.applySnapshotUsingReloadData(snapshot)
 
             invalidateIntrinsicContentSize()
 
@@ -326,8 +320,7 @@ public final class TextInputShortcutsResultView: UIView {
             animationCompletionBlock = nil
         } else if items.isEmpty == false && previousNumberOfItems > 0 {
             additionalAnimationBlock = {
-                if previousNumberOfItems < items.count,
-                   #available(iOS 15.5, *) {
+                if previousNumberOfItems < items.count {
                     self.shortcutsDiffableDatasource.applySnapshotUsingReloadData(snapshot)
                 } else {
                     self.shortcutsDiffableDatasource.apply(snapshot, animatingDifferences: true)

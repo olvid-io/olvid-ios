@@ -48,6 +48,12 @@
             "value": "전화"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadzwoń"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -66,10 +72,22 @@
             "value": "Звонок"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ara"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Дзвінок"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gọi"
           }
         },
         "zh-Hans": {
@@ -124,6 +142,12 @@
             "value": "채팅"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czat"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -142,10 +166,22 @@
             "value": "Чат"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Чат"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trò chuyện"
           }
         },
         "zh-Hans": {
@@ -200,6 +236,12 @@
             "value": "맞춤법을 확인하거나 다른 검색어를 사용해 보세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdź pisownię lub spróbuj wyszukać coś innego."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -218,10 +260,22 @@
             "value": "Проверьте орфографию или попробуйте новый поиск."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yazımı denetleyin veya yeni bir arama deneyin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Перевірте написання або спробуйте новий пошук."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra lại chính tả hoặc thử tìm kiếm khác."
           }
         },
         "zh-Hans": {
@@ -276,6 +330,12 @@
             "value": "결과 없음"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak wyników"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -294,10 +354,22 @@
             "value": "Нет результатов"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonuç Yok"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не знайдено результатів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy kết quả"
           }
         },
         "zh-Hans": {
@@ -352,6 +424,12 @@
             "value": "취소"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anuluj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -370,10 +448,22 @@
             "value": "Отмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy"
           }
         },
         "zh-Hans": {
@@ -428,6 +518,12 @@
             "value": "알겠습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -446,10 +542,22 @@
             "value": "Ок"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Гаразд"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Được rồi"
           }
         },
         "zh-Hans": {
@@ -504,6 +612,12 @@
             "value": "개인 메모"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notatka osobista"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -522,10 +636,22 @@
             "value": "Личная заметка"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişisel not"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Особиста нотатка"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi chú cá nhân"
           }
         },
         "zh-Hans": {
@@ -580,6 +706,12 @@
             "value": "선택됨"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaznaczone"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -598,10 +730,22 @@
             "value": "Выбран"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçildi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Обрано"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chọn"
           }
         },
         "zh-Hans": {
@@ -740,6 +884,24 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kliknij, aby anulować"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Stuknij, aby anulować"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "device": {
@@ -794,6 +956,24 @@
             }
           }
         },
+        "tr": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "İptal etmek için tıklayın"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "İptal etmek için dokunun"
+                }
+              }
+            }
+          }
+        },
         "uk": {
           "variations": {
             "device": {
@@ -807,6 +987,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Торкніться, щоб скасувати"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "device": {
+              "mac": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nhấp để hủy"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Chạm để hủy"
                 }
               }
             }
@@ -828,6 +1026,101 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "TAP_TO_SHOW_IMAGE": {
+      "comment": "Accessibility hint",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen, um das Bild anzuzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to show the image"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para mostrar la imagen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez pour montrer l’image"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tocca per visualizzare l'immagine"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像をタップして表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이미지를 보려면 탭하세요"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stuknij, aby pokazać obrazek"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque para exibir a imagem"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque para mostrar a imagem"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите, чтобы показать изображение"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görüntüyü göstermek için dokunun"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Торкніться, щоб показати зображення"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhấn để xem ảnh"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击以显示图片"
           }
         }
       }
@@ -876,6 +1169,12 @@
             "value": "여기에 개인 메모를 입력하세요..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wpisz tutaj notatkę osobistą..."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -894,10 +1193,22 @@
             "value": "Введите личную заметку здесь..."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buraya kişisel bir not yazın..."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Введіть особисту нотатку тут..."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhập ghi chú cá nhân của bạn vào đây..."
           }
         },
         "zh-Hans": {
@@ -952,6 +1263,12 @@
             "value": "선택 해제됨"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odznaczone"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -970,10 +1287,22 @@
             "value": "Отменено"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçim kaldırıldı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Знято вибір"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã hủy chọn"
           }
         },
         "zh-Hans": {
@@ -1028,6 +1357,12 @@
             "value": "값이 복사되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skopiowano wartość"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1046,10 +1381,22 @@
             "value": "Значение скопировано"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Değer kopyalandı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Значення скопійовано"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã sao chép giá trị"
           }
         },
         "zh-Hans": {

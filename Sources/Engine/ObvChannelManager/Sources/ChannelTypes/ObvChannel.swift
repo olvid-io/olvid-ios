@@ -51,6 +51,7 @@ enum UnwrapMessageKeyResult {
     case unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: ObvCryptoIdentity) // Only used by PreKey channel
     case couldNotUnwrap
     case contactIsRevokedAsCompromised
+    case preKeySignatureWasAlreadyAccepted // Only used by PreKey channel: the message was already processed and is to be discarded
 }
 
 

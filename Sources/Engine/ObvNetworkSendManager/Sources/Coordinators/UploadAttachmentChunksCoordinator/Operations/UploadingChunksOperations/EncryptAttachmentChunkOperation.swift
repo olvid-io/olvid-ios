@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -95,7 +95,18 @@ final class EncryptAttachmentChunkOperation: Operation, @unchecked Sendable, Obv
             }
             
             let outboxAttachmentChunk = attachment.chunks[chunkNumber]
-            
+
+            // Re-check at execution time. The coordinator already filters acknowledged chunks out when it
+            // builds these operations, but they run later on a shared queue, and an upload still in flight
+            // can have its chunk acknowledged in between — `setAcknowledged(by:)` also deletes the encrypted
+            // file. Without this we would encrypt the chunk all over again and write a file that
+            // `ResumeEncryptedChunkUploadTaskIfRequiredOperation` then skips (it makes the same check), so it
+            // would sit in the outbox until bootstrap cleans it up.
+            guard !outboxAttachmentChunk.isAcknowledged else {
+                os_log("👑 Chunk %{public}d of attachment %{public}@ was acknowledged since this operation was created. No need to encrypt it.", log: log, type: .info, chunkNumber, attachmentId.debugDescription)
+                return
+            }
+
             if let url = outboxAttachmentChunk.encryptedChunkURL, let size = try? getFileSize(url: url), size == outboxAttachmentChunk.ciphertextChunkLength {
                 os_log("👑 Encrypted chunk file already exists at URL %{public}@. No need to encrypt it again.", log: log, type: .info, url.debugDescription)
                 return
@@ -177,8 +188,14 @@ extension EncryptAttachmentChunkOperation {
 
 
     private func getFileSize(url: URL) throws -> Int {
+        // A missing file is expected here, not a fault. The only caller invokes this with `try?` purely to
+        // decide whether the chunk still needs encrypting, and its `else` branch exists for exactly this
+        // case ("Removing encrypted chunk file … (if it even exists) … We will encrypt it again now"). It
+        // happens routinely when an upload is resumed after the process that started it went away — for
+        // instance when the user dismisses the share extension mid-upload and the main app picks the
+        // message up. `ResumeEncryptedChunkUploadTasksIfRequiredOperation` makes the same check and simply
+        // cancels, without asserting.
         guard FileManager.default.fileExists(atPath: url.path) else {
-            assertionFailure()
             throw Self.makeError(message: "File does not exist")
         }
         guard let size = try FileManager.default.attributesOfItem(atPath: url.path)[FileAttributeKey.size] as? Int else {

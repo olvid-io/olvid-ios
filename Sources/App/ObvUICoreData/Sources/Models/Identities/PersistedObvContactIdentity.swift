@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,7 +48,7 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
     @NSManaged public private(set) var customDisplayName: String?
     @NSManaged public private(set) var customPhotoFilename: String?
     @NSManaged public private(set) var fullDisplayName: String
-    @NSManaged private(set) var identity: Data
+    @NSManaged public private(set) var identity: Data
     @NSManaged public private(set) var isActive: Bool
     @NSManaged public private(set) var isCertifiedByOwnKeycloak: Bool
     @NSManaged public private(set) var isOneToOne: Bool
@@ -61,6 +61,8 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
     @NSManaged private var serializedIdentityCoreDetails: Data
     @NSManaged public private(set) var sortDisplayName: String // Should be renamed normalizedSortAndSearchKey
     @NSManaged private var sortInitial: String? // Non-optional in the model. Contains exactly one character chosen in A-Z#.
+    @NSManaged private(set) var stopSuggesting: Bool // Set when the user declines this contact as a suggestion, or when this contact stops being one-to-one. Local to this device.
+    @NSManaged public private(set) var suggestionSeen: Bool // Set once this contact's suggestion card was in a deck the user opened. Local to this device.
 
     // MARK: - Relationships
 
@@ -116,9 +118,19 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
         return trimmed.isEmpty ? nil : trimmed
     }
     
-    public lazy var cryptoId: ObvCryptoId = {
-        return try! ObvCryptoId(identity: identity)
-    }()
+    private var cachedCryptoId: ObvCryptoId?
+    
+    public var cryptoId: ObvCryptoId {
+        get throws {
+            if let cachedCryptoId {
+                return cachedCryptoId
+            } else {
+                let cryptoId = try ObvCryptoId(identity: identity)
+                cachedCryptoId = cryptoId
+                return cryptoId
+            }
+        }
+    }
 
     private var changedKeys = Set<String>()
     
@@ -190,7 +202,8 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
     public var obvContactIdentifier: ObvContactIdentifier {
         get throws {
             let ownedCryptoId = try ObvCryptoId(identity: rawOwnedIdentityIdentity)
-            return ObvContactIdentifier(contactCryptoId: cryptoId, ownedCryptoId: ownedCryptoId)
+            let contactCryptoId = try self.cryptoId
+            return ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
         }
     }
     
@@ -215,7 +228,34 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
     public func hasAtLeastOneRemoteContactDevice() -> Bool {
         return !self.devices.isEmpty
     }
-    
+
+
+    /// The groups, v1 and v2, that we share with this contact. Read from the relationships, without a fetch.
+    public var numberOfGroupsInCommon: Int {
+        contactGroups.count + asGroupV2Member.count
+    }
+
+
+    /// Called when the user declines this contact as a suggestion, when a one-to-one invitation is sent to them, when they stop being one-to-one
+    /// (whichever side removed the other), and when a restored sync snapshot says so: this contact is never suggested again.
+    /// - Returns: `true` if this call set `stopSuggesting`, `false` if it was already set.
+    fileprivate func stopBeingSuggested() -> Bool {
+        if self.stopSuggesting {
+            return false
+        } else {
+            self.stopSuggesting = true
+            return true
+        }
+    }
+
+
+    /// Called once this contact's suggestion card was in a deck the user opened, so that it no longer makes the badge of the contacts tab red.
+    private func markSuggestionAsSeen() {
+        if !self.suggestionSeen {
+            self.suggestionSeen = true
+        }
+    }
+
     var displayedFirstName: String? {
         guard customDisplayName == nil else { return nil }
         return identityCoreDetails?.firstName
@@ -254,12 +294,15 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
     }
 
     public var circledInitialsConfiguration: CircledInitialsConfiguration {
-        .contact(initial: customOrFullDisplayName,
-                 photo: .url(url: customPhotoURL ?? photoURL),
-                 showGreenShield: isCertifiedByOwnKeycloak,
-                 showRedShield: !isActive,
-                 cryptoId: cryptoId,
-                 tintAdjustementMode: .normal)
+        guard let cryptoId = try? self.cryptoId else {
+            return .icon(.lockFill)
+        }
+        return .contact(initial: customOrFullDisplayName,
+                        photo: .url(url: customPhotoURL ?? photoURL),
+                        showGreenShield: isCertifiedByOwnKeycloak,
+                        showRedShield: !isActive,
+                        cryptoId: cryptoId,
+                        tintAdjustementMode: .normal)
     }
     
 
@@ -383,6 +426,8 @@ extension PersistedObvContactIdentity {
         self.rawStatus = Status.noNewPublishedDetails.rawValue
         self.sortDisplayName = getNormalizedSortAndSearchKey(with: ObvMessengerSettings.Interface.contactsSortOrder)
         self.sortInitial = Self.computeSortInitialFromSortDisplayName(self.sortDisplayName)
+        self.stopSuggesting = false
+        self.suggestionSeen = false
         self.photoURL = contactIdentity.currentIdentityDetails.photoURL
         self.devices = Set<PersistedObvContactDevice>()
         self.contactGroups = Set<PersistedContactGroup>()
@@ -543,6 +588,10 @@ extension PersistedObvContactIdentity {
             self.isActive = contactIdentity.isActive
         }
         if self.isOneToOne != contactIdentity.isOneToOne {
+            // A contact removed from the one-to-one contacts, by us or by them, is not offered back as a suggestion.
+            if self.isOneToOne && !contactIdentity.isOneToOne {
+                _ = stopBeingSuggested()
+            }
             self.isOneToOne = contactIdentity.isOneToOne
         }
         if self.isOneToOne {
@@ -627,10 +676,6 @@ extension PersistedObvContactIdentity {
 
 extension PersistedObvContactIdentity {
     
-    var contactDeviceUIDs: Set<UID> {
-        Set(devices.compactMap({ UID(uid: $0.identifier) }))
-    }
-    
     private func resetValueOfAtLeastOneDeviceAllowsThisContactToReceiveMessages() {
         let newValue = !devices.filter({ !$0.isDeleted }).filter({ $0.secureChannelStatus?.isReachable == true }).isEmpty
         if self.atLeastOneDeviceAllowsThisContactToReceiveMessages != newValue {
@@ -640,7 +685,7 @@ extension PersistedObvContactIdentity {
     
     
     func addContactDevice(_ device: ObvContactDevice, isRestoringSyncSnapshotOrBackup: Bool) throws -> PersistedObvContactDevice {
-        guard device.contactIdentifier.contactCryptoId == self.cryptoId,
+        guard try device.contactIdentifier.contactCryptoId == self.cryptoId,
               device.contactIdentifier.ownedCryptoId.getIdentity() == self.rawOwnedIdentityIdentity else {
             assertionFailure()
             throw ObvUICoreDataError.unexpectedContactIdentifier
@@ -657,7 +702,7 @@ extension PersistedObvContactIdentity {
     
     
     func deleteContactDevice(with deviceIdentifier: ObvContactDeviceIdentifier) throws {
-        guard deviceIdentifier.contactCryptoId == self.cryptoId,
+        guard try deviceIdentifier.contactCryptoId == self.cryptoId,
               deviceIdentifier.ownedCryptoId.getIdentity() == self.rawOwnedIdentityIdentity else {
             assertionFailure()
             throw ObvUICoreDataError.unexpectedContactIdentifier
@@ -672,7 +717,7 @@ extension PersistedObvContactIdentity {
     /// Returns `true` iff the contact device had to be updated
     func updateContactDevice(with deviceFromEngine: ObvContactDevice, isRestoringSyncSnapshotOrBackup: Bool) throws -> Bool {
 
-        guard self.cryptoId == deviceFromEngine.contactIdentifier.contactCryptoId, self.rawOwnedIdentityIdentity == deviceFromEngine.contactIdentifier.ownedCryptoId.getIdentity() else {
+        guard try self.cryptoId == deviceFromEngine.contactIdentifier.contactCryptoId, self.rawOwnedIdentityIdentity == deviceFromEngine.contactIdentifier.ownedCryptoId.getIdentity() else {
             assertionFailure()
             throw ObvUICoreDataError.unexpectedContactIdentifier
         }
@@ -755,19 +800,26 @@ extension PersistedObvContactIdentity {
 extension PersistedObvContactIdentity {
     
     /// When  receiving an `ObvMessage`, we fetch the persisted contact indicated in the message and then call this method to create the `PersistedMessageReceived`.
-    func createOrOverridePersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, source: ObvMessageSource) throws -> (discussionPermanentID: DiscussionPermanentID, messageReceivedPermanentId: MessageReceivedPermanentID?) {
+    func createOrOverridePersistedMessageReceived(
+        obvMessage: ObvMessage,
+        messageJSON: MessageJSON,
+        returnReceiptJSON: ReturnReceiptJSON?,
+        source: ObvMessageSource,
+        pendingSiriReadIntentDate: Date?,
+        nseAlreadyPostedDeliveredReceipt: Bool
+    ) throws -> (discussionPermanentID: DiscussionPermanentID, messageReceivedPermanentId: MessageReceivedPermanentID?, deliveredReceiptToSend: ObvReturnReceiptToSend?, readReceiptToSend: ObvReturnReceiptToSend?, attachmentDeliveredReceiptsToSend: [ObvReturnReceiptToSend]) {
 
         guard let context = self.managedObjectContext else {
             assertionFailure()
             throw ObvUICoreDataError.noContext
         }
-        
+
         guard try obvMessage.fromContactIdentity == self.obvContactIdentifier else {
             throw ObvUICoreDataError.unexpectedFromContactIdentity
         }
-        
+
         // Process the location contained in the MessageJSON
-        
+
         let receivedLocation: ReceivedLocation?
         if let locationJSON = messageJSON.location {
             switch locationJSON.type {
@@ -785,71 +837,82 @@ extension PersistedObvContactIdentity {
         } else {
             receivedLocation = nil
         }
-                
+
         // Determine the discussion or the group where the new PersistedMessageReceived should be inserted
-        
+
         let discussionPermanentId: DiscussionPermanentID
         let messageReceivedPermanentId: MessageReceivedPermanentID?
-        
+        let deliveredReceiptToSend: ObvReturnReceiptToSend?
+        let readReceiptToSend: ObvReturnReceiptToSend?
+        let attachmentDeliveredReceiptsToSend: [ObvReturnReceiptToSend]
+
         if let oneToOneIdentifier = messageJSON.oneToOneIdentifier {
-            
+
             let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
-            (discussionPermanentId, messageReceivedPermanentId) = try oneToneDiscussion.createOrOverridePersistedMessageReceived(
+            (discussionPermanentId, messageReceivedPermanentId, deliveredReceiptToSend, readReceiptToSend, attachmentDeliveredReceiptsToSend) = try oneToneDiscussion.createOrOverridePersistedMessageReceived(
                 from: self,
                 obvMessage: obvMessage,
                 messageJSON: messageJSON,
                 returnReceiptJSON: returnReceiptJSON,
                 source: source,
-                receivedLocation: receivedLocation)
+                receivedLocation: receivedLocation,
+                pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+                nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt)
 
         } else if let groupIdentifier = messageJSON.groupIdentifier {
-            
+
             let group = try fetchGroup(with: groupIdentifier)
-            
+
             switch group {
 
             case .v1(group: let group):
-                
-                (discussionPermanentId, messageReceivedPermanentId) = try group.createOrOverridePersistedMessageReceived(
+
+                (discussionPermanentId, messageReceivedPermanentId, deliveredReceiptToSend, readReceiptToSend, attachmentDeliveredReceiptsToSend) = try group.createOrOverridePersistedMessageReceived(
                     from: self,
                     obvMessage: obvMessage,
                     messageJSON: messageJSON,
                     returnReceiptJSON: returnReceiptJSON,
                     source: source,
-                    receivedLocation: receivedLocation)
+                    receivedLocation: receivedLocation,
+                    pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+                    nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt)
 
             case .v2(group: let group):
 
-                (discussionPermanentId, messageReceivedPermanentId) = try group.createOrOverridePersistedMessageReceived(
+                (discussionPermanentId, messageReceivedPermanentId, deliveredReceiptToSend, readReceiptToSend, attachmentDeliveredReceiptsToSend) = try group.createOrOverridePersistedMessageReceived(
                     from: self,
                     obvMessage: obvMessage,
                     messageJSON: messageJSON,
                     returnReceiptJSON: returnReceiptJSON,
                     source: source,
-                    receivedLocation: receivedLocation)
+                    receivedLocation: receivedLocation,
+                    pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+                    nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt)
 
             }
 
         } else {
-            
+
             let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
-            (discussionPermanentId, messageReceivedPermanentId) = try oneToneDiscussion.createOrOverridePersistedMessageReceived(
+            (discussionPermanentId, messageReceivedPermanentId, deliveredReceiptToSend, readReceiptToSend, attachmentDeliveredReceiptsToSend) = try oneToneDiscussion.createOrOverridePersistedMessageReceived(
                 from: self,
                 obvMessage: obvMessage,
                 messageJSON: messageJSON,
                 returnReceiptJSON: returnReceiptJSON,
                 source: source,
-                receivedLocation: receivedLocation)
+                receivedLocation: receivedLocation,
+                pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+                nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt)
 
         }
-        
-        return (discussionPermanentId, messageReceivedPermanentId)
-        
+
+        return (discussionPermanentId, messageReceivedPermanentId, deliveredReceiptToSend, readReceiptToSend, attachmentDeliveredReceiptsToSend)
+
     }
     
 
-    public func process(obvAttachment: ObvAttachment) throws {
-        
+    public func process(obvAttachment: ObvAttachment) throws -> ObvReturnReceiptToSend? {
+
         guard try obvAttachment.fromContactIdentity == self.obvContactIdentifier else {
             throw ObvUICoreDataError.unexpectedFromContactIdentity
         }
@@ -857,8 +920,8 @@ extension PersistedObvContactIdentity {
         guard let receivedMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier, from: self) else {
             throw ObvUICoreDataError.couldNotFindPersistedMessageReceived
         }
-        
-        try receivedMessage.processObvAttachment(obvAttachment)
+
+        return try receivedMessage.processObvAttachment(obvAttachment)
 
     }
 
@@ -880,7 +943,7 @@ extension PersistedObvContactIdentity {
             throw ObvUICoreDataError.inconsistentOneToOneDiscussionIdentifier
         }
         
-        guard contactCryptoIdSpecifiedInOneToOneIdentifier == self.cryptoId else {
+        guard try contactCryptoIdSpecifiedInOneToOneIdentifier == self.cryptoId else {
             throw ObvUICoreDataError.inconsistentOneToOneDiscussionIdentifier
         }
         
@@ -936,7 +999,7 @@ extension PersistedObvContactIdentity {
                 let groupIdentifier = ObvGroupIdentifier.groupV1(try group.obvGroupIdentifier)
                 throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
                     groupIdentifier: groupIdentifier,
-                    contactCryptoId: self.cryptoId)
+                    contactCryptoId: try self.cryptoId)
             }
             
             return .v1(group: group)
@@ -951,7 +1014,7 @@ extension PersistedObvContactIdentity {
                 throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: obvGroupIdentifier)
             }
             
-            guard group.otherMembers.contains(where: { $0.cryptoId == self.cryptoId }) else {
+            guard group.otherMembers.contains(where: { $0.identity == self.identity }) else {
                 guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2Identifier) else {
                     assertionFailure()
                     throw ObvUICoreDataError.couldNotParseGroupIdentifier
@@ -959,7 +1022,7 @@ extension PersistedObvContactIdentity {
                 let groupV2Identifier = ObvGroupV2Identifier(ownedCryptoId: ownedIdentity.cryptoId,
                                                            identifier: identifier)
                 let obvGroupIdentifier = ObvGroupIdentifier.groupV2(groupV2Identifier)
-                let contactIdentifier = ObvContactIdentifier(contactCryptoId: self.cryptoId,
+                let contactIdentifier = ObvContactIdentifier(contactCryptoId: try self.cryptoId,
                                                              ownedCryptoId: ownedIdentity.cryptoId)
                 throw ObvUICoreDataError.contactIsNotPartOfGroupOrRequiresPermissions(
                     groupIdentifier: obvGroupIdentifier,
@@ -1315,37 +1378,37 @@ extension PersistedObvContactIdentity {
 
 extension PersistedObvContactIdentity {
     
-    public func processSetOrUpdateReactionOnMessageRequestFromThisContact(reactionJSON: ReactionJSON, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage? {
-        
+    public func processSetOrUpdateReactionOnMessageRequestFromThisContact(reactionJSON: ReactionJSON, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> (updatedMessage: PersistedMessage, reactionUpdateOutcome: ReactionUpdateOutcome)? {
+
         if let oneToOneIdentifier = reactionJSON.oneToOneIdentifier {
-            
+
             let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
-            let updatedMessage = try oneToneDiscussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
-            return updatedMessage
-            
+            let updatedMessageAndOutcome = try oneToneDiscussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+            return updatedMessageAndOutcome
+
         } else if let groupIdentifier = reactionJSON.groupIdentifier {
-            
+
             let group = try fetchGroup(with: groupIdentifier)
-            
+
             switch group {
-                
+
             case .v1(group: let group):
-                
-                let updatedMessage = try group.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
-                return updatedMessage
+
+                let updatedMessageAndOutcome = try group.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+                return updatedMessageAndOutcome
 
             case .v2(group: let group):
-                
-                let updatedMessage = try group.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
-                return updatedMessage
+
+                let updatedMessageAndOutcome = try group.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+                return updatedMessageAndOutcome
 
             }
-            
+
         } else {
-            
+
             let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
-            let updatedMessage = try oneToneDiscussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
-            return updatedMessage
+            let updatedMessageAndOutcome = try oneToneDiscussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+            return updatedMessageAndOutcome
 
         }
 
@@ -1357,39 +1420,39 @@ extension PersistedObvContactIdentity {
 
 extension PersistedObvContactIdentity {
     
-    public func processSetOrUpdatePollVoteOnMessageRequestFromThisContact(pollVoteJSON: PollVoteJSON, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
-        
+    public func processSetOrUpdatePollVoteOnMessageRequestFromThisContact(pollVoteJSON: PollVoteJSON, messageUploadTimestampFromServer: Date) throws -> (updatedMessage: PersistedMessage, votesVisiblyChanged: Bool)? {
+
         if let oneToOneIdentifier = pollVoteJSON.oneToOneIdentifier {
-            
+
             let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
-            let updatedMessage = try oneToneDiscussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            return updatedMessage
-            
+            let updatedMessageAndOutcome = try oneToneDiscussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            return updatedMessageAndOutcome
+
         } else if let groupIdentifier = pollVoteJSON.groupIdentifier {
-            
+
             let group = try fetchGroup(with: groupIdentifier)
-            
+
             switch group {
-                
+
             case .v1(group: let group):
-                
-                let updatedMessage = try group.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-                return updatedMessage
+
+                let updatedMessageAndOutcome = try group.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                return updatedMessageAndOutcome
 
             case .v2(group: let group):
-                
-                let updatedMessage = try group.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-                
-                return updatedMessage
+
+                let updatedMessageAndOutcome = try group.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+                return updatedMessageAndOutcome
 
             }
-            
+
         } else {
-            
+
             let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
-            
-            let updatedMessage = try oneToneDiscussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            return updatedMessage
+
+            let updatedMessageAndOutcome = try oneToneDiscussion.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            return updatedMessageAndOutcome
 
         }
 
@@ -1546,8 +1609,11 @@ extension PersistedObvContactIdentity {
             case permanentUUID = "permanentUUID"
             case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
             case rawStatus = "rawStatus"
+            case rawWasRecentlyOnline = "rawWasRecentlyOnline"
             case sortDisplayName = "sortDisplayName" // Should be renamed normalizedSortAndSearchKey
             case sortInitial = "sortInitial"
+            case stopSuggesting = "stopSuggesting"
+            case suggestionSeen = "suggestionSeen"
             // Relationships
             case asGroupV2Member = "asGroupV2Member"
             case contactGroups = "contactGroups"
@@ -1567,10 +1633,21 @@ extension PersistedObvContactIdentity {
         static func withCryptoId(_ cryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.identity, EqualToData: cryptoId.getIdentity())
         }
-        static func withCryptoIdIn(_ cryptoIds: Set<ObvCryptoId>) -> NSPredicate {
-            let identities = cryptoIds.map { $0.getIdentity() as NSData }
-            return NSPredicate(format: "%K IN %@", Key.identity.rawValue, identities)
+        /// The contacts of `ownedCryptoId` whose crypto id is in `cryptoIds`, as one predicate per fetch. Run one fetch per predicate.
+        ///
+        /// Why an array and not a single predicate: matching many contacts at once means an `IN` clause, and SQLite limits how many values one
+        /// statement may carry. A predicate becomes a statement, so the answer is more fetches, each asking about at most
+        /// ``numberOfCryptoIdsPerFetch`` contacts. An empty set returns no predicate, so the caller's loop performs no fetch.
+        static func predicatesForContacts(withCryptoIdIn cryptoIds: Set<ObvCryptoId>, ofOwnedCryptoId ownedCryptoId: ObvCryptoId) -> [NSPredicate] {
+            cryptoIds.map({ $0.getIdentity() }).toSlices(ofMaxSize: numberOfCryptoIdsPerFetch).map { identities in
+                NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    withOwnedCryptoId(ownedCryptoId),
+                    NSPredicate(Key.identity, in: identities),
+                ])
+            }
         }
+        /// How many crypto ids go into one `IN` clause. `NSPredicate(_:in:)` asserts below 150; `InboxMessage` slices at a hundred too.
+        private static let numberOfCryptoIdsPerFetch = 100
         static func ofOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
             NSPredicate(Key.rawOwnedIdentity, equalTo: ownedIdentity)
         }
@@ -1599,6 +1676,17 @@ extension PersistedObvContactIdentity {
         }
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
+        }
+        static var withNonHiddenOwnedIdentity: NSPredicate {
+            let hiddenProfileHash: String = [Key.rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.hiddenProfileHash.rawValue].joined(separator: ".")
+            let hiddenProfileSalt: String = [Key.rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.hiddenProfileSalt.rawValue].joined(separator: ".")
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.rawOwnedIdentity),
+                NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    NSPredicate(withNilValueForRawKey: hiddenProfileHash),
+                    NSPredicate(withNilValueForRawKey: hiddenProfileSalt),
+                ])
+            ])
         }
         private static func inGroupV1WithIdentifier(_ groupIdentifier: GroupV1Identifier) -> NSPredicate {
             // The following predicate ensures the contact's `contactGroups` set contains a `PersistedContactGroup` instance
@@ -1691,6 +1779,49 @@ extension PersistedObvContactIdentity {
         static func requiredCapabilities(_ capabilities: [ObvCapability]) -> NSPredicate {
             guard !capabilities.isEmpty else { return NSPredicate(value: true) }
             return NSCompoundPredicate(andPredicateWithSubpredicates: capabilities.map({ Self.requiredCapability($0) }))
+        }
+        static func stopSuggestingIs(_ value: Bool) -> NSPredicate {
+            NSPredicate(Key.stopSuggesting, is: value)
+        }
+        /// At least one group, v1 or v2, is shared with this contact.
+        static var hasAtLeastOneGroupInCommon: NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(withStrictlyPositiveCountForKey: Key.contactGroups),
+                NSPredicate(withStrictlyPositiveCountForKey: Key.asGroupV2Member),
+            ])
+        }
+        /// The contact was recently online, as the engine reports it. A missing value counts as online, as it does for
+        /// ``PersistedObvContactIdentity/wasRecentlyOnline``.
+        static var wasRecentlyOnline: NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(withNilValueForKey: Key.rawWasRecentlyOnline),
+                NSPredicate(Key.rawWasRecentlyOnline, is: true),
+            ])
+        }
+        /// A contact that can be offered as a suggestion: not yet one-to-one, sharing at least one group with us, active, reachable through a channel or a
+        /// pre-key, recently online, not certified by our own Keycloak server, and not set aside.
+        /// A contact certified by our own Keycloak server is left out because its directory already lists them, and a Keycloak group can be large.
+        /// A contact is set aside when the user declines them as a suggestion, when a one-to-one invitation is sent to them, and when they stop being
+        /// one-to-one. A contact invited by an earlier version of the app is not set aside: the caller leaves them out while that invitation is pending,
+        /// as that fact lives on another entity.
+        static func isSuggestable(ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                couldBeInvited(ownedCryptoId: ownedCryptoId),
+                stopSuggestingIs(false),
+            ])
+        }
+        /// A contact the deck of all the other known users offers: ``isSuggestable(ownedCryptoId:)``, whether or not the contact was set aside. So it
+        /// also holds the contacts the user declined, and the contacts removed from the one-to-one contacts.
+        static func couldBeInvited(ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withOwnedCryptoId(ownedCryptoId),
+                isOneToOneIs(false),
+                hasAtLeastOneGroupInCommon,
+                NSPredicate(Key.isActive, is: true),
+                atLeastOneDeviceAllowsThisContactToReceiveMessages,
+                wasRecentlyOnline,
+                NSPredicate(Key.isCertifiedByOwnKeycloak, is: false),
+            ])
         }
         public static var withCustomPhotoFilename: NSPredicate {
             NSPredicate(withNonNilValueForKey: Key.customPhotoFilename)
@@ -1880,14 +2011,15 @@ extension PersistedObvContactIdentity {
     
     
     static func getAllContactsWithCryptoId(in cryptoIds: Set<ObvCryptoId>, ofOwnedIdentity ownedCryptoId: ObvCryptoId, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) throws -> Set<PersistedObvContactIdentity> {
-        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withCryptoIdIn(cryptoIds),
-            Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
-            Predicate.forOneToOneStatus(oneToOneStatus),
-        ])
-        request.fetchBatchSize = 1_000
-        let contacts = Set(try context.fetch(request))
+        var contacts = Set<PersistedObvContactIdentity>()
+        for predicate in Predicate.predicatesForContacts(withCryptoIdIn: cryptoIds, ofOwnedCryptoId: ownedCryptoId) {
+            let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                predicate,
+                Predicate.forOneToOneStatus(oneToOneStatus),
+            ])
+            contacts.formUnion(try context.fetch(request))
+        }
         return contacts
     }
 
@@ -1905,8 +2037,14 @@ extension PersistedObvContactIdentity {
     }
     
 
-    public static func getAll(within context: NSManagedObjectContext) throws -> [PersistedObvContactIdentity] {
+    public static func getAll(within context: NSManagedObjectContext, restrictToContactsOfNonHiddenOwnedIdentities: Bool = true, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus = .any) throws -> [PersistedObvContactIdentity] {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.fetchBatchSize = 1_000
+        var andPredicateWithSubpredicates: [NSPredicate] = [Predicate.forOneToOneStatus(oneToOneStatus)]
+        if restrictToContactsOfNonHiddenOwnedIdentities {
+            andPredicateWithSubpredicates.append(Predicate.withNonHiddenOwnedIdentity)
+        }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: andPredicateWithSubpredicates)
         return try context.fetch(request)
     }
 
@@ -1954,6 +2092,20 @@ extension PersistedObvContactIdentity {
             }
         }
         return results
+    }
+
+
+    /// The contacts of an owned identity among `contactCryptoIds`, in one fetch and with their groups. The contacts suggestions use it to find the
+    /// people of the invitations who are already contacts.
+    public static func getContacts(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, within context: NSManagedObjectContext) throws -> [PersistedObvContactIdentity] {
+        var contacts = [PersistedObvContactIdentity]()
+        for predicate in Predicate.predicatesForContacts(withCryptoIdIn: contactCryptoIds, ofOwnedCryptoId: ownedCryptoId) {
+            let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+            request.predicate = predicate
+            request.relationshipKeyPathsForPrefetching = [Predicate.Key.contactGroups.rawValue, Predicate.Key.asGroupV2Member.rawValue]
+            contacts += try context.fetch(request)
+        }
+        return contacts
     }
     
 }
@@ -2169,6 +2321,41 @@ extension PersistedObvContactIdentity {
     }
     
     
+    public static func getPredicateForAllReachableContactsOfNonHiddenOwnedIdentities(searchText: String?) -> NSPredicate {
+        let predicate: NSPredicate
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var andPredicateWithSubpredicates: [NSPredicate] = [
+            Predicate.withNonHiddenOwnedIdentity,
+            Predicate.atLeastOneDeviceAllowsThisContactToReceiveMessages,
+        ]
+        if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
+            andPredicateWithSubpredicates += [
+                Predicate.searchPredicate(sanitizedSearchText)
+            ]
+        }
+        predicate = NSCompoundPredicate(andPredicateWithSubpredicates: andPredicateWithSubpredicates)
+        return predicate
+    }
+
+    
+    public static func getAllReachableContactsOfNonHiddenOwnedIdentities(searchText: String?, within context: NSManagedObjectContext) throws -> [PersistedObvContactIdentity] {
+        let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        fetchRequest.sortDescriptors = Self.defaultSortDescriptors
+        fetchRequest.predicate = getPredicateForAllReachableContactsOfNonHiddenOwnedIdentities(searchText: searchText)
+        fetchRequest.fetchBatchSize = 1_000
+        return try context.fetch(fetchRequest)
+    }
+
+
+    public static func getAllReachableContactsOfOwnedIdentity(ownedCryptoId: ObvCryptoId, searchText: String?, within context: NSManagedObjectContext) throws -> [PersistedObvContactIdentity] {
+        let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        fetchRequest.sortDescriptors = Self.defaultSortDescriptors
+        fetchRequest.predicate = getPredicateForAllReachableContactsOfOwnedIdentity(ownedCryptoId: ownedCryptoId, searchText: searchText)
+        fetchRequest.fetchBatchSize = 1_000
+        return try context.fetch(fetchRequest)
+    }
+
+
     public static func getFetchedResultsController(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
         request.predicate = Predicate.withObjectID(objectID: objectID)
@@ -2182,6 +2369,58 @@ extension PersistedObvContactIdentity {
     }
     
     
+    /// The contacts offered as suggestions, in the order of the list of contacts.
+    public static func getFetchedResultsControllerForSuggestions(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        getFetchedResultsControllerForDeck(predicate: Predicate.isSuggestable(ownedCryptoId: ownedCryptoId), within: context)
+    }
+
+
+    /// The contacts offered by the deck of all the other known users, including those set aside, in the order of the list of contacts.
+    public static func getFetchedResultsControllerForAllWhoCouldBeInvited(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        getFetchedResultsControllerForDeck(predicate: Predicate.couldBeInvited(ownedCryptoId: ownedCryptoId), within: context)
+    }
+
+
+    private static func getFetchedResultsControllerForDeck(predicate: NSPredicate, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.predicate = predicate
+        request.sortDescriptors = Self.defaultSortDescriptors
+        request.fetchBatchSize = 100
+        // The deck counts the groups in common of every suggestion each time it changes: fetched with each batch, rather than one fault per contact.
+        request.relationshipKeyPathsForPrefetching = [Predicate.Key.contactGroups.rawValue, Predicate.Key.asGroupV2Member.rawValue]
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
+
+    /// Called when the user declines this contact as a suggestion or removes them as a one-to-one contact, on this device or on another owned
+    /// device, and when a one-to-one invitation is sent to them.
+    /// - Returns: `true` if this call set `stopSuggesting`, `false` if it was already set (or when the contact is unknown to this device).
+    public static func stopSuggesting(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> Bool {
+        guard let contact = try get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: context) else { return false }
+        let stopSuggestingWasChanged = contact.stopBeingSuggested()
+        return stopSuggestingWasChanged
+    }
+
+
+    /// Called with the suggestion cards of a contacts suggestions deck when the user opens or closes it, so that they no longer make its badge red.
+    /// Only the contacts not seen yet are loaded, by slices; a contact that is gone is skipped.
+    public static func markSuggestionsAsSeen(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, within context: NSManagedObjectContext) throws {
+        for predicate in Predicate.predicatesForContacts(withCryptoIdIn: contactCryptoIds, ofOwnedCryptoId: ownedCryptoId) {
+            let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                predicate,
+                NSPredicate(Predicate.Key.suggestionSeen, is: false),
+            ])
+            for contact in try context.fetch(request) {
+                contact.markSuggestionAsSeen()
+            }
+        }
+    }
+
+
     public static func atLeastOneDeviceAllowsThisContactToReceiveMessages(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -2208,14 +2447,24 @@ extension PersistedObvContactIdentity {
             changedKeys = Set<String>(self.changedValues().keys)
         }
         
-        if !changedKeys.isEmpty {
+        // A change of the flags of the contacts suggestions alone concerns no group and no discussion.
+        let onlyTheFlagsOfTheSuggestionsChanged = Self.onlyTheFlagsOfTheSuggestionsChanged(changedKeys)
+
+        if !changedKeys.isEmpty && !onlyTheFlagsOfTheSuggestionsChanged {
             asGroupV2Member.forEach { $0.updateWhenPersistedObvContactIdentityIsUpdated() }
         }
 
         // When updating a contact, we try to update the oneToOne discussion title.
-        if isUpdated && !self.changedValues().isEmpty {
+        if isUpdated && !self.changedValues().isEmpty && !onlyTheFlagsOfTheSuggestionsChanged {
             oneToOneDiscussion?.resetDiscussionTitleWithContactIfAppropriate()
         }
+    }
+
+
+    /// Whether `changedKeys` holds only `suggestionSeen` and `stopSuggesting`. Only the contacts suggestions read these flags: their change alone
+    /// needs no update of a group, of a discussion, or of the screens that show the contact.
+    static func onlyTheFlagsOfTheSuggestionsChanged(_ changedKeys: Set<String>) -> Bool {
+        !changedKeys.isEmpty && changedKeys.isSubset(of: [Predicate.Key.suggestionSeen.rawValue, Predicate.Key.stopSuggesting.rawValue])
     }
 
     public override func didSave() {
@@ -2235,68 +2484,95 @@ extension PersistedObvContactIdentity {
 
         if isInserted {
             
-            if let ownedCryptoId = self.ownedIdentity?.cryptoId, let objectPermanentID = try? self.objectPermanentID {
-                let contactCryptoId = self.cryptoId
-                ObvMessengerCoreDataNotification.persistedContactWasInserted(contactPermanentID: objectPermanentID, ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId, isOneToOne: self.isOneToOne)
-                    .postOnDispatchQueue()
-            } else {
-                assertionFailure()
+            do {
+                let contactIdentifier = try self.obvContactIdentifier
+                let isOneToOne = self.isOneToOne
+                Task { await Self.observersHolder.aPersistedObvContactIdentityWasInserted(contactIdentifier: contactIdentifier, isOneToOne: isOneToOne) }
+            } catch {
+                assertionFailure(error.localizedDescription) // Continue anyway
             }
-            
             
         } else if isDeleted {
             
-            let notification = ObvMessengerCoreDataNotification.persistedContactWasDeleted(objectID: objectID, identity: identity)
-            notification.postOnDispatchQueue()
-                        
+            do {
+                let contactIdentifier = try self.obvContactIdentifier
+                Task { await Self.observersHolder.aPersistedObvContactIdentityWasDeleted(contactIdentifier: contactIdentifier) }
+            } catch {
+                assertionFailure(error.localizedDescription) // Continue anyway
+            }
+            
         } else {
             
             if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) {
-                ObvMessengerCoreDataNotification.persistedContactHasNewCustomDisplayName(contactCryptoId: cryptoId)
-                    .postOnDispatchQueue()
-            }
-            
-            if changedKeys.contains(Predicate.Key.isActive.rawValue) {
-                ObvMessengerCoreDataNotification.persistedContactIsActiveChanged(contactID: typedObjectID)
-                    .postOnDispatchQueue()
+                do {
+                    let contactIdentifier = try self.obvContactIdentifier
+                    Task { await Self.observersHolder.aPersistedObvContactIdentityCustomDisplayNameChanged(contactIdentifier: contactIdentifier) }
+                } catch {
+                    assertionFailure(error.localizedDescription) // Continue anyway
+                }
             }
 
-            // Last but not least, if the one2one discussion with this contact is loaded in the view context, we refresh it.
-            // This what makes it possible, e.g., to see the contact profile picture in the discussion list as soon as possible
-            // 2023-03-09: We used to perform the refresh here. We now send a notification and let the meta manager perform the refresh.
-            if !changedKeys.isEmpty {
-                ObvMessengerCoreDataNotification.persistedContactWasUpdated(contactObjectID: typedObjectID)
-                    .postOnDispatchQueue()
+            if changedKeys.contains(Predicate.Key.fullDisplayName.rawValue) {
+                do {
+                    let contactIdentifier = try self.obvContactIdentifier
+                    Task { await Self.observersHolder.aPersistedObvContactIdentityFullDisplayNameChanged(contactIdentifier: contactIdentifier) }
+                } catch {
+                    assertionFailure(error.localizedDescription) // Continue anyway
+                }
+            }
+
+            if changedKeys.contains(Predicate.Key.isActive.rawValue) {
+                do {
+                    let contactIdentifier = try self.obvContactIdentifier
+                    Task { await Self.observersHolder.aPersistedContactIsActiveStatusChanged(contactIdentifier: contactIdentifier) }
+                } catch {
+                    assertionFailure(error.localizedDescription) // Continue anyway
+                }
+            }
+            
+            if changedKeys.contains(Predicate.Key.isOneToOne.rawValue) {
+                do {
+                    let contactIdentifier = try self.obvContactIdentifier
+                    Task { await Self.observersHolder.aPersistedContactOneToOneStatusChanged(contactIdentifier: contactIdentifier) }
+                } catch {
+                    assertionFailure(error.localizedDescription) // Continue anyway
+                }
             }
 
             if changedKeys.contains(Predicate.Key.atLeastOneDeviceAllowsThisContactToReceiveMessages.rawValue), self.atLeastOneDeviceAllowsThisContactToReceiveMessages {
                 do {
                     let contactIdentifier = try self.obvContactIdentifier
-                    Task {
-                        await Self.observersHolder.contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: contactIdentifier)
-                    }
+                    Task { await Self.observersHolder.contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: contactIdentifier) }
                 } catch {
-                    assertionFailure()
+                    assertionFailure(error.localizedDescription) // Continue anyway
                 }
+            }
+
+            // Last but not least, if the one2one discussion with this contact is loaded in the view context, we refresh it.
+            // This what makes it possible, e.g., to see the contact profile picture in the discussion list as soon as possible
+            // 2023-03-09: We used to perform the refresh here. We now send a notification and let the meta manager perform the refresh.
+            // Not for a change of the flags of the contacts suggestions alone, which no discussion shows.
+            if !changedKeys.isEmpty && !Self.onlyTheFlagsOfTheSuggestionsChanged(changedKeys) {
+                let typedObjectID = self.typedObjectID
+                Task { await Self.observersHolder.aPersistedObvContactWasUpdated(objectID: typedObjectID) }
             }
             
             // Potentially notify that the previous backed up profile snapshot is obsolete.
             // We only notify in case of a change. Insertion/Deletion are notified by
             // the engine.
             // See `PersistedObvOwnedIdentity` for a list of entities that might post a similar notification.
-            
-            if !isDeleted && !isInserted && !changedKeys.isEmpty {
-                if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) ||
-                    changedKeys.contains(Predicate.Key.note.rawValue) ||
-                    changedKeys.contains(Predicate.Key.rawOneToOneDiscussion.rawValue) {
-                    let ownedIdentity = self.rawOwnedIdentityIdentity
-                    if let ownedCryptoId = try? ObvCryptoId(identity: ownedIdentity) {
-                        Task {
-                            await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ownedCryptoId)
-                        }
-                    } else {
-                        assertionFailure()
-                    }
+
+            if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) ||
+                changedKeys.contains(Predicate.Key.note.rawValue) ||
+                changedKeys.contains(Predicate.Key.rawOneToOneDiscussion.rawValue) ||
+                changedKeys.contains(Predicate.Key.stopSuggesting.rawValue)
+            {
+                let ownedIdentity = self.rawOwnedIdentityIdentity
+                do {
+                    let ownedCryptoId = try ObvCryptoId(identity: ownedIdentity)
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ownedCryptoId) }
+                } catch {
+                    assertionFailure(error.localizedDescription) // Continue anyway
                 }
             }
 
@@ -2309,77 +2585,6 @@ extension PersistedObvContactIdentity {
 
 public typealias ContactPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>
 
-// MARK: - MentionableIdentity
-
-/// Allows a `PersistedObvContactIdentity` to be displayed in the views showing mentions.
-//extension PersistedObvContactIdentity: MentionableIdentity {
-//    
-//    public var mentionnedCryptoId: ObvCryptoId? {
-//        return self.cryptoId
-//    }
-//    
-//    public var mentionSearchMatcher: String {
-//        return sortDisplayName
-//    }
-//
-//    public var mentionPickerTitle: String {
-//        if let customDisplayName {
-//            return customDisplayName
-//        }
-//
-//        return mentionPersistedName
-//    }
-//
-//    public var mentionPickerSubtitle: String? {
-//        if customDisplayName == nil {
-//            return nil
-//        }
-//
-//        return mentionPersistedName
-//    }
-//
-//    public var mentionPersistedName: String {
-//        guard identityCoreDetails != nil else {
-//            assertionFailure("not linked identityCoreDetails, assuming this has been cascade deleted?")
-//
-//            return ""
-//        }
-//
-//        let components = PersonNameComponents()..{
-//            $0.givenName = firstName
-//            $0.familyName = lastName
-//        }
-//
-//        return PersonNameComponentsFormatter.localizedString(from: components,
-//                                                             style: .default)
-//    }
-//
-//    public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
-//        return .contact(typedObjectID)
-//    }
-//    
-//    public var avatar: ObvAvatarViewModel {
-//        let character = self.customOrFullDisplayName.first
-//        let characterOrIcon: ObvAvatarViewModel.CharacterOrIcon
-//        if let character {
-//            characterOrIcon = .character(character)
-//        } else {
-//            characterOrIcon = .icon(.person)
-//        }
-//
-//        let backgroundColor = circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared)
-//        let foregroundColor = circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared)
-//        let colors = ObvDesignSystem.ObvAvatarViewModel.Colors(foreground: foregroundColor, background: backgroundColor)
-//
-//        let photoURL = customPhotoURL ?? photoURL
-//        
-//        return .init(characterOrIcon: characterOrIcon,
-//                     colors: colors,
-//                     photoURL: photoURL)
-//    }
-//}
-
-
 // MARK: - For snapshot purposes
 
 extension PersistedObvContactIdentity {
@@ -2387,6 +2592,7 @@ extension PersistedObvContactIdentity {
     var syncSnapshotNode: PersistedObvContactIdentitySyncSnapshotNode {
         .init(customDisplayName: customDisplayName,
               note: note,
+              stopSuggesting: stopSuggesting,
               rawOneToOneDiscussion: rawOneToOneDiscussion)
     }
     
@@ -2399,6 +2605,7 @@ struct PersistedObvContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
     private let customDisplayName: String?
     // No custom hue (this only exists under Android)
     private let note: String?
+    private let stopSuggesting: Bool?
     private let discussionConfiguration: PersistedDiscussionConfigurationSyncSnapshotNode?
     
     let id = Self.generateIdentifier()
@@ -2406,6 +2613,7 @@ struct PersistedObvContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
     enum CodingKeys: String, CodingKey, CaseIterable, Codable {
         case customDisplayName = "custom_name"
         case note = "personal_note"
+        case stopSuggesting = "stop_suggesting"
         case discussionConfiguration = "discussion_customization"
         case domain = "domain"
     }
@@ -2413,9 +2621,10 @@ struct PersistedObvContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
     private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
 
     
-    init(customDisplayName: String?, note: String?, rawOneToOneDiscussion: PersistedOneToOneDiscussion?) {
+    init(customDisplayName: String?, note: String?, stopSuggesting: Bool, rawOneToOneDiscussion: PersistedOneToOneDiscussion?) {
         self.customDisplayName = customDisplayName
         self.note = note
+        self.stopSuggesting = stopSuggesting
         self.discussionConfiguration = rawOneToOneDiscussion?.syncSnapshotNode
         self.domain = Self.defaultDomain
     }
@@ -2429,6 +2638,7 @@ struct PersistedObvContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
         self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
         self.customDisplayName = try values.decodeIfPresent(String.self, forKey: .customDisplayName)
         self.note = try values.decodeIfPresent(String.self, forKey: .note)
+        self.stopSuggesting = try values.decodeIfPresent(Bool.self, forKey: .stopSuggesting)
         self.discussionConfiguration = try values.decodeIfPresent(PersistedDiscussionConfigurationSyncSnapshotNode.self, forKey: .discussionConfiguration)
     }
     
@@ -2443,6 +2653,15 @@ struct PersistedObvContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
             _ = contact.setNote(to: self.note)
         }
         
+        if domain.contains(.stopSuggesting) {
+            if self.stopSuggesting == true {
+                _ = contact.stopBeingSuggested()
+            } else {
+                // A false is not applied: on a contact just restored the flag is already false, and on an existing contact it would bring back a
+                // suggestion the user declined on this device.                
+            }
+        }
+        
         if domain.contains(.discussionConfiguration) && contact.isOneToOne {
             assert(contact.oneToOneDiscussion != nil)
             if let oneToOneDiscussion = contact.oneToOneDiscussion {
@@ -2451,24 +2670,6 @@ struct PersistedObvContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
         }
 
         
-    }
-    
-}
-
-
-// MARK: - Private helpers and extensions
-
-private extension Data {
-
-    /// Used in ``PersistedObvContactIdentity`` in the implementation of ``getter:sortedDevices``.
-    static func isLessThan(lhs: Data, rhs: Data) -> Bool {
-        guard lhs.count == rhs.count else { return lhs.count < rhs.count }
-        let bytesPair = zip(lhs, rhs)
-        for bytes in bytesPair {
-            guard bytes.0 != bytes.1 else { continue }
-            return bytes.0 < bytes.1
-        }
-        return false
     }
     
 }
@@ -2494,8 +2695,26 @@ public extension NSFetchedResultsController<PersistedObvContactIdentity> {
 public protocol PersistedObvContactIdentityObserver: AnyObject, Sendable {
     func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ObvCryptoId) async
     func contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: ObvContactIdentifier) async
+    func aPersistedObvContactIdentityWasInserted(contactIdentifier: ObvContactIdentifier, isOneToOne: Bool) async
+    func aPersistedObvContactIdentityWasDeleted(contactIdentifier: ObvContactIdentifier) async
+    func aPersistedContactIsActiveStatusChanged(contactIdentifier: ObvContactIdentifier) async
+    func aPersistedContactOneToOneStatusChanged(contactIdentifier: ObvContactIdentifier) async
+    func aPersistedObvContactIdentityCustomDisplayNameChanged(contactIdentifier: ObvContactIdentifier) async
+    func aPersistedObvContactIdentityFullDisplayNameChanged(contactIdentifier: ObvContactIdentifier) async
+    func aPersistedObvContactWasUpdated(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) async
 }
 
+public extension PersistedObvContactIdentityObserver {
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ObvCryptoId) async {}
+    func contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: ObvContactIdentifier) async {}
+    func aPersistedObvContactIdentityWasInserted(contactIdentifier: ObvContactIdentifier, isOneToOne: Bool) async {}
+    func aPersistedObvContactIdentityWasDeleted(contactIdentifier: ObvContactIdentifier) async {}
+    func aPersistedContactIsActiveStatusChanged(contactIdentifier: ObvContactIdentifier) async {}
+    func aPersistedContactOneToOneStatusChanged(contactIdentifier: ObvContactIdentifier) async {}
+    func aPersistedObvContactIdentityCustomDisplayNameChanged(contactIdentifier: ObvContactIdentifier) async {}
+    func aPersistedObvContactIdentityFullDisplayNameChanged(contactIdentifier: ObvContactIdentifier) async {}
+    func aPersistedObvContactWasUpdated(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) async {}
+}
 
 private actor ObserversHolder: PersistedObvContactIdentityObserver {
     
@@ -2526,6 +2745,62 @@ private actor ObserversHolder: PersistedObvContactIdentityObserver {
         await withTaskGroup(of: Void.self) { taskGroup in
             for observer in observers.compactMap(\.value) {
                 taskGroup.addTask { await observer.contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: contactIdentifier) }
+            }
+        }
+    }
+
+    func aPersistedObvContactIdentityWasInserted(contactIdentifier: ObvContactIdentifier, isOneToOne: Bool) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedObvContactIdentityWasInserted(contactIdentifier: contactIdentifier, isOneToOne: isOneToOne) }
+            }
+        }
+    }
+
+    func aPersistedObvContactIdentityWasDeleted(contactIdentifier: ObvContactIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedObvContactIdentityWasDeleted(contactIdentifier: contactIdentifier) }
+            }
+        }
+    }
+
+    func aPersistedContactIsActiveStatusChanged(contactIdentifier: ObvContactIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedContactIsActiveStatusChanged(contactIdentifier: contactIdentifier) }
+            }
+        }
+    }
+
+    func aPersistedContactOneToOneStatusChanged(contactIdentifier: ObvContactIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedContactOneToOneStatusChanged(contactIdentifier: contactIdentifier) }
+            }
+        }
+    }
+
+    func aPersistedObvContactIdentityCustomDisplayNameChanged(contactIdentifier: ObvContactIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedObvContactIdentityCustomDisplayNameChanged(contactIdentifier: contactIdentifier) }
+            }
+        }
+    }
+
+    func aPersistedObvContactIdentityFullDisplayNameChanged(contactIdentifier: ObvContactIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedObvContactIdentityFullDisplayNameChanged(contactIdentifier: contactIdentifier) }
+            }
+        }
+    }
+
+    func aPersistedObvContactWasUpdated(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedObvContactWasUpdated(objectID: objectID) }
             }
         }
     }

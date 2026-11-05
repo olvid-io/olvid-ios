@@ -21,6 +21,7 @@ import Foundation
 import OSLog
 import CoreData
 import MobileCoreServices
+import ObvCrypto
 import ObvTypes
 import ObvAppTypes
 import UniformTypeIdentifiers
@@ -144,8 +145,62 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     
     
     // Non-nil iff the message was sent from another owned device
+    /// How the engine knows this attachment while it is being uploaded, which is what following its progress has to be asked by.
+    ///
+    /// ## Why this is not the counterpart of the received one
+    ///
+    /// `ReceivedFyleMessageJoinWithStatus` reads its message's own `messageIdentifierFromEngine`. The sent side cannot: on
+    /// ``PersistedMessageSent`` that property is **always nil for a message sent from this device**, as its own comment says — it is set
+    /// only for one sent from another of the owner's devices. Reading it here produced an identifier that never resolved, and therefore an
+    /// upload that could never be followed.
+    ///
+    /// The engine identity of an outgoing message lives **once per recipient**, on ``PersistedMessageSentRecipientInfos``, because that is
+    /// how it is posted: one engine message per recipient, each with its own upload. Which is also why a group whose second member accepts
+    /// an invitation later sends the same attachment again, under a new identifier.
+    ///
+    /// ## The first, and only the first
+    ///
+    /// So there may be several uploads of one attachment, and this returns the **first** of them — ordered by the identifier itself, so
+    /// that the answer is the same every time it is asked rather than whatever the set happened to yield. Once that upload is done, nothing
+    /// is followed again: a reader pressed send once, and a second arc on a message they consider long gone explains nothing.
+    ///
+    /// Nil while no recipient has been posted to yet — a message waiting for somebody to accept an invitation — and nil for one sent from
+    /// another device, whose infos carry a one-byte sentinel rather than a real identifier.
+    public var obvAttachmentIdentifierOfTheFirstUpload: ObvAttachmentIdentifier? {
+        guard let ownedCryptoId = sentMessage.discussion?.ownedIdentity?.cryptoId else { return nil }
+        let identifiers = sentMessage.unsortedRecipientsInfos
+            .compactMap({ $0.messageIdentifierFromEngine })
+            // A real identifier is a `UID`; the sentinel written for a message sent from another owned device is one byte, and fails here.
+            .compactMap({ UID(uid: $0) })
+            .sorted(by: { $0.raw.hexString() < $1.raw.hexString() })
+        guard let uid = identifiers.first else { return nil }
+        let messageId = ObvMessageIdentifier(ownedCryptoId: ownedCryptoId, uid: uid)
+        return ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: index)
+    }
+
+
     public var messageIdentifierFromEngine: Data? {
         return sentMessage.messageIdentifierFromEngine
+    }
+
+
+    /// How the engine knows this attachment while it is being **downloaded** from another of the owner's devices, which is what following that download has to
+    /// be asked by.
+    ///
+    /// **A sent join is not always an upload.** A message sent from another owned device is *received* by this one — its attachments arrive through the engine's
+    /// inbox and are fetched chunk by chunk, exactly as a contact's are — and it is recorded on a `SentFyleMessageJoinWithStatus` only because the message is
+    /// one the owner sent. That is what the `downloadable` and `downloading` cases of the status enum are for, and they occur in no other circumstance.
+    ///
+    /// So this **is** the counterpart of `ReceivedFyleMessageJoinWithStatus.obvAttachmentIdentifier`, where
+    /// ``obvAttachmentIdentifierOfTheFirstUpload`` deliberately is not: it reads the message's own `messageIdentifierFromEngine`, which is non-nil precisely
+    /// when the message came from another device — the one case this is asked in. Nil otherwise, including for every message sent from *this* device, which
+    /// never went through the inbox and has no download to follow.
+    public var obvAttachmentIdentifierOfTheDownloadFromAnotherOwnedDevice: ObvAttachmentIdentifier? {
+        guard let ownedCryptoId = sentMessage.discussion?.ownedIdentity?.cryptoId else { return nil } // happens when an attachment/message gets deleted
+        guard let messageIdentifierFromEngine else { return nil }
+        guard let uid = UID(uid: messageIdentifierFromEngine) else { return nil }
+        let messageId = ObvMessageIdentifier(ownedCryptoId: ownedCryptoId, uid: uid)
+        return ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: index)
     }
 
     
@@ -272,6 +327,19 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
             
     }
     
+    /// Marks this join complete because the content it points at is now available locally — typically
+    /// because a *different* message referencing the same content finished downloading.
+    ///
+    /// The sent-side equivalent of the received join's method of the same name: a join sent from another
+    /// owned device can be waiting on a download that a separately received copy of the same content has
+    /// already satisfied. Called from ``Fyle/updateFyle(obvAttachmentStatus:)``.
+    func setStatusToCompleteAsFyleContentIsAvailable(fileSize: Int64) {
+        guard self.status != .complete else { return }
+        setTotalByteCount(to: fileSize)
+        tryToSetStatusTo(.complete)
+        deleteDownsizedThumbnail()
+    }
+
     func setStatusToDownloadedDuringHistoryTransfer(fileSize: Int64) {
         tryToSetStatusTo(.complete)
         self.setTotalByteCount(to: fileSize)
@@ -303,7 +371,12 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
             throw ObvUICoreDataError.fyleIsNil
         }
 
-        try fyle.updateFyle(with: obvOwnedAttachment)
+        // Only move the downloaded file into place if we do not already hold this content. `Fyle` is
+        // content-addressed, so a fyle that already has a local file is by definition this same file — which
+        // is routine here, since the same content sent from another owned device can reach us more than once.
+        if fyle.getFileSize() == nil {
+            try fyle.updateFyle(with: obvOwnedAttachment)
+        }
 
         // If the status is downloaded and the fyle is available, we can delete any existing downsized preview
 
@@ -368,10 +441,6 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
 // MARK: - Determining actions availability
 
 extension SentFyleMessageJoinWithStatus {
-    
-    var copyActionCanBeMadeAvailableForSentJoin: Bool {
-        return shareActionCanBeMadeAvailableForSentJoin
-    }
     
     var shareActionCanBeMadeAvailableForSentJoin: Bool {
         guard !isPreviewType else { return false }

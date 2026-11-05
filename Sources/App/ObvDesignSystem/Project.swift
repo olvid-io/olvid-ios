@@ -28,5 +28,8 @@ private let frameworkTarget = Target.makeFrameworkTarget(
 // MARK: - Project
 
 let project = Project.createProjectForFramework(
+    packages: [
+        .remote(url: "https://github.com/siteline/swiftui-introspect", requirement: .exact(.init(27, 0, 0, prereleaseIdentifiers: ["beta", "3"]))),
+    ],
     frameworkTarget: frameworkTarget,
     frameworkTestsTarget: nil)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -307,7 +307,9 @@ extension OwnedIdentity {
                 .bookmarkedMessage,
                 .archivedDiscussions,
                 .discussionsMute,
-                .settingUnarchiveOnNotification:
+                .settingUnarchiveOnNotification,
+                .preferredReaction,
+                .stopSuggestingContact:
             throw ObvIdentityManagerError.wrongSyncAtomRecipient
         case .trustContactDetails(contactCryptoId: let contactCryptoId, serializedIdentityDetailsElements: let serializedIdentityDetailsElements):
             guard let contact = try ContactIdentity.get(contactIdentity: contactCryptoId.cryptoIdentity, ownedIdentity: self) else {
@@ -856,45 +858,54 @@ extension OwnedIdentity {
     }
     
     
-    func unwrapForCurrentOwnedDevice(_ wrappedMessageKey: EncryptedData, within context: NSManagedObjectContext) throws -> ResultOfUnwrapWithPreKey {
+    func unwrapForCurrentOwnedDevice(_ wrappedMessageKey: EncryptedData) throws -> ResultOfUnwrapWithPreKey {
         
-        guard let (messageKey, remoteCryptoId, remoteDeviceUID) = try self.currentDevice.unwrapForCurrentOwnedDevice(wrappedMessageKey) else {
+        let unwrapped: PreKeyForCurrentOwnedDevice.UnwrappedMessageKey
+        switch try self.currentDevice.unwrapForCurrentOwnedDevice(wrappedMessageKey) {
+        case .couldNotUnwrap:
             return .couldNotUnwrap
+        case .signatureWasAlreadyAccepted:
+            return .signatureWasAlreadyAccepted
+        case .unwrapped(let unwrappedMessageKey):
+            unwrapped = unwrappedMessageKey
         }
-        
-        let receptionChannelInfo = ObvProtocolReceptionChannelInfo.preKeyChannel(remoteCryptoIdentity: remoteCryptoId, remoteDeviceUid: remoteDeviceUID)
 
-        // Make sure the remoteCryptoId either is the ownedCryptoId or corresponds to a contact
-        
-        if try remoteCryptoId == ownedCryptoIdentity.getObvCryptoIdentity() {
-            
+        // Make sure the remote identity either is the owned identity or is a contact. A sender who is neither is parked by the
+        // fetch manager and unwrapped again once she is a contact, so nothing is recorded for her.
+
+        if try unwrapped.remoteCryptoId == ownedCryptoIdentity.getObvCryptoIdentity() {
+
             // Add the remote device UID in case we don't know about it yet, note that this will trigger an owned device discovery
-            
-            if try self.otherDevices.first(where: { try $0.uid == remoteDeviceUID }) == nil {
-                try self.addIfNotExistRemoteDeviceWith(uid: remoteDeviceUID, createdDuringChannelCreation: false)
+
+            if try self.otherDevices.first(where: { try $0.uid == unwrapped.remoteDeviceUID }) == nil {
+                try self.addIfNotExistRemoteDeviceWith(uid: unwrapped.remoteDeviceUID, createdDuringChannelCreation: false)
             }
-                        
-            return .unwrapSucceeded(messageKey: messageKey, receptionChannelInfo: receptionChannelInfo)
-            
-        } else if let contact = try ContactIdentity.get(contactIdentity: remoteCryptoId, ownedIdentity: self) {
-            
+
+        } else if let contact = try ContactIdentity.get(contactIdentity: unwrapped.remoteCryptoId, ownedIdentity: self) {
+
             guard contact.isNotRevokedAsCompromisedOrIsForcefullyTrustedByUser else {
                 return .contactIsRevokedAsCompromised
             }
-            
+
             // Add the remote device UID in case we don't know about it yet, note that this will trigger a contact device discovery
 
-            if try contact.devices.first(where: { try $0.uid == remoteDeviceUID }) == nil {
-                try contact.addIfNotExistDeviceWith(uid: remoteDeviceUID, createdDuringChannelCreation: false)
+            if try contact.devices.first(where: { try $0.uid == unwrapped.remoteDeviceUID }) == nil {
+                try contact.addIfNotExistDeviceWith(uid: unwrapped.remoteDeviceUID, createdDuringChannelCreation: false)
             }
-            
-            return .unwrapSucceeded(messageKey: messageKey, receptionChannelInfo: receptionChannelInfo)
 
         } else {
-            
-            return .unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: remoteCryptoId)
-            
+
+            return .unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: unwrapped.remoteCryptoId)
+
         }
+
+        // The message will be processed: record the signature so that a redelivery is refused.
+
+        try PreKeySignatureReceived.create(signature: unwrapped.signature, preKey: unwrapped.preKey)
+
+        let receptionChannelInfo = ObvProtocolReceptionChannelInfo.preKeyChannel(remoteCryptoIdentity: unwrapped.remoteCryptoId, remoteDeviceUid: unwrapped.remoteDeviceUID)
+
+        return .unwrapSucceeded(messageKey: unwrapped.messageKey, receptionChannelInfo: receptionChannelInfo)
 
     }
     

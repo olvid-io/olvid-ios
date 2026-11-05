@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -54,6 +54,7 @@ final class TransactionsHistoryReplayer {
         case .mainApp: return "tokenForMainApp.data"
         case .notificationExtension: return "tokenForNotificationExtension.data"
         case .shareExtension: return "tokenForShareExtension.data"
+        case .intentExtension: return "intentExtension.data"
         }
     }
 

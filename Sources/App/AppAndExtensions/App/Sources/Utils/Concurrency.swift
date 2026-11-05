@@ -26,8 +26,9 @@ struct Concurrency {
     /// Queue used to synchronize creation of the queues.
     private static let internalQueue = DispatchQueue(label: "Concurrency.internalQueue")
 
-    /// Internal queues
-    private static var queues: [String: DispatchQueue] = [:]
+    /// Internal queues. Only ever read or written from a block running on `internalQueue`, which is what makes
+    /// the unchecked access safe.
+    nonisolated(unsafe) private static var queues: [String: DispatchQueue] = [:]
 
     /// Returns the queue that corresponds to the given lock name
     private static func internalQueue(_ lock: String) -> DispatchQueue {
@@ -51,7 +52,7 @@ struct Concurrency {
 
 /// Stores a continuation to resume it later when the result it available and passed to ``setResult``
 /// This actor can be used in a ``withCheckedContinuation`` block.
-actor CheckedContinuationHolder<T> {
+actor CheckedContinuationHolder<T: Sendable> {
 
     private(set) var result: T? = nil
     private var continuation: CheckedContinuation<T, Never>?

@@ -42,28 +42,31 @@ final class ProcessPersistedMessagesAsTheyTurnsNotNewOnCurrentDeviceOperation: C
     var ownedCryptoId: ObvCryptoId? { _ownedCryptoId }
     private(set) var ownedIdentityHasAnotherReachableDevice = false
     private(set) var discussionReadJSONToSend: DiscussionReadJSON?
+    private(set) var readReceiptsToSend: [ObvReturnReceiptToSend] = []
 
-    
+
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
-        
+
         do {
 
             guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: _ownedCryptoId, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindOwnedIdentity)
             }
-            
+
             self.ownedIdentityHasAnotherReachableDevice = ownedIdentity.hasAnotherDeviceWhichIsReachable
-            
+
             let dateWhenMessageTurnedNotNew = Date()
 
-            let lastReadMessageServerTimestamp = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId,
-                                                                                           messageIds: messageIds,
-                                                                                           dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew,
-                                                                                           requestedOnAnotherOwnedDevice: false)
+            let result = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId,
+                                                                   messageIds: messageIds,
+                                                                   dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew,
+                                                                   requestedOnAnotherOwnedDevice: false)
+
+            self.readReceiptsToSend = result.readReceiptsToSend
 
             do {
                 let isDiscussionActive = try ownedIdentity.isDiscussionActive(discussionId: discussionId)
-                if let lastReadMessageServerTimestamp, isDiscussionActive {
+                if let lastReadMessageServerTimestamp = result.lastReadMessageServerTimestamp, isDiscussionActive {
                     discussionReadJSONToSend = try ownedIdentity.getDiscussionReadJSON(discussionId: discussionId, lastReadMessageServerTimestamp: lastReadMessageServerTimestamp)
                 }
             } catch {

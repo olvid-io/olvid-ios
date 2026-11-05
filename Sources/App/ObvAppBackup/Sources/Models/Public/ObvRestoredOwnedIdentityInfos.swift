@@ -34,7 +34,7 @@ public final class ObvRestoredOwnedIdentityInfos: ObservableObject {
     
     public init(ownedCryptoId: ObvCryptoId, firstNameThenLastName: String, positionAtCompany: String, displayedLetter: Character, isKeycloakManaged: Bool) {
         self.ownedCryptoId = ownedCryptoId
-        let colors = AppTheme.shared.identityColors(for: ownedCryptoId, using: .hue)
+        let colors = AppTheme.shared.identityColors(for: ownedCryptoId)
         self.firstNameThenLastName = firstNameThenLastName
         self.positionAtCompany = positionAtCompany
         self.isKeycloakManaged = isKeycloakManaged

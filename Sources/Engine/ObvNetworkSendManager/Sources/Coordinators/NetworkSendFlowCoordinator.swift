@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -264,6 +264,26 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
             throw Self.makeError(message: "The Delegate Manager is not set")
         }
         return await delegateManager.uploadAttachmentChunksDelegate.requestUploadAttachmentProgressesUpdatedSince(date: date)
+    }
+
+
+    func getAsyncStreamOfUploadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentUploadProgress>) {
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            throw Self.makeError(message: "The Delegate Manager is not set")
+        }
+        return await delegateManager.uploadAttachmentChunksDelegate.getAsyncStreamOfUploadProgress(attachmentId: attachmentId, flowId: flowId)
+    }
+
+
+    func finishAsyncStreamOfUploadProgress(streamUUID: UUID) async throws {
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            throw Self.makeError(message: "The Delegate Manager is not set")
+        }
+        delegateManager.uploadAttachmentChunksDelegate.finishAsyncStreamOfUploadProgress(streamUUID: streamUUID)
     }
     
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool {

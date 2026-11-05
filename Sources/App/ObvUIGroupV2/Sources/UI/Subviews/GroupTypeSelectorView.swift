@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -125,7 +125,8 @@ struct GroupTypeSelectorView: View {
         
         var body: some View {
             HStack {
-                Image(systemIcon: systemIcon, isDecorative: true)
+                Image(systemIcon: systemIcon)
+                    .accessibilityHidden(true)
                     .font(.system(size: systemIconSize))
                     .tint(systemIconColor)
                     .foregroundStyle(systemIconColor)

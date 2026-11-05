@@ -123,7 +123,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                     .untruncatedListPerformed,
                     .removedExpectedContactOfPreKeyMessage:
                 moreUnprocessedMessagesRemain = true
-                messages = try InboxMessage.getBatchOfMessagesToBeProcessByChannel(ownedCryptoIdentity: ownedCryptoIdentity, fetchLimit: ObvNetworkFetchDelegateManager.batchSize, within: obvContext.context)
+                messages = try InboxMessage.getBatchOfMessagesToBeProcessByChannel(ownedCryptoIdentity: ownedCryptoIdentity, fetchLimit: ObvNetworkFetchDelegateManager.numberOfMessagesDecryptedAtOnce, within: obvContext.context)
             case .oneSliceOfListOfDownloadedMessagesWasSaved(idsOfMessagesToProcess: let idsOfMessagesToProcess):
                 messages = try InboxMessage.getBatchOfMessagesToBeProcessByChannel(restrictTo: idsOfMessagesToProcess, within: obvContext.context)
             case .messageReceivedOnWebSocket(idOfMessageToProcess: let idOfMessageToProcess):
@@ -240,8 +240,9 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                         .applicationMessageCouldNotBeParsed(let messageId),
                         .unexpectedMessageType(let messageId),
                         .messageKeyDoesNotSupportGKMV2AlthoughItShould(messageId: let messageId),
-                        .messageReceivedFromContactThatIsRevokedAsCompromised(messageId: let messageId):
-                    
+                        .messageReceivedFromContactThatIsRevokedAsCompromised(messageId: let messageId),
+                        .preKeySignatureWasAlreadyAccepted(messageId: let messageId):
+
                     //
                     // Result case 2
                     //

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -381,6 +381,15 @@ public final class DisplayedContactGroup: NSManagedObject, Identifiable, ObvIden
     }
 
     
+    // MARK: - Observers
+    
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
+
+    public static func addObvObserver(_ newObserver: DisplayedContactGroupObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
+    
     // MARK: - Convenience DB getters
     
     
@@ -626,9 +635,10 @@ public final class DisplayedContactGroup: NSManagedObject, Identifiable, ObvIden
             return
         }
 
-        if isInserted, let objectPermanentID = try? self.objectPermanentID {
-            ObvMessengerCoreDataNotification.displayedContactGroupWasJustCreated(permanentID: objectPermanentID)
-                .postOnDispatchQueue()
+        if isInserted, let groupIdentifier = try? self.groupIdentifier {
+            Task {
+                await Self.observersHolder.aDisplayedContactGroupWasInserted(groupIdentifier: groupIdentifier)
+            }
         }
         
     }
@@ -652,4 +662,39 @@ public extension NSFetchedResultsController<DisplayedContactGroup> {
         return self.object(at: indexPath)
     }
     
+}
+
+
+// MARK: - DisplayedContactGroup observers
+
+public protocol DisplayedContactGroupObserver: AnyObject, Sendable {
+    func aDisplayedContactGroupWasInserted(groupIdentifier: ObvGroupIdentifier) async
+}
+
+
+private actor ObserversHolder: DisplayedContactGroupObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: DisplayedContactGroupObserver?
+        init(value: DisplayedContactGroupObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: DisplayedContactGroupObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+    
+    // Implementing DisplayedContactGroupObserver
+    
+    func aDisplayedContactGroupWasInserted(groupIdentifier: ObvGroupIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aDisplayedContactGroupWasInserted(groupIdentifier: groupIdentifier) }
+            }
+        }
+    }
+
 }

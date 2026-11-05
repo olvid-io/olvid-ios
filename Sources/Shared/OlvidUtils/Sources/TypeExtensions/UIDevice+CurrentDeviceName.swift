@@ -162,6 +162,15 @@ public extension UIDevice {
         case "iPhone18,5":
             return "iPhone 17e"
 
+        case "iPhone19,2":
+            return "iPhone 18 Pro"
+        case "iPhone19,3":
+            return "iPhone 18 Pro Max"
+        case "iPhone19,4":
+            return "iPhone Duo"
+        case "iPhone19,7":
+            return "iPhone 18 Pro Max"
+
         //
         // iPads
         //
@@ -376,7 +385,24 @@ public extension UIDevice {
             return "iPad Pro" // 13-inch 7th Gen
         case "iPad16,6":
             return "iPad Pro" // 13-inch (M4)
-            
+        case "iPad16,8":
+            return "iPad Air" // 11-inch (M4) (WiFi)
+        case "iPad16,9":
+            return "iPad Air" // 11-inch (M4) (WiFi+Cellular)
+        case "iPad16,10":
+            return "iPad Air" // 13-inch (M4) (WiFi)
+        case "iPad16,11":
+            return "iPad Air" // 13-inch (M4) (WiFi+Cellular)
+
+        case "iPad17,1":
+            return "iPad Pro" // 11-inch (M5) (WiFi)
+        case "iPad17,2":
+            return "iPad Pro" // 11-inch (M5) (WiFi+Cellular)
+        case "iPad17,3":
+            return "iPad Pro" // 13-inch (M5) (WiFi)
+        case "iPad17,4":
+            return "iPad Pro" // 13-inch (M5) (WiFi+Cellular)
+
         //
         // Macs
         //
@@ -416,7 +442,7 @@ public extension UIDevice {
             return "MacBook Pro" // 2023
         case "Mac14,6":
             return "MacBook Pro" // 2023
-        case "Mac 14,7":
+        case "Mac14,7":
             return "MacBook Pro" // 2022
         case "Mac14,8":
             return "Mac Pro M2 Ultra"
@@ -482,7 +508,33 @@ public extension UIDevice {
             return "MacBook Air M4" // 13-inch, M4, 2025
         case "Mac16,13":
             return "MacBook Air M4" // 15-inch, M4, 2025
-            
+
+        case "Mac17,2":
+            return "MacBook Pro M5" // 14-inch, 2025
+        case "Mac17,3":
+            return "MacBook Air M5" // 13-inch, 2026
+        case "Mac17,4":
+            return "MacBook Air M5" // 15-inch, 2026
+        case "Mac17,5":
+            return "MacBook Neo" // A18 Pro, 2026
+        case "Mac17,6":
+            return "MacBook Pro M5 Max" // 16-inch, 2026
+        case "Mac17,7":
+            return "MacBook Pro M5 Max" // 14-inch, 2026
+        case "Mac17,8":
+            return "MacBook Pro M5 Pro" // 16-inch, 2026
+        case "Mac17,9":
+            return "MacBook Pro M5 Pro" // 14-inch, 2026
+        case "Mac17,14":
+            return "Mac Studio M5 Max" // 2026
+        case "Mac17,15":
+            return "Mac Studio M5 Ultra" // 2026
+        case "Mac17,16":
+            return "Mac mini M5 Pro" // 2026
+
+        case "Mac18,5":
+            return "Mac mini M6" // 2026
+
 
         default:
             print("!!! UIDevice+CurrentDeviceName SHOULD BE UPDATED FOR THIS DEVICE CODE: \(currentDeviceCode) !!!")

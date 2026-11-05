@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -130,7 +130,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
         }
 
         let (responseData, urlResponse, _) = try await performServerMethodForGivenServerQueryType(
-            queryType: .getUserData(of: cryptoId.cryptoIdentity, label: serverLabel),
+            queryType: .getUserData(of: cryptoId.cryptoIdentity, label: serverLabel, retryIfNotFound: false),
             ownedCryptoId: cryptoId.cryptoIdentity,
             delegateManager: delegateManager,
             flowId: flowId)
@@ -184,7 +184,28 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
             assertionFailure()
             throw ObvError.channelDelegateIsNil
         }
-                
+
+        // Before making any network call, check whether the query has already exceeded its TTL.
+        // If so, deliver a failure response to the protocol immediately and delete the row, without
+        // ever hitting the network. This handles queries that have been stuck for a long time (e.g.
+        // because the target server is permanently unreachable and the URLSession request kept
+        // hanging until the app was killed, resetting the in-memory retry counter each relaunch).
+        let expiryCheckOp = SetFailureResponseOnPendingServerQueryIfAppropriate(
+            pendingServerQueryObjectID: pendingServerQueryObjectID,
+            condition: .ifServerQueryIsTooOld)
+        try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: expiryCheckOp, log: Self.log, flowId: flowId)
+        switch expiryCheckOp.postOperationAction {
+        case .postResponseAndDeleteServerQuery(let objectID):
+            Self.logger.info("🖲️ Server query \(pendingServerQueryObjectIDDebugDescription, privacy: .public) has exceeded its TTL — delivering failure response without network attempt")
+            let deleteOp = RespondAndDeleteServerQueryOperation(objectIdOfPendingServerQuery: objectID, prng: prng, channelDelegate: channelDelegate, pendingUserDataUploads: delegateManager.pendingUserDataUploads)
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: deleteOp, log: Self.log, flowId: flowId)
+            return
+        case .doNothingAsPendingServerQueryCannotBeFound, .none:
+            return
+        case .retryLater, .shouldBeProcessedByServerQueryWebSocketCoordinator:
+            break // not expired, proceed with normal processing
+        }
+
         // Post and process server result
         
         let actionToPerformAfterPostingServerQuery: ProcessServerResponseToPendingServerQueryOperation.PostOperationAction
@@ -342,7 +363,8 @@ extension ServerQueryCoordinator {
                 let op1 = RespondAndDeleteServerQueryOperation(
                     objectIdOfPendingServerQuery: objectId,
                     prng: prng,
-                    channelDelegate: channelDelegate)
+                    channelDelegate: channelDelegate,
+                    pendingUserDataUploads: delegateManager.pendingUserDataUploads)
                 do {
                     try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
                 } catch {
@@ -589,7 +611,8 @@ extension ServerQueryCoordinator {
                 let op1 = RespondAndDeleteServerQueryOperation(
                     objectIdOfPendingServerQuery: pendingServerQueryObjectID,
                     prng: prng,
-                    channelDelegate: channelDelegate)
+                    channelDelegate: channelDelegate,
+                    pendingUserDataUploads: delegateManager.pendingUserDataUploads)
                 try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
                 return
             case .shouldBeProcessedByServerQueryWebSocketCoordinator:
@@ -720,9 +743,14 @@ extension ServerQueryCoordinator {
                 flowId: flowId)
             method.identityDelegate = identityDelegate
             let (returnedData, urlResponse) = try await self.session.data(for: method.getURLRequest())
+            // The staged file at `dataURL` is intentionally *not* cleaned up here: a non-throwing
+            // URLSession call does not imply success. The response may yet trigger a retry (e.g.
+            // `.invalidSession` or `.generalError` paths in `ProcessServerResponseToPendingServerQueryOperation`),
+            // and a retry needs the file to still exist. Cleanup happens once the `PendingServerQuery`
+            // row is durably deleted in `RespondAndDeleteServerQueryOperation`.
             return (returnedData, urlResponse, token)
 
-        case .getUserData(of: let contactIdentity, label: let label):
+        case .getUserData(of: let contactIdentity, label: let label, retryIfNotFound: _):
             os_log("🖲️ Creating a ObvServerGetUserDataMethod of the contact identity %@", log: Self.log, type: .debug, contactIdentity.debugDescription)
             let method = ObvServerGetUserDataMethod(toIdentity: contactIdentity, serverLabel: label, flowId: flowId)
             method.identityDelegate = identityDelegate
@@ -836,10 +864,11 @@ extension ServerQueryCoordinator {
         case .sourceGetSessionNumber, .sourceWaitForTargetConnection, .targetSendEphemeralIdentity, .transferRelay, .transferWait, .closeWebsocketConnection:
             assertionFailure("This query is be handled by the ServerQueryWebSocketCoordinator, this one should not have been called")
             throw ObvError.webSocketQueryHandledByAnotherCoordinator
-            
+
         }
-        
+
     }
+
 
 }
 

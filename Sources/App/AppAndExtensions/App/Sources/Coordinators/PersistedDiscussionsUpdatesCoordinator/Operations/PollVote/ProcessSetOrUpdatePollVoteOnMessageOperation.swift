@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -66,7 +66,11 @@ final class ProcessSetOrUpdatePollVoteOnMessageOperation: ContextualOperationWit
 
     private(set) var result: Result?
 
-    
+    /// For a vote from a contact, whether it visibly changed the poll. Deciding whether to notify must use this rather than ask the
+    /// database again, which answers "no change" once the vote is saved.
+    private(set) var visiblyChanged: Bool?
+
+
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         guard let discussionIdentifier = pollVoteJSON.getDiscussionIdentifier(ownedCryptoId: requester.ownedCryptoId) else {
@@ -109,9 +113,11 @@ final class ProcessSetOrUpdatePollVoteOnMessageOperation: ContextualOperationWit
                     }
                 }
                 
-                updatedMessage = try contact.processSetOrUpdatePollVoteOnMessageRequestFromThisContact(
+                let processed = try contact.processSetOrUpdatePollVoteOnMessageRequestFromThisContact(
                     pollVoteJSON: pollVoteJSON,
                     messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                updatedMessage = processed?.updatedMessage
+                visiblyChanged = processed?.votesVisiblyChanged ?? false
                 
             case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
                 

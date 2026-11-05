@@ -513,6 +513,7 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
 
     func peerConnection(_ peerConnection: ObvPeerConnection, didChange stateChanged: RTCSignalingState) async {
         Self.logger.info("☎️ RTCPeerConnection didChange RTCSignalingState: \(stateChanged.debugDescription, privacy: .public). Current ICE connection state is \(peerConnection.iceConnectionState.debugDescription, privacy: .public)")
+        OlvidCallInAppLog.log(call: nil, "signaling state \(stateChanged.debugDescription), ICE connection state \(peerConnection.iceConnectionState.debugDescription)")
         self.setRTCPeerConnectionIfRequired(peerConnection)
         if stateChanged == .stable && peerConnection.iceConnectionState == .connected {
             await delegate?.peerConnectionStateDidChange(newState: .connected)
@@ -537,6 +538,7 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
     
     func peerConnection(_ peerConnection: ObvPeerConnection, didChange newState: RTCIceConnectionState) async {
         Self.logger.info("☎️ RTCPeerConnection didChange RTCIceConnectionState: \(newState.debugDescription, privacy: .public)")
+        OlvidCallInAppLog.log(call: nil, "ICE connection state \(newState.debugDescription)")
         setRTCPeerConnectionIfRequired(peerConnection)
         await delegate?.peerConnectionStateDidChange(newState: newState)
     }

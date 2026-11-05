@@ -22,8 +22,12 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     ])
 
 
+private let frameworkTestsTarget = Target.makeFrameworkUnitTestsTarget(
+    forTesting: frameworkTarget)
+
+
 // MARK: - Project
 
 let project = Project.createProjectForFramework(
     frameworkTarget: frameworkTarget,
-    frameworkTestsTarget: nil)
+    frameworkTestsTarget: frameworkTestsTarget)

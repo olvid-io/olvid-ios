@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -73,6 +73,32 @@ final class UploadAttachmentChunksCoordinator: NSObject, @unchecked Sendable {
     typealias ChunkProgress = (totalBytesSent: Int64, totalBytesExpectedToSend: Int64)
     private var _chunksProgressesForAttachment = [ObvAttachmentIdentifier: (chunkProgresses: [ChunkProgress], dateOfLastUpdate: Date)]()
     private let queueForAttachmentsProgresses = DispatchQueue(label: "Internal queue for attachments progresses", attributes: .concurrent)
+
+    /// Who is following an upload, and by which stream. Both are only ever touched on ``queueForAttachmentsProgresses``, as
+    /// `_chunksProgressesForAttachment` is, so that a chunk arriving and a stream being opened cannot race.
+    ///
+    /// The counterpart of what `DownloadAttachmentChunksCoordinator` keeps for a download. See
+    /// ``getAsyncStreamOfUploadProgress(attachmentId:flowId:)``.
+    private var _progressContinuationForStreamUUID = [UUID: AsyncStream<ObvAttachmentUploadProgress>.Continuation]()
+    private var _progressStreamUUIDsForAttachment = [ObvAttachmentIdentifier: Set<UUID>]()
+
+    /// Whether this process should maintain `_chunksProgressesForAttachment`, i.e. whether anything here
+    /// ever calls `requestUploadAttachmentProgressesUpdatedSince(date:)` to read it back.
+    ///
+    /// Both the main app (which shows per-attachment progress inside a discussion) and the share extension
+    /// (which shows overall upload progress while it stays alive waiting for the upload to finish) display
+    /// progress for uploads *they themselves* started, and both receive the `didSendBodyData` callbacks that
+    /// feed the tracker. The notification and intent extensions never upload attachments nor read progresses
+    /// back, so tracking there would be pure overhead — one Core Data read per attachment on the first chunk
+    /// callback, in the most memory-constrained processes we have.
+    private static func appTypeTracksUploadProgresses(_ appType: AppType) -> Bool {
+        switch appType {
+        case .mainApp, .shareExtension:
+            return true
+        case .notificationExtension, .intentExtension:
+            return false
+        }
+    }
 
     
     private let queueForCurrentURLSessions = DispatchQueue(label: "Internal queue for _currentURLSessions", qos: .utility)
@@ -444,6 +470,73 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
     }
     
     
+    /// Follows the upload of one attachment, for as long as the caller keeps the stream.
+    ///
+    /// The counterpart of `DownloadAttachmentChunksCoordinator.getAsyncStreamOfDownloadProgress(attachmentId:flowId:)`, and it replaces
+    /// the same thing: ``requestUploadAttachmentProgressesUpdatedSince(date:)``, which the app polls every 0.3s to move a number this
+    /// coordinator already has. Here it is pushed the moment a chunk goes out.
+    ///
+    /// **What is known so far is yielded at once**, so an upload already part way up is reported as such rather than as one that has not
+    /// begun. Unlike a download there is nothing on disk to fall back on — an upload's progress lives only here — so an attachment no
+    /// chunk has yet gone out for yields nothing, and the reader draws an empty arc from its own knowledge that it is uploading.
+    ///
+    /// The buffering policy keeps a fast upload from flooding its reader: only the latest progress means anything.
+    func getAsyncStreamOfUploadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentUploadProgress>) {
+
+        let streamUUID = UUID()
+        let (stream, continuation) = AsyncStream.makeStream(of: ObvAttachmentUploadProgress.self, bufferingPolicy: .bufferingNewest(1))
+
+        queueForAttachmentsProgresses.sync(flags: .barrier) {
+            _progressContinuationForStreamUUID[streamUUID] = continuation
+            _progressStreamUUIDsForAttachment[attachmentId, default: []].insert(streamUUID)
+            if let (chunkProgresses, _) = _chunksProgressesForAttachment[attachmentId] {
+                continuation.yield(Self.uploadProgress(from: chunkProgresses))
+            }
+        }
+
+        return (streamUUID, stream)
+
+    }
+
+
+    /// Ends one stream returned above.
+    ///
+    /// The caller has to do this: a continuation cannot learn on its own that the view following it has gone, `onTermination` running in
+    /// the app's process and not here.
+    func finishAsyncStreamOfUploadProgress(streamUUID: UUID) {
+        queueForAttachmentsProgresses.sync(flags: .barrier) {
+            guard let continuation = _progressContinuationForStreamUUID.removeValue(forKey: streamUUID) else { return }
+            continuation.finish()
+            for (attachmentId, streamUUIDs) in _progressStreamUUIDsForAttachment where streamUUIDs.contains(streamUUID) {
+                _progressStreamUUIDsForAttachment[attachmentId]?.remove(streamUUID)
+                if _progressStreamUUIDsForAttachment[attachmentId]?.isEmpty ?? false {
+                    _progressStreamUUIDsForAttachment.removeValue(forKey: attachmentId)
+                }
+            }
+        }
+    }
+
+
+    /// Tells whoever is following this attachment how far it has got. **Called on ``queueForAttachmentsProgresses``**, from within the
+    /// barrier that has just updated the chunks, so that what is yielded is what was stored.
+    private func yieldUploadProgress(of attachmentId: ObvAttachmentIdentifier, from chunkProgresses: [ChunkProgress]) {
+        guard let streamUUIDs = _progressStreamUUIDsForAttachment[attachmentId], !streamUUIDs.isEmpty else { return }
+        let progress = Self.uploadProgress(from: chunkProgresses)
+        for streamUUID in streamUUIDs {
+            _progressContinuationForStreamUUID[streamUUID]?.yield(progress)
+        }
+    }
+
+
+    /// The chunks of one attachment, added up. The same arithmetic ``requestUploadAttachmentProgressesUpdatedSince(date:)`` does, in one
+    /// place so the poll and the stream can never disagree.
+    private static func uploadProgress(from chunkProgresses: [ChunkProgress]) -> ObvAttachmentUploadProgress {
+        let totalBytesSent = chunkProgresses.map({ $0.totalBytesSent }).reduce(0, +)
+        let totalBytesExpectedToSend = chunkProgresses.map({ $0.totalBytesExpectedToSend }).reduce(0, +)
+        return .init(totalBytesSent: totalBytesSent, totalBytesExpectedToSend: totalBytesExpectedToSend)
+    }
+
+
     func requestUploadAttachmentProgressesUpdatedSince(date: Date) async -> [ObvAttachmentIdentifier: Float] {
         
         return await withCheckedContinuation { (continuation: CheckedContinuation<[ObvAttachmentIdentifier: Float], Never>) in
@@ -483,11 +576,11 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
 
             //internalOperationQueue.addBarrierBlock({})
             
-            opToQueue.completionBlock = {
+            opToQueue.completionBlock = { [weak self] in
                 guard opToQueue.reasonForCancel == nil else {
                     return
                 }
-                DispatchQueue(label: "Queue for ").asyncAfter(deadline: .now() + .seconds(1)) { [weak self] in
+                DispatchQueue(label: "Queue for ").asyncAfter(deadline: .now() + .seconds(1)) {
                     self?.queryServerOnSessionsTasksCreatedByShareExtension(flowId: flowId)
                 }
             }
@@ -688,7 +781,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
 
     func attachmentChunkDidProgress(attachmentId: ObvAttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64), flowId: FlowIdentifier) {
         
-        guard currentAppType == .mainApp else { return }
+        guard Self.appTypeTracksUploadProgresses(currentAppType) else { return }
         
         queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
             guard let _self = self else { return }
@@ -698,6 +791,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
                 guard chunkProgress.chunkNumber < chunksProgresses.count else { assertionFailure(); return }
                 chunksProgresses[chunkProgress.chunkNumber] = (chunkProgress.totalBytesSent, chunkProgress.totalBytesExpectedToSend)
                 _self._chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
+                _self.yieldUploadProgress(of: attachmentId, from: chunksProgresses)
                 
             } else {
                 
@@ -733,7 +827,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
     
     func attachmentChunksAreAcknowledged(attachmentId: ObvAttachmentIdentifier, chunkNumbers: [Int], flowId: FlowIdentifier) {
         
-        guard currentAppType == .mainApp else { return }
+        guard Self.appTypeTracksUploadProgresses(currentAppType) else { return }
 
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -759,7 +853,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
     
     private func createChunksProgressesForAttachment(attachmentId: ObvAttachmentIdentifier, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) -> ([ChunkProgress], Date)? {
         /// Must be executed on queueForAttachmentsProgresses
-        assert(currentAppType == .mainApp)
+        assert(Self.appTypeTracksUploadProgresses(currentAppType))
         var chunksProgressess: ([ChunkProgress], Date)?
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext.context) else { return }

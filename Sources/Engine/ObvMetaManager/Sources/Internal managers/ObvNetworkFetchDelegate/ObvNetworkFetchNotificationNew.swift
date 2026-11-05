@@ -197,6 +197,8 @@ public enum ObvNetworkFetchNotificationNew {
 		let name = Name.forInternalNotification(self)
 		let label = "Queue for posting \(name.rawValue) notification"
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		backgroundQueue.async {
 			notificationDelegate.post(name: name, userInfo: userInfo)
 		}
@@ -204,6 +206,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeFetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -213,6 +217,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeServerRequiresThisDeviceToRegisterToPushNotifications(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.serverRequiresThisDeviceToRegisterToPushNotifications.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -222,6 +228,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeInboxAttachmentWasDownloaded(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.inboxAttachmentWasDownloaded.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -231,6 +239,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeInboxAttachmentDownloadCancelledByServer(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.inboxAttachmentDownloadCancelledByServer.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -240,6 +250,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeInboxAttachmentDownloadWasResumed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.inboxAttachmentDownloadWasResumed.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -249,6 +261,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeInboxAttachmentDownloadWasPaused(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.inboxAttachmentDownloadWasPaused.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -258,6 +272,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeCannotReturnAnyProgressForMessageAttachments(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.cannotReturnAnyProgressForMessageAttachments.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -267,6 +283,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, APIKeyStatus, APIPermissions, Date?) -> Void) -> NSObjectProtocol {
 		let name = Name.newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let apiKeyStatus = notification.userInfo!["apiKeyStatus"] as! APIKeyStatus
@@ -279,6 +297,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeWellKnownHasBeenUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (URL, [String: AppInfo], FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.wellKnownHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let serverURL = notification.userInfo!["serverURL"] as! URL
 			let appInfo = notification.userInfo!["appInfo"] as! [String: AppInfo]
@@ -289,6 +309,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeWellKnownHasBeenDownloaded(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (URL, [String: AppInfo], FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.wellKnownHasBeenDownloaded.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let serverURL = notification.userInfo!["serverURL"] as! URL
 			let appInfo = notification.userInfo!["appInfo"] as! [String: AppInfo]
@@ -299,6 +321,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeWellKnownDownloadFailure(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (URL, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.wellKnownDownloadFailure.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let serverURL = notification.userInfo!["serverURL"] as! URL
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -308,6 +332,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeDownloadingMessageExtendedPayloadWasPerformed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageOrObvOwnedMessage, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.downloadingMessageExtendedPayloadWasPerformed.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let message = notification.userInfo!["message"] as! ObvMessageOrObvOwnedMessage
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -317,6 +343,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observePushTopicReceivedViaWebsocket(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (String) -> Void) -> NSObjectProtocol {
 		let name = Name.pushTopicReceivedViaWebsocket.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let pushTopic = notification.userInfo!["pushTopic"] as! String
 			block(pushTopic)
@@ -325,6 +353,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeKeycloakTargetedPushNotificationReceivedViaWebsocket(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.keycloakTargetedPushNotificationReceivedViaWebsocket.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			block(ownedIdentity)
@@ -333,6 +363,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeOwnedDevicesMessageReceivedViaWebsocket(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedDevicesMessageReceivedViaWebsocket.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			block(ownedIdentity)
@@ -341,6 +373,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeServerAndInboxContainNoMoreUnprocessedMessages(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, Date) -> Void) -> NSObjectProtocol {
 		let name = Name.serverAndInboxContainNoMoreUnprocessedMessages.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let downloadTimestampFromServer = notification.userInfo!["downloadTimestampFromServer"] as! Date
@@ -350,6 +384,8 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeApplicationMessagesWhereReceivedFromContacts(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (Set<ObvContactIdentifier>) -> Void) -> NSObjectProtocol {
 		let name = Name.applicationMessagesWhereReceivedFromContacts.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let contactIds = notification.userInfo!["contactIds"] as! Set<ObvContactIdentifier>
 			block(contactIds)

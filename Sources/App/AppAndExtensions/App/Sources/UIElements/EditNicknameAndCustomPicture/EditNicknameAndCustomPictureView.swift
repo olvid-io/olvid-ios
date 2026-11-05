@@ -254,6 +254,7 @@ struct EditNicknameAndCustomPictureView: View, ObvPhotoButtonViewActionsProtocol
                 OlvidButtonNew(action: userWantsToCancel, style: .borderless) {
                     Text("Cancel")
                 }
+                .keyboardShortcut(.cancelAction)
             }.padding()
         }
         .onAppear(perform: onAppear)

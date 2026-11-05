@@ -91,8 +91,6 @@ extension ComposeViewParametersAppDataSource {
 
         private func createModel() -> ObvComposition.ComposeViewParameters {
             let model = ComposeViewParameters(
-                sortableActions: .init(ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder),
-                unsortableActions: .init(NewComposeMessageViewUnsortableAction.allCases),
                 defaultEmojiButton: ObvMessengerSettings.Emoji.defaultEmojiButton ?? ObvMessengerConstants.defaultEmoji,
                 sendMessageShortcutType: .init(ObvMessengerSettings.Interface.sendMessageShortcutType))
             return model
@@ -124,14 +122,6 @@ extension ComposeViewParametersAppDataSource {
                 }
                 .store(in: &cancellables)
             
-            ObvMessengerSettingsObservableObject.shared.$preferredComposeMessageViewActionsOrder
-                .sink { [weak self] newValue in
-                    guard let self else { return }
-                    let model = createModel()
-                    yieldModelIfNeeded(model: model)
-                }
-                .store(in: &cancellables)
-            
         }
         
     }
@@ -140,54 +130,6 @@ extension ComposeViewParametersAppDataSource {
 
 
 // MARK: - Private helpers
-
-extension ObvComposition.ComposeViewParameters.SortableAction {
-
-    init(_ sortableAction: NewComposeMessageViewSortableAction) {
-        switch sortableAction {
-        case .oneTimeEphemeralMessage: self = .oneTimeEphemeralMessage
-        case .scanDocument: self = .scanDocument
-        case .shootPhotoOrMovie: self = .shootPhotoOrMovie
-        case .chooseImageFromLibrary: self = .chooseImageFromLibrary
-        case .choseFile: self = .choseFile
-        case .introduceThisContact: self = .introduceThisContact
-        case .shareLocation: self = .shareLocation
-        case .createPoll: self = .createPoll
-        case .pasteContent: self = .pasteContent
-        }
-    }
-    
-}
-
-
-extension ObvComposition.ComposeViewParameters.UnsortableAction {
-    
-    init(_ unsortableAction: NewComposeMessageViewUnsortableAction) {
-        switch unsortableAction {
-        case .composeMessageSettings: self = .composeMessageSettings
-        }
-    }
-    
-}
-
-
-extension [ObvComposition.ComposeViewParameters.SortableAction] {
-    
-    init(_ sortableActions: [NewComposeMessageViewSortableAction]) {
-        self = sortableActions.map { .init($0) }
-    }
-    
-}
-
-
-extension [ObvComposition.ComposeViewParameters.UnsortableAction] {
-    
-    init(_ unsortableActions: [NewComposeMessageViewUnsortableAction]) {
-        self = unsortableActions.map { .init($0) }
-    }
-
-}
-
 
 extension ComposeViewParameters.SendMessageShortcutType {
     

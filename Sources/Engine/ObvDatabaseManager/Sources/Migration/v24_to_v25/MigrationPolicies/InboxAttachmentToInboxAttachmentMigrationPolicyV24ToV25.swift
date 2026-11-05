@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import Foundation
 import CoreData
+import OSLog
 import ObvTypes
 import ObvEncoder
 import ObvCrypto
@@ -29,6 +30,8 @@ fileprivate let debugPrintPrefix = "[\(errorDomain)][InboxAttachmentToInboxAttac
 
 final class InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25: NSEntityMigrationPolicy {
     
+    private static let logger = Logger(subsystem: "io.olvid.messenger", category: "InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25")
+
     private func makeError(message: String) -> Error {
         let message = [debugPrintPrefix, message].joined(separator: " ")
         let userInfo = [NSLocalizedFailureReasonErrorKey: message]
@@ -195,6 +198,10 @@ extension InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25 {
         let url = InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25.getAttachmentURL(withinInbox: inbox, attachmentId: attachmentId)
 
         if FileManager.default.fileExists(atPath: url.path) {
+            // The v24→v25 migration's own copy of `InboxAttachment.createEmptyFileForWritingChunks`, and it destroys whatever is at that URL just as the
+            // engine's does. It runs once, at migration, so it cannot be behind a download failing today — said out loud so that it can be ruled out from a
+            // log rather than from memory.
+            Self.logger.info("📁 [\(attachmentId.debugDescription, privacy: .public)] Migration v24→v25: removing the file at \(url.path, privacy: .public) before making it again")
             do {
                 try FileManager.default.removeItem(at: url)
             } catch let error {
@@ -211,6 +218,8 @@ extension InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25 {
         guard let fh = FileHandle(forWritingAtPath: url.path) else { throw makeError(message: "Could get FileHandle") }
         fh.seek(toFileOffset: UInt64(cleartextLength))
         fh.closeFile()
+
+        Self.logger.info("📁 [\(attachmentId.debugDescription, privacy: .public)] Migration v24→v25: made the file the chunks are written into, \(cleartextLength) byte(s), at \(url.path, privacy: .public)")
         
     }
 

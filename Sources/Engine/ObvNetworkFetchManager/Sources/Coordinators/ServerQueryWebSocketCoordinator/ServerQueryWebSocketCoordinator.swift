@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -244,7 +244,8 @@ actor ServerQueryWebSocketCoordinator: ServerQueryWebSocketDelegate {
             let op2 = RespondAndDeleteServerQueryOperation(
                 objectIdOfPendingServerQuery: pendingServerQueryObjectId,
                 prng: prng,
-                channelDelegate: channelDelegate)
+                channelDelegate: channelDelegate,
+                pendingUserDataUploads: delegateManager.pendingUserDataUploads)
             do {
                 try await delegateManager.queueAndAwaitCompositionOfTwoContextualOperation(op1: op1, op2: op2, log: Self.log, flowId: flowId)
             } catch {

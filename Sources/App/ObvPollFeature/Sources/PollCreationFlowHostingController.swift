@@ -29,15 +29,11 @@ public protocol PollFlowControllerDelegate: AnyObject {
 }
 
 @available(iOS 17, *)
-public final class PollCreationFlowHostingController: KeyboardHostingController<PollCreationFlowView> {
+public final class PollCreationFlowHostingController: UIHostingController<PollCreationFlowView> {
     
     private weak var internalDelegate: PollFlowControllerDelegate?
     
-    // MARK: Attributes - Private - Notifications
     private let discussionIdentifier: ObvDiscussionIdentifier
-    private var isRegisteredToNotifications = false
-    private var observationTokens = [NSObjectProtocol]()
-    public override var canBecomeFirstResponder: Bool { true }
     
     public init(discussionIdentifier: ObvDiscussionIdentifier, delegate: PollFlowControllerDelegate) {
         self.internalDelegate = delegate
@@ -50,16 +46,6 @@ public final class PollCreationFlowHostingController: KeyboardHostingController<
     @MainActor required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-    deinit {
-        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
-    }
-    
-    public override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        registerForNotification()
-    }
-    
     
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -90,20 +76,5 @@ private final class Actions: PollFlowViewActionsProtocol {
     
     func userWantsToCreatePoll(poll: ObvPoll) {
         delegate?.userWantsToCreatePoll(poll: poll)
-    }
-}
-
-@available(iOS 17, *)
-extension PollCreationFlowHostingController {
-
-    private func registerForNotification() {
-        guard !isRegisteredToNotifications else { return }
-        isRegisteredToNotifications = true
-        
-        observationTokens.append(contentsOf: [
-            KeyboardNotification.observeKeyboardDidInputEscapeKeyNotification(queue: OperationQueue.main) { [weak self] in
-                self?.dismiss(animated: true, completion: nil)
-            },
-        ])
     }
 }

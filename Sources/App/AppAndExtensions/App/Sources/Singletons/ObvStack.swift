@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,10 +21,18 @@ import Foundation
 import ObvCoreDataStack
 import OlvidUtils
 import ObvAppDatabase
+import ObvAppCoreConstants
 
 final class ObvStack {
 
     private static let errorDomain = "ObvStack"
+
+    /// Shared store tracking how far each process (main app, Intents extension, …) has consumed the
+    /// App database's persistent history. Backed by the App Group `UserDefaults` suite so every
+    /// process sees the others' cursors, which lets the launch-time prune avoid deleting history a
+    /// live consumer still needs. One instance per process; see ``ObvPersistentHistoryConsumerTokenStore``.
+    static let historyConsumerTokenStore = ObvPersistentHistoryConsumerTokenStore(
+        defaults: UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)!)
     
     private static func makeError(message: String) -> Error {
         let userInfo = [NSLocalizedFailureReasonErrorKey: message]

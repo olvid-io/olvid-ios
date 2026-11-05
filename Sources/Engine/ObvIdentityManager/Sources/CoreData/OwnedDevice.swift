@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -464,9 +464,9 @@ extension OwnedDevice {
     }
     
     
-    func unwrapForCurrentOwnedDevice(_ wrappedMessageKey: EncryptedData) throws -> (messageKey: any AuthenticatedEncryptionKey, remoteCryptoId: ObvCryptoIdentity, remoteDeviceUID: UID)? {
-        
-        guard try isCurrentDevice else { assertionFailure(); return nil }
+    func unwrapForCurrentOwnedDevice(_ wrappedMessageKey: EncryptedData) throws -> PreKeyForCurrentOwnedDevice.UnwrapResult {
+
+        guard try isCurrentDevice else { assertionFailure(); return .couldNotUnwrap }
         
         return try PreKeyForCurrentOwnedDevice.unwrapMessageKey(wrappedMessageKey, forCurrentOwnedDevice: self)
         

@@ -12,6 +12,30 @@
 				<string>Commencer un appel avec Olvid</string>
 			</array>
 		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSendMessageIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Envoyer un message avec Olvid</string>
+			</array>
+		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSearchForMessagesIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Rechercher des messages dans Olvid</string>
+			</array>
+		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSetMessageAttributeIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Marquer le message comme lu dans Olvid</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

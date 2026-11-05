@@ -52,6 +52,7 @@ import ObvCells
 import ObvUIGroupSharedBetweenV1AndV2
 import ObvSingleOwnedIdentity
 import ObvHistoryTransfer
+import ObvSingleDiscussion
 
 
 // MARK: - MetaFlowControllerDelegate
@@ -59,16 +60,19 @@ import ObvHistoryTransfer
 @MainActor
 protocol MetaFlowControllerDelegate: AnyObject {
     func userRequestedAppDatabaseSyncWithEngine(metaFlowController: MetaFlowController) async throws
+    func userRequestedDrainOfTheEngineInbox(metaFlowController: MetaFlowController, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport
     func userWantsToSendDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws
     func userWantsToAddAttachmentsToDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
     func userWantsToAddAttachmentsToDraftFromURLs(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
     func userWantsToUpdateDraftBodyAndMentions(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws
     func userWantsToDeleteDraftAttachment(_ metaFlowController: MetaFlowController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws
+    func userWantsToChangeTheMediaFormatOfTheDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, format: ObvMediaFormat) async throws
     func userWantsToReplyToMessage(_ metaFlowController: MetaFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
     func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ metaFlowController: MetaFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
     func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ metaFlowController: MetaFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
     func userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ metaFlowController: MetaFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
     func userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ metaFlowController: MetaFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
+    func requestHardLinkToFyle(_ metaFlowController: MetaFlowController, fyleElement: FyleElement) async throws -> HardLinkToFyle
     func userWantsToRemoveReplyToMessage(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
     func insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(_ metaFlowController: MetaFlowController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool) async throws
     func userWantsToUpdateDraftExpiration(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?) async throws
@@ -98,6 +102,8 @@ protocol MetaFlowControllerDelegate: AnyObject {
 
     func userWantsToUpdatePersonalNote(_ metaFlowController: MetaFlowController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws
     func userDidSeeNewDetailsOfContact(_ metaFlowController: MetaFlowController, contactIdentifier: ObvTypes.ObvContactIdentifier)
+    func userWantsToStopSuggestingContact(_ metaFlowController: MetaFlowController, contactIdentifier: ObvContactIdentifier) async throws
+    func contactSuggestionsWereSeen(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, invitationUUIDs: Set<UUID>)
 
     func freshContactIdentityReceivedWhileShowingSingleContactView(_ metaFlowController: MetaFlowController, contactIdentity: ObvContactIdentity) async
 
@@ -113,7 +119,10 @@ protocol MetaFlowControllerDelegate: AnyObject {
 
     func userWantsToUpdateDiscussionLocalConfiguration(_ vc: MetaFlowController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws
 
-    func userWantsToForwardMessage(_ vc: MetaFlowController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
+    func userWantsToForwardMessages(_ vc: MetaFlowController, identifiersOfMessagesToForward: [ObvMessageAppIdentifier], identifiersOfDiscussionsWhereMessagesShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
+
+    /// Deletes several messages of one discussion at once.
+    func userWantsToDeleteMessages(_ vc: MetaFlowController, persistedMessageObjectIDs: Set<NSManagedObjectID>, deletionType: DeletionType) async throws
 
 }
 
@@ -165,13 +174,20 @@ final class MetaFlowController: UIViewController {
     private var completionHandlersToCallOnViewDidAppear = [() -> Void]()
 
     
-    private var metaFlowControllerViewDidAppearNotificationWasSent = false
     private var applicationDidBecomeActive = false
     private var childViewControllersWereSetupAndShown = false
     private var shouldSendMetaFlowControllerViewDidAppearNotification: Bool {
-        if metaFlowControllerViewDidAppearNotificationWasSent { return false } // Do not send the notification twice
         return viewDidAppearWasCalledAtLeastOnce && applicationDidBecomeActive && childViewControllersWereSetupAndShown
     }
+
+    /// Whether the notification has already been sent for the foreground session the app is in.
+    ///
+    /// The three flags above are latched — each says *this has happened at least once* — so without this the
+    /// notification is sent again on every `viewDidAppear` and every activation once all three are set: after a
+    /// full-screen presentation is dismissed, after Control Centre, after a system permission alert. What is wanted
+    /// is once per foreground session, so this is reset when the app enters the background, and only then: an
+    /// interruption that never backgrounded the app has not brought it back on screen.
+    private var theNotificationWasSentForThisForegroundSession = false
     
     /// Used when presenting the navigation stack allowing to configure the backup seed of new backups
     private var router: ObvAppBackupSetupRouter?
@@ -198,7 +214,8 @@ final class MetaFlowController: UIViewController {
     private let localEditGroupNameAndPictureViewAppDataSourceDelegate: LocalEditGroupNameAndPictureViewAppDataSourceDelegate
     private let localChooseDeviceToReactivateViewAppDataSourceDelegate: LocalChooseDeviceToReactivateViewAppDataSourceDelegate
     private let localOwnedDetailedInfosViewAppDataSourceDelegate: LocalOwnedDetailedInfosViewAppDataSourceDelegate
-        
+    private let localSingleDiscussionViewAppDataSourceDelegate: LocalSingleDiscussionViewAppDataSourceDelegate
+
     private let dataSources: ObvDataSources
     
     init(obvEngine: ObvEngine,
@@ -223,6 +240,9 @@ final class MetaFlowController: UIViewController {
         self.localEditGroupNameAndPictureViewAppDataSourceDelegate = .init(engine: obvEngine)
         self.localChooseDeviceToReactivateViewAppDataSourceDelegate = .init(engine: obvEngine)
         self.localOwnedDetailedInfosViewAppDataSourceDelegate = .init(engine: obvEngine)
+        // One fetcher for both discussion screens, so that a link fetched for one is not fetched again for the other: they share its on-disk cache.
+        let missingReceivedLinkPreviewFetcher = MissingReceivedLinkPreviewFetcher()
+        self.localSingleDiscussionViewAppDataSourceDelegate = .init(engine: obvEngine, missingReceivedLinkPreviewFetcher: missingReceivedLinkPreviewFetcher)
         self.dataSources = .init(avatarViewAppDataSourceDelegate: localAvatarViewAppDataSource,
                                  singleContactViewAppDataSourceDelegate: localObvSingleContactViewAppDataSourceDelegate,
                                  licenseActivationViewControllerAppDataSourceDelegate: localLicenseActivationViewControllerAppDataSourceDelegate,
@@ -231,7 +251,8 @@ final class MetaFlowController: UIViewController {
                                  editGroupNameAndPictureViewAppDataSourceDelegate: localEditGroupNameAndPictureViewAppDataSourceDelegate,
                                  chooseDeviceToReactivateViewAppDataSourceDelegate: localChooseDeviceToReactivateViewAppDataSourceDelegate,
                                  ownedDetailedInfosViewAppDataSourceDelegate: localOwnedDetailedInfosViewAppDataSourceDelegate,
-                                 discussionCacheDelegate: DiscussionCacheManager(previewFetcherDelegate: MissingReceivedLinkPreviewFetcher()),
+                                 singleDiscussionViewAppDataSourceDelegate: localSingleDiscussionViewAppDataSourceDelegate,
+                                 discussionCacheDelegate: DiscussionCacheManager(previewFetcherDelegate: missingReceivedLinkPreviewFetcher),
                                  obvEngine: obvEngine,
                                  backgroundContext: ObvStack.shared.newBackgroundContext(),
                                  viewContext: ObvStack.shared.viewContext)
@@ -239,7 +260,8 @@ final class MetaFlowController: UIViewController {
         super.init(nibName: nil, bundle: nil)
         
         localObvSingleContactViewAppDataSourceDelegate.delegate = self
-        
+        localSingleDiscussionViewAppDataSourceDelegate.delegate = self
+
         // If the RootViewController indicates that there is a call in progress, show the call banner.
         // This happens when the app was force quitted before receiving a CallKit incoming call. In that case,
         // if the user launches the app from the CallKit UI, this MetFlowController is not instantiated during launch
@@ -249,7 +271,8 @@ final class MetaFlowController: UIViewController {
         shouldShowCallBannerOnViewDidLoad = shouldShowCallBanner
                 
         observeDidBecomeActiveNotifications()
-        
+        observeDidEnterBackgroundNotifications()
+
         // Internal notifications
         
         observeUserTriedToAccessCameraButAccessIsDeniedNotifications()
@@ -285,9 +308,6 @@ final class MetaFlowController: UIViewController {
         // App notifications
         
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observeDisplayedContactGroupWasJustCreated { [weak self] permanentID in
-                Task { await self?.processDisplayedContactGroupWasJustCreated(permanentID: permanentID) }
-            },
             ObvMessengerInternalNotification.observeUserWantsToAddOwnedProfile { [weak self] in
                 Task { await self?.processUserWantsToAddOwnedProfileNotification() }
             },
@@ -303,9 +323,6 @@ final class MetaFlowController: UIViewController {
             },
             ObvMessengerInternalNotification.observeCloseAnyOpenHiddenOwnedIdentity { [weak self] in
                 Task { await self?.switchToNonHiddenOwnedIdentityIfCurrentIsHidden() }
-            },
-            ObvMessengerCoreDataNotification.observePersistedContactWasUpdated { [weak self] contactObjectID in
-                Task { await self?.refreshViewContextsRegisteredObjectsOnUpdateOfPersistedObvContactIdentity(with: contactObjectID) }
             },
             ObvMessengerCoreDataNotification.observeFyleMessageJoinWithStatusWasInserted { [weak self] fyleMessageJoinObjectID in
                 Task { await self?.refreshViewContextsRegisteredObjectsOnUpdateOfFyleMessageJoinWithStatus(with: fyleMessageJoinObjectID) }
@@ -338,6 +355,7 @@ final class MetaFlowController: UIViewController {
             await PersistedDiscussionLocalConfiguration.addObvObserver(self)
             await PersistedDiscussionSharedConfiguration.addObvObserver(self)
             await PersistedDiscussion.addObvObserver(self)
+            await DisplayedContactGroup.addObvObserver(self)
         }
 
     }
@@ -562,9 +580,22 @@ extension MetaFlowController {
     /// - Important:
     ///   This method must be called for each of the three events.
     ///   The notification is posted automatically once all events are reported.
+    ///
+    ///   It is posted **once per foreground session**: the three events are latched, so a second `viewDidAppear` or a
+    ///   second activation would otherwise post it again. What observers do on it is sized for the app coming back on
+    ///   screen — badges recomputed, the transaction history replayed, a sweep of the return receipts still owed —
+    ///   and not for a modal being dismissed.
     private func sendMetaFlowControllerViewDidAppearIfAppropriate() {
-        guard self.shouldSendMetaFlowControllerViewDidAppearNotification else { return }
-        defer { self.metaFlowControllerViewDidAppearNotificationWasSent = true }
+        guard self.shouldSendMetaFlowControllerViewDidAppearNotification else {
+            Self.logger.notice("📣 Not sending metaFlowControllerViewDidAppear: viewDidAppear=\(self.viewDidAppearWasCalledAtLeastOnce) didBecomeActive=\(self.applicationDidBecomeActive) childrenShown=\(self.childViewControllersWereSetupAndShown)")
+            return
+        }
+        guard !theNotificationWasSentForThisForegroundSession else {
+            Self.logger.notice("📣 Not sending metaFlowControllerViewDidAppear: it was already sent for this foreground session")
+            return
+        }
+        theNotificationWasSentForThisForegroundSession = true
+        Self.logger.notice("📣 Sending metaFlowControllerViewDidAppear")
         ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
             .postOnDispatchQueue()
     }
@@ -602,6 +633,21 @@ extension MetaFlowController {
     private func processDidBecomeActiveNotification() {
         self.applicationDidBecomeActive = true
         sendMetaFlowControllerViewDidAppearIfAppropriate()
+    }
+
+
+    /// Opens the next foreground session, so that the app coming back on screen posts the notification again.
+    ///
+    /// Observed rather than `willResignActiveNotification`: the app resigns active for Control Centre, for a system
+    /// alert and for an incoming call banner, none of which take it off the screen, and answering those with a fresh
+    /// round of badge recomputation and a sweep is what this was sending too often in the first place.
+    private func observeDidEnterBackgroundNotifications() {
+        observationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                Self.logger.notice("📣 The app entered the background, so the next appearance sends metaFlowControllerViewDidAppear again")
+                self?.theNotificationWasSentForThisForegroundSession = false
+            }
+        })
     }
     
     
@@ -742,8 +788,8 @@ extension MetaFlowController {
         assert(viewDidLoadWasCalled)
         assert(Thread.isMainThread)
         
-        let internalCompletion = { (result: Result<Void,Error>) -> Void in
-            Task { [weak self] in
+        let internalCompletion = { [weak self] (result: Result<Void,Error>) -> Void in
+            Task {
                 assert(Thread.isMainThread)
                 guard let _self = self else { return }
                 if await NewAppStateManager.shared.olvidURLRouter == nil {
@@ -759,7 +805,7 @@ extension MetaFlowController {
         if let ownedCryptoIdGeneratedDuringOnboarding {
             appropriateOwnedCryptoIdToShow = ownedCryptoIdGeneratedDuringOnboarding
         } else {
-            appropriateOwnedCryptoIdToShow = await getMostAppropriateOwnedCryptoIdToShow()
+            appropriateOwnedCryptoIdToShow = await MostAppropriateOwnedIdentityHelper(context: ObvStack.shared.newBackgroundContext()).mostAppropriateOwnedCryptoIdToShow()
         }
         
         if let ownedCryptoId = appropriateOwnedCryptoIdToShow {
@@ -941,40 +987,6 @@ extension MetaFlowController {
     }
     
     
-    /// Returns the most appropriate owned identity to show. Returns `nil` if no owned identity exists.
-    @MainActor private func getMostAppropriateOwnedCryptoIdToShow() async -> ObvCryptoId? {
-        guard let latestCurrentOWnedIdentityStored = await LatestCurrentOwnedIdentityStorage.shared.getLatestCurrentOwnedIdentityStored() else {
-            // Return a random non hidden owned identity if one can be found
-            return await getRandomExistingNonHiddenOwnedCryptoId()
-        }
-        guard let hiddenCryptoId = latestCurrentOWnedIdentityStored.hiddenCryptoId else {
-            let nonHiddenCryptoId = latestCurrentOWnedIdentityStored.nonHiddenCryptoId
-            // Make sure the identity still exists, otherwise, return a random non hidden owned identity
-            guard (try? PersistedObvOwnedIdentity.get(cryptoId: nonHiddenCryptoId, within: ObvStack.shared.viewContext)) != nil else {
-                return await getRandomExistingNonHiddenOwnedCryptoId()
-            }
-            return nonHiddenCryptoId
-        }
-        // If we reach this point, we are in the complex situation where the latest current identity was a hidden one. We must determine if it is appropriate to show it.
-        guard (try? PersistedObvOwnedIdentity.get(cryptoId: hiddenCryptoId, within: ObvStack.shared.viewContext)) != nil else {
-            return await getRandomExistingNonHiddenOwnedCryptoId()
-        }
-        switch ObvMessengerSettings.Privacy.hiddenProfileClosePolicy {
-        case .manualSwitching:
-            return hiddenCryptoId
-        case .screenLock, .background:
-            assertionFailure("The hidden cryptoId should have been cleared by now")
-            return latestCurrentOWnedIdentityStored.nonHiddenCryptoId
-        }
-    }
-    
-    
-    @MainActor private func getRandomExistingNonHiddenOwnedCryptoId() async -> ObvCryptoId? {
-        guard let ownedIdentities = try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext) else { assertionFailure(); return nil }
-        return ownedIdentities.first?.cryptoId
-    }
-    
-    
     @MainActor
     private func setupMainFlowViewControllerConstraintsWithoutCallBannerViewIfNecessary() {
         guard let mainFlowViewController = self.mainFlowViewController else { return }
@@ -1073,6 +1085,52 @@ extension MetaFlowController: LocalObvSingleContactViewAppDataSourceDelegateImpl
     }
     
 }
+
+
+// MARK: - Implementing LocalSingleDiscussionViewAppDataSourceDelegateDelegate
+
+extension MetaFlowController: LocalSingleDiscussionViewAppDataSourceDelegateDelegate {
+
+    /// Sends the SwiftUI discussion screen's requests down the route the legacy screen's already take.
+    fileprivate func userWantsToActOnReceivedAttachment(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, action: AttachmentAction) async {
+        guard let metaFlowControllerDelegate else { assertionFailure(); return }
+        do {
+            switch action {
+            case .resumeDownload:
+                try await metaFlowControllerDelegate.userWantsToDownloadReceivedFyleMessageJoinWithStatus(self, receivedJoinObjectID: receivedJoinObjectID)
+            case .pauseDownload:
+                try await metaFlowControllerDelegate.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(self, receivedJoinObjectID: receivedJoinObjectID)
+            }
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+
+
+    /// Carried up to the `RootViewController`, which is where the managers are reachable.
+    fileprivate func requestHardLinkToFyle(fyleElement: FyleElement) async throws -> HardLinkToFyle {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        return try await metaFlowControllerDelegate.requestHardLinkToFyle(self, fyleElement: fyleElement)
+    }
+
+
+    /// An attachment of a message the reader sent from another of their devices, which this one fetches from that device rather than from a contact.
+    fileprivate func userWantsToActOnSentAttachment(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, action: AttachmentAction) async {
+        guard let metaFlowControllerDelegate else { assertionFailure(); return }
+        do {
+            switch action {
+            case .resumeDownload:
+                try await metaFlowControllerDelegate.userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(self, sentJoinObjectID: sentJoinObjectID)
+            case .pauseDownload:
+                try await metaFlowControllerDelegate.userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(self, sentJoinObjectID: sentJoinObjectID)
+            }
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+
+}
+
 
 // MARK: - NewOnboardingFlowViewControllerDelegate
 
@@ -1406,10 +1464,12 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
     }
     
     
-    func onboardingRequiresToGenerateOwnedIdentity(onboardingFlow: NewOnboardingFlowViewController, identityDetails: ObvIdentityDetails, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, customServerAndAPIKey: ServerAndAPIKey?) async throws -> ObvCryptoId {
-        let usedCustomServerAndAPIKey: ServerAndAPIKey?
+    func onboardingRequiresToGenerateOwnedIdentity(onboardingFlow: NewOnboardingFlowViewController, identityDetails: ObvIdentityDetails, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, customServerAndAPIKey: CustomServerAndOptionalAPIKey?) async throws -> ObvCryptoId {
+        let usedCustomServerAndAPIKey: CustomServerAndOptionalAPIKey?
         if keycloakState != nil {
-            usedCustomServerAndAPIKey = nil
+            // For a keycloak-managed profile, the server is the keycloak's distribution server, carried in `customServerAndAPIKey`.
+            // We honor it so the profile is generated on the right server, but drop any API key: keycloak handles licensing.
+            usedCustomServerAndAPIKey = customServerAndAPIKey.map { .init(server: $0.server, apiKey: nil) }
         } else {
             usedCustomServerAndAPIKey = customServerAndAPIKey // nil, most of the time
         }
@@ -1419,9 +1479,21 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
             nameForCurrentDevice: nameForCurrentDevice,
             keycloakState: keycloakState)
         if let apiKey = usedCustomServerAndAPIKey?.apiKey {
-            _ = try await obvEngine.registerOwnedAPIKeyOnServerNow(ownedCryptoId: generatedOwnedCryptoId, apiKey: apiKey)
+            // The owned identity is already created at this point, so registering the API key is best-effort: a failure (e.g. an
+            // already-used single-use license returning .invalidAPIKey) must not abort the onboarding. We log it and keep the new
+            // profile, which simply isn't granted the license. Aborting here used to leave the creation screen stuck on its spinner.
+            do {
+                _ = try await obvEngine.registerOwnedAPIKeyOnServerNow(ownedCryptoId: generatedOwnedCryptoId, apiKey: apiKey)
+            } catch {
+                Self.logger.error("Could not register the API key for the freshly generated owned identity (the profile is kept without the license): \(error)")
+            }
         }
         return generatedOwnedCryptoId
+    }
+
+
+    func onboardingRequiresAPIKeyElements(_ onboardingFlow: NewOnboardingFlowViewController, serverAndAPIKey: ServerAndAPIKey) async throws -> APIKeyElements {
+        return try await obvEngine.queryAPIKeyStatus(serverURL: serverAndAPIKey.server, apiKey: serverAndAPIKey.apiKey)
     }
 
     
@@ -1581,7 +1653,20 @@ extension MetaFlowController {
             throw ObvError.storeKitDelegateIsNil
         }
                 
-        let multideviceSubscriptionIsActive = try await storeKitDelegate.userWantsToKnowIfMultideviceSubscriptionIsActive()
+        // We never let a StoreKit failure abort the restore process. Asking StoreKit is only an attempt at improving on
+        // the answer already obtained from the server, so failing to ask is not a reason to prevent the user from
+        // restoring their profile: we consider they have no multidevice subscription and let them decide, on the warning
+        // screen, whether they want to restore anyway. This is what happens, in particular, for a user who is not allowed
+        // to make payments (e.g., on a device managed by their company), and for a user whose device cannot currently
+        // reach the App Store.
+
+        let multideviceSubscriptionIsActive: Bool
+        do {
+            multideviceSubscriptionIsActive = try await storeKitDelegate.userWantsToKnowIfMultideviceSubscriptionIsActive()
+        } catch {
+            Self.logger.error("Could not determine whether a multidevice subscription is active, we assume it is not: \(error.localizedDescription)")
+            multideviceSubscriptionIsActive = false
+        }
 
         guard !multideviceSubscriptionIsActive else {
             return .noDeviceDeactivation
@@ -1679,37 +1764,42 @@ extension MetaFlowController {
         
         return AsyncStream(ObvDeviceBackupFromServerWithAppInfoKind.self) { (continuation: AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind>.Continuation) in
             Task {
+                do {
                 
-                for try await deviceBackupFromServerKind in try await obvEngine.userWantsToFetchDeviceBakupFromServer() {
+                    for try await deviceBackupFromServerKind in try await obvEngine.userWantsToFetchDeviceBakupFromServer() {
                     
-                    switch deviceBackupFromServerKind {
+                        switch deviceBackupFromServerKind {
                         
-                    case .thisPhysicalDeviceHasNoBackupSeed:
-                        continuation.yield(.thisPhysicalDeviceHasNoBackupSeed)
+                        case .thisPhysicalDeviceHasNoBackupSeed:
+                            continuation.yield(.thisPhysicalDeviceHasNoBackupSeed)
                         
-                    case .errorOccuredForFetchingBackupOfThisPhysicalDevice(error: let error):
-                        continuation.yield(.errorOccuredForFetchingBackupOfThisPhysicalDevice(error: error))
+                        case .errorOccuredForFetchingBackupOfThisPhysicalDevice(error: let error):
+                            continuation.yield(.errorOccuredForFetchingBackupOfThisPhysicalDevice(error: error))
                         
-                    case .thisPhysicalDevice(let deviceBackupFromServer):
-                        let profiles: ObvListOfDeviceBackupProfiles = await .init(deviceBackupFromServer: deviceBackupFromServer)
-                        let profilesToShow: ObvListOfDeviceBackupProfiles
-                        if let currentOwnedCryptoId {
-                            profilesToShow = await filterOutProfilesHiddenOnThisDevice(currentOwnedCryptoId: currentOwnedCryptoId, profiles: profiles)
-                        } else {
-                            profilesToShow = profiles
-                        }
-                        continuation.yield(.thisPhysicalDevice(profilesToShow))
+                        case .thisPhysicalDevice(let deviceBackupFromServer):
+                            let profiles: ObvListOfDeviceBackupProfiles = await .init(deviceBackupFromServer: deviceBackupFromServer)
+                            let profilesToShow: ObvListOfDeviceBackupProfiles
+                            if let currentOwnedCryptoId {
+                                profilesToShow = await filterOutProfilesHiddenOnThisDevice(currentOwnedCryptoId: currentOwnedCryptoId, profiles: profiles)
+                            } else {
+                                profilesToShow = profiles
+                            }
+                            continuation.yield(.thisPhysicalDevice(profilesToShow))
                         
-                    case .keychain(let deviceBackupFromServer):
-                        let profiles: ObvListOfDeviceBackupProfiles = await .init(deviceBackupFromServer: deviceBackupFromServer)
-                        continuation.yield(.keychain(profiles))
+                        case .keychain(let deviceBackupFromServer):
+                            let profiles: ObvListOfDeviceBackupProfiles = await .init(deviceBackupFromServer: deviceBackupFromServer)
+                            continuation.yield(.keychain(profiles))
 
-                    case .errorOccuredForFetchingBackupsFromKeychain(error: let error):
-                        continuation.yield(.errorOccuredForFetchingBackupsFromKeychain(error: error))
+                        case .errorOccuredForFetchingBackupsFromKeychain(error: let error):
+                            continuation.yield(.errorOccuredForFetchingBackupsFromKeychain(error: error))
                         
+                        }
                     }
+                    continuation.finish()
+                } catch {
+                    // Ignored, as it was before — but the stream is finished either way, which it was not when this threw.
+                    continuation.finish()
                 }
-                continuation.finish()
             }
         }
         
@@ -1819,9 +1909,14 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
     }
     
 
-    func userWantsToForwardMessage(_ mainFlowViewController: MainFlowViewController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
+    func userWantsToForwardMessages(_ mainFlowViewController: MainFlowViewController, identifiersOfMessagesToForward: [ObvMessageAppIdentifier], identifiersOfDiscussionsWhereMessagesShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
-        try await metaFlowControllerDelegate.userWantsToForwardMessage(self, identifierOfMessageToForwad: identifierOfMessageToForwad, identifiersOfDiscussionsWhereMessageShouldBeForwarded: identifiersOfDiscussionsWhereMessageShouldBeForwarded)
+        try await metaFlowControllerDelegate.userWantsToForwardMessages(self, identifiersOfMessagesToForward: identifiersOfMessagesToForward, identifiersOfDiscussionsWhereMessagesShouldBeForwarded: identifiersOfDiscussionsWhereMessagesShouldBeForwarded)
+    }
+
+    func userWantsToDeleteMessages(_ mainFlowViewController: MainFlowViewController, persistedMessageObjectIDs: Set<NSManagedObjectID>, deletionType: DeletionType) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToDeleteMessages(self, persistedMessageObjectIDs: persistedMessageObjectIDs, deletionType: deletionType)
     }
     
     func userWantsToUpdateDiscussionLocalConfiguration(
@@ -1894,6 +1989,16 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
         guard let metaFlowControllerDelegate else { assertionFailure(); return }
         metaFlowControllerDelegate.userDidSeeNewDetailsOfContact(self, contactIdentifier: contactIdentifier)
     }
+
+    func userWantsToStopSuggestingContact(_ mainFlowViewController: MainFlowViewController, contactIdentifier: ObvContactIdentifier) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToStopSuggestingContact(self, contactIdentifier: contactIdentifier)
+    }
+
+    func contactSuggestionsWereSeen(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, invitationUUIDs: Set<UUID>) {
+        guard let metaFlowControllerDelegate else { assertionFailure(); return }
+        metaFlowControllerDelegate.contactSuggestionsWereSeen(self, ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, invitationUUIDs: invitationUUIDs)
+    }
     
     func userWantsToUpdatePersonalNote(_ mainFlowViewController: MainFlowViewController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
@@ -1949,7 +2054,7 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
     
     func userWantsToDisplayBackupKey(_ mainFlowViewController: MainFlowViewController) {
         Task {
-            if let backupSeed = try await obvEngine.getDeviceActiveBackupSeed() {
+            if let backupSeed = try? await obvEngine.getDeviceActiveBackupSeed() {
                 // We show the backup key
                 let vc = BackupKeyDisplayerHostingHostingView(model: .init(backupSeed: backupSeed), delegate: self)
                 self.present(vc, animated: true)
@@ -2222,7 +2327,13 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
         guard let metaFlowControllerDelegate else { assertionFailure(); return }
         try await metaFlowControllerDelegate.userWantsToDeleteDraftAttachment(self, draftFyleJoinObjectID: draftFyleJoinObjectID)
     }
-    
+
+    func userWantsToChangeTheMediaFormatOfTheDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, format: ObvMediaFormat) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToChangeTheMediaFormatOfTheDraft(self, draftObjectID: draftObjectID, format: format)
+    }
+
+
     func userWantsToUpdateDraftBodyAndMentions(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
         try await metaFlowControllerDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body)
@@ -2250,6 +2361,15 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
     func userRequestedAppDatabaseSyncWithEngine(mainFlowViewController: MainFlowViewController) async throws {
         assert(metaFlowControllerDelegate != nil)
         try await metaFlowControllerDelegate?.userRequestedAppDatabaseSyncWithEngine(metaFlowController: self)
+    }
+
+
+    func userRequestedDrainOfTheEngineInbox(mainFlowViewController: MainFlowViewController, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport {
+        assert(metaFlowControllerDelegate != nil)
+        guard let report = await metaFlowControllerDelegate?.userRequestedDrainOfTheEngineInbox(metaFlowController: self, run: run) else {
+            return .couldNotBeRun(trigger: .userRequestedItInTheSettings)
+        }
+        return report
     }
     
     
@@ -2319,9 +2439,14 @@ extension MetaFlowController: @preconcurrency MainFlowViewControllerDelegate {
             // the update are coherent with the new group type.
             
             for otherMember in group.otherMembers {
-                guard !cryptoIdsConsideredForPermissions.contains(otherMember.cryptoId) else { continue }
+                guard let otherMemberCryptoId = otherMember.cryptoId else {
+                    // Empty bytes are a member deleted under a fault; any other length is an identity that does not parse
+                    Self.logger.fault("Leaving out of the permissions update a group member whose identity cannot be read (\(otherMember.identity.count, privacy: .public) bytes)")
+                    continue
+                }
+                guard !cryptoIdsConsideredForPermissions.contains(otherMemberCryptoId) else { continue }
                 let permissionsToConsider = otherMember.isAnAdmin ? adminPermissions : regularPermissions
-                changesToConsider.insert(.memberChanged(contactCryptoId: otherMember.cryptoId, permissions: permissionsToConsider))
+                changesToConsider.insert(.memberChanged(contactCryptoId: otherMemberCryptoId, permissions: permissionsToConsider))
             }
             
             // Make sure our own permissions will be coherent
@@ -2682,12 +2807,12 @@ extension MetaFlowController {
                                                                                            other.coreDetails.getDisplayNameWithStyle(.firstNameThenLastName),
                                                                                            otherContacts.count-1)
                 
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
                     let alert = UIAlertController(title: Strings.AlertMutualIntroductionPerformedSuccessfully.title,
                                                   message: message,
                                                   preferredStyle: .alert)
                     alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
-                    DispatchQueue.main.async { [weak self] in
+                    DispatchQueue.main.async {
                         if let presentedViewController = self?.presentedViewController {
                             presentedViewController.present(alert, animated: true)
                         } else {
@@ -2711,8 +2836,8 @@ extension MetaFlowController {
             let alert = UIAlertController(title: Strings.AlertMutualIntroduction.title,
                                           message: message,
                                           preferredStyleForTraitCollection: self.traitCollection)            
-            alert.addAction(UIAlertAction(title: Strings.AlertMutualIntroduction.actionPerformIntroduction, style: .default, handler: { (action) in
-                Task { [weak self] in await self?.introduceContact(contactCryptoId, withCoreDetails: contactCoreDetails, to: otherContacts, forOwnedCryptoId: ownedCryptoId, confirmed: true) }
+            alert.addAction(UIAlertAction(title: Strings.AlertMutualIntroduction.actionPerformIntroduction, style: .default, handler: { [weak self] (action) in
+                Task { await self?.introduceContact(contactCryptoId, withCoreDetails: contactCoreDetails, to: otherContacts, forOwnedCryptoId: ownedCryptoId, confirmed: true) }
             }))
             alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
             if let presentedViewController = self.presentedViewController {
@@ -2774,34 +2899,52 @@ extension MetaFlowController {
     
 
     @MainActor
-    private func processDisplayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) async {
+    private func processDisplayedContactGroupWasJustCreated(groupIdentifier: ObvGroupIdentifier) async {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
         guard automaticallyNavigateToCreatedDisplayedContactGroup else { return }
         guard let currentOwnedCryptoId else { return }
-        guard let displayedContactGroup = try? DisplayedContactGroup.getManagedObject(withPermanentID: permanentID, within: ObvStack.shared.viewContext) else { return }
+        guard let displayedContactGroup = try? DisplayedContactGroup.getDisplayedContactGroup(groupIdentifier: groupIdentifier, within: ObvStack.shared.viewContext) else { return }
         guard let ownedCryptoId = try? displayedContactGroup.ownedCryptoId else { assertionFailure(); return }
         guard currentOwnedCryptoId == ownedCryptoId else { return }
         // We only automatically navigate to groups we juste created, where we are admin
         guard displayedContactGroup.ownPermissionAdmin else { return }
         // Navigate to the group
         automaticallyNavigateToCreatedDisplayedContactGroup = false
-        let deepLink = ObvDeepLink.groupV1Details(ownedCryptoId: currentOwnedCryptoId, objectPermanentID: permanentID)
-        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-            .postOnDispatchQueue()
+        switch groupIdentifier {
+        case .groupV1:
+            if let objectPermanentID = try? displayedContactGroup.objectPermanentID {
+                let deepLink = ObvDeepLink.groupV1Details(ownedCryptoId: ownedCryptoId, objectPermanentID: objectPermanentID)
+                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                    .postOnDispatchQueue()
+            }
+        case .groupV2(let obvGroupV2Identifier):
+            let deepLink = ObvDeepLink.groupV2Details(groupIdentifier: obvGroupV2Identifier)
+            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                .postOnDispatchQueue()
+        }
     }
 
     
     @MainActor
-    private func processUserWantsToAddOwnedProfileNotification() async {
-        await presentedViewController?.dismissAndAwaitCompletion(animated: true)
+    /// Builds (but does not present) a new-profile onboarding flow controller in `.addProfile` mode, wired to this
+    /// `MetaFlowController`. Pass a `serverAndAPIKey` to create the profile on a scanned license's server. Centralises the
+    /// construction so the several call sites that present a new-profile onboarding stay in sync.
+    private func makeNewProfileOnboardingFlowViewController(serverAndAPIKey: ServerAndAPIKey?) -> NewOnboardingFlowViewController {
         let newOnboardingFlowViewController = NewOnboardingFlowViewController(
             logSubsystem: ObvAppCoreConstants.logSubsystem,
             directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
-            mode: .addProfile,
+            mode: .addProfile(serverAndAPIKey: serverAndAPIKey),
             dataSource: self,
             olvidShopViewActions: self,
             olvidShopViewDataSources: self.dataSources.olvidShopViewDataSources)
         newOnboardingFlowViewController.delegate = self
+        return newOnboardingFlowViewController
+    }
+
+
+    private func processUserWantsToAddOwnedProfileNotification() async {
+        await presentedViewController?.dismissAndAwaitCompletion(animated: true)
+        let newOnboardingFlowViewController = makeNewProfileOnboardingFlowViewController(serverAndAPIKey: nil)
         present(newOnboardingFlowViewController, animated: true)
     }
     
@@ -2942,11 +3085,10 @@ extension MetaFlowController: OlvidURLRouter {
     ///
     /// This is a helper method for `func handleOlvidURL(_ olvidURL: OlvidURL)`.
     ///
-    /// Four scenarios are considered:
+    /// Three scenarios are considered:
     /// 1. Initial Onboarding: If the user has no profiles, the license is passed to the onboarding flow.
     /// 2. Adding a New Profile: If an onboarding is already presented, the license is passed to create a new profile.
-    /// 3. Single Profile: If only one profile exists, the license activation screen is shown for that profile.
-    /// 4. Multiple Profiles: If multiple profiles exist, the user selects the target profile, switches to it, and the license activation screen is displayed.
+    /// 3. Existing profile(s): a server-aware chooser lets the user pick a profile on the license's server, or create a new profile for the license. Profiles on a different server are shown but cannot be chosen. (Since profile creation is always offered here, the chooser is shown even when a single, compatible profile exists.)
     private func handleOlvidURLOfTypeConfigurationWithServerAndAPIKey(serverAndAPIKey: ServerAndAPIKey) async {
         
         if let onboardingFlowViewController {
@@ -2957,29 +3099,65 @@ extension MetaFlowController: OlvidURLRouter {
             await onboardingFlowViewController.handleOlvidURLOfTypeConfigurationWithServerAndAPIKey(serverAndAPIKey: serverAndAPIKey)
         } else {
             // Since there is no onboarding, we expect to have at least one existing profile.
-            // Let the user choose the profile she wants to use for this license.
+            // A license only grants capabilities on the server that issued it, so we let the user choose among the profiles on that
+            // server (or create a new one for this license); profiles on a different server are shown but cannot be chosen.
             await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
-            let chosenOwnedCryptoId: ObvCryptoId
+            let choice: ProfileChoiceForExternalOlvidURL
             do {
-                guard let _chosenOwnedCryptoId = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() else {
+                // A license only grants capabilities on the server that issued it: restrict the chooser to that server (the user can
+                // also create a new profile for the license from the chooser).
+                let serverRestriction = OwnedIdentityChooserInnerViewConfiguration.ServerRestriction(serverURL: serverAndAPIKey.server)
+                guard let _choice = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL(serverRestriction: serverRestriction, explanation: String(localized: "PLEASE_SELECT_A_PROFILE_FOR_THIS_LICENSE")) else {
                     // The user dismissed the profile chooser, we discard the OlvidURL
                     return
                 }
-                chosenOwnedCryptoId = _chosenOwnedCryptoId
+                choice = _choice
             } catch {
                 Self.logger.fault("Could not handle OlvidURL of type .configuration containing a serverAndAPIKey: \(error)")
                 assertionFailure()
                 return
             }
-            // Switch to the chosen profile
-            await self.switchToOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
-            // Present the view allowing the user to consult and accept the license
-            let dataSource = self.dataSources.licenseActivationViewDataSource
-            let vc = NewLicenseActivationViewController(ownedCryptoId: chosenOwnedCryptoId, serverAndAPIKey: serverAndAPIKey, dataSource: dataSource, actions: self)
-            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
-            self.present(vc, animated: true)
+            switch choice {
+            case .existingProfile(ownedCryptoId: let chosenOwnedCryptoId):
+                // Switch to the chosen profile
+                await self.switchToOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
+                // Present the view allowing the user to consult and accept the license
+                let dataSource = self.dataSources.licenseActivationViewDataSource
+                let vc = NewLicenseActivationViewController(ownedCryptoId: chosenOwnedCryptoId, serverAndAPIKey: serverAndAPIKey, dataSource: dataSource, actions: self)
+                await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+                self.present(vc, animated: true)
+            case .createNewProfile:
+                // Launch a new-profile onboarding pre-loaded with the scanned license, so the new identity is created on its server.
+                await self.presentNewProfileOnboardingForScannedServerAndAPIKey(serverAndAPIKey: serverAndAPIKey)
+            }
         }
 
+    }
+
+
+    /// The outcome of the profile chooser presented by ``requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL(serverRestriction:explanation:)``
+    /// when an `OlvidURL` is scanned (or tapped) while one or more profiles already exist on this device.
+    ///
+    /// `.createNewProfile` is only ever produced when the chooser was configured with a server restriction that allows profile
+    /// creation (currently only the scanned-license / `ServerAndAPIKey` flow). The invitation and keycloak flows always get
+    /// `.existingProfile`.
+    ///
+    /// `fileprivate` (rather than `private`) so the file-scope `LocalOwnedIdentityChooserViewControllerDelegate` can resume its continuation with it.
+    fileprivate enum ProfileChoiceForExternalOlvidURL {
+        /// Use an existing profile (when a server restriction is active, necessarily on the restriction's server).
+        case existingProfile(ownedCryptoId: ObvCryptoId)
+        /// Create a brand new profile on the restriction's server.
+        case createNewProfile
+    }
+
+
+    /// Launches a new-profile onboarding pre-loaded with the scanned license, so the new owned identity is generated on the
+    /// license's server (and with its API key). See ``Onboarding/Mode/addProfile(serverAndAPIKey:)``.
+    @MainActor
+    private func presentNewProfileOnboardingForScannedServerAndAPIKey(serverAndAPIKey: ServerAndAPIKey) async {
+        await presentedViewController?.dismissAndAwaitCompletion(animated: true)
+        let newOnboardingFlowViewController = makeNewProfileOnboardingFlowViewController(serverAndAPIKey: serverAndAPIKey)
+        present(newOnboardingFlowViewController, animated: true)
     }
     
     
@@ -2989,8 +3167,13 @@ extension MetaFlowController: OlvidURLRouter {
         await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
         let chosenOwnedCryptoId: ObvCryptoId
         do {
-            guard let _chosenOwnedCryptoId = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() else {
+            guard let choice = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() else {
                 // The user dismissed the profile chooser, we discard the OlvidURL
+                return
+            }
+            guard case .existingProfile(let _chosenOwnedCryptoId) = choice else {
+                // No server restriction was set, so profile creation was not offered: only .existingProfile is expected here.
+                assertionFailure()
                 return
             }
             chosenOwnedCryptoId = _chosenOwnedCryptoId
@@ -3012,11 +3195,10 @@ extension MetaFlowController: OlvidURLRouter {
     ///
     /// This is a helper method for `func handleOlvidURL(_ olvidURL: OlvidURL)`.
     ///
-    /// Four scenarios are considered:
+    /// Three scenarios are considered. A profile can only be bound to the keycloak if it is on the keycloak's distribution server, so the chooser is restricted to that server.
     /// 1. Initial Onboarding: If the user has no profiles, the keycloak configuration is passed to the onboarding flow.
     /// 2. Adding a New Profile: If an onboarding is already presented, the keycloak configuration is passed to create a new profile.
-    /// 3. Single Profile: If only one profile exists, we launch a new onboarding in the `.bindExistingProfileToKeycloak` mode, allowing the user to bind the profile to a keycloak server.
-    /// 4. Multiple Profiles: If multiple profiles exist, the user selects the target profile, switches to it. We then launch a new onboarding in the `.bindExistingProfileToKeycloak` mode, allowing the user to bind the profile to a keycloak server.
+    /// 3. Existing profile(s): a server-aware chooser lets the user pick a profile on the keycloak's distribution server (we then launch the `.bindExistingProfileToKeycloak` onboarding) or create a new profile for the keycloak. Profiles on a different server are shown but cannot be chosen. (Since profile creation is always offered here, the chooser is shown even when a single, compatible profile exists.)
     private func handleOlvidURLOfTypeConfigurationWithKeycloakConfiguration(keycloakConfig: ObvKeycloakConfigurationAndServer) async {
         
         if let onboardingFlowViewController {
@@ -3027,36 +3209,60 @@ extension MetaFlowController: OlvidURLRouter {
             await onboardingFlowViewController.handleOlvidURLOfTypeConfigurationWithKeycloakConfigurationAndServer(keycloakConfig: keycloakConfig)
         } else {
             // Since there is no onboarding, we expect to have at least one existing profile.
-            // Let the user choose the profile she wants to use for this keycloak configuration.
+            // A profile can only be bound to this keycloak if it is on the keycloak's distribution server (otherwise the binding
+            // fails downstream with a distribution-server mismatch), so we restrict the chooser to that server. The user can also
+            // create a new profile for this keycloak (e.g. when no existing profile is on the distribution server).
             await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
-            let chosenOwnedCryptoId: ObvCryptoId
+            let choice: ProfileChoiceForExternalOlvidURL
             do {
-                guard let _chosenOwnedCryptoId = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() else {
+                let serverRestriction = OwnedIdentityChooserInnerViewConfiguration.ServerRestriction(serverURL: keycloakConfig.distributionServerURL)
+                guard let _choice = try await requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL(serverRestriction: serverRestriction) else {
                     // The user dismissed the profile chooser, we discard the OlvidURL
                     return
                 }
-                chosenOwnedCryptoId = _chosenOwnedCryptoId
+                choice = _choice
             } catch {
-                Self.logger.fault("Could not handle OlvidURL of type .configuration containing a serverAndAPIKey: \(error)")
+                Self.logger.fault("Could not handle OlvidURL of type .configuration containing a keycloak configuration: \(error)")
                 assertionFailure()
                 return
             }
-            // Switch to the chosen profile
-            await self.switchToOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
-            // The user chose the profile to bind. We launch an onboarding flow in the .bindExistingProfileToKeycloak mode
-            let vc = NewOnboardingFlowViewController(
-                logSubsystem: ObvAppCoreConstants.logSubsystem,
-                directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
-                mode: .bindExistingProfileToKeycloak(ownedCryptoId: chosenOwnedCryptoId,
-                                                     keycloakConfigurationAndServer: keycloakConfig),
-                dataSource: self,
-                olvidShopViewActions: self,
-                olvidShopViewDataSources: self.dataSources.olvidShopViewDataSources)
-            vc.delegate = self
-            await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
-            self.present(vc, animated: true)
+            switch choice {
+            case .existingProfile(ownedCryptoId: let chosenOwnedCryptoId):
+                // Switch to the chosen profile, then launch an onboarding flow in the .bindExistingProfileToKeycloak mode to bind it.
+                await self.switchToOwnedIdentity(ownedCryptoId: chosenOwnedCryptoId)
+                let vc = NewOnboardingFlowViewController(
+                    logSubsystem: ObvAppCoreConstants.logSubsystem,
+                    directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
+                    mode: .bindExistingProfileToKeycloak(ownedCryptoId: chosenOwnedCryptoId,
+                                                         keycloakConfigurationAndServer: keycloakConfig),
+                    dataSource: self,
+                    olvidShopViewActions: self,
+                    olvidShopViewDataSources: self.dataSources.olvidShopViewDataSources)
+                vc.delegate = self
+                await self.presentedViewController?.dismissAndAwaitCompletion(animated: true)
+                self.present(vc, animated: true)
+            case .createNewProfile:
+                // Launch a new-profile onboarding pre-loaded with the keycloak configuration, so the new managed identity is created on its distribution server.
+                await self.presentNewProfileOnboardingForScannedKeycloakConfiguration(keycloakConfig: keycloakConfig)
+            }
         }
 
+    }
+
+
+    /// Launches a new-profile onboarding pre-loaded with the scanned keycloak configuration, so the user can create a new managed
+    /// identity on the keycloak's distribution server. Forwarding the configuration drives the onboarding to the
+    /// `.keycloakConfigAvailable` state (validate → authenticate → create or bind), just like scanning the configuration while an
+    /// onboarding is already presented.
+    @MainActor
+    private func presentNewProfileOnboardingForScannedKeycloakConfiguration(keycloakConfig: ObvKeycloakConfigurationAndServer) async {
+        await presentedViewController?.dismissAndAwaitCompletion(animated: true)
+        let newOnboardingFlowViewController = makeNewProfileOnboardingFlowViewController(serverAndAPIKey: nil)
+        // Await the presentation before forwarding the keycloak configuration: once presented, the onboarding's view — and thus its
+        // internal navigation controller — is loaded, so the forward never races a not-yet-loaded view controller (which would
+        // otherwise hit a nil flowNavigationController and be silently dropped).
+        await presentOnTopAndAwaitCompletion(newOnboardingFlowViewController, animated: true)
+        await newOnboardingFlowViewController.handleOlvidURLOfTypeConfigurationWithKeycloakConfigurationAndServer(keycloakConfig: keycloakConfig)
     }
     
     
@@ -3099,7 +3305,18 @@ extension MetaFlowController {
     /// If there is no profile on this device, this method throws. If there is exactly one profile on this device, it is immediately returned.
     /// Otherwise, it presents an `OwnedIdentityChooserViewController` and returns the
     /// chosen owned `ObvCryptoId`. If the user cancels by either dismissing the controller or tapping the cancel button, this method returns nil.
-    private func requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL() async throws -> ObvCryptoId? {
+    /// Lets the user pick the profile to use when an `OlvidURL` is scanned (or tapped) and one or more profiles already exist.
+    ///
+    /// When `serverRestriction` is set (currently only the scanned-license flow), the chooser is server-aware: only profiles on the
+    /// restriction's server are selectable, the user may create a new profile for it (if the restriction allows it), and a single
+    /// profile is auto-selected only when it is on the restriction's server. When `serverRestriction` is `nil` (invitation, keycloak),
+    /// a single profile is always auto-selected and `.createNewProfile` is never produced.
+    ///
+    /// Returns `nil` if the user dismissed the chooser.
+    private func requestAppropriateOwnedIdentityToProcessExternallyScannedOrTappedOlvidURL(
+        serverRestriction: OwnedIdentityChooserInnerViewConfiguration.ServerRestriction? = nil,
+        explanation: String = String(localized: "PLEASE_SELECT_A_PROFILE_BEFORE_CONTINUING")
+    ) async throws -> ProfileChoiceForExternalOlvidURL? {
 
         let ownedIdentities: [PersistedObvOwnedIdentity]
         do {
@@ -3114,36 +3331,39 @@ extension MetaFlowController {
             assertionFailure()
             throw error
         }
-        
-        if let currentOrFirstOwnedCryptoId = self.currentOwnedCryptoId ?? ownedIdentities.first?.cryptoId {
-            
-            if ownedIdentities.count == 1 {
-                
-                // There is exactly one profile on this phone, we return it now
 
-                return currentOrFirstOwnedCryptoId
+        if let currentOrFirstOwnedCryptoId = self.currentOwnedCryptoId ?? ownedIdentities.first?.cryptoId {
+
+            // We auto-select a single profile only when the chooser would offer no real choice, i.e. when there is no server
+            // restriction. With a restriction, the chooser always lets the user create a new profile (and may need to flag profiles
+            // on a different server), so we always present it.
+            if ownedIdentities.count == 1, serverRestriction == nil {
+
+                // There is exactly one profile on this phone and no server restriction, we return it now
+
+                return .existingProfile(ownedCryptoId: currentOrFirstOwnedCryptoId)
 
             } else {
-                
-                // There is more than one profile to choose from
 
-                return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<ObvCryptoId?, any Error>) in
-                    
+                // There is more than one profile to choose from (or a single profile on a different server)
+
+                return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<ProfileChoiceForExternalOlvidURL?, any Error>) in
+
                     guard let self else { return continuation.resume(throwing: ObvError.ownedIdentityChooserViewControllerFlowWasCancelled) }
 
                     self.localOwnedIdentityChooserViewControllerDelegate.set(continuation: continuation)
-                    
+
                     let callbackOnViewDidDisappear: (() -> Void) = { [weak self] in
                         Task { await self?.localOwnedIdentityChooserViewControllerDelegate.userDismissedTheOwnedIdentityChooserViewController() }
                     }
-                    
+
                     let ownedIdentityChooserVC = OwnedIdentityChooserNavigationStackHostingView(
                         currentOwnedCryptoId: currentOrFirstOwnedCryptoId,
                         actions: localOwnedIdentityChooserViewControllerDelegate,
                         dataSource: self.dataSources.ownedIdentityChooserViewDataSource,
                         avatarViewDataSource: self.dataSources.avatarViewDataSource,
-                        configuration: .init(mode: .selectProfile,
-                                             explanation: String(localized: "PLEASE_SELECT_A_PROFILE_BEFORE_CONTINUING"),
+                        configuration: .init(mode: .selectProfile(serverRestriction: serverRestriction),
+                                             explanation: explanation,
                                              title: String(localized: "MY_PROFILES"),
                                              isEmbeddedInHostingController: true),
                         callbackOnViewDidDisappear: callbackOnViewDidDisappear,
@@ -3810,8 +4030,9 @@ extension MetaFlowController: PersistedObvContactIdentityObserver {
         }
     }
     
-    func contactChangedAsAtLeastOneDeviceAllowsThemToReceiveMessages(contactIdentifier: ObvContactIdentifier) async {
-        // We do nothing
+    
+    func aPersistedObvContactWasUpdated(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) async {
+        await self.refreshViewContextsRegisteredObjectsOnUpdateOfPersistedObvContactIdentity(with: objectID)
     }
     
 }
@@ -3877,6 +4098,15 @@ extension MetaFlowController: PersistedDiscussionSharedConfigurationObserver {
 }
 
 
+extension MetaFlowController: DisplayedContactGroupObserver {
+    
+    func aDisplayedContactGroupWasInserted(groupIdentifier: ObvGroupIdentifier) async {
+        await processDisplayedContactGroupWasJustCreated(groupIdentifier: groupIdentifier)
+    }
+    
+}
+
+
 extension MetaFlowController: PersistedDiscussionObserver {
     
     func aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) async {
@@ -3918,20 +4148,20 @@ extension MetaFlowController: PersistedDiscussionObserver {
 /// an OlvidURL.
 @MainActor
 private final class LocalOwnedIdentityChooserViewControllerDelegate: OwnedIdentityChooserNavigationStackActions {
-        
-    private var continuation: CheckedContinuation<ObvCryptoId?, any Error>?
-    
-    func set(continuation: CheckedContinuation<ObvCryptoId?, any Error>) {
+
+    private var continuation: CheckedContinuation<MetaFlowController.ProfileChoiceForExternalOlvidURL?, any Error>?
+
+    func set(continuation: CheckedContinuation<MetaFlowController.ProfileChoiceForExternalOlvidURL?, any Error>) {
         failExistingContinuationIfRequired() // This sets self.continuation to nil
         self.continuation = continuation
     }
-    
+
     func failExistingContinuationIfRequired() {
         guard let continuation = self.continuation else { return }
         self.continuation = nil
         continuation.resume(returning: nil)
     }
-    
+
     func userDismissedTheOwnedIdentityChooserViewController() async {
         guard let continuation = self.continuation else { return }
         self.continuation = nil
@@ -3939,19 +4169,22 @@ private final class LocalOwnedIdentityChooserViewControllerDelegate: OwnedIdenti
     }
 
     // Implementing OwnedIdentityChooserViewActionsProtocol
-    
+
     func userChoseProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack, chosenOwnedCryptoId: ObvTypes.ObvCryptoId) async throws {
         guard let continuation = self.continuation else { return }
         self.continuation = nil
-        continuation.resume(returning: chosenOwnedCryptoId)
+        continuation.resume(returning: .existingProfile(ownedCryptoId: chosenOwnedCryptoId))
     }
-    
+
     func userWantsToEditCurrentOwnedIdentity(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack, currentOwnedCryptoId: ObvTypes.ObvCryptoId) async {
         assertionFailure("Unexpected as the OwnedIdentityChooserViewController is in selectProfile mode")
     }
-    
+
+    /// Only reachable when the chooser was configured with a server restriction that allows profile creation (the scanned-license flow).
     func userWantsToAddNewProfile(_ view: ObvOwnedIdentityChooser.OwnedIdentityChooserNavigationStack) async {
-        assertionFailure("Unexpected as the OwnedIdentityChooserViewController is in selectProfile mode")
+        guard let continuation = self.continuation else { return }
+        self.continuation = nil
+        continuation.resume(returning: .createNewProfile)
     }
 
 }
@@ -3977,6 +4210,80 @@ private actor LocalAvatarViewAppDataSource: ObvAvatarViewAppDataSourceDelegate {
     }
     
     
+}
+
+
+// MARK: - Helper struct
+
+@MainActor
+private protocol LocalSingleDiscussionViewAppDataSourceDelegateDelegate: AnyObject {
+    func userWantsToActOnReceivedAttachment(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, action: AttachmentAction) async
+    func userWantsToActOnSentAttachment(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, action: AttachmentAction) async
+    func requestHardLinkToFyle(fyleElement: FyleElement) async throws -> HardLinkToFyle
+}
+
+
+/// Serves the SwiftUI discussion screen's data source with the two things it cannot reach on its own.
+///
+/// What the reader *asks of* an attachment goes up to the ``MetaFlowController``, where the requests of the legacy screen already arrive, because it ends in a
+/// coordinator operation. What the reader is *told about* a download comes straight from the engine, which is where the number is — there is nothing for the
+/// flow controllers to do with a stream, and every layer it passed through would only hand it on.
+@MainActor
+private final class LocalSingleDiscussionViewAppDataSourceDelegate: SingleDiscussionViewAppDataSourceDelegate {
+
+    weak var delegate: LocalSingleDiscussionViewAppDataSourceDelegateDelegate?
+
+    private let engine: ObvEngine
+
+    /// Shared with the legacy screen's `DiscussionCacheManager`, so that a link is fetched once for both.
+    private let missingReceivedLinkPreviewFetcher: MissingReceivedLinkPreviewFetcher
+
+    init(engine: ObvEngine, missingReceivedLinkPreviewFetcher: MissingReceivedLinkPreviewFetcher) {
+        self.engine = engine
+        self.missingReceivedLinkPreviewFetcher = missingReceivedLinkPreviewFetcher
+    }
+
+    /// Answered here rather than forwarded: the fetcher is held by this class, as the engine is, and the flow controllers have nothing to do with it.
+    func requestFileHoldingLinkPreviewMetadata(_ dataSource: SingleDiscussionViewAppDataSource, ofLink link: URL) async throws -> URL {
+        return try await missingReceivedLinkPreviewFetcher.fileHoldingTheMetadata(ofLink: link)
+    }
+
+    func getAsyncStreamOfDownloadProgress(_ dataSource: SingleDiscussionViewAppDataSource, attachmentId: ObvAttachmentIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentDownloadProgress>) {
+        return try await engine.getAsyncStreamOfDownloadProgressOfAttachment(attachmentId: attachmentId)
+    }
+
+    func finishAsyncStreamOfDownloadProgress(_ dataSource: SingleDiscussionViewAppDataSource, streamUUID: UUID) async {
+        try? await engine.finishAsyncStreamOfDownloadProgressOfAttachment(streamUUID: streamUUID)
+    }
+
+    func getAsyncStreamOfUploadProgress(_ dataSource: SingleDiscussionViewAppDataSource, attachmentId: ObvAttachmentIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentUploadProgress>) {
+        return try await engine.getAsyncStreamOfUploadProgressOfAttachment(attachmentId: attachmentId)
+    }
+
+    func finishAsyncStreamOfUploadProgress(_ dataSource: SingleDiscussionViewAppDataSource, streamUUID: UUID) async {
+        try? await engine.finishAsyncStreamOfUploadProgressOfAttachment(streamUUID: streamUUID)
+    }
+
+    /// Forwarded rather than answered here: a hardlink is made by a *manager*, and this class holds only the engine.
+    func requestHardLinkToFyle(_ dataSource: SingleDiscussionViewAppDataSource, fyleElement: FyleElement) async throws -> HardLinkToFyle {
+        guard let delegate else { assertionFailure(); throw ObvError.delegateIsNil }
+        return try await delegate.requestHardLinkToFyle(fyleElement: fyleElement)
+    }
+
+    func userWantsToActOnReceivedAttachment(_ dataSource: SingleDiscussionViewAppDataSource, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, action: AttachmentAction) async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.userWantsToActOnReceivedAttachment(receivedJoinObjectID: receivedJoinObjectID, action: action)
+    }
+
+    func userWantsToActOnSentAttachment(_ dataSource: SingleDiscussionViewAppDataSource, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, action: AttachmentAction) async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.userWantsToActOnSentAttachment(sentJoinObjectID: sentJoinObjectID, action: action)
+    }
+
+    enum ObvError: Error {
+        case delegateIsNil
+    }
+
 }
 
 

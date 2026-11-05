@@ -62,7 +62,8 @@ extension NetworkReceivedMessageDecryptor {
                 unwrappedValues = (messageKey, receptionChannelInfo)
             case .unwrapSucceededButRemoteCryptoIdIsUnknown,
                     .couldNotUnwrap,
-                    .contactIsRevokedAsCompromised:
+                    .contactIsRevokedAsCompromised,
+                    .preKeySignatureWasAlreadyAccepted:
                 unwrappedValues = nil
             }
         }
@@ -79,7 +80,8 @@ extension NetworkReceivedMessageDecryptor {
                 unwrappedValues = (messageKey, receptionChannelInfo)
             case .unwrapSucceededButRemoteCryptoIdIsUnknown,
                     .couldNotUnwrap,
-                    .contactIsRevokedAsCompromised:
+                    .contactIsRevokedAsCompromised,
+                    .preKeySignatureWasAlreadyAccepted:
                 unwrappedValues = nil
             }
         }
@@ -140,10 +142,14 @@ extension NetworkReceivedMessageDecryptor {
             case .couldNotUnwrap:
                 // We will try with a PreKey channel instead
                 break
-                
+
             case .contactIsRevokedAsCompromised:
                 return .messageReceivedFromContactThatIsRevokedAsCompromised(messageId: receivedMessage.messageId)
-                
+
+            case .preKeySignatureWasAlreadyAccepted:
+                assertionFailure("This is not expected for an Oblivious channel")
+                return .preKeySignatureWasAlreadyAccepted(messageId: receivedMessage.messageId)
+
             }
         }
         
@@ -168,9 +174,15 @@ extension NetworkReceivedMessageDecryptor {
             case .couldNotUnwrap:
                 // We will try with an asymmetric channel instead
                 break
-                
+
             case .contactIsRevokedAsCompromised:
                 return .messageReceivedFromContactThatIsRevokedAsCompromised(messageId: receivedMessage.messageId)
+
+            case .preKeySignatureWasAlreadyAccepted:
+                // The message was already processed, by this process or by another one sharing the store. It is discarded
+                // without trying the asymmetric channel, which cannot unwrap a key a prekey decrypted.
+                Self.logger.debug("🔑 A received wrapped key was decrypted using a PreKey channel but its signature was already accepted")
+                return .preKeySignatureWasAlreadyAccepted(messageId: receivedMessage.messageId)
 
             }
         }
@@ -196,9 +208,13 @@ extension NetworkReceivedMessageDecryptor {
 
             case .couldNotUnwrap:
                 break
-                
+
             case .contactIsRevokedAsCompromised:
                 return .messageReceivedFromContactThatIsRevokedAsCompromised(messageId: receivedMessage.messageId)
+
+            case .preKeySignatureWasAlreadyAccepted:
+                assertionFailure("This is not expected for an asymmetric channel")
+                return .preKeySignatureWasAlreadyAccepted(messageId: receivedMessage.messageId)
 
             }
         }

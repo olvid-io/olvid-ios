@@ -266,9 +266,16 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         }
 
         // We choose to show audioPlayer only for the first audio song.
-        
+
         otherAttachments += audioAttachments
-        
+
+        // Video joins are kept in their own category by the message model (so the Intents extension can
+        // surface them to Siri as `.mediaVideo`), so they are *not* part of `fyleMessageJoinWithStatusesOfOtherTypes`.
+        // We add them back here so they are displayed as attachment cards.
+
+        let videoAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfVideoType
+        otherAttachments += videoAttachments
+
         // The first pdf/docx/... attachment must have a large preview
 
         let fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType = message.isWiped ? nil : message.fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType.first
@@ -1353,8 +1360,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             // If the multipleReactionsView is not already shown, we show it and animate its alpha and size with a nice pop effect
             if multipleReactionsView.alpha == 0.0 {
                 multipleReactionsView.transform = CGAffineTransform(scaleX: 0.0, y: 0.0)
-                DispatchQueue.main.async {
-                    UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0, options: []) { [weak self] in
+                DispatchQueue.main.async { [weak self] in
+                    UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0, options: []) {
                         guard self?.messageObjectID == newConfig.messageObjectID else { return }
                         self?.multipleReactionsView.alpha = 1.0
                         self?.multipleReactionsView.transform = .identity

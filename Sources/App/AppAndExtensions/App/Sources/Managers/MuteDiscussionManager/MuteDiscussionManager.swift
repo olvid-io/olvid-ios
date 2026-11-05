@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -134,7 +134,7 @@ fileprivate final class ScheduleNextTimerOperation: Operation, @unchecked Sendab
             // We pass in a weak reference (we checked with the debugger, this works ;-).
             // Note that we cannot simply was [weak self] to the block (so as to access self?.delegate),
             // Since self is deallocated as soon as the operation finishes.
-            weak var delegate = self.delegate
+            weak let delegate: (any ScheduleNextTimerOperationDelegate)? = self.delegate
             let newTimer = Timer(fire: expirationDate, interval: 0, repeats: false, block: { timer in delegate?.timerFired(timer: timer) })
             delegate?.replaceCurrentTimerWith(newTimer: newTimer)
 

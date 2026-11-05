@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -146,7 +146,7 @@ extension SubscriptionManager {
         
         /// Enforce a 5-second timeout by cancelling the collector Task afterward.
         Task {
-            try await Task.sleep(seconds: 5)
+            try? await Task.sleep(seconds: 5)
             task.cancel()
         }
         
@@ -156,6 +156,11 @@ extension SubscriptionManager {
     }
     
         
+    /// Returns the list of Olvid's products, for a user who is about to *buy* one of them.
+    ///
+    /// This is the method to call when populating a purchase interface: it refuses to return anything when the user is
+    /// not allowed to make payments (e.g., on a device managed by their company), as there would be nothing they could
+    /// do with the returned products. Any other use should call ``listOfSKProductsWhateverThePaymentCapability()``.
     func userRequestedListOfSKProducts() async throws -> [Product] {
 
         os_log("💰 User requested a list of available SKProducts", log: log, type: .info)
@@ -164,6 +169,20 @@ extension SubscriptionManager {
             os_log("💰 User is *not* allowed to make payments, returning an empty list of SKProducts", log: log, type: .error)
             throw ObvError.userCannotMakePayments
         }
+        
+        return try await listOfSKProductsWhateverThePaymentCapability()
+
+    }
+    
+    
+    /// Returns the list of Olvid's products, without requiring the user to be allowed to make payments.
+    ///
+    /// Asking StoreKit about a product, or about the status of a subscription to that product, has nothing to do with
+    /// the capability to buy it: a user who is not allowed to make payments (e.g., on a device managed by their company)
+    /// can still benefit from a subscription obtained through Family Sharing. Consequently, a method that merely *reads*
+    /// something from StoreKit must call this one rather than ``userRequestedListOfSKProducts()``, whose payment guard
+    /// only makes sense for a purchase interface.
+    private func listOfSKProductsWhateverThePaymentCapability() async throws -> [Product] {
         
         let storeProducts = try await Product.products(for: ProductIdentifier.allProductIDs)
         
@@ -174,7 +193,10 @@ extension SubscriptionManager {
     
     func userWantsToKnowIfMultideviceSubscriptionIsActive() async throws -> Bool {
         
-        let storeProducts = try await userRequestedListOfSKProducts()
+        // We don't call `userRequestedListOfSKProducts()` here: this method only reads the status of a subscription,
+        // which the user might have obtained through Family Sharing even though they are not allowed to make payments.
+        
+        let storeProducts = try await listOfSKProductsWhateverThePaymentCapability()
         
         for product in storeProducts {
             guard let subscription = product.subscription else { continue }

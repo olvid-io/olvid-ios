@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import SwiftUI
 
 public extension Image {
     
-    init(symbolIcon icon: any SymbolIcon, isDecorative: Bool = false) {
+    init(symbolIcon icon: any SymbolIcon) {
         if let customIcon = icon as? CustomIcon {
             self.init(customIcon: customIcon)
         } else if let systemIcon = icon as? SystemIcon {
@@ -33,12 +33,16 @@ public extension Image {
         }
     }
 
-    init(systemIcon: SystemIcon, isDecorative: Bool = false) {
-        if isDecorative {
-            self.init(decorative: systemIcon.name)
-        } else {
-            self.init(systemName: systemIcon.name)
-        }
+    /// **There is no decorative variant of this**, and asking for one used to draw nothing at all.
+    ///
+    /// `Image(decorative:)` names an *asset*, so an SF Symbol routed through it looks for an image called "photo" in an
+    /// asset catalogue, finds none, and lays out an empty box — silently, since a missing asset is not an error. Two
+    /// callers had asked for it and both had been drawing bare backgrounds with no glyph in them.
+    ///
+    /// A symbol is made decorative by the caller instead, with `.accessibilityHidden(true)`, which an initialiser cannot
+    /// do: the modifier returns a `View` and this must return an `Image`.
+    init(systemIcon: SystemIcon) {
+        self.init(systemName: systemIcon.name)
     }
     
     init(customIcon: CustomIcon, isDecorative: Bool = false) {

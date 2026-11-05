@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -76,12 +76,12 @@ final class CleanExistingInboxAttachmentSessionsOperation: ContextualOperationWi
         
         case coreDataError(error: Error)
         case cannotFindAttachmentInDatabase
-        case noOutboxAttachmentSessionSet
+        case noInboxAttachmentSessionSet
         
         public var logType: OSLogType {
             switch self {
             case .coreDataError,
-                    .noOutboxAttachmentSessionSet,
+                    .noInboxAttachmentSessionSet,
                     .cannotFindAttachmentInDatabase:
                 return .fault
             }
@@ -93,8 +93,8 @@ final class CleanExistingInboxAttachmentSessionsOperation: ContextualOperationWi
                 return "Core Data error: \(error.localizedDescription)"
             case .cannotFindAttachmentInDatabase:
                 return "Cannot find attachment in database"
-            case .noOutboxAttachmentSessionSet:
-                return "No outbox attachment session set"
+            case .noInboxAttachmentSessionSet:
+                return "No inbox attachment session set"
             }
         }
         

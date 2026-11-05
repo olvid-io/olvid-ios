@@ -39,7 +39,7 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
 
     @NSManaged public private(set) var couldNotBeSentToServer: Bool // Set to true if the engine could not send message during 30 days
     @NSManaged public private(set) var messageIdentifierFromEngine: Data? // Set to 0x55 when the associated message was sent from another owned device
-    @NSManaged private var recipientIdentity: Data
+    @NSManaged public private(set) var recipientIdentity: Data
     @NSManaged private(set) var returnReceiptKey: Data?
     @NSManaged private var returnReceiptNonce: Data?
     /// Set when the all the attachments have been sent. If the message has no attachment, this is set at the same time `timestampMessageSent` is set.
@@ -57,7 +57,9 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
     // MARK: Computed variables
     
     public var recipientCryptoId: ObvCryptoId {
-        return try! ObvCryptoId(identity: recipientIdentity)
+        get throws {
+            try ObvCryptoId(identity: recipientIdentity)
+        }
     }
     
     public func getRecipient() throws -> PersistedObvContactIdentity? {
@@ -249,6 +251,27 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
     
     // MARK: - Convenience DB getters
     
+
+    /// Watches every recipient of one sent message, which is where the engine identifiers of its uploads appear — one per recipient, as they
+    /// are posted to.
+    ///
+    /// Needed because those identifiers appear on **these** objects and not on the message or on its attachments, so nothing watching a join
+    /// can see one arrive. See `SentFyleMessageJoinWithStatus.obvAttachmentIdentifierOfTheFirstUpload`.
+    ///
+    /// **No sort descriptor, and never one naming a binary attribute.** A fetched results controller places a row *in memory* whenever one is
+    /// merged in or its sort key changes, and it does so by sending `compare:` to the values — which `NSData` does not implement. This
+    /// controller used to sort on `messageIdentifierFromEngine`, which is exactly the value that arrives here: it starts nil on every row and
+    /// `SendUnprocessedPersistedMessageSentOperation` then gives each recipient a *different* identifier in one save, so the merge asks the
+    /// controller to re-place rows it already holds and compares `Data` against `Data`. That crashed the app on sending an attachment to a
+    /// group of two or more (with a single recipient there is nothing left in the array to compare against, which is why it survived a
+    /// fortnight in production). The order of these rows is read by nobody — `createModel` only asks whether *any* identifier is there yet.
+    public static func getFetchedResultsControllerForInfos(ofMessageWithObjectID messageObjectID: NSManagedObjectID, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessageSentRecipientInfos> {
+        let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
+        request.predicate = Predicate.forMessageWithObjectID(messageObjectID)
+        request.sortDescriptors = []
+        return .init(fetchRequest: request, managedObjectContext: context, sectionNameKeyPath: nil, cacheName: nil)
+    }
+
     struct Predicate {
         enum Key: String {
             // Attributes
@@ -274,6 +297,10 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
                 messageSent.rawValue,
                 PersistedMessage.Predicate.Key.discussion.rawValue,
             ].joined(separator: ".")
+        }
+
+        static func forMessageWithObjectID(_ messageObjectID: NSManagedObjectID) -> NSPredicate {
+            NSPredicate(Key.messageSent, equalToObjectWithObjectID: messageObjectID)
         }
         static func withMessageSent(equalTo messageSent: PersistedMessageSent) -> NSPredicate {
             NSPredicate(Key.messageSent, equalTo: messageSent)
@@ -535,6 +562,13 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
 
         var infosWithDeletedContact = [PersistedMessageSentRecipientInfos]()
         for info in infos {
+            // A recipient whose identity cannot be read can never be sent the message: its infos are deleted like those of a
+            // deleted contact
+            guard (try? info.recipientCryptoId) != nil else {
+                logger.fault("Deleting the infos of a recipient whose identity cannot be read (\(info.recipientIdentity.count, privacy: .public) bytes)")
+                infosWithDeletedContact.append(info)
+                continue
+            }
             do {
                 let recipient = try info.getRecipient()
                 if recipient == nil {

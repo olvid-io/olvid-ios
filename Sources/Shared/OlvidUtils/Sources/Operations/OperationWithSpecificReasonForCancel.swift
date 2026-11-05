@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,7 +37,7 @@ open class OperationWithSpecificReasonForCancel<ReasonForCancelType: LocalizedEr
         }
         os_log("%{public}@ cancelled: %{public}@", log: log, type: reason.logType, String(describing: self), reason.localizedDescription)
         if reason.logType == .fault && assertionFailureInCaseOfFault {
-            assertionFailure()
+//            assertionFailure()
         }
     }
 

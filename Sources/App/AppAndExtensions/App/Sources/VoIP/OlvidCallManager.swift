@@ -667,10 +667,16 @@ extension OlvidCallManager {
 
             Self.logger.info("☎️ Creating CXStartCallAction for call with uuidForCallKit \(outgoingCall.uuidForCallKit.uuidString, privacy: .public)")
             
-            let handle = CXHandle(type: .generic, value: outgoingCall.uuidForCallKit.uuidString)
+            // Use the participant display name(s) as the handle value so the call screen shows the
+            // correct name immediately, before the CXCallUpdate from the provider delegate arrives.
+            let participantNames = outgoingCall.otherParticipants.map(\.displayName).sorted()
+            let handleValue = participantNames.isEmpty
+                ? outgoingCall.uuidForCallKit.uuidString
+                : ListFormatter.localizedString(byJoining: participantNames)
+            let handle = CXHandle(type: .generic, value: handleValue)
             let startCallAction = CXStartCallAction(call: outgoingCall.uuidForCallKit, handle: handle)
             // We don't set the startCallAction.contactIdentifier as it is not used by CallKit (to the contrary of what the documentation says).
-            // Instead, in the CallProviderHolderDelegate, we update the call using a CXCallUpdate.
+            // The provider delegate still calls reportCall(with:updated:) to set localizedCallerName and other properties.
             startCallAction.isVideo = false
             let transaction = CXTransaction()
             transaction.addAction(startCallAction)

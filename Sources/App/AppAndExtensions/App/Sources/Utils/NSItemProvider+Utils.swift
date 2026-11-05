@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,13 +25,7 @@ extension NSItemProvider {
     
     /// Simple wrapper as ``registeredContentTypes`` only exists in iOS 16
     var obvRegisteredContentTypes: [UTType] {
-        if #available(iOS 16, *) {
-            return self.registeredContentTypes
-        } else {
-            let types = self.registeredTypeIdentifiers.compactMap({ UTType($0) })
-            assert(types.count == self.registeredTypeIdentifiers.count)
-            return types
-        }
+        return self.registeredContentTypes
     }
     
     

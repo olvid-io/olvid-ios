@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,7 +32,10 @@ import ObvAppCoreConstants
 /// fyle.
 ///
 /// At launch, this coordinator also cleans any hard link created during past launch of the App.
-final class HardLinksToFylesManager {
+/// `@unchecked Sendable`: it is reached from the queues notifications are delivered on, its stored state is written
+/// in the initialiser and not again (`observationTokens` is a `var` only because its closures capture `self`, which
+/// a `let` cannot be filled from), and its work runs on `queueForNotifications`, which is serial.
+final class HardLinksToFylesManager: @unchecked Sendable {
     
     fileprivate static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: HardLinksToFylesManager.self))
     
@@ -48,7 +51,7 @@ final class HardLinksToFylesManager {
     
     private var observationTokens = [NSObjectProtocol]()
 
-    private var appType: ObvUICoreDataConstants.AppCategory
+    private let appType: ObvUICoreDataConstants.AppCategory
 
     static func makeHardLinksToFylesManagerForMainApp() -> Self {
         let url = ObvUICoreDataConstants.ContainerURL.forFylesHardlinksWithinMainApp.url
@@ -59,6 +62,11 @@ final class HardLinksToFylesManager {
         let url = ObvUICoreDataConstants.ContainerURL.forFylesHardlinksWithinShareExtension.url
         return Self(appType: .shareExtension, url: url)
     }
+    
+    static func makeHardLinksToFylesManagerForIntentExtension() -> Self {
+        let url = ObvUICoreDataConstants.ContainerURL.forFylesHardlinksWithinIntentExtension.url
+        return Self(appType: .intentExtension, url: url)
+    }
 
     private init(appType: ObvUICoreDataConstants.AppCategory, url: URL) {
         self.appType = appType
@@ -66,12 +74,12 @@ final class HardLinksToFylesManager {
         self.currentSessionDirectoryForHardlinks = url.appendingPathComponent(UUID().description)
         try! FileManager.default.createDirectory(at: self.currentSessionDirectoryForHardlinks, withIntermediateDirectories: true, attributes: nil)
         deletePreviousDirectories()
-        observeNotifications()
+        observationTokens = makeObservationTokens()
     }
-    
-    
-    private func observeNotifications() {
-        observationTokens.append(contentsOf: [
+
+
+    private func makeObservationTokens() -> [NSObjectProtocol] {
+        return [
             ObvMessengerCoreDataNotification.observePersistedMessagesWereDeleted(queue: queueForNotifications) { [weak self] (discussionPermanentID, messagePermanentIDs) in
                 self?.processPersistedMessagesWereWipedOrDeleted(discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
             },
@@ -96,7 +104,7 @@ final class HardLinksToFylesManager {
             HardLinksToFylesNotifications.observeRequestAllHardLinksToFyles() { [weak self] (fyleElements, completionHandler) in
                 self?.requestAllHardLinksToFyles(fyleElements: fyleElements, completionHandler: completionHandler)
             },
-        ])
+        ]
     }
     
     
@@ -138,7 +146,7 @@ final class HardLinksToFylesManager {
 
     // MARK: Public request API
 
-    func requestHardLinkToFyle(fyleElement: FyleElement, completionHandler: @escaping (Result<HardLinkToFyle, Error>) -> Void) {
+    func requestHardLinkToFyle(fyleElement: FyleElement, completionHandler: @escaping @Sendable (Result<HardLinkToFyle, Error>) -> Void) {
         queueForNotifications.addOperation {
             do {
                 let hardlink = try HardLinkToFyle(fyleElement: fyleElement, currentSessionDirectoryForHardlinks: self.currentSessionDirectoryForHardlinks, log: Self.log)
@@ -152,7 +160,20 @@ final class HardLinksToFylesManager {
         }
     }
 
-    func requestAllHardLinksToFyles(fyleElements: [FyleElement], completionHandler: @escaping ([HardLinkToFyle?]) -> Void) {
+    /// The hardlink for one fyle, awaited rather than called back.
+    ///
+    /// Exists so that a caller in the `async` world — a SwiftUI data source, say — need not wrap this itself. The work is the same, and still happens on
+    /// `queueForNotifications`.
+    func requestHardLinkToFyle(fyleElement: FyleElement) async throws -> HardLinkToFyle {
+        try await withCheckedThrowingContinuation { continuation in
+            requestHardLinkToFyle(fyleElement: fyleElement) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+
+
+    func requestAllHardLinksToFyles(fyleElements: [FyleElement], completionHandler: @escaping @Sendable ([HardLinkToFyle?]) -> Void) {
         queueForNotifications.addOperation {
             let hardlinks = fyleElements.map {
                 try? HardLinkToFyle(fyleElement: $0, currentSessionDirectoryForHardlinks: self.currentSessionDirectoryForHardlinks, log: Self.log)
@@ -254,16 +275,24 @@ final class HardLinksToFylesManager {
 
 // MARK: - HardLinkToFyle
 
-final class HardLinkToFyle: NSObject, QLPreviewItem {
+/// `@unchecked Sendable`: built on the manager's queue and handed to cells on the main one, and every property is
+/// set in the initialiser and never again, so nothing can race on it.
+final class HardLinkToFyle: NSObject, QLPreviewItem, @unchecked Sendable {
 
     let creationDate = Date()
     let contentType: UTType
     let fyleURL: URL
     let fileName: String
-    private(set) var hardlinkURL: URL?
-    private(set) var activityItemProvider: ActivityItemProvider?
-    private(set) var itemProvider: NSItemProvider?
-    private(set) var uiDragItem: UIDragItem?
+    let hardlinkURL: URL?
+    let activityItemProvider: ActivityItemProvider?
+    let itemProvider: NSItemProvider?
+
+    /// Built on demand, on the main actor: a `UIDragItem` is a UIKit object, where the hardlink itself is built on a
+    /// background queue. It wraps ``itemProvider``, which is nil when the full file is not available, and a drag
+    /// reads it once per session, so building one each time costs nothing.
+    @MainActor var uiDragItem: UIDragItem? {
+        itemProvider.map { UIDragItem(itemProvider: $0) }
+    }
 
     override func isEqual(_ object: Any?) -> Bool {
         guard let otherObject = object as? HardLinkToFyle else { return false }
@@ -320,7 +349,6 @@ final class HardLinkToFyle: NSObject, QLPreviewItem {
         self.fyleURL = fyleElement.fyleURL
         self.fileName = fyleElement.fileName
         self.itemProvider = NSItemProvider(fyleElement: fyleElement)
-        self.uiDragItem = UIDragItem(fyleElement: fyleElement)
         guard fyleElement.fullFileIsAvailable else {
             os_log("Since the full file for fyle %{public}@ is not available, the hardlink won't contain a hardlink URL", log: log, type: .info, fyleElement.fyleURL.lastPathComponent)
             self.hardlinkURL = nil
@@ -397,7 +425,7 @@ extension FyleJoin {
     }
 }
 
-struct FyleElementForDraftFyleJoin: FyleElement {
+struct FyleElementForDraftFyleJoin: FyleElement, Sendable {
     
     let fileName: String
     let contentType: UTType
@@ -445,17 +473,6 @@ fileprivate extension NSItemProvider {
         guard fyleElement.fullFileIsAvailable else { return nil }
         self.init(item: fyleElement.fyleURL as NSURL, typeIdentifier: fyleElement.contentType.identifier)
         self.suggestedName = fyleElement.fileName
-    }
-    
-}
-
-
-fileprivate extension UIDragItem {
-    
-    convenience init?(fyleElement: FyleElement) {
-        guard fyleElement.fullFileIsAvailable else { return nil }
-        guard let itemProvider = NSItemProvider(fyleElement: fyleElement) else { return nil }
-        self.init(itemProvider: itemProvider)
     }
     
 }

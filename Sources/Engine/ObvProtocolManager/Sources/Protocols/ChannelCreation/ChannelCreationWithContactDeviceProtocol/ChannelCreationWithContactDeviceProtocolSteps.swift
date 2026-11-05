@@ -427,6 +427,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
 
             let contactIdentity = receivedMessage.contactIdentity
@@ -470,13 +471,18 @@ extension ChannelCreationWithContactDeviceProtocol {
                 guard !(try ChannelCreationPingSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity,
                                                                         signature: signature,
                                                                         within: obvContext.context)) else {
-                    os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendEphemeralKeyAndK1Step] The signature received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
-                    assertionFailure()
+                    logger.fault("🛟 [\(contactIdentity.debugDescription, privacy: .public)] [ChannelCreationWithContactDeviceProtocol,SendEphemeralKeyAndK1Step] The signature received was already received in a previous protocol message. We cancel.")
                     return CancelledState()
                 }
             } catch {
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendEphemeralKeyAndK1Step] We could not perform check whether the signature was already received: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
+                return CancelledState()
+            }
+
+            guard ChannelCreationPingSignatureReceived(ownedCryptoIdentity: ownedIdentity,
+                                                       signature: signature,
+                                                       within: obvContext.context) != nil else {
+                logger.fault("🛟 [\(contactIdentity.debugDescription, privacy: .public)] [ChannelCreationWithContactDeviceProtocol,SendEphemeralKeyAndK1Step] We could not insert a new ChannelCreationPingSignatureReceived entry")
                 return CancelledState()
             }
 

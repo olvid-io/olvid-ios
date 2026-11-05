@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,11 +23,8 @@ import CoreData
 import ObvUICoreData
 import os.log
 import ObvUIObvCircledInitials
-import ObvDesignSystem
-import ObvSettings
 
 
-@available(iOS 16, *)
 extension HorizontalListOfSelectedDiscussionsViewController.Cell {
     
     public struct ViewModel: Hashable, Equatable {
@@ -36,13 +33,11 @@ extension HorizontalListOfSelectedDiscussionsViewController.Cell {
         let subtitle: String?
         let subtitleLineTwo: String?
         let circledInitialsConfig: CircledInitialsConfiguration?
-        let style: IdentityColorStyle
     }
     
 }
 
 
-@available(iOS 16.0, *)
 extension HorizontalListOfSelectedDiscussionsViewController.Cell.ViewModel {
     
     static func createFromPersistedDiscussion(with discussionId: TypeSafeManagedObjectID<PersistedDiscussion>, within viewContext: NSManagedObjectContext) -> Self? {
@@ -80,8 +75,7 @@ extension HorizontalListOfSelectedDiscussionsViewController.Cell.ViewModel {
                              title: discussion.title,
                              subtitle: subtitle,
                              subtitleLineTwo: subtitleLineTwo,
-                             circledInitialsConfig: discussion.circledInitialsConfiguration,
-                             style: ObvMessengerSettings.Interface.identityColorStyle)
+                             circledInitialsConfig: discussion.circledInitialsConfiguration)
         } catch {
             os_log("createDiscussionsListSelectionCellViewModel: %@",
                    log: OSLog(subsystem: ObvUIConstants.logSubsystem, category: String(describing: Self.self)),

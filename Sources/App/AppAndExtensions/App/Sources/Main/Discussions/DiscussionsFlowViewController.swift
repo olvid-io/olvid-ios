@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import AVFAudio
 import OSLog
 import ObvTypes
 import ObvEngine
@@ -152,7 +153,7 @@ extension DiscussionsFlowViewController: UIGestureRecognizerDelegate {
     /// This is only used under iOS18+, in order to be the delegate of the `interactivePopGestureRecognizer`, allowing to activate the interactive pop gesture recognizer.
     /// See ``https://stackoverflow.com/questions/18946302/uinavigationcontroller-interactive-pop-gesture-not-working``.
     @objc func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        return viewControllers.count > 1
+        return theInteractivePopMayBegin()
     }
     
 }
@@ -532,4 +533,29 @@ extension DiscussionsFlowViewController: ObvDiscussionsListViewControllerActions
         flowDelegate.userWantsToRequestNotificationsAuthorization(self)
     }
 
+
+    func userWantsToUpdateOlvidFromAppStore(_ vc: ObvDiscussionsList.ObvDiscussionsListViewController) {
+        guard UIApplication.shared.canOpenURL(ObvMessengerConstants.shortLinkToOlvidAppIniTunes) else { assertionFailure(); return }
+        UIApplication.shared.open(ObvMessengerConstants.shortLinkToOlvidAppIniTunes, options: [:], completionHandler: nil)
+    }
+
+
+    func userWantsToRequestRecordPermission(_ vc: ObvDiscussionsList.ObvDiscussionsListViewController) {
+        AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+    }
+
+
+    func userWantsToOpenSettingsToGrantRecordPermission(_ vc: ObvDiscussionsList.ObvDiscussionsListViewController) {
+        guard let appSettings = URL(string: UIApplication.openRecordSettingsURLString) else { assertionFailure(); return }
+        guard UIApplication.shared.canOpenURL(appSettings) else { assertionFailure(); return }
+        UIApplication.shared.open(appSettings, options: [:])
+    }
+
+}
+
+
+// MARK: - ObvDiscussionsListViewController implements CanScrollToTop
+
+extension ObvDiscussionsListViewController: CanScrollToTop {
+    // Method already implemented in ObvDiscussionsListViewController
 }

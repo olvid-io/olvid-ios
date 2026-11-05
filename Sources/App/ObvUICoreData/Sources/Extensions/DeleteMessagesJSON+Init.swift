@@ -43,7 +43,7 @@ extension ObvAppTypes.DeleteMessagesJSON {
         let messagesToDelete = persistedMessagesToDelete.compactMap { $0.toMessageReferenceJSON() }
         switch try discussion.kind {
         case .oneToOne:
-            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId, let contactCryptoId = (discussion as? PersistedOneToOneDiscussion)?.contactIdentity?.cryptoId else {
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId, let contactCryptoId = try? (discussion as? PersistedOneToOneDiscussion)?.contactIdentity?.cryptoId else {
                 throw DeleteMessagesJSON.makeError(message: "Could not determine OneToOneIdentifierJSON")
             }
             let oneToOneIdentifier = OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)

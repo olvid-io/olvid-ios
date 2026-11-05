@@ -162,6 +162,7 @@ public struct ScanValidationView: View {
                     HStack(alignment: .center) {
                         Spacer()
                         DismissButton(action: { dismiss() })
+                            .keyboardShortcut(.cancelAction)
                     }
                     
                     ZStack(alignment: .center) {
@@ -236,9 +237,12 @@ public struct ScanValidationView: View {
     public var body: some View {
         if #available(iOS 16.4, *) {
             contentBody
+                // Nothing in this cover is focusable, and a shortcut is found from the first responder.
+                .takesKeyboardFocusOnAppear()
                 .presentationBackground(.black.opacity(0.5))
         } else {
             contentBody
+                .takesKeyboardFocusOnAppear()
         }
     }
 }

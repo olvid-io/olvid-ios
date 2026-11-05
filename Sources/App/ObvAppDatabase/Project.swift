@@ -25,10 +25,12 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     ],
     prepareForSwift6: true)
 
+private let frameworkTestsTarget = Target.makeFrameworkUnitTestsTarget(
+    forTesting: frameworkTarget)
 
 
 // MARK: - Project
 
 let project = Project.createProjectForFramework(
     frameworkTarget: frameworkTarget,
-    frameworkTestsTarget: nil)
+    frameworkTestsTarget: frameworkTestsTarget)

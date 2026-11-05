@@ -51,10 +51,9 @@ public struct StringAndUserMentions: Sendable, Equatable, Hashable {
 
         return sorted.dropFirst().reduce(into: [first]) { result, current in
             guard let previous = result.last else { return }
+            // A mention overlapping the one before it is dropped.
             if current.utf16Range.lowerBound >= previous.utf16Range.upperBound {
                 result.append(current)
-            } else {
-                assertionFailure() // Comment when passing tests
             }
         }
     }

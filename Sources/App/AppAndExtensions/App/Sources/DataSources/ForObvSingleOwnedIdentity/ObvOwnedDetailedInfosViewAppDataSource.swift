@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -123,7 +123,7 @@ extension ObvOwnedDetailedInfosViewAppDataSource {
                 do {
                     self.latestKeycloakStateAndUserDetails = try await delegate.getOwnedIdentityKeycloakState(self, ownedCryptoId: ownedCryptoId)
                     self.latestOwnedIdentityKeycloakApiKey = try await delegate.getRegisteredKeycloakAPIKey(self, ownedCryptoId: ownedCryptoId)
-                    Task { try await self.getFetchedObjectsAndYieldModelIfNeeded() }
+                    Task { try? await self.getFetchedObjectsAndYieldModelIfNeeded() }
                 } catch {
                     assertionFailure()
                 }

@@ -29,7 +29,6 @@ import ObvTypes
 /// In practice, `ManagedUserViewForVerticalUsersLayoutModelProtocol` is implemented by `PersistedUser`.
 protocol VerticalUsersViewModelProtocol: ObservableObject, UsersScrollingViewModelProtocol {
     // associatedtype VerticalUserModel: ManagedUserViewForVerticalUsersLayoutModelProtocol
-    @MainActor var searchInProgress: Bool { get }
     @MainActor var showSortingSpinner: Bool { get }
     //@MainActor var nsFetchRequest: NSFetchRequest<VerticalContactModel> { get }
 }
@@ -58,6 +57,11 @@ struct VerticalUsersView<Model: VerticalUsersViewModelProtocol>: View {
             if model.searchInProgress {
                 if #available(iOS 17.0, *) {
                     ContentUnavailableView.search
+                }
+            } else if let entry = configuration.contactsSuggestionsEntry {
+                // Somebody with no contacts yet is exactly who suggestions are for.
+                ContactsSuggestionsEntryAboveContent(entry: entry) {
+                    ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_TEXT") , systemIcon: .person, description: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION_WHEN_USING_FLOATING_BUTTON"))
                 }
             } else {
                 ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_TEXT") , systemIcon: .person, description: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION_WHEN_USING_FLOATING_BUTTON"))
@@ -102,6 +106,14 @@ fileprivate struct UsersScrollingView<Model: UsersScrollingViewModelProtocol>: V
                     List {
                         TextAboveUserListView(textAboveUserList: textAboveUserList)
                     }
+                } else if let entry = configuration.contactsSuggestionsEntry(searchInProgress: model.searchInProgress) {
+                    // The card above the other known users explains the list even when it is empty.
+                    List {
+                        Section {} header: {
+                            ContactsSuggestionsEntryHeader(entry: entry)
+                        }
+                    }
+                    .listStyle(InsetGroupedListStyle())
                 }
                 Spacer()
             }
@@ -156,6 +168,18 @@ protocol UsersInnerViewModelProtocol: ObservableObject {
     @MainActor var users: [VerticalUserModel] { get }
     @MainActor var tappedUser: VerticalUserModel? { get set }
     @MainActor var selectedUsers: Set<VerticalUserModel> { get }
+    @MainActor var searchInProgress: Bool { get }
+}
+
+
+extension UsersInnerViewConfigurationProtocol {
+
+    /// The entry to the contacts suggestions, unless a search is in progress: it has nothing to do with the query, and would push the results down.
+    @MainActor
+    func contactsSuggestionsEntry(searchInProgress: Bool) -> ContactsSuggestionsEntryState? {
+        searchInProgress ? nil : contactsSuggestionsEntry
+    }
+
 }
 
 
@@ -169,6 +193,8 @@ protocol UsersInnerViewConfigurationProtocol: SelectableUserCellViewConfiguratio
     var allowMultipleSelection: Bool { get }
     var textAboveUserList: String? { get }
     var selectionStyle: SelectionStyle { get }
+    /// The entry to the contacts suggestions, shown above the users while there is something to suggest.
+    var contactsSuggestionsEntry: ContactsSuggestionsEntryState? { get }
 }
 
 
@@ -231,8 +257,13 @@ fileprivate struct UsersInnerView<Model: UsersInnerViewModelProtocol>: View {
                     }
                 }
             } header: {
-                // Part of the trick that removes the top padding above the grouped list.
-                Color.clear.frame(height: 0).listRowInsets(.init())
+                if let entry = configuration.contactsSuggestionsEntry(searchInProgress: model.searchInProgress) {
+                    // A header, not a row: the list clips a row to the shape of its own cell, which cut the entry's rounded border.
+                    ContactsSuggestionsEntryHeader(entry: entry)
+                } else {
+                    // Part of the trick that removes the top padding above the grouped list.
+                    Color.clear.frame(height: 0).listRowInsets(.init())
+                }
             } footer: {
                 Rectangle()
                     .foregroundColor(.clear)

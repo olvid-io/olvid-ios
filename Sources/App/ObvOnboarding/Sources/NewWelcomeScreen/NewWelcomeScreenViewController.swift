@@ -35,12 +35,9 @@ final class NewWelcomeScreenViewController: UIHostingController<NewWelcomeScreen
     
     private weak var delegate: NewWelcomeScreenViewControllerDelegate?
     
-    private let showCloseButton: Bool
-    
     init(delegate: NewWelcomeScreenViewControllerDelegate, dataSource: NewWelcomeScreenViewDataSource, showCloseButton: Bool) {
-        self.showCloseButton = showCloseButton
         let actions = NewWelcomeScreenViewActions()
-        let view = NewWelcomeScreenView(actions: actions, dataSource: dataSource)
+        let view = NewWelcomeScreenView(actions: actions, dataSource: dataSource, showCloseButton: showCloseButton)
         super.init(rootView: view)
         self.delegate = delegate
         actions.delegate = self
@@ -62,19 +59,6 @@ final class NewWelcomeScreenViewController: UIHostingController<NewWelcomeScreen
     private func configureNavigation(animated: Bool) {
         navigationItem.largeTitleDisplayMode = .never
         navigationController?.setNavigationBarHidden(false, animated: animated)
-        if showCloseButton {
-            let handler: UIActionHandler = { [weak self] _ in self?.closeAction() }
-            let closeButton = UIBarButtonItem(systemItem: .close, primaryAction: .init(handler: handler))
-            navigationItem.rightBarButtonItem = closeButton
-        }
-    }
-    
-    
-    private func closeAction() {
-        Task { [weak self] in
-            guard let self else { return }
-            await delegate?.userWantsToCloseOnboarding(controller: self)
-        }
     }
     
     
@@ -98,6 +82,11 @@ final class NewWelcomeScreenViewController: UIHostingController<NewWelcomeScreen
         delegate?.userWantsToLeaveWelcomeScreenAndFinishOnboarding(controller: self, ownedIdentityThatCanBeOpened: ownedIdentityThatCanBeOpened)
     }
     
+    
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding(controller: self)
+    }
+    
 }
 
 
@@ -117,6 +106,10 @@ private final class NewWelcomeScreenViewActions: NewWelcomeScreenViewActionsProt
 
     func userWantsToLeaveWelcomeScreenAndFinishOnboarding(ownedIdentityThatCanBeOpened: ObvTypes.ObvCryptoId) {
         delegate?.userWantsToLeaveWelcomeScreenAndFinishOnboarding(ownedIdentityThatCanBeOpened: ownedIdentityThatCanBeOpened)
+    }
+
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding()
     }
 
 }

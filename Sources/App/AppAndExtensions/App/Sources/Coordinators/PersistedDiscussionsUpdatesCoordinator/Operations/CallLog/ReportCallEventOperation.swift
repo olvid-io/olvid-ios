@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -77,7 +77,7 @@ final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreD
             for participantId in callReport.participantInfos {
                 if let participantId = participantId,
                    let contactIdentity = try? PersistedObvContactIdentity.get(objectID: participantId.contactObjectID, within: context) {
-                    if let logContact = item.logContacts.first(where: { $0.contactIdentity?.cryptoId == contactIdentity.cryptoId }) {
+                    if let logContact = item.logContacts.first(where: { $0.contactIdentity == contactIdentity }) {
                         // Update the current contact with the last report.
                         logContact.callReportKind = callReportKind
                     } else {

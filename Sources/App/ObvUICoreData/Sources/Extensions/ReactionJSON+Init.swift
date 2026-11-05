@@ -39,7 +39,7 @@ extension ObvAppTypes.ReactionJSON {
         let groupV2Identifier: GroupV2Identifier?
         switch discussionKind {
         case .oneToOne:
-            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId, let contactCryptoId = (discussion as? PersistedOneToOneDiscussion)?.contactIdentity?.cryptoId else {
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId, let contactCryptoId = try? (discussion as? PersistedOneToOneDiscussion)?.contactIdentity?.cryptoId else {
                 throw ReactionJSON.makeError(message: "Could not determine OneToOneIdentifierJSON")
             }
             oneToOneIdentifier = OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)

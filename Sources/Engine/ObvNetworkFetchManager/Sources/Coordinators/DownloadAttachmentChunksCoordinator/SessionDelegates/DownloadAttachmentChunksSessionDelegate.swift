@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import CoreData
 import os.log
 import ObvMetaManager
 import ObvTypes
-import OlvidUtils
+@preconcurrency import OlvidUtils
 import ObvCrypto
 
 
@@ -81,7 +81,19 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
         }
     }
 
-    init(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, decryptedAttachmentURL: URL, tracker: AttachmentChunkDownloadProgressTracker, flowId: FlowIdentifier, cleartextChunkLengths: [Int], decryptionKey: AuthenticatedEncryptionKey, queueForDecryptingChunks: OperationQueue, queueForComposedOperations: OperationQueue, queueSharedAmongCoordinators: OperationQueue, obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+    init(attachmentId: ObvAttachmentIdentifier,
+         logSubsystem: String,
+         decryptedAttachmentURL: URL,
+         tracker: AttachmentChunkDownloadProgressTracker,
+         flowId: FlowIdentifier,
+         cleartextChunkLengths: [Int],
+         decryptionKey: AuthenticatedEncryptionKey,
+         queueForDecryptingChunks: OperationQueue,
+         queueForComposedOperations: OperationQueue,
+         queueSharedAmongCoordinators: OperationQueue,
+         obvContext: ObvContext,
+         viewContext: NSManagedObjectContext
+    ) {
         self.attachmentId = attachmentId
         self.tracker = tracker
         self.flowId = flowId
@@ -288,7 +300,7 @@ extension DownloadAttachmentChunksSessionDelegate {
     /// This struct simulates an ObvContextCreator, which is usually implemented using a Core Data context creator. In our very particular case, we are implementing an URLSessionDelegate and we cannot have strong pointers to other instances (since the URLSession keeps a strong pointer to this delegate).
     /// The strategy is to create a context in advance and pass it to this class during initialization. We embed this context in this struct, so as to make it possible to call a ``createCompositionOfOneContextualOperation`` method as usual.
     private struct ContextProviderForDownloadAttachmentChunksSessionDelegate: ObvContextCreator {
-        
+                
         let obvContext: ObvContext
         let viewContext: NSManagedObjectContext
 

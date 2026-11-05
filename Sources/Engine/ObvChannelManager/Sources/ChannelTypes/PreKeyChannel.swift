@@ -78,9 +78,13 @@ struct PreKeyChannel: ObvNetworkChannel {
             return .contactIsRevokedAsCompromised
 
         case .couldNotUnwrap:
-            
+
             return .couldNotUnwrap
-            
+
+        case .signatureWasAlreadyAccepted:
+
+            return .preKeySignatureWasAlreadyAccepted
+
         case .unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: let remoteCryptoIdentity):
             
             return .unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: remoteCryptoIdentity)

@@ -44,7 +44,7 @@ final class ContactIdentity: NSManagedObject {
     @NSManaged private(set) var isForcefullyTrustedByUser: Bool
     @NSManaged private(set) var isRevokedAsCompromised: Bool
     @NSManaged private(set) var ownedIdentityIdentity: Data // Unique (together with `rawIdentity`)
-    @NSManaged private var rawDateOfLastBootstrappedContactDeviceDiscovery: Date?
+    @NSManaged private var rawDateOfLastBootstrappedContactDeviceDiscovery: Date? // When the bootstrap (the seven-day sweep, or the path for contacts without a device) last started a discovery
     @NSManaged private var rawIdentity: Data // Unique (together with `ownedIdentityIdentity`)
     @NSManaged private var rawOneToOneStatus: NSNumber? // Expected to be non-nil
     @NSManaged private var trustLevelRaw: String
@@ -380,48 +380,39 @@ extension ContactIdentity {
             return
         }
 
-        
-        // We check whether the identity is part of the KeycloakRevokedIdentity table.
-        // Among the returned revocation, look for those that have a compromised type. If there is one, this contact should be revoked as compromised and we return.
-        // If the identity is not compromised, look for revocations that are more recent than the details signature, and uncertify the identity if one is found
-
-        let revocations = try KeycloakRevokedIdentity.get(keycloakServer: ownKeycloakServer, identity: cryptoIdentity)
-
-        do {
-            let revocationsCompromised = revocations.filter({ (try? $0.revocationType) == .compromised })
-            guard revocationsCompromised.isEmpty else {
-                assert(newIsCertifiedByOwnKeycloak == false)
-                revokeAsCompromised() // This deletes the devices of the contact
-                return
-            }
+        // A compromised identity is revoked whatever its signed details, so this test comes before they are verified.
+        if try ownKeycloakServer.hasRevokedAsCompromised(cryptoIdentity) {
+            assert(newIsCertifiedByOwnKeycloak == false)
+            revokeAsCompromised() // This deletes the devices of the contact
+            return
         }
         
         let signedContactUserDetails: SignedObvKeycloakUserDetails
         do {
-            signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(signedUserDetails, with: ownKeycloakServer.jwks).signedUserDetails
+            let signatureVerificationKeyOrJWKS = try ownKeycloakServer.toObvKeycloakState.signatureVerificationKeyOrJWKS
+            signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(
+                signedUserDetails,
+                with: signatureVerificationKeyOrJWKS,
+                binding: .mustBeBound(to: ObvCryptoId(cryptoIdentity: cryptoIdentity))
+            ).signedUserDetails
+        } catch let error as SignedObvKeycloakUserDetails.ObvError {
+            Self.logger.error("The signed details of the contact are not bound to its identity: \(error, privacy: .public)")
+            assert(newIsCertifiedByOwnKeycloak == false)
+            return
         } catch {
             Self.logger.info("The signature on the contact signed details is not valid (this also happens if the server signing key changes). We consider this contact as not managed by our own keycloak,")
             assert(newIsCertifiedByOwnKeycloak == false)
             return
         }
-        if let timestampOfSignedContactUserDetails = signedContactUserDetails.timestamp {
-            let revocationsLeftCompany = revocations.filter({ (try? $0.revocationType) == .leftCompany && $0.revocationTimestamp > timestampOfSignedContactUserDetails })
-            guard revocationsLeftCompany.isEmpty else {
-                // The user left the company after the signature of his details --> unmark as certified
-                assert(newIsCertifiedByOwnKeycloak == false)
-                return
-            }
+        
+        // If the details were signed before the user left the company, or if the signature is too old,
+        // the user is no longer certified, so we return early.
+        if try ownKeycloakServer.areDetailsRevokedOrExpired(signedContactUserDetails, of: cryptoIdentity) {
+            assert(newIsCertifiedByOwnKeycloak == false)
+            return
         }
                 
-        // If we reach this point, the contact has details that are signed by our keycloak server.
-        
-        // We check that the signature on these details is not too old. If this is the case, we don't trust them since they should have been updated since then.
-        
-        if let timestampOfSignedContactUserDetails = signedContactUserDetails.timestamp {
-            guard abs(timestampOfSignedContactUserDetails.timeIntervalSinceNow) < ObvConstants.keycloakSignatureValidity else {
-                return
-            }
-        }
+        // If we reach this point, the contact's details are signed by our keycloak server, and are neither revoked nor too old.
         
         // If these details are not trusted yet, we trust them now.
         
@@ -506,7 +497,15 @@ extension ContactIdentity {
         guard let ownKeycloakServer = ownedIdentity.keycloakServer else {
             return nil
         }
-        let signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(signedUserDetails, with: ownKeycloakServer.jwks).signedUserDetails
+        guard let cryptoIdentity else {
+            return nil
+        }
+        let signatureVerificationKeyOrJWKS = try ownKeycloakServer.toObvKeycloakState.signatureVerificationKeyOrJWKS
+        let signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(
+            signedUserDetails,
+            with: signatureVerificationKeyOrJWKS,
+            binding: .mustBeBound(to: ObvCryptoId(cryptoIdentity: cryptoIdentity))
+        ).signedUserDetails
         return signedContactUserDetails
     }
     
@@ -929,6 +928,19 @@ extension ContactIdentity {
             let key = [Key.ownedIdentity.rawValue, OwnedIdentity.Predicate.Key.isActive.rawValue].joined(separator: ".")
             return NSPredicate(key, is: true)
         }
+        fileprivate static func withDateOfLastBootstrappedContactDeviceDiscovery(earlierThan date: Date) -> NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(withNilValueForKey: Key.rawDateOfLastBootstrappedContactDeviceDiscovery),
+                NSPredicate(Key.rawDateOfLastBootstrappedContactDeviceDiscovery, earlierThan: date),
+            ])
+        }
+        fileprivate static func withDateOfLastBootstrappedContactDeviceDiscoveryInTheFuture(nowIs now: Date) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.rawDateOfLastBootstrappedContactDeviceDiscovery),
+                NSPredicate(Key.rawDateOfLastBootstrappedContactDeviceDiscovery, laterThan: now),
+            ])
+        }
+
     }
     
     
@@ -1015,10 +1027,15 @@ extension ContactIdentity {
     
     static func getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(within context: NSManagedObjectContext) throws -> Set<ObvContactIdentifier> {
         let request: NSFetchRequest<ContactIdentity> = ContactIdentity.fetchRequest()
-        let dateLimit = Date.now.addingTimeInterval(-ObvConstants.contactDeviceDiscoveryTimeInterval)
+        let now = Date.now
+        let dateInThePast = now.addingTimeInterval(-ObvConstants.contactDeviceDiscoveryTimeInterval)
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withActiveOwnedIdentity,
-            Predicate.withServerTimestampOfLastContactDiscovery(earlierThan: dateLimit),
+            Predicate.withServerTimestampOfLastContactDiscovery(earlierThan: dateInThePast),
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                Predicate.withDateOfLastBootstrappedContactDeviceDiscovery(earlierThan: dateInThePast), // true iff contact device discovery was not started during bootstrap, or started more than seven days ago
+                Predicate.withDateOfLastBootstrappedContactDeviceDiscoveryInTheFuture(nowIs: now), // so that a clock set forward then back does not hide the contact until real time passes that date
+            ])
         ])
         request.propertiesToFetch = [
             Predicate.Key.rawIdentity.rawValue,

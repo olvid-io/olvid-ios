@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,12 +34,12 @@ extension ContactDeviceDiscoveryProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
         case initial = 0
-        case childProtocolReachedExpectedState = 1
+        case childProtocolReachedFinalState = 1
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .initial                           : return InitialMessage.self
-            case .childProtocolReachedExpectedState : return ChildProtocolReachedExpectedStateMessage.self
+            case .initial                        : return InitialMessage.self
+            case .childProtocolReachedFinalState : return ChildProtocolReachedFinalStateMessage.self
             }
         }
     }
@@ -72,15 +72,15 @@ extension ContactDeviceDiscoveryProtocol {
     }
     
     
-    struct ChildProtocolReachedExpectedStateMessage: ConcreteProtocolMessage {
+    struct ChildProtocolReachedFinalStateMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.childProtocolReachedExpectedState
+        let id: ConcreteProtocolMessageId = MessageId.childProtocolReachedFinalState
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
         
         let childToParentProtocolMessageInputs: ChildToParentProtocolMessageInputs
-        let deviceUidsSentState: DeviceDiscoveryForRemoteIdentityProtocol.DeviceUidsReceivedState
+        let childFinalState: DeviceDiscoveryForRemoteIdentityProtocol.FinalState
         
         var encodedInputs: [ObvEncoded] {
             return childToParentProtocolMessageInputs.toListOfEncoded()
@@ -92,7 +92,7 @@ extension ContactDeviceDiscoveryProtocol {
             self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let inputs = ChildToParentProtocolMessageInputs(try message.encodedInputs) else { assertionFailure(); throw Self.makeError(message: "Failed to obtain inputs") }
             childToParentProtocolMessageInputs = inputs
-            deviceUidsSentState = try DeviceDiscoveryForRemoteIdentityProtocol.DeviceUidsReceivedState(childToParentProtocolMessageInputs.childProtocolInstanceEncodedReachedState)
+            childFinalState = try DeviceDiscoveryForRemoteIdentityProtocol.FinalState(inputs)
         }
     }
 }

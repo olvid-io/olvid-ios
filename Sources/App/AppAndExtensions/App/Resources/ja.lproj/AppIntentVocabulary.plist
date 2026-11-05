@@ -12,6 +12,30 @@
 				<string>Olvidで通話を開始する</string>
 			</array>
 		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSendMessageIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Olvidでメッセージを送る</string>
+			</array>
+		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSearchForMessagesIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Olvidでメッセージを検索する</string>
+			</array>
+		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSetMessageAttributeIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Olvidでメッセージを既読にする</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

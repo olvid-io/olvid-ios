@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import UIKit
 import MobileCoreServices
 import PDFKit
 import AVKit
-import os.log
+import OSLog
 import QuickLook
 import CoreData
 import OlvidUtils
@@ -31,89 +31,10 @@ import ObvDesignSystem
 import ObvAppCoreConstants
 
 
-protocol CustomQLPreviewControllerDelegate: QLPreviewControllerDelegate {
+protocol FilesViewerPreviewDelegate: QLPreviewControllerDelegate {
     func previewController(hasDisplayed joinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 }
 
-final class CustomQLPreviewController: QLPreviewController {
-    
-    var preventSharing = false {
-        didSet {
-            view.setNeedsLayout()
-        }
-    }
-
-    private var hiddenToolbars = [UIToolbar: UIView]()
-    private var disabledButtons = [UIBarButtonItem]()
-    
-    override func viewWillLayoutSubviews() {
-        super.viewWillLayoutSubviews()
-        if preventSharing {
-            self.hideToolBar()
-            self.hideShareButtonFromNavigationBar()
-        } else {
-            self.unhideToolBar()
-            self.unhideShareButtonFromNavigationBar()
-        }
-    }
-        
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        self.view.setNeedsLayout()
-    }
-    
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        self.view.setNeedsLayout()
-    }
-    
-    /// This is used when `preventSharing` is `true` to hide all bottom toolbar since they contain a sharing
-    /// button when more than one items are previewed.
-    private func hideToolBar() {
-        let allToolbars = self.view.deepSearchAllSubview(ofClass: UIToolbar.self)
-        for toolbar in allToolbars {
-            if let hidingView = hiddenToolbars[toolbar] {
-                hidingView.isHidden = false
-            } else {
-                let hidingView = UIView()
-                hiddenToolbars[toolbar] = hidingView
-                hidingView.translatesAutoresizingMaskIntoConstraints = false
-                hidingView.backgroundColor = AppTheme.shared.colorScheme.systemBackground
-                toolbar.addSubview(hidingView)
-                hidingView.pinAllSidesToSides(of: toolbar)
-            }
-        }
-    }
-    
-    
-    private func unhideToolBar() {
-        let hidingViews = hiddenToolbars.values
-        hidingViews.forEach({ $0.isHidden = true })
-    }
-    
-    
-    /// This is used when `preventSharing` is `true` to hide all top right navigation button since one is shown
-    /// when one item are previewed.
-    private func hideShareButtonFromNavigationBar() {
-        let allNavigationBars = self.view.deepSearchAllSubview(ofClass: UINavigationBar.self)
-        for nav in allNavigationBars {
-            if let button = nav.topItem?.rightBarButtonItem {
-                button.isEnabled = false
-                disabledButtons.append(button)
-            }
-            if let buttons = nav.topItem?.rightBarButtonItems, !buttons.isEmpty {
-                buttons.forEach { $0.isEnabled = false }
-                disabledButtons.append(contentsOf: buttons)
-            }
-        }
-    }
-    
-    
-    private func unhideShareButtonFromNavigationBar() {
-        disabledButtons.forEach({ $0.isEnabled = true })
-    }
-    
-}
 
 // MARK: - FilesViewer
 
@@ -138,7 +59,7 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
 
     private var previewControllerIsShown = false
 
-    let previewController = CustomQLPreviewController()
+    let previewController = QLPreviewController()
     
     private var section: Int? // Section of the initial index path
     
@@ -146,12 +67,11 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
     
     private var reloadDataOnNextControllerDidChangeContent = false
     
-    init(frc: NSFetchedResultsController<FyleMessageJoinWithStatus>, qlPreviewControllerDelegate: CustomQLPreviewControllerDelegate) {
+    init(frc: NSFetchedResultsController<FyleMessageJoinWithStatus>, qlPreviewControllerDelegate: FilesViewerPreviewDelegate) {
         assert(frc.delegate == nil)
         self.frcType = .fyleMessageJoinWithStatus(frc: frc)
         previewController.delegate = qlPreviewControllerDelegate
         super.init()
-        observeCurrentItemToPreventSharingIfNecessary()
         observeCurrentItemToSendReadReceiptIfNecessary()
         if case .fyleMessageJoinWithStatus(frc: let frc) = frcType {
             frc.delegate = self
@@ -159,7 +79,7 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
     }
 
     
-    init(frc: NSFetchedResultsController<PersistedDraftFyleJoin>, qlPreviewControllerDelegate: CustomQLPreviewControllerDelegate) {
+    init(frc: NSFetchedResultsController<PersistedDraftFyleJoin>, qlPreviewControllerDelegate: FilesViewerPreviewDelegate) {
         self.frcType = .persistedDraftFyleJoin(frc: frc)
         previewController.delegate = qlPreviewControllerDelegate
         super.init()
@@ -167,27 +87,6 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
     }
 
     private var kvoTokens = [NSKeyValueObservation]()
-    
-    private func observeCurrentItemToPreventSharingIfNecessary() {
-        let token = previewController.observe(\.currentPreviewItemIndex, options: [.new, .prior]) { [weak self] _, change in
-            guard case let .fyleMessageJoinWithStatus(frc) = self?.frcType else { return }
-            if change.isPrior {
-                // When we receive a "prior" notification, we do not have access to the new index yet.
-                // By precaution, we hide the sharing options
-                self?.previewController.preventSharing = true
-            } else {
-                guard let section = self?.section else { return }
-                guard let index = change.newValue else { assertionFailure(); return }
-                let indexPath = IndexPath(item: index, section: section)
-                guard section < frc.sections?.count ?? 0 else { return }
-                guard let sectionInfos = frc.sections?[section] else { return }
-                guard index < sectionInfos.numberOfObjects else { return }
-                guard let join = frc.safeObject(at: indexPath) else { return }
-                self?.previewController.preventSharing = !join.shareActionCanBeMadeAvailable
-            }
-        }
-        kvoTokens.append(token)
-    }
 
     private func observeCurrentItemToSendReadReceiptIfNecessary() {
         let token = previewController.observe(\.currentPreviewItemIndex, options: [.new, .prior]) { [weak self] _, change in
@@ -202,7 +101,7 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
             guard let join = frc.safeObject(at: indexPath) else { return }
 
             guard let receivedJoin = join as? ReceivedFyleMessageJoinWithStatus else { return }
-            guard let customDelegate = self?.previewController.delegate as? CustomQLPreviewControllerDelegate else { assertionFailure(); return }
+            guard let customDelegate = self?.previewController.delegate as? FilesViewerPreviewDelegate else { assertionFailure(); return }
             customDelegate.previewController(hasDisplayed: receivedJoin.typedObjectID)
         }
         kvoTokens.append(token)
@@ -258,11 +157,11 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
                 continue
             }
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { result in
+                HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { [weak self] result in
                     assert(!Thread.isMainThread)
                     switch result {
                     case .success(let hardLinkToFyle):
-                        DispatchQueue.main.async { [weak self] in
+                        DispatchQueue.main.async {
                             self?.hardLinkToFyleForJoin[join.objectID] = hardLinkToFyle
                             continuation.resume()
                         }
@@ -378,7 +277,11 @@ extension FilesViewer: QLPreviewControllerDataSource {
         case .persistedDraftFyleJoin(frc: let frc):
             guard let join = frc.safeObject(at: indexPathToShow) else { assertionFailure(); return FailedQLPreviewItem() }
             hardLinkToFyle = hardLinkToFyleForJoin[join.objectID]
-            fyleElement = join.fyleElement
+            // **The file that will be sent, not the one that was attached.** Opening an attachment of a draft is how the reader checks
+            // what their contact is going to receive, so for a photograph it shows the size they chose rather than what came off the
+            // camera. Safe to follow the choice here, where the thumbnails cannot: this viewer is built afresh on every tap and its
+            // `hardLinkToFyleForJoin` lasts only as long as it does, where the thumbnail caches are static and outlive any choice.
+            fyleElement = join.fyleElementOfTheFileThatWillBeSent
             joinObject = join
         }
         

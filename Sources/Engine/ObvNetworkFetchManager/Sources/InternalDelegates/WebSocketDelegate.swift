@@ -35,5 +35,8 @@ protocol WebSocketDelegate {
     func getWebSocketState(ownedIdentity: ObvCryptoIdentity, handler: @escaping @Sendable (Result<(URLSessionTask.State, TimeInterval?), Error>) -> Void) async
 
     func getAsyncStreamOfEncryptedReceivedReturnReceipt() async -> AsyncStream<ObvTypes.ObvEncryptedReceivedReturnReceipt>
-    
+
+    /// For the diagnostics screen. Counted since this process started and kept in memory only, so both are nought again at the next launch.
+    func getNumbersOfReturnReceiptsSinceLaunch() async -> (received: Int, deleteRequestsSent: Int)
+
 }

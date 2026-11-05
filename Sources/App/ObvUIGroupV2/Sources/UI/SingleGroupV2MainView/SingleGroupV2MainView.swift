@@ -341,9 +341,17 @@ public struct SingleGroupV2MainView: View {
             .init(content: circleAndTitlesViewModelContentForHeaderOrTrustedDetails(model: model),
                   colors: initialCircleViewModelColorsForHeaderOrTrustedDetails(model: model),
                   displayMode: .header,
-                  editionMode: .none)
+                  editionMode: .none,
+                  loadPictureShownLarge: loadPictureShownLarge(model: model))
         }
-        
+
+        /// The picture in the circle, as stored.
+        private func loadPictureShownLarge(model: SingleGroupV2MainViewModel) -> (@MainActor () async -> CGImage?)? {
+            guard let photoURL = customPhoto != nil ? model.customPhotoURL : (trustedPhoto != nil ? model.trustedPhotoURL : nil) else { return nil }
+            let avatarViewDataSource = subDataSources.avatarViewDataSource
+            return { try? await avatarViewDataSource.fetchPictureAsStored(photoURL: photoURL) }
+        }
+
         private func circleAndTitlesViewModelContentForHeaderOrTrustedDetails(model: SingleGroupV2MainViewModel) -> CircleAndTitlesView.Model.Content {
             .init(textViewModel: textViewModelForHeaderOrTrustedDetails(model: model),
                   profilePictureViewModelContent: profilePictureViewModelContentForHeaderOrTrustedDetails(model: model))

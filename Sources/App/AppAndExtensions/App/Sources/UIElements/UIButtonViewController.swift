@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,6 @@
 
 import SwiftUI
 
-@available(iOS 14.0, *)
 class UIButtonViewController: UIViewController {
 
     var hostingController: UIHostingController<AnyView> = UIHostingController(rootView: AnyView(EmptyView()))
@@ -68,7 +67,6 @@ class UIButtonViewController: UIViewController {
     
 }
 
-@available(iOS 14.0, *)
 struct UIButtonWrapper<Content: View>: UIViewControllerRepresentable {
 
     let title: String?
@@ -93,7 +91,6 @@ struct UIButtonWrapper<Content: View>: UIViewControllerRepresentable {
     }
 }
 
-@available(iOS 14.0, *)
 struct UIButtonWrapper_Previews: PreviewProvider {
 
     static var cameraButtonActions: [UIAction] {

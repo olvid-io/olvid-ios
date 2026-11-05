@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -206,6 +206,9 @@ public struct OwnedDeviceView: View {
     }
     
     @State private var isPermuteDeviceExpirationViewPresented: PermuteDeviceExpirationView.Model? = nil
+
+    /// Set when the reader asks for the subscription plans from the popover, which are shown once it has gone. See ``thePermuteDeviceExpirationViewHasGone()``.
+    @State private var showsTheSubscriptionPlansOnceThePopoverHasGone = false
 
     /// Helper method for `userWantsToKeepDeviceActive()`. Also called when the user confirms from the `PermuteDeviceExpirationView` that this device should remain active.
     private func doKeepDeviceActiveNow() {
@@ -430,6 +433,7 @@ public struct OwnedDeviceView: View {
                                 model: isPermuteDeviceExpirationViewPresented,
                                 actions: self,
                                 navigation: self)
+                            .onDisappear(perform: thePermuteDeviceExpirationViewHasGone)
                         }
                     }
                     
@@ -557,12 +561,21 @@ extension OwnedDeviceView: PermuteDeviceExpirationViewActions {
 
 extension OwnedDeviceView: PermuteDeviceExpirationViewNavigation {
     
+    /// The plans are shown by a sheet further up, so this popover is closed first and the plans are asked for once it has gone, rather
+    /// than presenting over a popover that is still on screen.
     func userWantsToSeeSubscriptionPlans(_ view: PermuteDeviceExpirationView) {
-        navigation.userWantsToSeeSubscriptionPlans(self)
+        showsTheSubscriptionPlansOnceThePopoverHasGone = true
+        isPermuteDeviceExpirationViewPresented = nil
     }
     
     func permuteDeviceExpirationViewShouldBeDismissed(_ view: PermuteDeviceExpirationView) {
         isPermuteDeviceExpirationViewPresented = nil
+    }
+    
+    fileprivate func thePermuteDeviceExpirationViewHasGone() {
+        guard showsTheSubscriptionPlansOnceThePopoverHasGone else { return }
+        showsTheSubscriptionPlansOnceThePopoverHasGone = false
+        navigation.userWantsToSeeSubscriptionPlans(self)
     }
         
 }

@@ -290,6 +290,7 @@ public struct PollView: View {
                     } label: {
                         Text("POLL_CLOSE")
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
             }
             .task(onTaskForAsyncStreamOfPollViewModel)

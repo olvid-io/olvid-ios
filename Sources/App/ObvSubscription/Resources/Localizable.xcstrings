@@ -131,6 +131,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miesiąc gratis"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miesiąca gratis"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miesiące gratis"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miesięcy gratis"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -181,6 +211,36 @@
                   "state": "translated",
                   "value": "%lld месяцев бесплатно"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld месяца бесплатно"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld месяцев бесплатно"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ay ücretsiz"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ay ücretsiz"
+                }
               }
             }
           }
@@ -198,6 +258,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld місяців безкоштовно"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld місяці безкоштовно"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld місяців безкоштовно"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tháng miễn phí"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tháng miễn phí"
                 }
               }
             }
@@ -267,6 +357,12 @@
             "value": "구독 상태 확인"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdź stan subskrypcji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -285,10 +381,22 @@
             "value": "Проверить статус подписки"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik durumunu kontrol et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Перевірте статус підписки"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra trạng thái đăng ký"
           }
         },
         "zh-Hans": {
@@ -343,6 +451,12 @@
             "value": "연락처에 전화 걸기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadzwoń do kontaktu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -361,10 +475,22 @@
             "value": "Позвонить контакту"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir kişiyi ara"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зателефонувати контакту"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gọi cho một liên hệ"
           }
         },
         "zh-Hans": {
@@ -421,6 +547,12 @@
             "value": "나중에 다시 알려주세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przypomnij mi później"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -439,10 +571,22 @@
             "value": "Напомнить позже"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha sonra hatırlat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Нагадати пізніше"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhắc tôi sau"
           }
         },
         "zh-Hans": {
@@ -497,6 +641,12 @@
             "value": "30일 동안 무료로 보안 통화를 사용해 보세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wypróbuj bezpieczne połączenia za darmo przez 30 dni"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -515,10 +665,22 @@
             "value": "Попробуйте безопасные звонки бесплатно в течение 30 дней"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli aramaları 30 gün ücretsiz dene"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Спробуйте захищені дзвінки безкоштовно протягом 30 днів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng thử tính năng gọi thoại bảo mật miễn phí trong 30 ngày"
           }
         },
         "zh-Hans": {
@@ -575,6 +737,12 @@
             "value": "구독"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subskrybuj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -593,10 +761,22 @@
             "value": "Подписаться"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abone ol"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підписатися"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng ký"
           }
         },
         "zh-Hans": {
@@ -653,6 +833,12 @@
             "value": "구독 목록을 불러올 수 없습니다. 인터넷 연결을 확인하고 다시 시도해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się wczytać listy subskrypcji. Sprawdź połączenie z internetem i spróbuj ponownie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -671,10 +857,22 @@
             "value": "Не удалось загрузить список подписок. Проверьте подключение к интернету и попробуйте еще раз."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik listesi yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося завантажити список підписок. Перевірте підключення до Інтернету та спробуйте ще раз."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể tải danh sách các gói đăng ký. Vui lòng kiểm tra kết nối internet của bạn và thử lại."
           }
         },
         "zh-Hans": {
@@ -731,6 +929,12 @@
             "value": "구독 가능한 항목이 없습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak dostępnych subskrypcji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -749,10 +953,22 @@
             "value": "Нет доступных подписок"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanılabilir Abonelik Yok"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Немає доступних підписок"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có gói đăng ký nào khả dụng"
           }
         },
         "zh-Hans": {
@@ -809,6 +1025,12 @@
             "value": "Apple Family Sharing을 설정하고 가족 구성원 다섯 명에게 Olvid+를 선물하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skonfiguruj Chmurę rodzinną Apple i podaruj Olvid+ pięciu członkom rodziny."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -827,10 +1049,22 @@
             "value": "Настройте «Семейный доступ» Apple и подарите Olvid+ пятерым членам вашей семьи."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Aile Paylaşımı'nı ayarlayın ve beş aile üyenize Olvid+ hediye edin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Налаштуйте «Family Sharing» від Apple та подаруйте Olvid+ п’ятьом членам вашої родини."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết lập tính năng Chia sẻ trong gia đình của Apple và tặng Olvid+ cho năm thành viên trong gia đình của bạn."
           }
         },
         "zh-Hans": {
@@ -887,6 +1121,12 @@
             "value": "여러 기기에서 메시지를 동기화하여 사용할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoje wiadomości są synchronizowane na wszystkich twoich urządzeniach."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -905,10 +1145,22 @@
             "value": "Ваши сообщения синхронизируются на всех ваших устройствах."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesajlarınız tüm cihazlarınızda eşzamanlı kalır."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваші повідомлення синхронізуються на всіх ваших пристроях."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tin nhắn của bạn sẽ được đồng bộ trên tất cả các thiết bị."
           }
         },
         "zh-Hans": {
@@ -965,6 +1217,12 @@
             "value": "종단 간 암호화된 음성 및 영상 통화를 합니다. Olvid+를 구독하지 않아도 모든 Olvid 사용자와 통화할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prowadź szyfrowane end-to-end połączenia głosowe i wideo. Dzwoń do każdego użytkownika Olvid, nawet bez Olvid+."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -983,10 +1241,22 @@
             "value": "Совершайте сквозные зашифрованные голосовые и видеозвонки. Звоните любому пользователю Olvid, даже без Olvid+."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uçtan uca şifreli sesli ve görüntülü aramalar yapın. Olvid+ sahibi olmasalar bile tüm Olvid kullanıcılarını arayın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Здійснюйте кінцево-зашифровані голосові та відеодзвінки. Телефонуйте будь-якому користувачу Olvid, навіть без Olvid+."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thực hiện cuộc gọi thoại và video được mã hóa đầu cuối. Gọi cho bất kỳ người dùng Olvid nào, ngay cả khi họ không dùng Olvid+."
           }
         },
         "zh-Hans": {
@@ -1043,6 +1313,12 @@
             "value": "귀하의 구독은 지속 가능하고 투명한 모델을 지원하여 Olvid이 광고나 숨겨진 비용 없이 모든 사용자에게 무료로 제공될 수 있도록 합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoja subskrypcja wspiera zrównoważony i uczciwy model — dzięki niemu Olvid pozostaje bezpłatny dla wszystkich, bez reklam i ukrytych kosztów."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1061,10 +1337,22 @@
             "value": "Ваша подписка поддерживает устойчивую и честную модель — позволяя Olvid оставаться бесплатным для всех, без рекламы и скрытых платежей."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aboneliğiniz sürdürülebilir ve dürüst bir modeli destekler; böylece Olvid reklamsız ve gizli maliyet olmadan herkes için ücretsiz kalır."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваша підписка підтримує сталу та чесну модель—допомагаючи Olvid залишатися безкоштовним для всіх, без реклами чи прихованих витрат."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng ký của bạn hỗ trợ mô hình minh bạch, bền vững, giúp Olvid luôn miễn phí cho tất cả mọi người, không có quảng cáo hoặc chi phí ẩn."
           }
         },
         "zh-Hans": {
@@ -1121,6 +1409,12 @@
             "value": "패밀리 공유"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chmura rodzinna"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1139,10 +1433,22 @@
             "value": "Семейный доступ"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aile Paylaşımı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Сімейний доступ"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chia sẻ trong gia đình"
           }
         },
         "zh-Hans": {
@@ -1199,6 +1505,12 @@
             "value": "다중 기기 지원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiele urządzeń"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1217,10 +1529,22 @@
             "value": "Мультиплатформенность"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çoklu cihaz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Багатопристроєвість"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đa thiết bị"
           }
         },
         "zh-Hans": {
@@ -1277,6 +1601,12 @@
             "value": "안전한 음성 및 영상 통화"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezpieczne połączenia i wideo"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1295,10 +1625,22 @@
             "value": "Безопасные звонки и видео"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli Sesli ve Görüntülü Arama"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Безпечні дзвінки та відео"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuộc gọi và video an toàn"
           }
         },
         "zh-Hans": {
@@ -1355,6 +1697,12 @@
             "value": "정말로 무료 앱을 지원하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wspieraj naprawdę darmową aplikację"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1373,10 +1721,22 @@
             "value": "Поддержите действительно бесплатное приложение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerçekten Ücretsiz Bir Uygulamayı Destekleyin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підтримайте справді безкоштовний додаток"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ủng hộ một ứng dụng hoàn toàn miễn phí"
           }
         },
         "zh-Hans": {
@@ -1433,6 +1793,12 @@
             "value": "구독이 취소될 때까지 %@에 대해 자동 갱신을 설정합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan odnawia się automatycznie w cenie %@ do czasu anulowania."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1451,10 +1817,22 @@
             "value": "Подписка автоматически продлевается за %@ до отмены."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan, iptal edilene kadar %@ ücretle otomatik olarak yenilenir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Plan auto-renews for %@ until canceled."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gói tự động gia hạn với mức %@ cho đến khi bị hủy."
           }
         },
         "zh-Hans": {
@@ -1511,6 +1889,12 @@
             "value": "Olvid+로 업그레이드하여 앱의 모든 기능을 사용하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przejdź na Olvid+, aby w pełni korzystać z aplikacji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1529,10 +1913,22 @@
             "value": "Обновитесь до Olvid+ для полноценного использования приложения"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uygulamanın tamamını deneyimlemek için Olvid+ aboneliğine geçin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оновіть до Olvid+ для отримання повного досвіду використання додатку"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng cấp lên Olvid+ để trải nghiệm đầy đủ tính năng của ứng dụng"
           }
         },
         "zh-Hans": {
@@ -1587,6 +1983,12 @@
             "value": "안전한 오디오 및 비디오 통화를 하려면 Olvid 구독이 필요합니다.\n\n전화 수신은 항상 무료입니다.\n\n프로필을 방문하여 요금제를 확인하거나 구독하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do wykonywania bezpiecznych połączeń głosowych i wideo potrzebna jest subskrypcja Olvid.\n\nOdbieranie połączeń jest zawsze bezpłatne.\n\nPrzejdź do swojego profilu, aby sprawdzić swój plan lub wykupić subskrypcję."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1605,10 +2007,22 @@
             "value": "Для совершения защищенных аудио- и видеозвонков требуется подписка Olvid.\n\nПрием звонков всегда бесплатный.\n\nПосетите свой профиль, чтобы проверить свой тарифный план или оформить подписку."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli sesli ve görüntülü arama yapmak için Olvid aboneliği gerekir.\n\nArama almak her zaman ücretsizdir.\n\nPlanınızı kontrol etmek veya abone olmak için profilinize gidin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Для здійснення безпечних аудіо- та відеодзвінків необхідна підписка Olvid.\n\nПрийом дзвінків завжди безкоштовний.\n\nВідвідайте свій профіль, щоб перевірити свій план або оформити підписку."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn cần đăng ký Olvid để thực hiện các cuộc gọi thoại và video an toàn.\n\nNhận cuộc gọi luôn miễn phí.\n\nTruy cập vào trang cá nhân của bạn để kiểm tra gói dịch vụ hoặc đăng ký."
           }
         },
         "zh-Hans": {
@@ -1663,6 +2077,12 @@
             "value": "요청하신 기능은 구독이 필요합니다.\n\n프로필에서 구독 계획을 확인하거나 구독하십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta funkcja wymaga subskrypcji.\n\nPrzejdź do swojego profilu, aby sprawdzić swój plan lub wykupić subskrypcję."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1681,10 +2101,22 @@
             "value": "Запрашиваемая функция требует подписки.\n\nПосетите свой профиль, чтобы проверить свой тарифный план или оформить подписку."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İstenen özellik abonelik gerektiriyor.\n\nPlanınızı kontrol etmek veya abone olmak için profilinize gidin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запитана функція вимагає підписки.\n\nВідвідайте свій профіль, щоб перевірити свій план або оформити підписку."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính năng bạn yêu cầu cần có gói đăng ký.\n\nVui lòng truy cập trang cá nhân để kiểm tra gói hiện tại hoặc đăng ký."
           }
         },
         "zh-Hans": {
@@ -1741,6 +2173,12 @@
             "value": "Olvid+ 구독하기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subskrybuj Olvid+"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1759,10 +2197,22 @@
             "value": "Подписаться на Olvid+"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid+ aboneliği"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підписатися на Olvid+"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng ký Olvid+"
           }
         },
         "zh-Hans": {
@@ -1819,6 +2269,12 @@
             "value": "월간"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Miesięcznie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1837,10 +2293,22 @@
             "value": "Ежемесячно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aylık"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Щомісяця"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hàng tháng"
           }
         },
         "zh-Hans": {
@@ -1897,6 +2365,12 @@
             "value": "연간"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rocznie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1915,10 +2389,22 @@
             "value": "Ежегодно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yıllık"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Річний"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hàng năm"
           }
         },
         "zh-Hans": {
@@ -1975,6 +2461,12 @@
             "value": "이 구매는 승인을 기다리고 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten zakup oczekuje na zatwierdzenie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1993,10 +2485,22 @@
             "value": "Эта покупка ожидает подтверждения."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu satın alma onay bekliyor."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ця покупка очікує на підтвердження."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giao dịch mua này đang chờ phê duyệt."
           }
         },
         "zh-Hans": {
@@ -2053,6 +2557,12 @@
             "value": "코드를 사용하여 혜택 받기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrealizuj kod"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2071,10 +2581,22 @@
             "value": "Погасить код"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kodu kullan"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Використати код"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhập mã đổi quà"
           }
         },
         "zh-Hans": {
@@ -2129,6 +2651,12 @@
             "value": "30일 무료 평가판이 활성화되었습니다. 안심하고 안전한 오디오 및 비디오 통화를 사용해 보세요. 평가판이 종료되면 요금이 부과되지 않습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twój 30-dniowy bezpłatny okres próbny jest aktywny. Korzystaj spokojnie z bezpiecznych połączeń głosowych i wideo — po zakończeniu okresu próbnego nie zostaną naliczone żadne opłaty."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2147,10 +2675,22 @@
             "value": "Ваша бесплатная 30-дневная пробная версия активна. Попробуйте безопасные аудио- и видеозвонки, не беспокоясь о платежах – с вас не будет списано ни копейки по окончании пробного периода."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 günlük ücretsiz denemeniz etkin. Güvenli sesli ve görüntülü aramaları gönül rahatlığıyla keşfedin; deneme süresi sona erdiğinde herhangi bir ücret alınmaz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваша безкоштовна 30-денна пробна версія активна. Досліджуйте безпечні аудіо- та відеодзвінки з упевненістю — плата не стягуватиметься після закінчення пробного періоду."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gói dùng thử miễn phí 30 ngày của bạn đã được kích hoạt. Hãy trải nghiệm các cuộc gọi thoại và video an toàn mà không cần lo lắng—bạn sẽ không bị tính phí khi thời gian dùng thử kết thúc."
           }
         },
         "zh-Hans": {
@@ -2205,6 +2745,12 @@
             "value": "30일 무료 체험으로 안전한 오디오 및 비디오 통화를 즐기세요. 결제는 필요하지 않으며, 체험 기간은 30일 후에 자동으로 종료됩니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Korzystaj bezpłatnie z bezpiecznych połączeń głosowych i wideo w ramach 30-dniowego okresu próbnego. Nie jest wymagana żadna płatność — okres próbny po prostu wygaśnie po 30 dniach."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2223,10 +2769,22 @@
             "value": "Наслаждайтесь безопасными аудио- и видеозвонками бесплатно в течение 30-дневного пробного периода. Оплата не требуется – ваша пробная версия просто истечет через 30 дней."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 günlük deneme ile güvenli sesli ve görüntülü aramaların ücretsiz keyfini çıkarın. Ödeme gerekmez; denemeniz 30 gün sonra kendiliğinden sona erer."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Насолоджуйтесь безпечними аудіо- та відеодзвінками безкоштовно протягом 30-денної пробної версії. Платіж не потрібен – ваша пробна версія просто закінчиться через 30 днів."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tận hưởng các cuộc gọi thoại và video an toàn miễn phí với bản dùng thử 30 ngày. Không cần thanh toán—bản dùng thử của bạn sẽ tự động hết hạn sau 30 ngày."
           }
         },
         "zh-Hans": {
@@ -2283,6 +2841,12 @@
             "value": "사용 가능한 구독을 불러올 수 없습니다. 인터넷 연결 상태를 확인하고 나중에 다시 시도해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się wczytać dostępnych subskrypcji. Sprawdź połączenie z internetem i spróbuj ponownie później."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2301,10 +2865,22 @@
             "value": "Не удалось загрузить доступные подписки. Пожалуйста, проверьте подключение к интернету и попробуйте еще раз."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mevcut abonelikler yüklenemedi. Lütfen internet bağlantınızı kontrol edin ve daha sonra tekrar deneyin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося завантажити доступні підписки. Будь ласка, перевірте ваше інтернет-з’єднання та спробуйте ще раз пізніше."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi không thể tải các gói đăng ký hiện có. Vui lòng kiểm tra kết nối internet của bạn và thử lại sau."
           }
         },
         "zh-Hans": {
@@ -2361,6 +2937,12 @@
             "value": "구독 정보 로드 실패"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie można wczytać subskrypcji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2379,10 +2961,22 @@
             "value": "Не удалось загрузить подписки"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelikler Yüklenemiyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося завантажити підписки"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thể tải danh sách gói đăng ký"
           }
         },
         "zh-Hans": {
@@ -2439,6 +3033,12 @@
             "value": "고객 지원팀에 문의"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skontaktuj się z pomocą"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2457,10 +3057,22 @@
             "value": "Обратиться в службу поддержки"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destekle iletişime geç"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зв'язатися зі службою підтримки"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ bộ phận hỗ trợ"
           }
         },
         "zh-Hans": {
@@ -2517,6 +3129,12 @@
             "value": "현재 귀하의 OS 버전에서는 Olvid 앱 내 구독을 지원하지 않습니다. 기기를 업데이트할 수 없는 경우, 당사에 문의해 주시면 최선의 해결책을 찾을 수 있도록 도와드리겠습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subskrypcje w aplikacji Olvid nie są obecnie obsługiwane w twojej wersji systemu. Jeśli nie możesz zaktualizować urządzenia, skontaktuj się z nami — pomożemy ci znaleźć najlepsze rozwiązanie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2535,10 +3153,22 @@
             "value": "Встроенные подписки на Olvid в настоящее время не поддерживаются на вашей версии ОС. Если вы не можете обновить свое устройство, пожалуйста, свяжитесь с нами — мы здесь, чтобы помочь вам найти лучшее решение."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid uygulama içi abonelikleri şu anda işletim sistemi sürümünüzde desteklenmiyor. Cihazınızı güncelleyemiyorsanız lütfen bizimle iletişime geçin; en iyi çözümü bulmanıza yardımcı olmak için buradayız."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підписки в застосунку Olvid наразі не підтримуються на вашій версії ОС. Якщо ви не можете оновити свій пристрій, будь ласка, зв’яжіться з нами – ми тут, щоб допомогти вам знайти найкраще рішення."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện tại, ứng dụng Olvid không hỗ trợ tính năng đăng ký trả phí trong ứng dụng trên phiên bản hệ điều hành của bạn. Nếu bạn không thể cập nhật thiết bị, vui lòng liên hệ với chúng tôi—chúng tôi sẽ hỗ trợ bạn tìm giải pháp tốt nhất."
           }
         },
         "zh-Hans": {
@@ -2595,6 +3225,12 @@
             "value": "안녕하세요, 올비드 팀.\n\n제 기기에서 앱 내 구독에 접속할 수 없습니다. 구독하는 방법을 알려주실 수 있나요?\n지원해 주셔서 감사합니다.\n\n감사합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzień dobry, zespole Olvid,\n\nNie mogę uzyskać dostępu do subskrypcji w aplikacji na moim urządzeniu. Czy możecie mi wyjaśnić, jak wykupić subskrypcję?\nDziękuję za pomoc!\n\nZ pozdrowieniami"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2613,10 +3249,22 @@
             "value": "Здравствуйте, команда Olvid,\n\nУ меня нет доступа к подпискам внутри приложения на моем устройстве. Не могли бы вы подсказать, как оформить подписку?\nСпасибо за вашу поддержку!\n\nС уважением"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merhaba Olvid Ekibi,\n\nCihazımda uygulama içi aboneliklere erişemiyorum. Nasıl abone olabileceğim konusunda bana yol gösterebilir misiniz?\nDesteğiniz için teşekkür ederim!\n\nSaygılarımla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Привіт, команда Olvid,\n\nЯ не можу отримати доступ до підписок у програмі на моєму пристрої. Чи могли б ви підказати, як оформити підписку?\nДякую за підтримку!\n\nЗ повагою"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chào nhóm Olvid,\n\nTôi không thể truy cập vào mục Đăng ký trong ứng dụng trên thiết bị của mình. Bạn có thể hướng dẫn tôi cách đăng ký được không?\nCảm ơn vì sự hỗ trợ của bạn!\n\nTrân trọng,"
           }
         },
         "zh-Hans": {
@@ -2673,6 +3321,12 @@
             "value": "Olvid 앱 내 구독 관련 도움말"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pomoc dotycząca subskrypcji w aplikacji Olvid"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2691,10 +3345,22 @@
             "value": "Помощь с подписками Olvid в приложении"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid uygulama içi abonelikleri hakkında yardım"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Довідка щодо підписок Olvid в застосунку"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hỗ trợ về đăng ký dịch vụ trong ứng dụng Olvid"
           }
         },
         "zh-Hans": {
@@ -2751,6 +3417,12 @@
             "value": "이 장치에서는 앱 내 구독을 사용할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subskrypcje w aplikacji są niedostępne na tym urządzeniu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2769,10 +3441,22 @@
             "value": "Подписки в приложении недоступны на этом устройстве"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uygulama İçi Abonelikler Bu Cihazda Kullanılamıyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Передплати в додатку недоступні на цьому пристрої"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thể sử dụng tính năng đăng ký trong ứng dụng trên thiết bị này."
           }
         },
         "zh-Hans": {
@@ -2829,6 +3513,12 @@
             "value": "구독 기간"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okres subskrypcji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2847,10 +3537,22 @@
             "value": "Период подписки"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik Süresi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Період підписки"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thời gian đăng ký"
           }
         },
         "zh-Hans": {
@@ -2905,6 +3607,12 @@
             "value": "구독이 필요합니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymagana subskrypcja"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2923,10 +3631,22 @@
             "value": "Требуется подписка"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik gerekli"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Необхідна підписка"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yêu cầu đăng ký"
           }
         },
         "zh-Hans": {
@@ -2983,6 +3703,12 @@
             "value": "%@ 저장"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaoszczędź %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3001,10 +3727,22 @@
             "value": "Сохранить %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tasarruf edin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зберегти %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiết kiệm %@"
           }
         },
         "zh-Hans": {
@@ -3061,6 +3799,12 @@
             "value": "%@까지 절약"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaoszczędź do %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3079,10 +3823,22 @@
             "value": "Сэкономьте до %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En fazla %@ tasarruf edin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Заощаджуйте до %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiết kiệm lên đến %@"
           }
         },
         "zh-Hans": {
@@ -3223,6 +3979,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miesiąc gratis!"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miesiąca gratis!"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miesiące gratis!"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld miesięcy gratis!"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -3273,6 +4059,36 @@
                   "state": "translated",
                   "value": "%lld месяцев бесплатно!"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld месяца бесплатно!"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld месяцев бесплатно!"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ay ücretsiz!"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ay ücretsiz!"
+                }
               }
             }
           }
@@ -3302,6 +4118,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld місяці безкоштовно!"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tháng miễn phí!"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tháng miễn phí!"
                 }
               }
             }
@@ -3373,6 +4207,12 @@
             "value": "요금제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twój plan"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3391,10 +4231,22 @@
             "value": "Ваш тариф"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planınız"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваш тариф"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gói đăng ký của bạn"
           }
         },
         "zh-Hans": {

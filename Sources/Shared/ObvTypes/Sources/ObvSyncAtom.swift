@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import ObvEncoder
 import ObvCrypto
 
 
-public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Sendable {
+public enum ObvSyncAtom: ObvFailableCodable, Equatable, CustomDebugStringConvertible, Sendable {
 
     case contactNickname(contactCryptoId: ObvCryptoId, contactNickname: String?)
     case groupV1Nickname(groupOwner: ObvCryptoId, groupUid: UID, groupNickname: String?)
@@ -45,7 +45,17 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Se
     case archivedDiscussions(discussionIdentifiers: [DiscussionIdentifier], archived: Bool)
     case discussionsMute(discussionIdentifiers: [DiscussionIdentifier], muteNotification: MuteNotification)
     case settingUnarchiveOnNotification(unarchiveOnNotification: Bool)
+    /// The emoji a reaction defaults to. Under iOS it is the one a double tap sends — `ObvMessengerSettings.Emoji.defaultDoubleTapEmoji`
+    /// globally, `PersistedDiscussionLocalConfiguration.doubleTapEmoji` within a discussion. The emoji beside the composition bar is a
+    /// separate choice, exists under iOS only, and does not travel.
+    case preferredReaction(scope: Scope, emoji: String?)
+    case stopSuggestingContact(contactCryptoId: ObvCryptoId)
 
+    public enum Scope: Equatable, Hashable, Sendable {
+        case global
+        case discussion(DiscussionIdentifier)
+    }
+    
     public enum AutoJoinGroupsCategory: String, ObvCodable, Sendable {
         case everyone = "everyone"
         case contacts = "contacts"
@@ -127,13 +137,10 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Se
     public struct MuteNotification: Equatable, Hashable, ObvFailableCodable, Sendable {
         
         private enum ObvCodingKeys: String, CaseIterable, CodingKey {
-            
             case muted = "m"
             case muteTimestamp = "t"
             case exceptMentioned = "e"
-            
             var key: Data { rawValue.data(using: .utf8)! }
-            
         }
         
         public let muted: Bool
@@ -174,7 +181,58 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Se
         }
     }
     
-    public func obvEncode() -> ObvEncoded {
+    struct PreferredReaction: Equatable, Hashable, ObvFailableCodable, Sendable {
+        
+        private enum ObvCodingKeys: String, CaseIterable, CodingKey {
+            case isGlobalSetting = "g"
+            case discussionIdentifier = "di"
+            case emoji = "e"
+            var key: Data { rawValue.data(using: .utf8)! }
+        }
+
+        let scope: Scope
+        let emoji: String?
+
+        init(scope: Scope, emoji: String?) {
+            self.scope = scope
+            self.emoji = emoji
+        }
+
+        func obvEncode() throws -> ObvEncoded {
+            var obvDict = [Data: ObvEncoded]()
+            switch scope {
+            case .global:
+                try obvDict.obvEncode(true, forKey: ObvCodingKeys.isGlobalSetting)
+            case .discussion(let discussionIdentifier):
+                try obvDict.obvEncode(false, forKey: ObvCodingKeys.isGlobalSetting)
+                try obvDict.obvEncode(discussionIdentifier, forKey: ObvCodingKeys.discussionIdentifier)
+            }
+            try obvDict.obvEncodeIfPresent(emoji, forKey: ObvCodingKeys.emoji)
+            return obvDict.obvEncode()
+        }
+        
+        init?(_ obvEncoded: ObvEncoded) {
+            guard let obvDict = ObvDictionary(obvEncoded) else { assertionFailure(); return nil }
+            do {
+                let isGlobalSetting = try obvDict.obvDecode(Bool.self, forKey: ObvCodingKeys.isGlobalSetting)
+                let emoji = try obvDict.obvDecodeIfPresent(String.self, forKey: ObvCodingKeys.emoji)
+                let scope: Scope
+                if isGlobalSetting {
+                    scope = .global
+                } else {
+                    let discussionIdentifier = try obvDict.obvDecode(DiscussionIdentifier.self, forKey: ObvCodingKeys.discussionIdentifier)
+                    scope = .discussion(discussionIdentifier)
+                }
+                self.init(scope: scope, emoji: emoji)
+            } catch {
+                assertionFailure(error.localizedDescription)
+                return nil
+            }
+        }
+                
+    }
+    
+    public func obvEncode() throws -> ObvEncoded {
         switch self {
         case .contactNickname(let contactCryptoId, let contactNickname):
             if let contactNickname {
@@ -269,6 +327,12 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Se
             }
         case .settingUnarchiveOnNotification(let unarchiveOnNotification):
             return [ObvSyncAtomRawValue.settingUnarchiveOnNotification, unarchiveOnNotification].obvEncode()
+        case .preferredReaction(scope: let scope, emoji: let emoji):
+            let encodedRawValue = ObvSyncAtomRawValue.preferredReaction.obvEncode()
+            let encodedValue = try PreferredReaction(scope: scope, emoji: emoji).obvEncode()
+            return [encodedRawValue, encodedValue].obvEncode()
+        case .stopSuggestingContact(contactCryptoId: let contactCryptoId):
+            return [ObvSyncAtomRawValue.stopSuggestingContact, contactCryptoId].obvEncode()
         }
     }
     
@@ -507,6 +571,19 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Se
                     assertionFailure()
                     return nil
                 }
+            case .preferredReaction:
+                guard let envodedValue = remainingEncodedElements.first else { assertionFailure(); return nil }
+                guard let value = PreferredReaction(envodedValue) else { assertionFailure(); return nil }
+                self = .preferredReaction(scope: value.scope, emoji: value.emoji)
+            case .stopSuggestingContact:
+                switch remainingEncodedElements.count {
+                case 1:
+                    let contactCryptoId: ObvCryptoId = try remainingEncodedElements.obvDecode()
+                    self = .stopSuggestingContact(contactCryptoId: contactCryptoId)
+                default:
+                    assertionFailure()
+                    return nil
+                }
             }
         } catch {
             assertionFailure()
@@ -539,7 +616,9 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Se
                 .bookmarkedMessage,
                 .archivedDiscussions,
                 .discussionsMute,
-                .settingUnarchiveOnNotification:
+                .settingUnarchiveOnNotification,
+                .preferredReaction,
+                .stopSuggestingContact:
             return .app
         case .trustContactDetails,
                 .trustGroupV1Details,
@@ -596,6 +675,10 @@ public enum ObvSyncAtom: ObvCodable, Equatable, CustomDebugStringConvertible, Se
             suffix = "discussionsMute"
         case .settingUnarchiveOnNotification:
             suffix = "settingUnarchiveOnNotification"
+        case .preferredReaction:
+            suffix = "preferredReaction"
+        case .stopSuggestingContact:
+            suffix = "stopSuggestingContact"
         }
         return [prefix, suffix].joined(separator: ".")
     }
@@ -627,6 +710,8 @@ private enum ObvSyncAtomRawValue: Int, CaseIterable, ObvCodable {
     case archiveDiscussions = 18
     case discussionsMute = 19
     case settingUnarchiveOnNotification = 20
+    case stopSuggestingContact = 22
+    case preferredReaction = 23
 
     init?(_ obvEncoded: ObvEncoder.ObvEncoded) {
         guard let rawValue: Int = try? obvEncoded.obvDecode() else { assertionFailure(); return nil }

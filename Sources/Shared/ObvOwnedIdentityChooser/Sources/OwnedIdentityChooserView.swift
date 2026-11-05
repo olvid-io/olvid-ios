@@ -70,7 +70,7 @@ public struct OwnedIdentityChooserView: View {
         OwnedIdentityChooserInnerView(
             currentOwnedCryptoId: currentOwnedCryptoId,
             actions: self,
-            configuration: .init(mode: .selectProfile,
+            configuration: .init(mode: .selectProfile(serverRestriction: nil),
                                  explanation: configuration.explanation,
                                  title: configuration.title),
             dataSource: dataSources.ownedIdentityChooserViewDataSource,

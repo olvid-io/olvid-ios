@@ -391,7 +391,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
 
     // Interface
     
-    let identityColorStyle: IdentityColorStyle?
     let contactsSortOrder: ContactsSortOrder?
 
     // Discussions
@@ -433,7 +432,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
     
     enum CodingKeys: String, CodingKey {
         case maxAttachmentSizeForAutomaticDownload = "auto_download_size"
-        case identityColorStyle = "identity_color_style_ios"
         case contactsSortOrder = "contact_sort_last_name"
         case sendReadReceipt = "send_read_receipt"
         case readOnce = "default_read_once"
@@ -470,7 +468,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
     
     init() {
         self.maxAttachmentSizeForAutomaticDownload = ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload
-        self.identityColorStyle = ObvMessengerSettings.Interface.identityColorStyle
         self.contactsSortOrder = ObvMessengerSettings.Interface.contactsSortOrder
         self.sendReadReceipt = ObvMessengerSettings.Discussions.doSendReadReceipt
         self.readOnce = ObvMessengerSettings.Discussions.readOnce
@@ -498,7 +495,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         try container.encodeIfPresent(maxAttachmentSizeForAutomaticDownload, forKey: .maxAttachmentSizeForAutomaticDownload)
-        try container.encodeIfPresent(identityColorStyle?.rawValue, forKey: .identityColorStyle)
         try container.encodeIfPresent(contactsSortOrder == .byLastName, forKey: .contactsSortOrder)
         try container.encodeIfPresent(sendReadReceipt, forKey: .sendReadReceipt)
         try container.encodeIfPresent(readOnce, forKey: .readOnce)
@@ -528,11 +524,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
 
         self.maxAttachmentSizeForAutomaticDownload = try values.decodeIfPresent(Int.self, forKey: .maxAttachmentSizeForAutomaticDownload)
-        if let raw = try values.decodeIfPresent(Int.self, forKey: .identityColorStyle) {
-            self.identityColorStyle = IdentityColorStyle(rawValue: raw)
-        } else {
-            self.identityColorStyle = nil
-        }
         if let byLastName = try values.decodeIfPresent(Bool.self, forKey: .contactsSortOrder) {
             self.contactsSortOrder = byLastName ? .byLastName : .byFirstName
         } else {

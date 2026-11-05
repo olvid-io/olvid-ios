@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -388,28 +388,46 @@ extension GroupV2Protocol {
         let changeset: ObvGroupV2.Changeset
         let lockNonce: Data
         let failedUploadCounter: Int
+        let encryptionSeedStrategy: EncryptionSeedStrategy
         
-        init(groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, lockNonce: Data, failedUploadCounter: Int) {
+        init(groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, lockNonce: Data, failedUploadCounter: Int, encryptionSeedStrategy: EncryptionSeedStrategy) {
             self.groupIdentifier = groupIdentifier
             self.changeset = changeset
             self.lockNonce = lockNonce
             self.failedUploadCounter = failedUploadCounter
+            self.encryptionSeedStrategy = encryptionSeedStrategy
         }
 
         
         func obvEncode() throws -> ObvEncoded {
-            return try [groupIdentifier.obvEncode(), changeset.obvEncode(), lockNonce.obvEncode(), failedUploadCounter.obvEncode()].obvEncode()
+            return try [groupIdentifier.obvEncode(), changeset.obvEncode(), lockNonce.obvEncode(), failedUploadCounter.obvEncode(), encryptionSeedStrategy.obvEncode()].obvEncode()
         }
 
         
         init(_ obvEncoded: ObvEncoded) throws {
-            guard let encodedValues = [ObvEncoded](obvEncoded, expectedCount: 4) else {
+            guard let encodedValues = [ObvEncoded](obvEncoded) else {
                 assertionFailure()
-                throw Self.makeError(message: "Unexpected number of elements in encoded WaitingForLockState")
+                throw ObvError.decodingFailed
             }
-            (groupIdentifier, changeset, lockNonce, failedUploadCounter) = try encodedValues.obvDecode()
+            
+            switch encodedValues.count {
+            case 5:
+                (groupIdentifier, changeset, lockNonce, failedUploadCounter, encryptionSeedStrategy) = try encodedValues.obvDecode()
+            case 4:
+                // Legacy case. The state was saved with an "old" Olvid version.
+                (groupIdentifier, changeset, lockNonce, failedUploadCounter) = try encodedValues.obvDecode()
+                self.encryptionSeedStrategy = .legacy
+            default:
+                throw ObvError.unexpectedNumberOfElements
+            }
+                        
         }
-
+        
+        enum ObvError: Error {
+            case decodingFailed
+            case unexpectedNumberOfElements
+        }
+        
     }
 
     
@@ -424,8 +442,9 @@ extension GroupV2Protocol {
         let previousServerBlob: GroupV2.ServerBlob
         let uploadedServerBlob: GroupV2.ServerBlob
         let updatedServerAuthenticationPrivateKey: PrivateKeyForAuthentication?
-        let updatedBlobVersionSeed: Seed
+        let blobVersionSeedForUpload: Seed
         let failedUploadCounter: Int
+        let encryptionSeedStrategy: EncryptionSeedStrategy
 
         private enum ObvCodingKeys: String, CaseIterable, CodingKey {
             case groupIdentifier = "gi"
@@ -433,20 +452,29 @@ extension GroupV2Protocol {
             case previousServerBlob = "psb"
             case uploadedServerBlob = "usb"
             case updatedServerAuthenticationPrivateKey = "usapk"
-            case updatedBlobVersionSeed = "ubvs"
+            case blobVersionSeedForUpload = "ubvs"
             case failedUploadCounter = "fuc"
+            case encryptionSeedStrategy = "enc"
             var key: Data { rawValue.data(using: .utf8)! }
         }
 
         /// When creating the state, the blob is actually not uploaded yet.
-        init(groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, previousServerBlob: GroupV2.ServerBlob, uploadedServerBlob: GroupV2.ServerBlob, updatedServerAuthenticationPrivateKey: PrivateKeyForAuthentication?, updatedBlobVersionSeed: Seed, failedUploadCounter: Int) {
+        init(groupIdentifier: GroupV2.Identifier,
+             changeset: ObvGroupV2.Changeset,
+             previousServerBlob: GroupV2.ServerBlob,
+             uploadedServerBlob: GroupV2.ServerBlob,
+             updatedServerAuthenticationPrivateKey: PrivateKeyForAuthentication?,
+             blobVersionSeedForUpload: Seed,
+             failedUploadCounter: Int,
+             encryptionSeedStrategy: EncryptionSeedStrategy) {
             self.groupIdentifier = groupIdentifier
             self.changeset = changeset
             self.previousServerBlob = previousServerBlob
             self.uploadedServerBlob = uploadedServerBlob
             self.updatedServerAuthenticationPrivateKey = updatedServerAuthenticationPrivateKey
-            self.updatedBlobVersionSeed = updatedBlobVersionSeed
+            self.blobVersionSeedForUpload = blobVersionSeedForUpload
             self.failedUploadCounter = failedUploadCounter
+            self.encryptionSeedStrategy = encryptionSeedStrategy
         }
         
         
@@ -465,10 +493,12 @@ extension GroupV2Protocol {
                 case .updatedServerAuthenticationPrivateKey:
                     guard let privateKey = updatedServerAuthenticationPrivateKey else { continue }
                     try obvDict.updateValue(privateKey.obvEncode(), forKey: codingKey)
-                case .updatedBlobVersionSeed:
-                    try obvDict.obvEncode(updatedBlobVersionSeed, forKey: codingKey)
+                case .blobVersionSeedForUpload:
+                    try obvDict.obvEncode(blobVersionSeedForUpload, forKey: codingKey)
                 case .failedUploadCounter:
                     try obvDict.obvEncode(failedUploadCounter, forKey: codingKey)
+                case .encryptionSeedStrategy:
+                    try obvDict.obvEncode(encryptionSeedStrategy, forKey: codingKey)
                 }
             }
             return obvDict.obvEncode()
@@ -490,8 +520,9 @@ extension GroupV2Protocol {
             } else {
                 self.updatedServerAuthenticationPrivateKey = nil
             }
-            self.updatedBlobVersionSeed = try obvDict.obvDecode(Seed.self, forKey: ObvCodingKeys.updatedBlobVersionSeed)
+            self.blobVersionSeedForUpload = try obvDict.obvDecode(Seed.self, forKey: ObvCodingKeys.blobVersionSeedForUpload)
             self.failedUploadCounter = try obvDict.obvDecode(Int.self, forKey: ObvCodingKeys.failedUploadCounter)
+            self.encryptionSeedStrategy = try obvDict.obvDecodeIfPresent(EncryptionSeedStrategy.self, forKey: ObvCodingKeys.encryptionSeedStrategy) ?? .legacy
         }
 
     }
@@ -508,7 +539,7 @@ extension GroupV2Protocol {
         let previousServerBlob: GroupV2.ServerBlob
         let uploadedServerBlob: GroupV2.ServerBlob
         let updatedServerAuthenticationPrivateKey: PrivateKeyForAuthentication?
-        let updatedBlobVersionSeed: Seed
+        let blobVersionSeedForUpload: Seed
         let serverPhotoInfoOfNewUploadedPhoto: GroupV2.ServerPhotoInfo?
 
         private enum ObvCodingKeys: String, CaseIterable, CodingKey {
@@ -517,19 +548,25 @@ extension GroupV2Protocol {
             case previousServerBlob = "psb"
             case uploadedServerBlob = "usb"
             case updatedServerAuthenticationPrivateKey = "usapk"
-            case updatedBlobVersionSeed = "ubvs"
+            case blobVersionSeedForUpload = "ubvs"
             case serverPhotoInfoOfNewUploadedPhoto = "spi"
             var key: Data { rawValue.data(using: .utf8)! }
         }
 
         /// When creating the state, the blob is actually not uploaded yet.
-        init(groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, previousServerBlob: GroupV2.ServerBlob, uploadedServerBlob: GroupV2.ServerBlob, updatedServerAuthenticationPrivateKey: PrivateKeyForAuthentication?, updatedBlobVersionSeed: Seed, serverPhotoInfoOfNewUploadedPhoto: GroupV2.ServerPhotoInfo?) {
+        init(groupIdentifier: GroupV2.Identifier,
+             changeset: ObvGroupV2.Changeset,
+             previousServerBlob: GroupV2.ServerBlob,
+             uploadedServerBlob: GroupV2.ServerBlob,
+             updatedServerAuthenticationPrivateKey: PrivateKeyForAuthentication?,
+             blobVersionSeedForUpload: Seed,
+             serverPhotoInfoOfNewUploadedPhoto: GroupV2.ServerPhotoInfo?) {
             self.groupIdentifier = groupIdentifier
             self.changeset = changeset
             self.previousServerBlob = previousServerBlob
             self.uploadedServerBlob = uploadedServerBlob
             self.updatedServerAuthenticationPrivateKey = updatedServerAuthenticationPrivateKey
-            self.updatedBlobVersionSeed = updatedBlobVersionSeed
+            self.blobVersionSeedForUpload = blobVersionSeedForUpload
             self.serverPhotoInfoOfNewUploadedPhoto = serverPhotoInfoOfNewUploadedPhoto
         }
         
@@ -549,8 +586,8 @@ extension GroupV2Protocol {
                 case .updatedServerAuthenticationPrivateKey:
                     guard let privateKey = updatedServerAuthenticationPrivateKey else { continue }
                     try obvDict.updateValue(privateKey.obvEncode(), forKey: codingKey)
-                case .updatedBlobVersionSeed:
-                    try obvDict.obvEncode(updatedBlobVersionSeed, forKey: codingKey)
+                case .blobVersionSeedForUpload:
+                    try obvDict.obvEncode(blobVersionSeedForUpload, forKey: codingKey)
                 case .serverPhotoInfoOfNewUploadedPhoto:
                     try obvDict.obvEncodeIfPresent(serverPhotoInfoOfNewUploadedPhoto, forKey: codingKey)
                 }
@@ -574,7 +611,7 @@ extension GroupV2Protocol {
             } else {
                 self.updatedServerAuthenticationPrivateKey = nil
             }
-            self.updatedBlobVersionSeed = try obvDict.obvDecode(Seed.self, forKey: ObvCodingKeys.updatedBlobVersionSeed)
+            self.blobVersionSeedForUpload = try obvDict.obvDecode(Seed.self, forKey: ObvCodingKeys.blobVersionSeedForUpload)
             self.serverPhotoInfoOfNewUploadedPhoto = try obvDict.obvDecodeIfPresent(GroupV2.ServerPhotoInfo.self, forKey: ObvCodingKeys.serverPhotoInfoOfNewUploadedPhoto)
         }
 
@@ -605,6 +642,59 @@ extension GroupV2Protocol {
             self.blobMainSeed = try encodedValues[1].obvDecode()
         }
                         
+    }
+
+}
+
+
+// MARK: - Common to certain messages
+
+extension GroupV2Protocol {
+    
+    enum EncryptionSeedStrategy: ObvFailableCodable {
+        case keepCurrentBlobVersionSeed
+        case preShotBlobVersionSeed(seed: Seed)
+        case legacy // Needed to handle a legacy state saved to database before the app update introducing EncryptionSeedStrategy
+        
+        func obvEncode() throws -> ObvEncoded {
+            switch self {
+            case .keepCurrentBlobVersionSeed:
+                return [0.obvEncode()].obvEncode()
+            case .preShotBlobVersionSeed(let seed):
+                return [1.obvEncode(), seed.obvEncode()].obvEncode()
+            case .legacy:
+                return [2.obvEncode()].obvEncode()
+            }
+        }
+
+        init?(_ obvEncoded: ObvEncoded) {
+            guard let encodedValues = [ObvEncoded](obvEncoded) else { assertionFailure(); return nil }
+            switch encodedValues.count {
+            case 1:
+                let first: ObvEncoded = encodedValues[0]
+                guard let intValue = Int(first) else { assertionFailure(); return nil }
+                switch intValue {
+                case 0:
+                    self = .keepCurrentBlobVersionSeed
+                case 2:
+                    self = .legacy
+                default:
+                    assertionFailure()
+                    return nil
+                }
+            case 2:
+                let first: ObvEncoded = encodedValues[0]
+                guard let intValue = Int(first) else { assertionFailure(); return nil }
+                guard intValue == 1 else { assertionFailure(); return nil }
+                let second: ObvEncoded = encodedValues[1]
+                guard let seed = Seed(second) else { assertionFailure(); return nil }
+                self = .preShotBlobVersionSeed(seed: seed)
+            default:
+                assertionFailure()
+                return nil
+            }
+        }
+        
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,6 @@ import Foundation
 import Intents
 import ObvTypes
 import ObvDesignSystem
-import ObvSettings
 import ObvSystemIcon
 import ObvUICoreDataStructs
 import OlvidUtils
@@ -178,9 +177,13 @@ final class ObvCommunicationMapper {
         case .oneToOneDiscussion(let structure):
             recipients = [structure.contactIdentity.toINPerson(withINImage: true)]
         case .groupDiscussion(let structure):
+            // Include the owned identity so that self-groups (0 contacts) produce a non-empty
+            // recipients list, which Siri requires to suggest the conversation in share sheets.
             recipients = structure.contactGroup.contactIdentities.map({ $0.toINPerson(withINImage: false) })
+                       + [discussionKind.ownedIdentity.toINPerson(withINImage: false)]
         case .groupV2Discussion(let structure):
             recipients = structure.group.contactIdentities.map({ $0.toINPerson(withINImage: false) })
+                       + [discussionKind.ownedIdentity.toINPerson(withINImage: false)]
         }
 
         let speakableGroupName = getSpeakableGroupName(discussionKind: discussionKind)
@@ -237,8 +240,8 @@ final class ObvCommunicationMapper {
             recipients = structure.contactGroup.contactIdentities.map({ $0.toINPerson(withINImage: false) }) + [discussionKind.ownedIdentity.toINPerson(withINImage: false)]
         case .groupV2Discussion(let structure):
             guard structure.group.contactIdentities.contains(contact) else { assertionFailure(); throw ObvError.unexpectedError }
-            // Although it would make more sense, we don't filter out the sender. In case the group only contains two participants (including us), the Intent frameworks would consider it's a one2one message
-            // and wouldn't display the expected group image, title, etc.
+            // Include the owned identity so the Intent framework treats this as a group conversation.
+            // Omitting it causes a 2-person group to be misclassified as 1:1, losing the group image and title.
             recipients = structure.group.contactIdentities.map({ $0.toINPerson(withINImage: false) }) + [discussionKind.ownedIdentity.toINPerson(withINImage: false)]
         }
         
@@ -297,10 +300,10 @@ extension ObvCommunicationMapper {
                 metadata.mentionsCurrentUser = mentions.contains(structure.contactIdentity.ownedIdentity.cryptoId)
             case .groupDiscussion(structure: let structure):
                 metadata.mentionsCurrentUser = mentions.contains(structure.contactGroup.ownedIdentity.cryptoId)
-                metadata.recipientCount = structure.contactGroup.contactIdentities.count
+                metadata.recipientCount = structure.contactGroup.contactIdentities.count + 1 // +1 for the owned identity included in recipients
             case .groupV2Discussion(structure: let structure):
                 metadata.mentionsCurrentUser = mentions.contains(structure.group.ownedIdentity.cryptoId)
-                metadata.recipientCount = structure.group.contactIdentities.count
+                metadata.recipientCount = structure.group.contactIdentities.count + 1 // +1 for the owned identity included in recipients
             }
             
             metadata.isReplyToCurrentUser = messageRepliedTo?.isPersistedMessageSent ?? false
@@ -326,21 +329,21 @@ extension ObvCommunicationMapper {
         case .oneToOneDiscussion:
             groupINImage = nil
         case .groupDiscussion(let structure):
-            let groupColor = AppTheme.shared.groupColors(forGroupUid: structure.contactGroup.groupV1Identifier.groupUid, using: ObvMessengerSettings.Interface.identityColorStyle)
+            let groupColor = AppTheme.shared.groupColors(forGroupUid: structure.contactGroup.groupV1Identifier.groupUid)
             let circledSymbol = UIImage.makeCircledSymbol(
                 from: SystemIcon.person3Fill.name,
-                circleDiameter: Self.circleDiameter,
+                circleDiameter: ObvINImage.circleDiameter,
                 fillColor: groupColor.background,
                 symbolColor: groupColor.text)
-            groupINImage = Self.createINImage(photoURL: structure.contactGroup.displayPhotoURL, fallbackImage: circledSymbol)
+            groupINImage = ObvINImage.make(photoURL: structure.contactGroup.displayPhotoURL, fallbackImage: circledSymbol)
         case .groupV2Discussion(let structure):
-            let groupColor = AppTheme.shared.groupV2Colors(forGroupIdentifier: structure.group.groupIdentifier.appGroupIdentifier, using: ObvMessengerSettings.Interface.identityColorStyle)
+            let groupColor = AppTheme.shared.groupV2Colors(forGroupIdentifier: structure.group.groupIdentifier.appGroupIdentifier)
             let circledSymbol = UIImage.makeCircledSymbol(
                 from: SystemIcon.person3Fill.name,
-                circleDiameter: Self.circleDiameter,
+                circleDiameter: ObvINImage.circleDiameter,
                 fillColor: groupColor.background,
                 symbolColor: groupColor.text)
-            groupINImage = Self.createINImage(photoURL: structure.group.displayPhotoURL, fallbackImage: circledSymbol)
+            groupINImage = ObvINImage.make(photoURL: structure.group.displayPhotoURL, fallbackImage: circledSymbol)
         }
         return groupINImage
     }
@@ -357,42 +360,6 @@ extension ObvCommunicationMapper {
             speakableGroupName = INSpeakableString(spokenPhrase: structure.title)
         }
         return speakableGroupName
-    }
-        
-    
-    private static let circleDiameter = CGFloat(192)
-
-    
-    fileprivate static func createINImage(photoURL: URL?, fallbackImage: UIImage?) -> INImage? {
-        
-        guard photoURL != nil || fallbackImage != nil else { return nil }
-        
-        let imageSideSize = CGFloat(300)
-        
-        // We do not use the INImage.init(url:) intializer. We experienced issues with this API (in particular, images would
-        // not always show in the standard share sheet API). Instead, we always use the INImage.init(imageData:) API
-        // using a downsized image. Note that this downsizing is "dangerous" as this method is also used in the notification
-        // extension, which must have a limited memory footprint. For this reason, we make sure that we only create one
-        // INImage for each notification.
-        
-        if let photoURL,
-           FileManager.default.fileExists(atPath: photoURL.path),
-           let image = UIImage(contentsOfFile: photoURL.path),
-           let downSizedImage = image.downsizeIfRequired(maxWidth: imageSideSize, maxHeight: imageSideSize),
-           let imageData = downSizedImage.pngData() {
-            return INImage(imageData: imageData)
-        }
-        
-        if let fallbackImage,
-           let downSizedImage = fallbackImage.downsizeIfRequired(maxWidth: imageSideSize, maxHeight: imageSideSize),
-           let imageData = downSizedImage.pngData() {
-            return INImage(imageData: imageData)
-        }
-        
-        assertionFailure("Since at least one image source was provided, we expect to be able to return an INImage")
-        
-        return nil
-        
     }
 
 }
@@ -438,144 +405,120 @@ extension ObvCommunicationMapper {
 
 
 extension ObvCryptoId {
-    
-    var toINPersonHandle: INPersonHandle {
+
+    public var toINPersonHandle: INPersonHandle {
         return .init(value: self.description,
                      type: .unknown,
-                     label: .init("Olvid ID"))
+                     label: .init("Olvid"))
     }
-    
+
 }
 
 
 extension ObvContactIdentifier {
-    
-    var toINPersonHandle: INPersonHandle {
+
+    public var toINPersonHandle: INPersonHandle {
         return .init(value: self.description,
                      type: .unknown,
-                     label: .init("Olvid ID"))
+                     label: .init("Olvid"))
+    }
+
+}
+
+
+extension INPerson {
+
+    /// Canonical Olvid → `INPerson` constructor shared by the main-app donation path
+    /// (`ObvCommunicationMapper`) and the SiriKit IntentsExtension. Both paths thunk to this so a
+    /// given Olvid identity always materializes into the same `INPerson` shape regardless of which
+    /// extension or context built it.
+    ///
+    /// - Parameters:
+    ///   - handle: The `INPersonHandle` (typically `cryptoId.toINPersonHandle` for owned
+    ///     identities or `contactIdentifier.toINPersonHandle` for contacts).
+    ///   - nameComponents: Full `PersonNameComponents` for the identity. Always attached so Siri
+    ///     can apply its own formatting rules.
+    ///   - displayName: Pre-resolved display name. Callers decide whether to honor a user-set
+    ///     custom name override (e.g. `customOrNormalDisplayName` for contacts).
+    ///   - photoURL: Profile photo URL; only consulted when `withImage` is true.
+    ///   - cryptoId: Used to derive the fallback circled-character color when `withImage` is true
+    ///     and `photoURL` is missing or unreadable.
+    ///   - isMe: True iff the identity is an owned identity.
+    ///   - withImage: When false the returned `INPerson` carries no image (cheap construction for
+    ///     bulk recipient lists). All other fields are always populated.
+    public static func olvidPerson(
+        handle: INPersonHandle,
+        nameComponents: PersonNameComponents,
+        displayName: String,
+        photoURL: URL?,
+        cryptoId: ObvCryptoId,
+        isMe: Bool,
+        withImage: Bool
+    ) -> INPerson {
+
+        let image: INImage?
+        if withImage {
+            let colors = AppTheme.shared.identityColors(for: cryptoId)
+            let circledCharacter = UIImage.makeCircledCharacter(
+                fromString: nameComponents.formatted(),
+                circleDiameter: ObvINImage.circleDiameter,
+                fillColor: colors.background,
+                characterColor: colors.text)
+            image = ObvINImage.make(
+                photoURL: photoURL,
+                fallbackImage: circledCharacter)
+        } else {
+            image = nil
+        }
+
+        // suggestionType is deliberately .none: with .socialProfile, iOS's "Siri Found in Apps"
+        // feature offers to save our handle (a hex blob containing the contact's *and* the user's
+        // own crypto identities, see ObvContactIdentifier.description) into a matched system
+        // address book card, leaking Olvid identities to iCloud/Google/Exchange sync and to any
+        // app with Contacts access. Siri matching works through customIdentifier regardless.
+        return INPerson(personHandle: handle,
+                        nameComponents: nameComponents,
+                        displayName: displayName,
+                        image: image,
+                        contactIdentifier: nil,
+                        customIdentifier: handle.value,
+                        isMe: isMe,
+                        suggestionType: .none)
+
     }
 
 }
 
 
 extension PersistedObvOwnedIdentityStructure {
-    
+
     func toINPerson(withINImage: Bool) -> INPerson {
-        
         let nameComponents = self.identityCoreDetails.personNameComponents
-        let personHandle = self.cryptoId.toINPersonHandle
-        
-        let image: INImage?
-        if withINImage {
-            let colors = AppTheme.shared.identityColors(for: self.cryptoId, using: ObvMessengerSettings.Interface.identityColorStyle)
-            let circledCharacter = UIImage.makeCircledCharacter(
-                fromString: nameComponents.formatted(),
-                circleDiameter: Helpers.circleDiameter,
-                fillColor: colors.background,
-                characterColor: colors.text)
-            image = Helpers.createINImage(
-                photoURL: self.photoURL,
-                fallbackImage: circledCharacter)
-        } else {
-            image = nil
-        }
-        
-        let person = INPerson(personHandle: personHandle,
-                              nameComponents: nameComponents,
-                              displayName: nameComponents.formatted(.name(style: .short)),
-                              image: image,
-                              contactIdentifier: nil,
-                              customIdentifier: personHandle.value,
-                              isMe: true,
-                              suggestionType: .socialProfile)
-        
-        return person
-        
+        return INPerson.olvidPerson(
+            handle: self.cryptoId.toINPersonHandle,
+            nameComponents: nameComponents,
+            displayName: nameComponents.formatted(.name(style: .short)),
+            photoURL: self.photoURL,
+            cryptoId: self.cryptoId,
+            isMe: true,
+            withImage: withINImage)
     }
-    
+
 }
 
 
 extension PersistedObvContactIdentityStructure {
-    
+
     func toINPerson(withINImage: Bool) -> INPerson {
-        
         ObvDisplayableLogs.shared.log("[CommunicationInteractor] toINPerson(withINImage: \(withINImage))")
-
-        let nameComponents = self.personNameComponents
-        let personHandle = self.contactIdentifier.toINPersonHandle
-        
-        let image: INImage?
-        if withINImage {
-            let colors = AppTheme.shared.identityColors(for: self.cryptoId, using: ObvMessengerSettings.Interface.identityColorStyle)
-            let circledCharacter = UIImage.makeCircledCharacter(
-                fromString: nameComponents.formatted(),
-                circleDiameter: Helpers.circleDiameter,
-                fillColor: colors.background,
-                characterColor: colors.text)
-            image = Helpers.createINImage(
-                photoURL: self.displayPhotoURL,
-                fallbackImage: circledCharacter)
-        } else {
-            image = nil
-        }
-        
-        ObvDisplayableLogs.shared.log("[CommunicationInteractor] Will create INPerson (image is set: \(image != nil))")
-
-        let person = INPerson(personHandle: personHandle,
-                              nameComponents: nameComponents,
-                              displayName: nameComponents.formatted(.name(style: .short)),
-                              image: image,
-                              contactIdentifier: nil,
-                              customIdentifier: personHandle.value,
-                              isMe: false,
-                              suggestionType: .socialProfile)
-        
-        return person
-
-    }
-    
-}
-
-
-
-// MARK: - Private helpers
-
-fileprivate struct Helpers {
-    
-    static let circleDiameter = CGFloat(192)
-    
-    static func createINImage(photoURL: URL?, fallbackImage: UIImage?) -> INImage? {
-        
-        guard photoURL != nil || fallbackImage != nil else { return nil }
-        
-        let imageSideSize = CGFloat(300)
-        
-        // We do not use the INImage.init(url:) intializer. We experienced issues with this API (in particular, images would
-        // not always show in the standard share sheet API). Instead, we always use the INImage.init(imageData:) API
-        // using a downsized image. Note that this downsizing is "dangerous" as this method is also used in the notification
-        // extension, which must have a limited memory footprint. For this reason, we make sure that we only create one
-        // INImage for each notification.
-        
-        if let photoURL,
-           FileManager.default.fileExists(atPath: photoURL.path),
-           let image = UIImage(contentsOfFile: photoURL.path),
-           let downSizedImage = image.downsizeIfRequired(maxWidth: imageSideSize, maxHeight: imageSideSize),
-           let imageData = downSizedImage.pngData() {
-            return INImage(imageData: imageData)
-        }
-        
-        if let fallbackImage,
-           let downSizedImage = fallbackImage.downsizeIfRequired(maxWidth: imageSideSize, maxHeight: imageSideSize),
-           let imageData = downSizedImage.pngData() {
-            return INImage(imageData: imageData)
-        }
-        
-        assertionFailure("Since at least one image source was provided, we expect to be able to return an INImage")
-        
-        return nil
-        
+        return INPerson.olvidPerson(
+            handle: self.contactIdentifier.toINPersonHandle,
+            nameComponents: self.personNameComponents,
+            displayName: self.customOrNormalDisplayName,
+            photoURL: self.displayPhotoURL,
+            cryptoId: self.cryptoId,
+            isMe: false,
+            withImage: withINImage)
     }
 
 }

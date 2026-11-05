@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -17,32 +17,53 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import Foundation
 import UIKit
 
-protocol ExtractedContextMenuViews {
+struct ExtractedContextMenuViews {
     
-    // Root view containing all the native menu views.
-    var windowRootView: UIView? { get }
+    private var contextMenuContainerViewWrapper: ContextMenuContainerViewWrapper
+    private var contextMenuPlatterTransitionViewWrapper: ContextMenuPlatterTransitionViewWrapper
+    private var morphingPlatterViewWrapper: MorphingPlatterViewWrapper
     
-    // Root view containing the menu preview views
-    var previewRootView: UIView? { get }
+    private var contextMenuViewWrapper: ContextMenuViewWrapper?
     
-    // View containing both the menu preview main view and the list items main view
-    var sharedRootView: UIView? { get }
-    
-    // View containing the list items views.
-    var listRootView: UIView? { get }
-    
-    // View used to draw shadow
-    var shadowView: UIView? { get }
-}
-
-
-extension ExtractedContextMenuViews {
-    
-    var hasMenuItems: Bool {
-        self.listRootView != nil
+    var windowRootView: UIView? {
+        self.contextMenuContainerViewWrapper.wrappedObject
     }
+    
+    var previewRootView: UIView? {
+        self.morphingPlatterViewWrapper.wrappedObject
+    }
+    
+    var sharedRootView: UIView? {
+        self.contextMenuPlatterTransitionViewWrapper.wrappedObject
+    }
+    
+    var listRootView: UIView? {
+        self.contextMenuViewWrapper?.wrappedObject
+    }
+    
+    var shadowView: UIView? {
+        self.morphingPlatterViewWrapper.platterSoftShadowViewWrapper?.wrappedObject
+    }
+    
+    init?(usingManager contextMenuManager: ContextMenuManager){
+        
+        guard let contextMenuContainerViewWrapper = contextMenuManager.contextMenuContainerViewWrapper else { return nil }
+        
+        self.contextMenuContainerViewWrapper = contextMenuContainerViewWrapper
+        
+        guard let contextMenuPlatterTransitionViewWrapper = contextMenuContainerViewWrapper.contextMenuPlatterTransitionViewWrapper else { return nil }
+        
+        self.contextMenuPlatterTransitionViewWrapper = contextMenuPlatterTransitionViewWrapper
+        
+        guard let morphingPlatterViewWrapper = contextMenuPlatterTransitionViewWrapper.morphingPlatterViewWrapper else { return nil }
+        
+        self.morphingPlatterViewWrapper = morphingPlatterViewWrapper
+        
+        let contextMenuViewWrapper = contextMenuPlatterTransitionViewWrapper.contextMenuViewWrapper
+        
+        self.contextMenuViewWrapper = contextMenuViewWrapper
+    }
+    
 }
-

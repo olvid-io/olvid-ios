@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -351,7 +351,6 @@ extension OutboxMessage {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
         request.fetchBatchSize = 500
-        request.propertiesToFetch = []
         let messages = try context.fetch(request)
         try messages.forEach { message in
             try message.deleteThisOutboxMessage()

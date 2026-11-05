@@ -23,6 +23,7 @@ import ObvTypes
 import WebRTC
 import ObvAppCoreConstants
 import ObvAppTypes
+import ObvCrypto
 
 public actor WebRTCTransferTransportDelegate {
     
@@ -495,6 +496,7 @@ extension WebRTCTransferTransportDelegate: TransferTransportSendJsonMessageDeleg
     
     /// The progress updater should be passed the latest total number of bytes sent
     func send(attachmentAtURL url: URL, sha256: Data, progressUpdater: any FyleProgressUpdater) async throws {
+        Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Starting to send attachment over the WebRTC data channel")
         let fh = try FileHandle(forReadingFrom: url)
         defer { try? fh.close() }
         var totalNumberOfFyleBytesSent: UInt64 = 0
@@ -506,6 +508,7 @@ extension WebRTCTransferTransportDelegate: TransferTransportSendJsonMessageDeleg
             totalNumberOfFyleBytesSent += UInt64(dataReadFromFile.count)
             await progressUpdater.updateFyleProgress(sha256: sha256, totalNumberOfFyleBytesSent: totalNumberOfFyleBytesSent)
         }
+        Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Did send all \(totalNumberOfFyleBytesSent) bytes of the attachment over the WebRTC data channel")
     }
 
 
@@ -609,6 +612,7 @@ extension WebRTCTransferTransportDelegate: TransferTransportSendJsonMessageDeleg
             }
         }
         try Task.checkCancellation()
+        Self.logger.error("📰 [\(dstRequestSha256.sha256.hexString().prefix(8), privacy: .public)] The reception stream finished without delivering the attachment file")
         assertionFailure("Unexpected. The stream should not finish without returning a URL or throwing (unless the task is cancelled).")
         throw ObvError.attachmentReceptionFailed
     }

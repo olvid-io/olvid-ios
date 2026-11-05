@@ -51,7 +51,14 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
 
     // MARK: Initialiser
     
-    public init(inbox: URL, downloadedUserData: URL, prng: PRNGService, sharedContainerIdentifier: String, supportBackgroundDownloadTasks: Bool, remoteNotificationByteIdentifierForServer: Data, logPrefix: String) {
+    public init(inbox: URL,
+                downloadedUserData: URL,
+                pendingUserDataUploads: URL,
+                prng: PRNGService,
+                sharedContainerIdentifier: String,
+                supportBackgroundDownloadTasks: Bool,
+                remoteNotificationByteIdentifierForServer: Data,
+                logPrefix: String) {
                 
         let logSubsystem = "\(logPrefix).\(ObvNetworkFetchDelegateManager.defaultLogSubsystem)"
         Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
@@ -77,6 +84,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
         
         delegateManager = ObvNetworkFetchDelegateManager(
             inbox: inbox,
+            pendingUserDataUploads: pendingUserDataUploads,
             sharedContainerIdentifier: sharedContainerIdentifier,
             supportBackgroundFetch: supportBackgroundDownloadTasks,
             logPrefix: logPrefix,
@@ -201,8 +209,8 @@ extension ObvNetworkFetchManagerImplementation {
         try await delegateManager.networkFetchFlowDelegate.updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
     }
 
-    public func postServerQuery(_ serverQuery: ServerQuery, within context: NSManagedObjectContext) {
-        delegateManager.networkFetchFlowDelegate.postServerQuery(serverQuery, within: context)
+    public func postServerQuery(_ serverQuery: ServerQuery, within context: NSManagedObjectContext) throws {
+        try delegateManager.networkFetchFlowDelegate.postServerQuery(serverQuery, within: context)
     }
 
     public func getWellKnownTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvWellKnownTurnCredentials {
@@ -240,12 +248,14 @@ extension ObvNetworkFetchManagerImplementation {
     /// - Parameters:
     ///   - ownedIdentity: The identity for which we want to download messages. Although this identity is a `ObvCryptoIdentity` (and not a `ObvOwnedCryptoIdentity`), the challenge solver delegate should be able to solve any challenge sent by the server. This means that this identity must exists in the OwnedIdentity database of the channel manager.
     ///   - deviceUid: The current device of the owned identity.
-    public func downloadMessages(for ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async {
+    ///   - trigger: what provoked this listing, recorded with its timing.
+    public func downloadMessages(for ownedIdentity: ObvCryptoIdentity, trigger: ObvServerRequestTiming.Trigger, flowId: FlowIdentifier) async {
         os_log("Call to downloadMessages for owned identity %@ with identifier for notifications %{public}@", log: Self.log, type: .debug, ownedIdentity.debugDescription, flowId.debugDescription)
-        ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] ObvNetworkFetchManagerImplementation.downloadMessages(for:flowId:)")
-        await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: ownedIdentity, flowId: flowId)
+        ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] ObvNetworkFetchManagerImplementation.downloadMessages(for:trigger:flowId:) trigger: \(trigger.rawValue)")
+        await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: ownedIdentity, trigger: trigger, flowId: flowId)
     }
-    
+
+
     /// During startup, the app calls an engine method that calls this method, allowing the app to be notified when a new `ObvMessage` or a new `ObvOwnedMessage` is available.
     public func getAsyncStreamOfObvMessageOrObvOwnedMessages() async -> AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]> {
         await delegateManager.messagesDelegate.getAsyncStreamOfObvMessageOrObvOwnedMessages()
@@ -334,12 +344,20 @@ extension ObvNetworkFetchManagerImplementation {
                 // Delete all inbox messages relating to the owned identity
                 
                 let messageIds = try await getAllInboxMessageIdsForOwnedIdentity(ownedCryptoId: ownedCryptoIdentity, flowId: flowId)
+                var tasksCancellingTheDownloads = [Task<Void, Never>]()
                 for messageId in messageIds {
                     do {
-                        try await deleteApplicationMessageAndAttachments(messageId: messageId, flowId: flowId)
+                        tasksCancellingTheDownloads.append(try await deleteApplicationMessageAndAttachments(messageId: messageId, flowId: flowId))
                     } catch {
                         assertionFailure() //Continue anyway
                     }
+                }
+
+                // The whole point of the semaphore is that this work is done before the identity is deleted, and a download that is still
+                // running writes into the file of a message we are deleting. The tasks are running already, so awaiting them here rather
+                // than in the loop above lets the cancellations overlap.
+                for taskCancellingTheDownloads in tasksCancellingTheDownloads {
+                    await taskCancellingTheDownloads.value
                 }
                 
                 // We do not delete the server sessions now, as the owned identity deletion protocol will need them to propagate information.
@@ -378,6 +396,11 @@ extension ObvNetworkFetchManagerImplementation {
     
     public func deleteServerSessionsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
         try await delegateManager.serverSessionDelegate.deleteServerSessionsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: existingOwnedCryptoIds, flowId: flowId)
+    }
+    
+    
+    public func deleteInboxMessagesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
+        try await delegateManager.batchDeleteAndMarkAsListedDelegate.deleteInboxMessagesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: existingOwnedCryptoIds, flowId: flowId)
     }
     
     
@@ -439,14 +462,69 @@ extension ObvNetworkFetchManagerImplementation {
     /// This method is typically called by the engine when the user requests the deletion of a message. It marks the message and its
     /// attachments for deletion and atomically creates the ``PendingDeleteFromServer``, which will eventually be processed by deleting the message from server.
     /// Once this is done, the inbox message, its attachments (and associated data on disk) and the ``PendingDeleteFromServer`` are atomically deleted.
-    public func deleteApplicationMessageAndAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws {
-        try await markApplicationMessageForDeletionAndProcessAttachments(messageId: messageId, attachmentsProcessingRequest: .deleteAll, flowId: flowId)
+    ///
+    /// Returns the task that cancels the downloads of the attachments just marked. `.deleteAll` resumes nothing, so this is the task
+    /// ``markMessageAndAttachmentsForDeletion(messageId:attachmentToMarkForDeletion:flowId:)`` returned, and a caller holding a background
+    /// activity must keep it until the task ends.
+    public func deleteApplicationMessageAndAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws -> Task<Void, Never> {
+        return try await markApplicationMessageForDeletionAndProcessAttachments(messageId: messageId, attachmentsProcessingRequest: .deleteAll, flowId: flowId)
+    }
+
+    
+    /// The bulk form of ``deleteApplicationMessageAndAttachments(messageId:flowId:)``. It marks the messages in slices, then cancels
+    /// the downloads and kicks the batch-delete sweep once for the whole page. It is always `.deleteAll`, because `.process` names
+    /// attachments by index within one message, so it has no meaning for a call that names many.
+    ///
+    /// If a slice fails, the slices already marked stay marked. That costs nothing: marking is idempotent, and those messages are on
+    /// their way out whatever the caller does next.
+    public func deleteApplicationMessagesAndAttachments(messageIds: [ObvMessageIdentifier], flowId: FlowIdentifier) async throws {
+
+        guard !messageIds.isEmpty else { return }
+
+        var attachmentsMarkedForDeletion = [ObvAttachmentIdentifier]()
+
+        // One operation and one save per slice, rather than one for everything the caller named. See
+        // ``ObvNetworkFetchDelegateManager/numberOfMessagesMarkedForDeletionAtOnce``: the rows are fetched to be marked, and each one
+        // holds its encrypted content inline.
+        for slice in messageIds.toSlices(ofMaxSize: ObvNetworkFetchDelegateManager.numberOfMessagesMarkedForDeletionAtOnce) {
+
+            let op1 = MarkInboxMessagesAndAttachmentsForDeletionOperation(messageIds: slice)
+            do {
+                try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+            } catch {
+                assertionFailure()
+                throw ObvError.couldNotMarkMessageAndAttachmentsForDeletion
+            }
+
+            attachmentsMarkedForDeletion.append(contentsOf: op1.attachmentsMarkedForDeletion)
+
+        }
+
+        for attachmentMarkedForDeletion in attachmentsMarkedForDeletion {
+            do {
+                try await delegateManager.downloadAttachmentChunksDelegate.cancelDownloadOfAttachment(attachmentId: attachmentMarkedForDeletion, flowId: flowId)
+            } catch {
+                assertionFailure()
+            }
+        }
+
+        // One kick per owned identity, not one per message.
+        for ownedCryptoIdentity in Set(messageIds.map(\.ownedCryptoIdentity)) {
+            Task {
+                do {
+                    try await delegateManager.batchDeleteAndMarkAsListedDelegate.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                }
+            }
+        }
+
     }
     
     
     /// This method shall be called as soon as an `InboxMessage` is processed by the app. Note that, since it is an application message and not a protocol message, it might have attachments.
     /// In that case, the message in the inbox will only be marked for deletion but not deleted yet. The application is expected to do something with the attachments (such as storing them in its own inboxes) before marking each of the them for deletion (using the ``markAttachmentForDeletion(attachmentId:within:)`` below). When this is done, the message and its attachments will indeed be deleted from the server, then from their inboxes.
-    public func markApplicationMessageForDeletionAndProcessAttachments(messageId: ObvMessageIdentifier, attachmentsProcessingRequest: ObvAttachmentsProcessingRequest, flowId: FlowIdentifier) async throws {
+    public func markApplicationMessageForDeletionAndProcessAttachments(messageId: ObvMessageIdentifier, attachmentsProcessingRequest: ObvAttachmentsProcessingRequest, flowId: FlowIdentifier) async throws -> Task<Void, Never> {
 
         let attachmentToMarkForDeletion: InboxAttachmentsSet
         let attachmentsToDownload: [ObvAttachmentIdentifier]
@@ -462,10 +540,27 @@ extension ObvNetworkFetchManagerImplementation {
             attachmentsToDownload = []
         }
 
-        try await markMessageAndAttachmentsForDeletion(messageId: messageId, attachmentToMarkForDeletion: attachmentToMarkForDeletion, flowId: flowId)
+        let taskCancellingTheDownloads = try await markMessageAndAttachmentsForDeletion(messageId: messageId, attachmentToMarkForDeletion: attachmentToMarkForDeletion, flowId: flowId)
 
-        for attachmentToDownload in attachmentsToDownload {
-            try await resumeDownloadOfAttachment(attachmentId: attachmentToDownload, flowId: flowId)
+        guard !attachmentsToDownload.isEmpty else { return taskCancellingTheDownloads }
+
+        // We do not await the task, but return it instead, so that processing the next message (at the app level) does not wait for a resume that may ask the server for signed URLs. The caller
+        // needs it: it holds a background activity for this work, and nothing here resumes anything if the process is suspended first — `resumeDownload()`
+        // is what writes `.resumeRequested`, and the launch-time sweep sees only attachments already in that state.
+        //
+        // A `try await` inside a `Task` nobody awaits discards what it throws, because the task's result is never read. Without the `do` below, a failure
+        // would leave every attachment of this message undownloaded, with nothing written anywhere to say so.
+        return Task {
+            // We resume after the cancellations above, since both lists can name attachments of the same message.
+            await taskCancellingTheDownloads.value
+            do {
+                for attachmentToDownload in attachmentsToDownload {
+                    try await resumeDownloadOfAttachment(attachmentId: attachmentToDownload, flowId: flowId)
+                }
+            } catch {
+                Self.logger.fault("Could not resume the download of the attachments of a processed message: \(error.localizedDescription)")
+                assertionFailure()
+            }
         }
         
     }
@@ -475,15 +570,24 @@ extension ObvNetworkFetchManagerImplementation {
     ///
     /// If the message and the other attachments are already marked for deletion, this will internally trigger
     /// the required steps to actually delete the message and the attachments from the inboxes (and from the inbox folder).
-    public func markAttachmentForDeletion(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
+    public func markAttachmentForDeletion(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws -> Task<Void, Never> {
         let messageId = attachmentId.messageId
         let attachmentNumber = attachmentId.attachmentNumber
-        try await markMessageAndAttachmentsForDeletion(messageId: messageId, attachmentToMarkForDeletion: .subset(attachmentNumbers: Set([attachmentNumber])), flowId: flowId)
+        return try await markMessageAndAttachmentsForDeletion(messageId: messageId, attachmentToMarkForDeletion: .subset(attachmentNumbers: Set([attachmentNumber])), flowId: flowId)
     }
     
     
     /// Private method used by all the methods allowing to mark a message and/or its attachments for deletion. Once marked for deletion, this method tries to process the messages (i.e., actually delete it if appropriate).
-    private func markMessageAndAttachmentsForDeletion(messageId: ObvMessageIdentifier, attachmentToMarkForDeletion: InboxAttachmentsSet, flowId: FlowIdentifier) async throws {
+    ///
+    /// Returns the task that cancels the downloads of the attachments that were just marked. We do not await it here, so that marking stays fast, but a caller
+    /// holding a background activity must keep that activity until the task ends: until a download is cancelled, a `URLSession` can still write into the file
+    /// of a message that is about to be deleted.
+    ///
+    /// **It cancels what this process started, and nothing else.** The downloads are held in a map in memory, so a background `URLSession` that outlived the
+    /// process that started it is in no map here and is cancelled by none of this — it goes on writing into the file of a message being deleted. See the guard
+    /// in `DownloadAttachmentChunksCoordinator.cancelDownloadOfAttachment`, which says so on every call it cannot answer. Awaiting this task therefore makes
+    /// the in-process case correct and leaves that one open.
+    private func markMessageAndAttachmentsForDeletion(messageId: ObvMessageIdentifier, attachmentToMarkForDeletion: InboxAttachmentsSet, flowId: FlowIdentifier) async throws -> Task<Void, Never> {
         
         let op1 = MarkInboxMessageAndAttachmentsForDeletionOperation(messageId: messageId, attachmentToMarkForDeletion: attachmentToMarkForDeletion)
         do {
@@ -493,24 +597,30 @@ extension ObvNetworkFetchManagerImplementation {
             throw ObvError.couldNotMarkMessageAndAttachmentsForDeletion
         }
         
-        // Now that the message/attachments are marked for deletion, we cancel any ongoing download of the attachments
-        
         let attachmentsMarkedForDeletion = op1.attachmentsMarkedForDeletion
-        
-        for attachmentMarkedForDeletion in attachmentsMarkedForDeletion {
-            do {
-                try await delegateManager.downloadAttachmentChunksDelegate.cancelDownloadOfAttachment(attachmentId: attachmentMarkedForDeletion, flowId: flowId)
-            } catch {
-                assertionFailure()
-            }
-        }
 
-        Task {
-            do {
-                try await delegateManager.batchDeleteAndMarkAsListedDelegate.batchDeleteAndMarkAsListed(ownedCryptoIdentity: messageId.ownedCryptoIdentity, flowId: flowId)
-            } catch {
-                assertionFailure(error.localizedDescription)
+        return Task {
+            
+            // Now that the message/attachments are marked for deletion, we cancel any ongoing download of the attachments
+                        
+            for attachmentMarkedForDeletion in attachmentsMarkedForDeletion {
+                do {
+                    try await delegateManager.downloadAttachmentChunksDelegate.cancelDownloadOfAttachment(attachmentId: attachmentMarkedForDeletion, flowId: flowId)
+                } catch {
+                    assertionFailure()
+                }
             }
+
+            // The sweep starts once the downloads are cancelled, and it is deliberately outside the task we return: it loops until the
+            // inbox is clear, with a server request per round, so no caller should hold a background activity while it runs.
+            Task {
+                do {
+                    try await delegateManager.batchDeleteAndMarkAsListedDelegate.batchDeleteAndMarkAsListed(ownedCryptoIdentity: messageId.ownedCryptoIdentity, flowId: flowId)
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                }
+            }
+
         }
 
     }
@@ -524,6 +634,11 @@ extension ObvNetworkFetchManagerImplementation {
     public func appCouldNotFindFileOfDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
         try await delegateManager.downloadAttachmentChunksDelegate.appCouldNotFindFileOfDownloadedAttachment(attachmentId: attachmentId, flowId: flowId)
     }
+
+
+    public func appFoundACorruptFileForDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
+        try await delegateManager.downloadAttachmentChunksDelegate.appFoundACorruptFileForDownloadedAttachment(attachmentId: attachmentId, flowId: flowId)
+    }
     
 
     public func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
@@ -532,6 +647,14 @@ extension ObvNetworkFetchManagerImplementation {
 
     public func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
         return try await self.delegateManager.networkFetchFlowDelegate.requestDownloadAttachmentProgressesUpdatedSince(date: date)
+    }
+
+    public func getAsyncStreamOfDownloadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentDownloadProgress>) {
+        return try await self.delegateManager.networkFetchFlowDelegate.getAsyncStreamOfDownloadProgress(attachmentId: attachmentId, flowId: flowId)
+    }
+
+    public func finishAsyncStreamOfDownloadProgress(streamUUID: UUID) async throws {
+        try await self.delegateManager.networkFetchFlowDelegate.finishAsyncStreamOfDownloadProgress(streamUUID: streamUUID)
     }
 }
 
@@ -550,6 +673,27 @@ extension ObvNetworkFetchManagerImplementation {
         let op1 = FetchOnHoldMessageOperation(messageId: messageId, inbox: delegateManager.inbox)
         try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
         return op1.obvMessageOrObvOwnedMessage
+    }
+
+    
+    /// A read, so it is not queued behind the writes on the coordinators' shared queue. A message that has left the on-hold state
+    /// meanwhile is absent from the answer.
+    public func getPayloadsOfMessagesOnHold(messageIds: [ObvMessageIdentifier], flowId: FlowIdentifier) async throws -> [ObvMessageIdentifier: Data] {
+
+        guard !messageIds.isEmpty else { return [:] }
+        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); throw ObvError.theContextCreatorIsNotSet }
+
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvMessageIdentifier: Data], Error>) in
+            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let payloads = try InboxMessage.getPayloadsOfMessagesOnHold(messageIds: messageIds, within: obvContext.context)
+                    continuation.resume(returning: payloads)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+
     }
     
 }
@@ -610,7 +754,7 @@ extension ObvNetworkFetchManagerImplementation {
                 for identity in identities {
                     Task {
                         ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] ObvNetworkFetchManagerImplementation.downloadMessages(for:flowId:)")
-                        await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: identity, flowId: flowId)
+                        await delegateManager.messagesDelegate.downloadAllMessagesAndListAttachments(ownedCryptoId: identity, trigger: .pushNotificationRegistrationSucceeded, flowId: flowId)
                     }
                 }
                 
@@ -666,6 +810,7 @@ extension ObvNetworkFetchManagerImplementation {
     
     enum ObvError: Error {
         case theContextCreatorIsNotSet
+        case theIdentityDelegateIsNotSet
         case couldNotMarkMessageAndAttachmentsForDeletion
         case couldNotProcessMessageMarkedForDeletion
     }

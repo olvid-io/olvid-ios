@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import ObvDesignSystem
 
 protocol CurrentDeviceNameChooserViewActionsProtocol: AnyObject {
     func userDidChooseCurrentDeviceName(deviceName: String) async
+    func userWantsToCloseOnboarding() async
 }
 
 
@@ -30,6 +31,7 @@ struct CurrentDeviceNameChooserView: View {
     
     let actions: CurrentDeviceNameChooserViewActionsProtocol
     let model: Model
+    let showCloseButton: Bool
     
     struct Model {
         let defaultDeviceName: String
@@ -48,6 +50,10 @@ struct CurrentDeviceNameChooserView: View {
     private func userDidChooseCurrentDeviceName() {
         isInterfaceDisabled = true
         Task { await actions.userDidChooseCurrentDeviceName(deviceName: deviceName) }
+    }
+
+    private func userWantsToCloseOnboarding() {
+        Task { await actions.userWantsToCloseOnboarding() }
     }
     
     var body: some View {
@@ -84,6 +90,13 @@ struct CurrentDeviceNameChooserView: View {
             deviceName = String(localizedInThisBundle: "MY_DEVICE_NAME_\(model.defaultDeviceName)")
         }
         .disabled(isInterfaceDisabled)
+        .toolbar {
+            if showCloseButton {
+                ToolbarItem(placement: .cancellationAction) {
+                    ObvButtonWithCancelRole(action: userWantsToCloseOnboarding)
+                }
+            }
+        }
     }
     
 }
@@ -115,6 +128,7 @@ struct CurrentDeviceNameChooserViewActionsProtocol_Previews: PreviewProvider {
     
     final class ActionsForPreviews: CurrentDeviceNameChooserViewActionsProtocol{
         func userDidChooseCurrentDeviceName(deviceName: String) {}
+        func userWantsToCloseOnboarding() async {}
     }
     
     private static let actions = ActionsForPreviews()
@@ -123,7 +137,7 @@ struct CurrentDeviceNameChooserViewActionsProtocol_Previews: PreviewProvider {
         defaultDeviceName: "iPhone 15")
     
     static var previews: some View {
-        CurrentDeviceNameChooserView(actions: actions, model: model)
+        CurrentDeviceNameChooserView(actions: actions, model: model, showCloseButton: true)
     }
     
 }

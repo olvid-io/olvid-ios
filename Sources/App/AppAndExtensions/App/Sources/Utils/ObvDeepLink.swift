@@ -136,7 +136,12 @@ enum ObvDeepLink: Equatable {
         case .groupCreation:
             return host.name
         case .webRTCHistoryTransferConfirmation(sourceDeviceIdentifier: let sourceDeviceIdentifier, transferId: let transferId):
-            return [host.name, sourceDeviceIdentifier.description, transferId].joined(separator: "|")
+            /// The device identifier comes **last**, and that is not cosmetic: its own description contains a `|`, the
+            /// same separator used here, and `init?(_:)` splits with `maxSplits: 2` — so whatever is written last keeps
+            /// its own separators and anything before it does not. Written the other way round this link could not be
+            /// parsed at all: the identifier was cut in half and its first half handed to a parser that then tripped an
+            /// assertion. A `|` inside a *transferId* would still break this, which nothing guarantees it cannot.
+            return [host.name, transferId, sourceDeviceIdentifier.description].joined(separator: "|")
         }
     }
     
@@ -180,8 +185,11 @@ enum ObvDeepLink: Equatable {
             self = .contactIdentityDetails(contactIdentifier: contactIdentifier)
         case .airDrop:
             guard splits.count == 2 else { assertionFailure(); return nil }
-            guard let fileURL = URL(string: splits[1]) else { assertionFailure(); return nil }
-            self = .airDrop(fileURL: fileURL)
+            /// `URL(fileURLWithPath:)` and not `URL(string:)`. The description above writes `fileURL.path`, which drops
+            /// the scheme, so parsing it back as a string gives a URL with no scheme at all — and the link this case
+            /// carries is always a file URL, its only producer being an AirDrop'ed file. Nothing parses a deep link back
+            /// from a string in the app today, so this cost nothing in practice; ObvDeepLinkTests is what found it.
+            self = .airDrop(fileURL: URL(fileURLWithPath: String(splits[1])))
         case .qrCodeScan:
             self = .qrCodeScan
         case .myId:
@@ -218,8 +226,8 @@ enum ObvDeepLink: Equatable {
             self = .groupCreation
         case .webRTCHistoryTransferConfirmation:
             guard splits.count == 3 else { assertionFailure(); return nil }
-            guard let ownedDeviceIdentifier = ObvOwnedDeviceIdentifier(splits[1]) else { assertionFailure(); return nil }
-            let transferId = splits[2]
+            let transferId = splits[1]
+            guard let ownedDeviceIdentifier = ObvOwnedDeviceIdentifier(splits[2]) else { assertionFailure(); return nil }
             self = .webRTCHistoryTransferConfirmation(sourceDeviceIdentifier: ownedDeviceIdentifier, transferId: transferId)
         }
     }

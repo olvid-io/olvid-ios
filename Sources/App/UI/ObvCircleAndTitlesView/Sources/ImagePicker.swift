@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,7 +42,6 @@ extension ImagePickerCoordinator: UIImagePickerControllerDelegate {
     }
 }
 
-@available(iOS 14.0, *)
 extension ImagePickerCoordinator: PHPickerViewControllerDelegate {
     
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
@@ -86,7 +85,7 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 
     func makeUIViewController(context: UIViewControllerRepresentableContext<ImagePicker>) -> UIViewController {
-        if !useCamera, #available(iOS 14.0, *) {
+        if !useCamera {
             var configuration = PHPickerConfiguration()
             configuration.selectionLimit = 1
             configuration.filter = .images

@@ -28,11 +28,18 @@ final class DeleteMessageIdentifiersForLaterOperation: ContextualOperationWithSp
     
     enum Input {
         case messageId(ObvMessageIdentifier)
+        /// A page of identifiers. This is not the same thing as `ownedCryptoId` with a filter: that case takes every row of the
+        /// profile, whereas this takes only the rows named.
+        case messageIds([ObvMessageIdentifier])
         case ownedCryptoId(ObvCryptoId)
     }
     
     private let input: Input
-    
+
+    /// How many rows were deleted, for the `messageIds` input alone; nil for the other two, which no caller counts. A page that
+    /// deleted nothing is a page the caller would be handed again, which is why that one input reports it.
+    private(set) var numberOfRowsDeleted: Int?
+
     init(input: Input) {
         self.input = input
         super.init()
@@ -43,6 +50,8 @@ final class DeleteMessageIdentifiersForLaterOperation: ContextualOperationWithSp
             switch input {
             case .messageId(let messageId):
                 try MessageIdentifierForLater.batchDeleteMessageIdentifierForLater(messageId: messageId, within: obvContext.context)
+            case .messageIds(let messageIds):
+                numberOfRowsDeleted = try MessageIdentifierForLater.batchDeleteMessageIdentifierForLater(messageIds: messageIds, within: obvContext.context)
             case .ownedCryptoId(let ownedCryptoId):
                 try MessageIdentifierForLater.batchDeleteMessageIdentifierForLater(ownedCryptoId: ownedCryptoId, within: obvContext.context)
             }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,5 @@ extension Text {
     init(_ key: LocalizedStringKey, comment: StaticString? = nil) {
         self.init(key, tableName: "Localizable", bundle: ObvSingleDiscussionResources.bundle, comment: comment ?? "Within ObvSingleDiscussion")
     }
-    
-}
 
+}

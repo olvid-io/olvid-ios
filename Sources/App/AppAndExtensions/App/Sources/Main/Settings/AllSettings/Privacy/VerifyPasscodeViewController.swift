@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 import SwiftUI
 import Combine
-import os.log
+import OSLog
 import ObvUI
 import ObvUICoreData
 import ObvSettings
@@ -39,7 +39,7 @@ final class VerifyPasscodeViewController: UIHostingController<VerifyPasscodeView
     private let model: VerifyPasscodeModel
     private let continuationHolder = CheckedContinuationHolder<VerifyPasscodeViewResult>()
 
-    private var observationTokens = [NSObjectProtocol]()
+    private var observationTokens: NotificationObservationTokens?
 
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "VerifyPasscodeViewController")
 
@@ -54,10 +54,6 @@ final class VerifyPasscodeViewController: UIHostingController<VerifyPasscodeView
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    deinit {
-        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     func getResult() async -> VerifyPasscodeViewResult {
@@ -86,7 +82,7 @@ final class VerifyPasscodeViewController: UIHostingController<VerifyPasscodeView
     }
 
     private func observeNotifications() {
-        observationTokens.append(contentsOf: [
+        observationTokens = NotificationObservationTokens([
             NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] (notification) in
                 DispatchQueue.main.async {
                     os_log("VerifyPasscodeViewController processes didEnterBackgroundNotification starts", log: Self.log, type: .info)
@@ -99,10 +95,14 @@ final class VerifyPasscodeViewController: UIHostingController<VerifyPasscodeView
 
 }
 
+/// Main-actor isolated, as is the model that calls it: the only implementation is a `UIHostingController`, and the
+/// calls come from SwiftUI actions.
+@MainActor
 fileprivate protocol VerifyPasscodeModelDelegate: AnyObject {
     func setResult(_ result: VerifyPasscodeViewResult)
 }
 
+@MainActor
 final class VerifyPasscodeModel: ObservableObject {
 
     @Published var passcode: String
@@ -153,6 +153,7 @@ struct VerifyPasscodeView: View {
                         .font(Font.system(size: 24, weight: .semibold, design: .default))
                 })
                                             .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
+                                            .keyboardShortcut(.cancelAction)
                 )
         }
     }
@@ -205,7 +206,11 @@ fileprivate struct InnerVerifyPasscodeView: View {
                           textFocus: .constant(false),
                           remainingLockoutTime: $remainingLockoutTime)
             .disabled(isLockedOut)
-            .onReceive(Just(self.passcode), perform: { value in
+            // task(id:) fires on first appearance and on every change, which is what this verification
+            // expects: it runs on each keystroke and compares with the previous candidate to tell typing
+            // from deleting. The inner Task keeps it detached, so one keystroke cannot cancel the last.
+            .task(id: self.passcode) {
+                let value = self.passcode
                 Task {
                     guard let verifyPasscodeDelegate = model.verifyPasscodeDelegate else {
                         assertionFailure(); return
@@ -234,7 +239,7 @@ fileprivate struct InnerVerifyPasscodeView: View {
                         }
                     }
                 }
-            })
+            }
             .modifier(Shake(animatableData: CGFloat(self.passcodeAttemptCount)))
             .onReceive(timer) { _ in
                 Task {

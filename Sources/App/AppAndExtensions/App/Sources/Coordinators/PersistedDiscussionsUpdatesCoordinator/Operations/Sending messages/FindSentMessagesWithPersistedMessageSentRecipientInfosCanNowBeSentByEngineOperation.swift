@@ -182,7 +182,7 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
                         
                         // Make sure the contact is a non-pending member of the group
                         
-                        guard let member = group.otherMembers.first(where: { $0.identity == info.recipientCryptoId.getIdentity() }) else {
+                        guard let member = group.otherMembers.first(where: { $0.identity == info.recipientIdentity }) else {
                             throw Self.makeError(message: "Cannot send the message to a contact not part of the group V2")
                         }
                         

@@ -37,6 +37,21 @@ public enum PersistedMessageKind {
     case system
 }
 
+
+/// Scope selector shared by the "last N messages" fetches on `PersistedMessageReceived` and
+/// `PersistedMessageSent`.
+///
+/// - `any(restrictToNonHiddenProfiles:)`: query across all discussions. The associated boolean,
+///   when `true`, filters out messages belonging to hidden owned identities.
+/// - `restricted(to:)`: limit the fetch to the given set of `ObvDiscussionIdentifier`s.
+///   Identifiers that don't resolve to a local discussion are silently skipped; if none resolve,
+///   the fetch returns an empty array. This case does not filter on hidden-profile status —
+///   the caller is assumed to be authoritative about which discussions to include.
+public enum DiscussionsScope {
+    case any(restrictToNonHiddenProfiles: Bool)
+    case restricted(to: Set<ObvDiscussionIdentifier>)
+}
+
 @objc(PersistedMessage)
 public class PersistedMessage: NSManagedObject {
 
@@ -56,7 +71,7 @@ public class PersistedMessage: NSManagedObject {
     @NSManaged var rawStatus: Int
     @NSManaged private var rawVisibilityDuration: NSNumber?
     @NSManaged public var readOnce: Bool
-    @NSManaged private(set) var sectionIdentifier: String
+    @NSManaged public private(set) var sectionIdentifier: String
     @NSManaged public private(set) var senderSequenceNumber: Int
     @NSManaged public private(set) var sortIndex: Double
     @NSManaged public private(set) var timestamp: Date
@@ -296,13 +311,6 @@ public class PersistedMessage: NSManagedObject {
         assert(fyleMessageJoinWithStatus == nil) // Otherwise we would need to update the sort index replicated within the joins
     }
     
-    @available(iOS 14, *)
-    static let supportedImageTypeIdentifiers = Set<String>(([UTType.jpeg.identifier,
-                                                             UTType.png.identifier,
-                                                             UTType.gif.identifier,
-                                                             UTType.heic.identifier,
-                                                             UTType.webP.identifier ]))
-
     public func toMessageReferenceJSON() -> MessageReferenceJSON? {
         assertionFailure("We do not expect this function to be called on anything else than a PersistedMessageSent or a PersistedMessageReceived where this function is overriden")
         return nil
@@ -401,6 +409,16 @@ extension PersistedMessage {
     
     public var attributedBodyForMessageEdition: AttributedString? {
         stringAndUserMentions?.attributedString
+    }
+
+
+    /// The body as plain text, with the URL of a link preview taken off the end of it — the same trimming
+    /// ``getDisplayableAttributedBody(removingTrailingURL:)`` ends with, for a caller that shows the body without markdown or mentions.
+    ///
+    /// Nil when nothing is left, which is what makes a message that was nothing but that URL show no body at all.
+    public func getDisplayableTextBody(removingTrailingURL urlToRemove: URL?) -> String? {
+        guard let textBody else { return nil }
+        return textBody.trimWhitespacesAndNewlinesAndDropTrailingURL(urlToRemove)
     }
     
     
@@ -888,35 +906,53 @@ extension PersistedMessage {
     ) {
         
         let persistedMessage: PersistedMessage
-        switch message.kind {
-        case .received:
-            persistedMessage = try PersistedMessageReceived.createReceivedDuringHistoryTransfer(message, within: context)
-        case .sent:
-            persistedMessage = try PersistedMessageSent.createSentDuringHistoryTransfer(message, within: context)
+
+        // Idempotency guard. The same message can be presented to this method more than once: across
+        // distinct (or interrupted/replayed) history transfers, or because the message is already present on
+        // this destination device. In that case we must neither insert a second copy of the message, nor
+        // duplicate its reactions or poll (these are created unconditionally below, they are *not* idempotent).
+        // We do, however, still recompute the attachments to request further down, so that any fyle still
+        // missing for an already-known message gets fetched from the source.
+
+        if let existingMessage = try PersistedMessage.getMessage(messageAppIdentifier: message.messageIdentifier, within: context) {
+
+            persistedMessage = existingMessage
+
+        } else {
+
+            switch message.kind {
+            case .received:
+                persistedMessage = try PersistedMessageReceived.createReceivedDuringHistoryTransfer(message, within: context)
+            case .sent:
+                persistedMessage = try PersistedMessageSent.createSentDuringHistoryTransfer(message, within: context)
+            }
+
+            persistedMessage.isInsertedDuringHistoryTransfer = true
+
+            // Process the reactions
+
+            for reaction in message.reactions {
+                try PersistedMessageReaction.createDuringHistoryTransfer(reaction: reaction, on: persistedMessage)
+            }
+
+            // Process the poll
+
+            if let poll = message.poll {
+                try PersistedPoll.createDuringHistoryTransfer(poll: poll, message: persistedMessage)
+            }
+
+            // Process the poll votes
+
+            assert(persistedMessage.isPoll == (persistedMessage.poll != nil))
+            if let poll = persistedMessage.poll {
+                try poll.setPollVotesDuringHistoryTransfer(pollVotes: message.pollVotes)
+            }
+
         }
-        
-        persistedMessage.isInsertedDuringHistoryTransfer = true
-        
-        // Process the reactions
-        
-        for reaction in message.reactions {
-            try PersistedMessageReaction.createDuringHistoryTransfer(reaction: reaction, on: persistedMessage)
-        }
-        
-        // Process the poll
-        
-        if let poll = message.poll {
-            try PersistedPoll.createDuringHistoryTransfer(poll: poll, message: persistedMessage)
-        }
-        
-        // Process the poll votes
-        
-        assert(persistedMessage.isPoll == (persistedMessage.poll != nil))
-        if let poll = persistedMessage.poll {
-            try poll.setPollVotesDuringHistoryTransfer(pollVotes: message.pollVotes)
-        }
-        
-        // Determine the sha256 to request to the source, and those that don't need to be
+
+        // Determine the sha256 to request to the source, and those that don't need to be.
+        // This runs for both newly created and already-known messages, so that a fyle still missing for an
+        // already-known message is requested from the source.
         
         var sha256ToRequestToSource = [Data : UInt64]()
         var sha256NotToBeRequestedToSource = Set<Data>()
@@ -931,7 +967,6 @@ extension PersistedMessage {
                 if expectedFileSize > 0 {
                     sha256ToRequestToSource[sha256] = UInt64(expectedFileSize)
                 } else {
-                    assertionFailure()
                     sha256NotToBeRequestedToSource.insert(sha256)
                 }
             }
@@ -989,8 +1024,11 @@ extension PersistedMessage {
     }
     
     
-    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date) throws {
-        
+    /// Returns `true` iff processing the request visibly changed the votes displayed on the poll. In particular, re-processing an identical or outdated vote
+    /// (e.g., one replayed by the device of a group member after another member switched back from the pending to the non-pending state) returns `false`,
+    /// allowing the notification layer to remain silent.
+    func setPollVoteFromContact(_ contact: PersistedObvContactIdentity, for pollCandidateUUID: UUID, voted: Bool, version: Int, messageUploadTimestampFromServer: Date) throws -> Bool {
+
         // We only want user to vote to sent or received message.
         switch self.kind {
         case .none, .system:
@@ -1000,14 +1038,14 @@ extension PersistedMessage {
         }
 
         // Never set a vote on a wiped message
-        guard !self.isWiped else { return }
-        
+        guard !self.isWiped else { return false }
+
         guard let poll = self.poll else {
             assertionFailure()
             throw ObvUICoreDataError.messageIsNotPollMessage
         }
 
-        try poll.setPollVoteFromContact(
+        return try poll.setPollVoteFromContact(
             contact,
             for: pollCandidateUUID,
             voted: voted,
@@ -1026,7 +1064,7 @@ extension PersistedMessage {
     private func reactionFromContact(with cryptoId: ObvCryptoId) -> PersistedMessageReactionReceived? {
         let contactsReactions = reactions.compactMap { $0 as? PersistedMessageReactionReceived }
         let contactReactions = contactsReactions.filter {
-            guard let reactionCryptoId = $0.contact?.cryptoId else { return false }
+            guard let reactionCryptoId = try? $0.contact?.cryptoId else { return false }
             return reactionCryptoId == cryptoId
         }
         assert(contactReactions.count <= 1)
@@ -1071,10 +1109,36 @@ extension PersistedMessage {
     /// Expected to be called on the main thread as it allows the UI to determine if the owned identity is allowed to set a reaction on this message.
     ///
     /// This computed variable actually creates a child view context to simulate the call to the reaction setter for the owned identity. It returns `true` iff the call would work.
+    ///
+    /// **A wiped message is answered here rather than by the simulation**, and that is the point of this comment. Simulating the setter cannot discover it: for a wiped
+    /// message `setReactionFromOwnedIdentity(withEmoji:messageUploadTimestampFromServer:)` *returns* — `guard !self.isWiped else { return }` — where this variable only
+    /// learns of a refusal by catching a throw. So it used to answer `true` for a message that has been wiped, and the reader was offered a reaction that would then
+    /// silently do nothing.
+    ///
+    /// Three callers had already compensated for that one at a time, writing `guard !message.isWiped` immediately before asking this. The ones that had not are the
+    /// ones a reader could see: the context menus of both discussion screens, and the reaction bar and double tap of the SwiftUI one.
     public var ownedIdentityIsAllowedToSetReaction: Bool {
         get throws {
             assert(Thread.isMainThread)
-            
+
+            // Nothing may be put on a message that has been wiped. See the note above: the simulation below cannot find this out.
+            guard !self.isWiped else { return false }
+
+            // **Nor on one the reader has not been allowed to read yet**, 2026-08-26. A tap-to-read message that has not been tapped offers
+            // *Add a reaction* in the menu of both screens, and on the SwiftUI one it offers the bar of favourite emojis on a press as well, so reacting
+            // to a message one has not read is a gesture away. Reacting to something unseen is not a thing a reader can mean.
+            //
+            // Like the wipe above, the simulation below cannot find this out: `processSetOrUpdateReactionOnMessageLocalRequestFromThisOwnedIdentity`
+            // succeeds perfectly well on a message that is merely unrevealed, the reaction being a fact about the message rather than about the reading
+            // of it.
+            //
+            // **Found on a Mac, by right-clicking one**, which is what made it reachable — Step 55 having only just given that platform the gesture. The
+            // press showed the identical thing, so it is older than the day and belongs to neither: it is this rule, and this rule is **shared**, so the
+            // legacy screen is fixed by the same line.
+            if let received = self as? PersistedMessageReceived, received.readingRequiresUserAction {
+                return false
+            }
+
             guard let context = self.managedObjectContext else {
                 assertionFailure()
                 return false
@@ -1105,17 +1169,24 @@ extension PersistedMessage {
     }
 
     
-    func setReactionFromContact(_ contact: PersistedObvContactIdentity, withEmoji emoji: String?, reactionTimestamp: Date, overrideExistingReaction: Bool) throws {
-        guard !self.isWiped else { return }
-        if let contactReaction = reactionFromContact(with: contact.cryptoId) {
-            guard overrideExistingReaction else { return }
+    func setReactionFromContact(_ contact: PersistedObvContactIdentity, withEmoji emoji: String?, reactionTimestamp: Date, overrideExistingReaction: Bool) throws -> ReactionUpdateOutcome {
+        guard !self.isWiped else { return .noChange }
+        let contactCryptoId = try contact.cryptoId
+        if let contactReaction = reactionFromContact(with: contactCryptoId) {
+            guard overrideExistingReaction else { return .noChange }
             if let emoji {
-                try contactReaction.updateEmoji(with: emoji, at: reactionTimestamp)
+                return try contactReaction.updateEmoji(with: emoji, at: reactionTimestamp)
             } else {
+                // An outdated removal request (e.g., one received out of order) must not delete a more recent reaction
+                guard contactReaction.timestamp < reactionTimestamp else { return .noChange }
+                let reactionWasVisible = contactReaction.emoji != nil
                 try contactReaction.delete()
+                return reactionWasVisible ? .removed : .noChange
             }
         } else {
             _ = try PersistedMessageReactionReceived(emoji: emoji, timestamp: reactionTimestamp, message: self, contact: contact)
+            // When the emoji is nil, the created reaction is not displayed: it only records the timestamp of the removal request
+            return emoji == nil ? .noChange : .created
         }
     }
     
@@ -1239,6 +1310,7 @@ extension PersistedMessage {
             case persistedMetadata = "persistedMetadata"
             case rawMessageRepliedTo = "rawMessageRepliedTo"
             case rawReactions = "rawReactions"
+            case replies = "replies"
             case isLocation = "isLocation"
             // Others
             static let discussionPermanentUUID = [discussion.rawValue, PersistedDiscussion.Predicate.Key.permanentUUID.rawValue].joined(separator: ".")
@@ -1261,6 +1333,11 @@ extension PersistedMessage {
         }
         static var isLocationMessage: NSPredicate {
             NSPredicate(Key.isLocation, is: true)
+        }
+        /// Written as `false` rather than as the negation of ``isLocationMessage``, `isLocation` being a non-optional `Bool`: the two are the same here, and this one
+        /// stays exact if the attribute ever becomes optional, where a negation would then also admit the rows holding nothing.
+        static var isNotLocationMessage: NSPredicate {
+            NSPredicate(Key.isLocation, is: false)
         }
         static func withOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
             NSPredicate(Key.ownedIdentity, equalTo: ownedIdentity)
@@ -1292,8 +1369,17 @@ extension PersistedMessage {
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(withObjectID: objectID)
         }
+        static func withObjectIDIn(_ objectIDs: Set<NSManagedObjectID>) -> NSPredicate {
+            NSPredicate(withObjectIDIn: Array(objectIDs))
+        }
         static func createdBefore(date: Date) -> NSPredicate {
             NSPredicate(Key.timestamp, earlierThan: date)
+        }
+        public static func withBody() -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.body),
+                NSPredicate(format: "%K != %@", Key.body.rawValue, "")
+            ])
         }
         static func createdBeforeIncluded(date: Date) -> NSPredicate {
             NSPredicate(format: "%K <= %@", Key.timestamp.rawValue, date as NSDate)
@@ -1385,6 +1471,21 @@ extension PersistedMessage {
     }
 
     
+    /// How many messages this device holds, all discussions and all profiles together.
+    ///
+    /// For the inbox maintenance screen, which shows it climbing while a drain runs and has no other honest way to say that anything is happening. The
+    /// engine's own counts describe its inbox, which a drain keeps near empty by design — it lists a page, the app stores it, the sweep takes the rows — so
+    /// they cycle rather than climb, and a reader watching them cannot tell work from stillness. This climbs, monotonically, because nothing removes messages
+    /// while a drain runs.
+    ///
+    /// `count(for:)` materialises nothing, so this is cheap enough to ask once a second beside a run that is already asking the engine far more often.
+    public static func countAllMessages(within context: NSManagedObjectContext) throws -> Int {
+        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+        request.predicate = nil
+        return try context.count(for: request)
+    }
+
+
     public static func isMessageExisting(messageId: ObvMessageAppIdentifier, within context: NSManagedObjectContext) throws -> Bool {
         switch messageId {
         case .sent(discussionIdentifier: let discussionIdentifier, senderThreadIdentifier: let senderThreadIdentifier, senderSequenceNumber: let senderSequenceNumber):
@@ -1622,7 +1723,7 @@ extension PersistedMessage {
     static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
         request.predicate = Predicate.withNoDiscussion
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         request.fetchBatchSize = 1_000
         let items = try context.fetch(request)
         items.forEach { item in

@@ -235,15 +235,18 @@ extension AppCoordinatorsHolder: PersistedDiscussionsUpdatesCoordinatorDelegate 
 extension AppCoordinatorsHolder {
     
     func startReceivingObvMessageOrObvOwnedMessageFromEngine() {
+        Self.logger.debug("[✉️] Starting to receive `ObvMessage` or `ObvOwnedMessage` from the engine")
         Task {
             do {
                 let stream = try await obvEngine.getAsyncStreamOfObvMessageOrObvOwnedMessages()
                 for await messages in stream {
-                    await persistedDiscussionsUpdatesCoordinator.processNewMessagesReceivedNotification(messages: messages)
-                    Task { await userNotificationsCoordinator.processNewMessagesReceivedNotification(messages: messages) }
+                    Self.logger.debug("[✉️] Will process \(messages.count) new messages received from the engine")
+                    let reactionsAndPollVotesThatVisiblyChanged = await persistedDiscussionsUpdatesCoordinator.processNewMessagesReceivedNotification(messages: messages)
+                    await userNotificationsCoordinator.processNewMessagesReceivedNotification(messages: messages, reactionsAndPollVotesThatVisiblyChanged: reactionsAndPollVotesThatVisiblyChanged)
+                    Self.logger.debug("[✉️] Did process \(messages.count) new messages received from the engine")
                 }
             } catch {
-                Self.logger.fault("Failed to obtain a stream of `ObvMessage` or `ObvOwnedMessage` from the engine: \(error)")
+                Self.logger.fault("[✉️] Failed to obtain a stream of `ObvMessage` or `ObvOwnedMessage` from the engine: \(error)")
             }
         }
     }
@@ -339,6 +342,23 @@ extension AppCoordinatorsHolder {
                 // Create the ObvSyncAtom
                 let syncAtom = ObvSyncAtom.settingUnarchiveOnNotification(unarchiveOnNotification: unarchiveDiscussions)
                 return syncAtom
+            }
+            .sink { [weak self] (syncAtom: ObvSyncAtom) in
+                // Request the sync of the ObvSyncAtom to the engine
+                Task { [weak self] in
+                    await self?.requestPropagationToOtherOwnedDevicesOfAllOwnedIdentities(of: syncAtom)
+                }
+            }
+            .store(in: &cancellables)
+
+        ObvMessengerSettingsObservableObject.shared.$defaultDoubleTapEmoji
+            .dropFirst() // Don't consider the initial value set on defaultDoubleTapEmoji
+            .compactMap { (defaultDoubleTapEmoji: String?, changeMadeFromAnotherOwnedDevice: Bool) -> ObvSyncAtom? in
+                // Filter out changes made from another device since we don't need to sync with them.
+                // The ObvSyncAtom is created here rather than in a second compactMap: a nil emoji is a value of its
+                // own, and a stage returning the emoji alone would drop it.
+                guard !changeMadeFromAnotherOwnedDevice else { return nil }
+                return ObvSyncAtom.preferredReaction(scope: .global, emoji: defaultDoubleTapEmoji)
             }
             .sink { [weak self] (syncAtom: ObvSyncAtom) in
                 // Request the sync of the ObvSyncAtom to the engine

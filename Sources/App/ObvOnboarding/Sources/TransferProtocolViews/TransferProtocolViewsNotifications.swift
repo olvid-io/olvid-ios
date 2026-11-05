@@ -73,6 +73,8 @@ enum TransferProtocolViewsNotifications {
 
 	func postOnDispatchQueue(_ queue: DispatchQueue) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		queue.async {
 			NotificationCenter.default.post(name: name, object: nil, userInfo: userInfo)
 		}
@@ -80,6 +82,9 @@ enum TransferProtocolViewsNotifications {
 
 	private func postOnDispatchQueue(withLabel label: String, object anObject: Any? = nil) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
+		nonisolated(unsafe) let anObject = anObject
 		DispatchQueue(label: label).async {
 			NotificationCenter.default.post(name: name, object: anObject, userInfo: userInfo)
 		}
@@ -87,6 +92,8 @@ enum TransferProtocolViewsNotifications {
 
 	static func observeSomeNotification(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Bool) -> Void) -> NSObjectProtocol {
 		let name = Name.someNotification.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let value = notification.userInfo!["value"] as! Bool
 			block(value)

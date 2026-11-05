@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import ObvTypes
-import os.log
+import OSLog
 import ObvSettings
 import ObvUICoreDataStructs
 
@@ -37,7 +37,7 @@ extension PersistedObvContactIdentity {
             throw ObvUICoreDataError.personNameComponentsIsNil
         }
         let contactDevices: Set<PersistedObvContactDeviceStructure> = try Set(self.devices.map({ try $0.toStructure() }))
-        return .init(cryptoId: self.cryptoId,
+        return .init(cryptoId: try self.cryptoId,
                      fullDisplayName: self.fullDisplayName,
                      customOrFullDisplayName: self.customOrFullDisplayName,
                      customOrNormalDisplayName: self.customOrNormalDisplayName,

@@ -25,13 +25,9 @@ import ObvTypes
 import ObvDesignSystem
 
 @available(iOS 17, *)
-public final class PollHostingController: KeyboardHostingController<PollRouterView> {
+public final class PollHostingController: UIHostingController<PollRouterView> {
     
-    // MARK: Attributes - Private - Notifications
     private let pollIdentifier: PollIdentifier
-    private var isRegisteredToNotifications = false
-    private var observationTokens = [NSObjectProtocol]()
-    public override var canBecomeFirstResponder: Bool { true }
     
     public init(pollIdentifier: PollIdentifier, pollDataSource: any PollViewDataSourceProtocol, avatarViewDataSource: any ObvAvatarViewDataSource) {
         self.pollIdentifier = pollIdentifier
@@ -46,34 +42,9 @@ public final class PollHostingController: KeyboardHostingController<PollRouterVi
         fatalError("init(coder:) has not been implemented")
     }
     
-    deinit {
-        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
-    }
-    
-    public override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        registerForNotification()
-    }
-    
-    
     public override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemGroupedBackground
     }
-    
-}
 
-@available(iOS 17, *)
-extension PollHostingController {
-
-    private func registerForNotification() {
-        guard !isRegisteredToNotifications else { return }
-        isRegisteredToNotifications = true
-        
-        observationTokens.append(contentsOf: [
-            KeyboardNotification.observeKeyboardDidInputEscapeKeyNotification(queue: OperationQueue.main) { [weak self] in
-                self?.dismiss(animated: true, completion: nil)
-            },
-        ])
-    }
 }

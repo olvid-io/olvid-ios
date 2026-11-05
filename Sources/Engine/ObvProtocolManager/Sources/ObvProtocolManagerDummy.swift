@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvMetaManager
 import ObvCrypto
@@ -355,7 +355,19 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         os_log("deleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    
+    public func processContactGroupV2WasDeleted(ownedCryptoId: ObvTypes.ObvCryptoId, groupIdentifier: GroupV2.Identifier, flowId: OlvidUtils.FlowIdentifier) async throws {
+        os_log("processContactGroupV2WasDeleted does nothing in this dummy implementation", log: log, type: .error)
+    }
+
+    public func processOwnedIdentityWasDeleted(ownedCryptoId: ObvTypes.ObvCryptoId, flowId: OlvidUtils.FlowIdentifier) async throws {
+        os_log("processOwnedIdentityWasDeleted does nothing in this dummy implementation", log: log, type: .error)
+    }
+
+    public func getProtocolCounts(flowId: FlowIdentifier) async throws -> ObvProtocolCounts {
+        os_log("getProtocolCounts does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getProtocolCounts does nothing in this dummy implementation")
+    }
+
     // MARK: - Implementing ObvManager
     
     public let requiredDelegates = [ObvEngineDelegateType]()

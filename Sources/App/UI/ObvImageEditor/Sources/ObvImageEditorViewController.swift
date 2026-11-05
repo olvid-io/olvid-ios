@@ -234,6 +234,20 @@ public final class ObvImageEditorViewController: UIViewController, UIScrollViewD
     }
     
     
+    // MARK: The Esc key
+
+    /// Esc cancels the edition, as the cancel button does. That button is a UIKit button, so no SwiftUI shortcut can carry the key. The selector is
+    /// named after this class, UIKit sending a key command's action to the first responder in the chain that implements it rather than to the
+    /// controller that offered it.
+    public override var keyCommands: [UIKeyCommand]? {
+        (super.keyCommands ?? []) + [UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(imageEditorAnswersTheEscapeKey))]
+    }
+
+    @objc private func imageEditorAnswersTheEscapeKey() {
+        Task { [weak self] in await self?.userTappedTheCancelButton() }
+    }
+
+    
     private func userTappedTheOkButton() async {
         guard let croppedImage = await cropImage() else { assertionFailure(); return }
         await delegate?.userConfirmedImageEdition(self, image: croppedImage)

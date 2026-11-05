@@ -12,6 +12,30 @@
 				<string>使用Olvid开始通话</string>
 			</array>
 		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSendMessageIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>用Olvid发送消息</string>
+			</array>
+		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSearchForMessagesIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>在Olvid中搜索消息</string>
+			</array>
+		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSetMessageAttributeIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>在Olvid中将消息标记为已读</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

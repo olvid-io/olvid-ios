@@ -12,6 +12,30 @@
 				<string>Начать звонок через Olvid</string>
 			</array>
 		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSendMessageIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Отправить сообщение через Olvid</string>
+			</array>
+		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSearchForMessagesIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Найти сообщения в Olvid</string>
+			</array>
+		</dict>
+		<dict>
+			<key>IntentName</key>
+			<string>INSetMessageAttributeIntent</string>
+			<key>IntentExamples</key>
+			<array>
+				<string>Отметить сообщение как прочитанное в Olvid</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

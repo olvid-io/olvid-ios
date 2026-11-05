@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -194,6 +194,8 @@ fileprivate extension ObvUICoreDataConstants.AppCategory {
         case .mainApp:
             return false
         case .shareExtension:
+            return true
+        case .intentExtension:
             return true
         case .notificationExtension:
             return false

@@ -47,6 +47,12 @@
             "value": "자세한 진행 상황을 보려면 탭하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stuknij, aby zobaczyć szczegółowy postęp."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -65,10 +71,22 @@
             "value": "Нажмите, чтобы увидеть подробную информацию о ходе выполнения."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıntılı ilerlemeyi görmek için dokunun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Торкніться, щоб переглянути детальну інформацію про прогрес."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chạm để xem tiến trình chi tiết."
           }
         },
         "zh-Hans": {
@@ -125,6 +143,12 @@
             "value": "채팅 기록 전송 중"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przenoszenie historii czatu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -143,10 +167,22 @@
             "value": "Перенос истории чата"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet geçmişi aktarılıyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Передавання історії чату"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang chuyển lịch sử trò chuyện"
           }
         },
         "zh-Hans": {

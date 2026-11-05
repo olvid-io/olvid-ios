@@ -37,7 +37,14 @@ final class OlvidCallAudioPlayer: NSObject, AVAudioPlayerDelegate {
     private var currentSound: Sound?
     private let feedbackGenerator = UINotificationFeedbackGenerator()
 
+    /// An `AVAudioPlayer` activates the audio session by itself when it plays, hence the in-app line.
     func play(_ sound: Sound) {
+        OlvidCallInAppLog.log(call: nil, "call sound player plays \(sound); \(OlvidCallInAppLog.audioSessionSnapshot())")
+        playOnTheInternalQueue(sound)
+    }
+
+
+    private func playOnTheInternalQueue(_ sound: Sound) {
         let scheduledTime = Date.now
         internalQueue.addOperation { [weak self] in
             
@@ -70,6 +77,9 @@ final class OlvidCallAudioPlayer: NSObject, AVAudioPlayerDelegate {
     func stop() {
         internalQueue.addOperation { [weak self] in
             guard let self else { return }
+            if let currentSound {
+                OlvidCallInAppLog.log(call: nil, "call sound player stops \(currentSound); \(OlvidCallInAppLog.audioSessionSnapshot())")
+            }
             currentPlayer?.stop()
             currentPlayer = nil
             currentSound = nil
@@ -84,7 +94,9 @@ final class OlvidCallAudioPlayer: NSObject, AVAudioPlayerDelegate {
 
             if let currentSound, currentSound.doesLoop == true {
                 // Note that
-                play(currentSound)
+                playOnTheInternalQueue(currentSound)
+            } else if let currentSound {
+                OlvidCallInAppLog.log(call: nil, "call sound player finished \(currentSound); \(OlvidCallInAppLog.audioSessionSnapshot())")
             }
             
             currentPlayer?.stop()

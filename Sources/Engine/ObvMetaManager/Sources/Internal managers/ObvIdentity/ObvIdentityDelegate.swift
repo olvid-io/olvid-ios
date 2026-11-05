@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -87,7 +87,10 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
 
     func getDeterministicSeedForOwnedIdentity(_: ObvCryptoIdentity, diversifiedUsing: Data, forProtocol seedProtocol: ObvConstants.SeedProtocol, within context: NSManagedObjectContext) throws -> Seed
     
-    func getDeterministicSeedForReturnReceiptToSendEncryption(returnReceiptsToSend: [ObvReturnReceiptToSend]) async -> [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)]
+    /// A receipt whose owned identity is not in the database is absent from the answer, and the caller gives up on
+    /// it. A lookup that fails for another reason throws, and the caller asks again later — the two must not be
+    /// conflated, an absence being what destroys a receipt.
+    func getDeterministicSeedForReturnReceiptToSendEncryption(returnReceiptsToSend: [ObvReturnReceiptToSend]) async throws -> [(returnReceiptToSend: ObvReturnReceiptToSend, seed: Seed)]
     
     func getDeterministicSeed(diversifiedUsing data: Data, secretMACKey: MACKey, forProtocol seedProtocol: ObvConstants.SeedProtocol) throws -> Seed
 
@@ -155,7 +158,20 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     
     func getObvGroupV2(with identifier: ObvGroupV2Identifier, within obvContext: ObvContext) throws -> ObvGroupV2?
 
-    func getTrustedPhotoURLAndUploaderOfObvGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (url: URL, uploader: ObvCryptoIdentity)?
+    /// Returns the URL and the uploader of the group photo to consider for this group, giving precedence to the **published** details over the **trusted** ones.
+    ///
+    /// A GroupV2 has trusted details (the ones the user currently accepted) and, possibly, published details (a more recent update not yet accepted by the user).
+    /// When both exist, the published photo is the most up-to-date one, so we return it; if there are no published details (which is the case once the user has
+    /// accepted the published details, since they then become the trusted ones), we fall back to the trusted photo. Returns `nil` if the group has no photo at all,
+    /// or if the photo file is unexpectedly missing on disk.
+    ///
+    /// The `uploader` is the identity that uploaded the photo to the server. Callers typically compare it to the owned identity to decide whether the photo still
+    /// lives in another administrator's server space and thus needs to be re-uploaded under the owned identity's key.
+    func getPublishedOrTrustedPhotoURLAndUploaderOfObvGroupV2(
+        withGroupWithIdentifier groupIdentifier: GroupV2.Identifier,
+        of ownedIdentity: ObvCryptoIdentity,
+        within obvContext: ObvContext
+    ) throws -> (url: URL, uploader: ObvCryptoIdentity)?
 
     func replaceTrustedDetailsByPublishedDetailsOfGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
     
@@ -211,6 +227,8 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     func getContactsCertifiedByOwnKeycloak(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
     
     func verifyAndAddRevocationList(ownedCryptoIdentity: ObvCryptoIdentity, signedRevocations: [String], revocationListTimetamp: Date, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
+    
+    func isRevokedByOwnKeycloakOrExpired(ownedIdentity: ObvCryptoIdentity, identity: ObvCryptoIdentity, signedDetails: SignedObvKeycloakUserDetails, within obvContext: ObvContext) throws -> Bool
     
     func updateKeycloakPushTopicsIfNeeded(ownedCryptoIdentity: ObvCryptoIdentity, pushTopics: Set<String>, within obvContext: ObvContext) throws -> Bool
 
@@ -316,6 +334,12 @@ ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     func addDeviceForContactIdentity(_: ObvCryptoIdentity, withUid: UID, ofOwnedIdentity: ObvCryptoIdentity, createdDuringChannelCreation: Bool, within: ObvContext) throws
     
     func getDeviceUidsOfContactIdentity(_: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> Set<UID>
+
+    /// Answers `nil` when the identity is not (or no longer) a contact of this owned identity, and throws only when the
+    /// database could not be asked. ``getDeviceUidsOfContactIdentity(_:ofOwnedIdentity:within:)`` answers both with the
+    /// same throw, which is all most callers need; one that must tell a deleted contact from a database that would not
+    /// answer needs them apart.
+    func getDeviceUidsOfContactIdentityIfThisContactExists(_: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> Set<UID>?
 
     /// This method throws if the second identity is not an owned identity or if the first identity is not a contact of that owned identity. Otherwise it returns `true` iff the UID passed corresponds to the UID of contact device of the contact identity.
     func isDevice(withUid: UID, aDeviceOfContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> Bool

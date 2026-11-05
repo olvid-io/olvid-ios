@@ -507,7 +507,7 @@ extension ObvObliviousChannel {
             Predicate.withCurrentDeviceUID(currentDeviceUID),
             Predicate.withRemoteCryptoId(remoteCryptoId),
         ])
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let channels = try context.fetch(request)
         for channel in channels {
             try channel.deleteObvObliviousChannel()
@@ -572,7 +572,7 @@ extension ObvObliviousChannel {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         request.fetchBatchSize = 500
         request.predicate = Predicate.withCurrentDeviceUID(currentDeviceUID)
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let channels = try context.fetch(request)
         for channel in channels {
             try channel.deleteObvObliviousChannel()

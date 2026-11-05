@@ -82,7 +82,7 @@ struct KeycloakGroupBlob: Decodable, ObvErrorMaker {
                   photoServerKeyAndLabel: photoServerKeyAndLabel,
                   pushTopic: pushTopic,
                   groupMembersAndPermissions: groupMembersAndPermissions,
-                  serializedSharedSettings: serializedSharedSettings,
+                  serializedSharedSettings: serializedSharedSettings?.isEmpty == true ? nil : serializedSharedSettings,
                   timestamp: timestamp)
     }
 

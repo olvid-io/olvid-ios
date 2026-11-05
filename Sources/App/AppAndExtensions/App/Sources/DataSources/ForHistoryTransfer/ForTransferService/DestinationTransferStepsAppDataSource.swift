@@ -54,7 +54,13 @@ extension DestinationTransferStepsAppDataSource: DestinationTransferStepsDataSou
     func filterKnownMessages(_ actor: DestinationTransferSteps, discussionIdentifier: ObvDiscussionIdentifier, messagesAvailableOnSource: [ObvMessageAppIdentifier]) async throws -> [ObvMessageAppIdentifier] {
         return try await self.filterKnownMessages(discussionIdentifier: discussionIdentifier, messagesAvailableOnSource: messagesAvailableOnSource)
     }
-    
+
+
+    /// Among the sha256s, this method returns those that some message on this destination device still awaits: a (non-wiped) join references the fyle, but its bytes are not on disk.
+    func filterFylesStillAwaitedByThisDestination(_ actor: DestinationTransferSteps, sha256s: Set<Data>) async throws -> Set<Data> {
+        return try await self.filterFylesStillAwaited(sha256s: sha256s)
+    }
+
 }
 
 
@@ -78,6 +84,22 @@ extension DestinationTransferStepsAppDataSource {
     }
 
     
+    private func filterFylesStillAwaited(sha256s: Set<Data>) async throws -> Set<Data> {
+        let backgroundContext = self.backgroundContext
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<Data>, any Error>) in
+            backgroundContext.perform {
+                do {
+                    let stillAwaited = try FyleMessageJoinWithStatus.filterSha256sOfFylesStillAwaitedByAJoin(sha256s: sha256s, within: backgroundContext)
+                    return continuation.resume(returning: stillAwaited)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+
     private func filterKnownMessages(discussionIdentifier: ObvDiscussionIdentifier, messagesAvailableOnSource: [ObvMessageAppIdentifier]) async throws -> [ObvMessageAppIdentifier] {
         let backgroundContext = self.backgroundContext
         let sentMessagesAvailableOnSource = messagesAvailableOnSource.filter({ $0.isSent })

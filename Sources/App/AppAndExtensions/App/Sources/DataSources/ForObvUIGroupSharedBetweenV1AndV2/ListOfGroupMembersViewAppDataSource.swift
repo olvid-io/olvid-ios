@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -450,13 +450,13 @@ extension [SingleGroupMemberView.Model.Identifier] {
                 usageContext: .groupV1Display(groupV1Identifier: groupV1Identifier)))
         }
 
-        let cryptoIdsAlreadyIncluded = sortedContacts.map { $0.cryptoId }
+        let cryptoIdsAlreadyIncluded = sortedContacts.compactMap { try? $0.cryptoId }
 
         // We continue with the remaining pending members
 
         let sortedPendingMembers = groupV1.pendingMembers.sorted(by: \.fullDisplayName)
         for pendingMember in sortedPendingMembers {
-            guard !cryptoIdsAlreadyIncluded.contains(where: { $0 == pendingMember.cryptoId }) else { continue }
+            guard let pendingMemberCryptoId = try? pendingMember.cryptoId, !cryptoIdsAlreadyIncluded.contains(pendingMemberCryptoId) else { continue }
             guard try pendingMember.ownedCryptoId == groupV1Identifier.ownedCryptoId else { assertionFailure(); throw SingleGroupMemberViewModelIdentifierListInitError.unexpectedIdentifier }
             otherGroupMembers.append(.objectIDOfPersistedPendingGroupMember(objectID: pendingMember.objectID))
         }

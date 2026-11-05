@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,7 +32,7 @@ class PreKeyAbstract: NSManagedObject {
     
     static weak var delegateManager: ObvIdentityDelegateManager?
     private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
-    private static var logger: Logger = { Logger(subsystem: PreKeyAbstract.logSubsystem, category: "PreKeyAbstract") }()
+    private static let logger = Logger(subsystem: PreKeyAbstract.logSubsystem, category: "PreKeyAbstract")
 
     // MARK: Attributes
 
@@ -348,6 +348,8 @@ final class PreKeyForRemoteOwnedDevice: PreKeyAbstract {
 final class PreKeyForCurrentOwnedDevice: PreKeyAbstract {
     
     private static let entityName = "PreKeyForCurrentOwnedDevice"
+    private static var logSubsystem: String { delegateManager?.logSubsystem ?? ObvIdentityDelegateManager.defaultLogSubsystem }
+    private static let logger = Logger(subsystem: PreKeyForCurrentOwnedDevice.logSubsystem, category: "PreKeyForCurrentOwnedDevice")
 
     // MARK: Attributes
 
@@ -357,7 +359,7 @@ final class PreKeyForCurrentOwnedDevice: PreKeyAbstract {
     // MARK: Relationship
     
     @NSManaged private var currentOwnedDevice: OwnedDevice? // Expected to be non-nil
-    
+    @NSManaged private var signaturesReceived: Set<PreKeySignatureReceived>
     
     // MARK: Accessors
     
@@ -412,24 +414,64 @@ final class PreKeyForCurrentOwnedDevice: PreKeyAbstract {
     
     // Using this pre-key
     
-    static func unwrapMessageKey(_ wrappedMessageKey: EncryptedData, forCurrentOwnedDevice currentOwnedDevice: OwnedDevice) throws -> (messageKey: any AuthenticatedEncryptionKey, remoteCryptoId: ObvCryptoIdentity, remoteDeviceUID: UID)? {
-        
-        guard let (encryptedMessageKey, cryptoKeyId) = CryptoKeyId.parse(wrappedMessageKey) else { return nil }
-        
-        let preKeyCandidates = try Self.fetchPreKeysForCurrentOwnedDevice(currentOwnedDevice, withCryptoKeyId: cryptoKeyId)
-        
-        for preKeyCandidate in preKeyCandidates {
-            if let (messageKey, remoteCryptoId, remoteDeviceUID) = try? preKeyCandidate.unwrapMessageKey(encryptedMessageKey) {
-                return (messageKey, remoteCryptoId, remoteDeviceUID)
-            }
-        }
-        
-        return nil
-        
+    /// What unwrapping a message key with the prekeys of the current device yields.
+    enum UnwrapResult {
+        /// A prekey decrypted the key and the sender's signature is valid and new.
+        case unwrapped(UnwrappedMessageKey)
+        /// No prekey of the current device decrypts the key with a valid signature.
+        case couldNotUnwrap
+        /// A prekey decrypted the key but its signature was already accepted with that prekey, so the message was already
+        /// processed, by this process or by another one sharing the store.
+        case signatureWasAlreadyAccepted
     }
-    
-    
-    private func unwrapMessageKey(_ encryptedMessageKey: EncryptedData) throws -> (messageKey: any AuthenticatedEncryptionKey, remoteCryptoId: ObvCryptoIdentity, remoteDeviceUID: UID)? {
+
+
+    static func unwrapMessageKey(_ wrappedMessageKey: EncryptedData, forCurrentOwnedDevice currentOwnedDevice: OwnedDevice) throws -> UnwrapResult {
+
+        guard let (encryptedMessageKey, cryptoKeyId) = CryptoKeyId.parse(wrappedMessageKey) else { return .couldNotUnwrap }
+
+        let preKeyCandidates = try Self.fetchPreKeysForCurrentOwnedDevice(currentOwnedDevice, withCryptoKeyId: cryptoKeyId)
+
+        for preKeyCandidate in preKeyCandidates {
+
+            // A decryption or a verification that fails is deterministic for this ciphertext and this candidate, so it is
+            // swallowed and the next candidate is tried.
+            guard let unwrappedMessageKey = try? preKeyCandidate.unwrapMessageKey(encryptedMessageKey) else { continue }
+
+            // Refuse a signature already accepted with this prekey. Unlike a failed decryption, a Core Data error here says
+            // nothing about the message, so it is thrown: the channel manager asserts and has the message deleted in this batch.
+
+            guard try !PreKeySignatureReceived.exists(signature: unwrappedMessageKey.signature, preKey: preKeyCandidate) else {
+                // The store is shared with the notification extension, which decrypts a message the app may already have processed
+                // and recorded, so this is not always a redelivery. The extension's context is never saved, so it never records one.
+                // Logged at notice, not error: in the extension this is the ordinary case, and it is what the logs must show.
+                Self.logger.notice("🔑 Refusing a message wrapped with the prekey \(cryptoKeyId.raw.hexString(), privacy: .public): its signature was already accepted with this prekey, by this process or by another one sharing the store, so the message was already processed. Sender: device \(unwrappedMessageKey.remoteDeviceUID.raw.hexString(), privacy: .public) of \(unwrappedMessageKey.remoteCryptoId.debugDescription)")
+                return .signatureWasAlreadyAccepted
+            }
+
+            return .unwrapped(unwrappedMessageKey)
+
+        }
+
+        return .couldNotUnwrap
+
+    }
+
+
+    /// What unwrapping a message key with a prekey of the current device yields, before the sender is checked.
+    /// The prekey and the signature are what `OwnedIdentity` records once it knows the message will be processed.
+    struct UnwrappedMessageKey {
+        let messageKey: any AuthenticatedEncryptionKey
+        let remoteCryptoId: ObvCryptoIdentity
+        let remoteDeviceUID: UID
+        let preKey: PreKeyForCurrentOwnedDevice
+        let signature: Data
+    }
+
+
+    /// Decrypts the message key with this prekey and verifies the sender's signature. Whether that signature was already
+    /// accepted is checked by the caller, outside the `try?` that swallows a failed decryption or verification.
+    private func unwrapMessageKey(_ encryptedMessageKey: EncryptedData) throws -> UnwrappedMessageKey? {
         
         guard let privateKeyForPublicKeyEncryption else { assertionFailure(); return nil }
         
@@ -480,11 +522,15 @@ final class PreKeyForCurrentOwnedDevice: PreKeyAbstract {
             assertionFailure()
             throw ObvError.invalidChallengeResponse
         }
-        
+
         // Return found values
         
-        return (messageKey, remoteCryptoId, remoteDeviceUID)
-        
+        return .init(messageKey: messageKey,
+                     remoteCryptoId: remoteCryptoId,
+                     remoteDeviceUID: remoteDeviceUID,
+                     preKey: self,
+                     signature: response)
+
     }
 
 
@@ -573,7 +619,7 @@ final class PreKeyForCurrentOwnedDevice: PreKeyAbstract {
             ])
         ])
         request.fetchBatchSize = 500
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let items = try context.fetch(request)
         try items.forEach { item in
             try item.deletePreKeyForCurrentOwnedDevice()
