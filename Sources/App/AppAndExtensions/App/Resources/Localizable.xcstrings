@@ -32919,7 +32919,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The settings below will be applied to all new one-to-one discussions and to all new group discussions that you create. Please note that these settings will be shared among all the participant of the discussion."
+            "value" : "The settings below will be applied to all new one-to-one discussions and to all new group discussions that you create. Please note that these settings will be shared among all the participants of the discussion."
           }
         },
         "es" : {
@@ -84683,7 +84683,7 @@
         }
       }
     },
-    "Your contacts will be notified when you have read their messages. This settting can be overriden on a per discussion basis." : {
+    "Your contacts will be notified when you have read their messages. This setting can be overriden on a per discussion basis." : {
       "comment" : "Explantation",
       "localizations" : {
         "de" : {
@@ -84695,7 +84695,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your contacts will be notified when you have read their messages. This settting can be overriden on a per discussion basis."
+            "value" : "Your contacts will be notified when you have read their messages. This setting can be overriden on a per discussion basis."
           }
         },
         "es" : {
@@ -84778,7 +84778,7 @@
         }
       }
     },
-    "Your contacts won't be notified when you read their messages. This settting can be overriden on a per discussion basis." : {
+    "Your contacts won't be notified when you read their messages. This setting can be overriden on a per discussion basis." : {
       "comment" : "Explantation",
       "localizations" : {
         "de" : {
@@ -84790,7 +84790,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your contacts won't be notified when you read their messages. This settting can be overriden on a per discussion basis."
+            "value" : "Your contacts won't be notified when you read their messages. This setting can be overriden on a per discussion basis."
           }
         },
         "es" : {

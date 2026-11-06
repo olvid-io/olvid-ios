@@ -381,8 +381,8 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
     
     private struct Strings {
         struct SendReadRecceipts {
-            static let explanationWhenYes = NSLocalizedString("Your contacts will be notified when you have read their messages. This settting can be overriden on a per discussion basis.", comment: "Explantation")
-            static let explanationWhenNo = NSLocalizedString("Your contacts won't be notified when you read their messages. This settting can be overriden on a per discussion basis.", comment: "Explantation")
+            static let explanationWhenYes = NSLocalizedString("Your contacts will be notified when you have read their messages. This setting can be overriden on a per discussion basis.", comment: "Explantation")
+            static let explanationWhenNo = NSLocalizedString("Your contacts won't be notified when you read their messages. This setting can be overriden on a per discussion basis.", comment: "Explantation")
         }
         
         struct UnarchiveWhenNotified {

@@ -51,10 +51,10 @@ final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpec
             
             let group = try ownedIdentity.createOrUpdateGroupV2(obvGroupV2: obvGroupV2, createdByMe: initiator == .createdByMe, isRestoringSyncSnapshotOrBackup: false)
             
-            /* If we the group was updated by someone else and if the list of users that can change the discussion shared setttings was changed (compared to the one we knew about),
+            /* If we the group was updated by someone else and if the list of users that can change the discussion shared settings was changed (compared to the one we knew about),
              * we might be in a situation where one of the new members allowed to change these shared settings did change the settings while we were not aware of her rights to do so.
              * In that case, we have thrown away her change request.
-             * To make sure we have the latest shared settings, we thus query for these settings in case the list of users that can change the discussion shared setttings was changed.
+             * To make sure we have the latest shared settings, we thus query for these settings in case the list of users that can change the discussion shared settings was changed.
              */
             
             if initiator == .createdOrUpdatedBySomeoneElse && group.otherMembers.contains(where: { $0.permissionChangeSettingsIsUpdated && $0.isAllowedToChangeSettings }) {

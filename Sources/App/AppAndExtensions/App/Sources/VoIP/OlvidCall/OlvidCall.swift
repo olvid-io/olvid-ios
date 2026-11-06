@@ -1055,7 +1055,7 @@ extension OlvidCall {
 
     
     /// This method is eventually called when ending a call, either because the local user requested to end the call, or the remote user hanged up,
-    /// Or because some error occured, etc. It perfoms final important steps before settting the call into an appropriate final state.
+    /// Or because some error occured, etc. It perfoms final important steps before setting the call into an appropriate final state.
     /// This is the only method that actually sets the call state to a final state.
     private func endWebRTCCall(reason: EndCallReason) async -> (callReport: CallReport?, cxCallEndedReason: CXCallEndedReason?) {
         
