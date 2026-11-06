@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -74,6 +74,11 @@ extension EdwardsCurve {
         let point2 = PointOnCurve(x: BigInt(-1).mod(self.parameters.p), y: BigInt(0), onCurveWithByteId: self.byteId)!
         return (point1, point2)
     }
+    
+    /// Whether `coordinate` is the canonical representative (0 ≤ coordinate < p) of a coordinate modulo p.
+    func isCanonicalCoordinate(_ coordinate: BigInt) -> Bool {
+        coordinate.isNonNegative() && coordinate < parameters.p
+    }
 
     /// Given a an Edwards curve, there are two points on the curve that match a given y-coordinate. This method returns these two points.
     ///
@@ -98,6 +103,20 @@ extension EdwardsCurve {
         let point1 = PointOnCurve(x: x1, y: y, onCurveWithByteId: self.byteId, checkPointIsOnCurve: false)!
         let point2 = PointOnCurve(x: x2, y: y, onCurveWithByteId: self.byteId, checkPointIsOnCurve: false)!
         return (point1, point2)
+    }
+    
+    /// Whether `y` is the canonical y-coordinate (0 ≤ y < p) of a point on the curve.
+    ///
+    /// A point with this y-coordinate has x² = (y² - 1) / (d·y² - 1). As d is not a square modulo p, the denominator is
+    /// never zero, and the quotient is a square exactly when the product (y² - 1)·(d·y² - 1) is a square.
+    /// A Legendre symbol of 0 is y = ±1, where x = 0.
+    func isCanonicalYCoordinateOfAPointOnCurve(_ y: BigInt) -> Bool {
+        guard isCanonicalCoordinate(y) else { return false }
+        let p = parameters.p
+        let ySquare = BigInt(y).powm(2, modulo: p)
+        let numerator = BigInt(ySquare).sub(1)
+        let denominator = BigInt(parameters.d).mul(ySquare, modulo: p).sub(1)
+        return numerator.mul(denominator, modulo: p).legendreSymbol(modulo: p) != -1
     }
     
 
@@ -139,10 +158,14 @@ extension EdwardsCurve {
                 _ = t2.mul(BigInt(pointR.x).sub(pointR.y, modulo: p), modulo: p)
                 // (Q+R).x = P.y * (t1 + t2)^2 mod p
                 // (Q+R).y = P.x * (t1 - t2)^2 mod p
-                let resultOfAdding = PointOnCurve(x: BigInt(pointP.y).mul(BigInt(t1).add(t2, modulo: p).powm(2, modulo: p), modulo: p),
-                                                  y: BigInt(pointP.x).mul(BigInt(t1).sub(t2, modulo: p).powm(2, modulo: p), modulo: p),
-                                                  onCurveWithByteId: self.byteId,
-                                                  checkPointIsOnCurve: false)!
+                guard let resultOfAdding = PointOnCurve(
+                    x: BigInt(pointP.y).mul(BigInt(t1).add(t2, modulo: p).powm(2, modulo: p), modulo: p),
+                    y: BigInt(pointP.x).mul(BigInt(t1).sub(t2, modulo: p).powm(2, modulo: p), modulo: p),
+                    onCurveWithByteId: self.byteId,
+                    checkPointIsOnCurve: false
+                ) else {
+                    return nil
+                }
                 
                 let pointerToPointToDouble = n.isBitSet(atPosition: UInt(bitCount-i-1)) ? pointR : pointQ
                 /* t1 = (x+y)^2 mod p */
@@ -153,10 +176,14 @@ extension EdwardsCurve {
                 let t3 = BigInt(t1).sub(t2, modulo: p)
                 /* doubledPoint.x = t1 * t2 mod p */
                 /* doubledPoint.y = t3 * (c*t3 + t2) mod p */
-                let resultOfDoubling = PointOnCurve(x: BigInt(t1).mul(t2, modulo: p),
-                                                    y: BigInt(t3).mul(BigInt(c).mul(t3, modulo: p).add(t2, modulo: p), modulo: p),
-                                                    onCurveWithByteId: self.byteId,
-                                                    checkPointIsOnCurve: false)!
+                guard let resultOfDoubling = PointOnCurve(
+                    x: BigInt(t1).mul(t2, modulo: p),
+                    y: BigInt(t3).mul(BigInt(c).mul(t3, modulo: p).add(t2, modulo: p), modulo: p),
+                    onCurveWithByteId: self.byteId,
+                    checkPointIsOnCurve: false
+                ) else {
+                    return nil
+                }
                 
                 if n.isBitSet(atPosition: UInt(bitCount-i-1)) {
                     pointQ = resultOfAdding // No need to copy
@@ -202,11 +229,15 @@ extension EdwardsCurve {
             let bitCount = self.parameters.cardinality.size(inBase: .two)
             for i in 0..<bitCount {
                 if n.isBitSet(atPosition: UInt(bitCount-i-1)) {
-                    pointP = self.add(point: pointP, withPoint: pointQ)!
-                    pointQ = self.add(point: pointQ, withPoint: pointQ)!
+                    guard let sum = self.add(point: pointP, withPoint: pointQ),
+                          let doubled = self.add(point: pointQ, withPoint: pointQ) else { return nil }
+                    pointP = sum
+                    pointQ = doubled
                 } else {
-                    pointQ = self.add(point: pointP, withPoint: pointQ)!
-                    pointP = self.add(point: pointP, withPoint: pointP)!
+                    guard let sum = self.add(point: pointP, withPoint: pointQ),
+                          let doubled = self.add(point: pointP, withPoint: pointP) else { return nil }
+                    pointQ = sum
+                    pointP = doubled
                 }
             }
         }
@@ -233,7 +264,11 @@ extension EdwardsCurve {
         _ = pointR.x.add(BigInt(point1.y).mul(point2.x, modulo: p), modulo: p)
         _ = pointR.x.mul(z, modulo: p)
         // Compute z = invert(1-t,p)
-        z.set(try! BigInt(1).sub(t).invert(modulo: p))
+        do {
+            z.set(try BigInt(1).sub(t).invert(modulo: p))
+        } catch {
+            return nil
+        }
         // Compute R.y = (z * (y1*y2 - x1*x2))%p
         pointR.y.set(BigInt(point1.y).mul(point2.y, modulo: p))
         _ = pointR.y.sub(BigInt(point1.x).mul(point2.x, modulo: p))
@@ -258,7 +293,7 @@ extension EdwardsCurve {
             let point4 = self.scalarMultiplication(scalar: b, point: point2) else {
                 return nil
         }
-        return self.add(point: point3, withPoint: point4)!
+        return self.add(point: point3, withPoint: point4)
     }
     
     /// This function computes a*point1 + b*point2, where `point2` is not fully specified. As a consequence, two points are returned by this function.
@@ -473,6 +508,8 @@ extension PointOnCurve {
     convenience init?(_ obvDic: ObvDictionary, onCurveWithByteId byteId: EdwardsCurveByteId) {
         guard let x = PointOnCurve.valueOf(.forXCoordinate, in: obvDic) else { return nil }
         guard let y = PointOnCurve.valueOf(.forYCoordinate, in: obvDic) else { return nil }
+        let curve = byteId.curve
+        guard curve.isCanonicalCoordinate(x), curve.isCanonicalCoordinate(y) else { return nil }
         self.init(x: x, y: y, onCurveWithByteId: byteId)
     }
     

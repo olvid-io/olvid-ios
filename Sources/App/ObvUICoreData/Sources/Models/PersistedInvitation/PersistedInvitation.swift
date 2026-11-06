@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,6 +49,7 @@ public class PersistedInvitation: NSManagedObject {
         }
     }
     @NSManaged private var rawStatus: Int
+    @NSManaged public private(set) var suggestionSeen: Bool // Set once this invitation was a card of a contacts suggestions deck the user opened. Local to this device.
     @NSManaged public private(set) var uuid: UUID
     
     
@@ -109,6 +110,7 @@ extension PersistedInvitation {
         self.actionRequired = obvDialog.actionRequired
         self.uuid = obvDialog.uuid
         self.rawStatus = Status.new.rawValue
+        self.suggestionSeen = false
         self.obvDialog = obvDialog
         self.date = Date()
         self.ownedIdentity = ownedIdentity
@@ -180,6 +182,7 @@ extension PersistedInvitation {
             case date = "date"
             case encodedObvDialog = "encodedObvDialog"
             case rawStatus = "rawStatus"
+            case suggestionSeen = "suggestionSeen"
             case uuid = "uuid"
             case ownedIdentity = "ownedIdentity"
             static var ownedIdentityIdentity: String { [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".") }
@@ -189,6 +192,19 @@ extension PersistedInvitation {
         fileprivate static func withUUID(_ uuid: UUID) -> NSPredicate {
             NSPredicate(Key.uuid, EqualToUuid: uuid)
         }
+        /// The invitations of `ownedCryptoId` whose UUID is in `uuids`, as one predicate per fetch. Run one fetch per predicate: SQLite limits how
+        /// many values one statement may carry, so each fetch asks about at most ``numberOfUUIDsPerFetch`` invitations. An empty set returns no
+        /// predicate.
+        fileprivate static func predicatesForInvitations(withUUIDIn uuids: Set<UUID>, ofOwnedCryptoId ownedCryptoId: ObvCryptoId) -> [NSPredicate] {
+            Array(uuids).toSlices(ofMaxSize: numberOfUUIDsPerFetch).map { uuids in
+                NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    withOwnedIdentity(ownedCryptoId),
+                    NSPredicate(Key.uuid, in: uuids),
+                ])
+            }
+        }
+        /// How many UUIDs go into one `IN` clause. `NSPredicate(_:in:)` asserts below 150.
+        private static let numberOfUUIDsPerFetch = 100
         fileprivate static func withPersistedObvOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
             NSPredicate(Key.ownedIdentity, equalTo: ownedIdentity)
         }
@@ -229,6 +245,22 @@ extension PersistedInvitation {
     }
     
     
+    /// Called with the invitation cards of a contacts suggestions deck when the user opens or closes it, so that they no longer make its badge red.
+    /// Only the invitations not seen yet are loaded, by slices; an invitation that is gone is skipped.
+    public static func markSuggestionsAsSeen(ownedCryptoId: ObvCryptoId, invitationUUIDs: Set<UUID>, within context: NSManagedObjectContext) throws {
+        for predicate in Predicate.predicatesForInvitations(withUUIDIn: invitationUUIDs, ofOwnedCryptoId: ownedCryptoId) {
+            let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                predicate,
+                NSPredicate(Predicate.Key.suggestionSeen, is: false),
+            ])
+            for invitation in try context.fetch(request) {
+                invitation.suggestionSeen = true
+            }
+        }
+    }
+
+
     public static func markAllAsOld(for ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -310,6 +342,73 @@ extension PersistedInvitation {
 }
 
 
+// MARK: - Invitations shown among the contacts suggestions
+
+extension PersistedInvitation {
+
+    /// An invitation awaiting the user's answer that the contacts suggestions offer to accept or decline.
+    public struct ContactSuggestionInvitation: Sendable, Equatable {
+        public enum Kind: Sendable, Equatable {
+            /// Somebody invited us to become one-to-one contacts. They are already a contact of ours, though not a one-to-one one: the engine
+            /// takes the invitation only through an oblivious channel or a pre-key channel, and drops a message from a sender it does not know.
+            case oneToOneInvitationReceived(contactIdentity: ObvGenericIdentity)
+            /// One of our contacts introduced us to somebody.
+            case introduction(contactIdentity: ObvGenericIdentity, mediatorIdentity: ObvGenericIdentity)
+        }
+        public let invitationUUID: UUID
+        public let date: Date
+        public let kind: Kind
+        public var contactCryptoId: ObvCryptoId {
+            switch kind {
+            case .oneToOneInvitationReceived(let contactIdentity),
+                    .introduction(let contactIdentity, _):
+                return contactIdentity.cryptoId
+            }
+        }
+    }
+
+
+    /// What an invitation means to the contacts suggestions.
+    public enum ContactSuggestionRole: Sendable, Equatable {
+        /// It awaits an answer, and is shown as a card.
+        case awaitingAnAnswer(ContactSuggestionInvitation)
+        /// We accepted an introduction to this person and the protocol is not over: they are not a one-to-one contact yet, and must not be offered as
+        /// somebody to invite in the meantime.
+        case introductionAccepted(contactCryptoId: ObvCryptoId)
+    }
+
+
+    /// `nil` when this invitation means nothing to the contacts suggestions. The dialog is decoded only for an invitation awaiting an answer or one
+    /// we received and answered, never for one we sent.
+    public var contactSuggestionRole: ContactSuggestionRole? {
+        if let contactSuggestionInvitation {
+            return .awaitingAnAnswer(contactSuggestionInvitation)
+        }
+        guard !actionRequired, !(self is PersistedInvitationOneToOneInvitationSent), let obvDialog else { return nil }
+        switch obvDialog.category {
+        case .mediatorInviteAccepted(contactIdentity: let contactIdentity, mediatorIdentity: _):
+            return .introductionAccepted(contactCryptoId: contactIdentity.cryptoId)
+        default:
+            return nil
+        }
+    }
+
+
+    /// Returns `nil` unless this invitation still awaits an answer and is one the contacts suggestions show.
+    public var contactSuggestionInvitation: ContactSuggestionInvitation? {
+        guard actionRequired, let obvDialog else { return nil }
+        switch obvDialog.category {
+        case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
+            return .init(invitationUUID: uuid, date: date, kind: .oneToOneInvitationReceived(contactIdentity: contactIdentity))
+        case .acceptMediatorInvite(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
+            return .init(invitationUUID: uuid, date: date, kind: .introduction(contactIdentity: contactIdentity, mediatorIdentity: mediatorIdentity))
+        default:
+            return nil
+        }
+    }
+}
+
+
 // MARK: - NSFetchedResultsController
 
 extension PersistedInvitation {
@@ -367,8 +466,10 @@ extension PersistedInvitation {
             
         } else {
             
-            // We do *not* notify that the invitation has changed when the reason is that the invitation status changed from new or updated to old
-            if !(changedKeys.contains(Predicate.Key.rawStatus.rawValue) && status == .old) {
+            // We do *not* notify that the invitation has changed when the reason is that the invitation status changed from new or updated to old.
+            // Nor when it was only marked as seen in the contacts suggestions: the observers would post its user notification again.
+            let onlyTheSeenFlagChanged = changedKeys == [Predicate.Key.suggestionSeen.rawValue]
+            if !(changedKeys.contains(Predicate.Key.rawStatus.rawValue) && status == .old) && !onlyTheSeenFlagChanged {
                 do {
                     let invitation = try self.toStructure()
                     Task { await PersistedInvitation.observersHolder.aPersistedInvitationWasInsertedOrUpdated(invitation: invitation) }

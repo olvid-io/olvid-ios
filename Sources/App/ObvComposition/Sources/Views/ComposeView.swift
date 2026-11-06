@@ -42,7 +42,8 @@ public struct ComposeView: View {
     //@State private var mentionSuggestionsViewModel: ComposeSuggestionsModel?
     
     public struct DataSources {
-        let dataSource: any ComposeViewDataSource
+        /// Public, as the owner of the view needs it to compute the initial model, exactly as `ShareExtensionView.DataSources` does.
+        public let dataSource: any ComposeViewDataSource
         let attachmentDataSource: any ComposeAttachmentViewDataSource
         let replyToDataSource: any ComposeReplyToViewDataSource
         let mentionsDataSource: any ComposeMentionsViewDataSource
@@ -79,14 +80,73 @@ public struct ComposeView: View {
     
     @Namespace private var namespace
     
-    init(sharedState: ComposeView.SharedState,
-         dataSources: DataSources,
-         actions: any ComposeViewActions) {
+    /// `initialDataSourceViewModel` is the seed of the first frame, and is expected to be computed by the owner of this view, typically the screen
+    /// embedding the composition view. It used to be fetched here, which was acceptable as long as a `UIHostingController` was the only way to create
+    /// this view, hence created it once. It is not, as soon as this view is embedded in a SwiftUI hierarchy: `init` then runs on every evaluation of the
+    /// body of the parent, so the fetch would be repeated.
+    /// How much empty space is kept between this bar and whatever is below it — the bottom of the window on a Mac, where a bar flush with the
+    /// edge looks wrong. Nothing by default, which is what a screen that spaces the bar itself wants.
+    ///
+    /// **It is part of the bar, and that is the point of it being here** rather than padding applied by whoever places the bar: the space is
+    /// inside the drop target, so a file let go in the gap under the bar is taken as readily as one let go on it. See
+    /// ``TakesWhateverIsDroppedOnTheBar``.
+    ///
+    /// The legacy screen keeps this space with a constraint of its own (`constantForComposeMessageContainerViewbottomAnchorConstraintToKeyboardConstant`),
+    /// which is why the default is zero: it would otherwise be spaced twice.
+    private let spaceKeptBelowTheBar: CGFloat
+
+    /// What ``spaceKeptBelowTheBar`` should be on the platform this is running on, for a screen that does not space the bar itself.
+    ///
+    /// The legacy screen's own numbers, transcribed: **20pt on a Mac**, and nothing elsewhere — where the home indicator already provides the
+    /// margin. Legacy has a third case this does not, `-16` when the bottom safe area is zero, as on an iPhone SE; that one is still open on
+    /// the SwiftUI screen.
+    public static var spaceKeptBelowTheBarOnThisPlatform: CGFloat {
+        #if targetEnvironment(macCatalyst)
+        return 20
+        #else
+        return 0
+        #endif
+    }
+
+    /// Whether this bar may **animate a change of its own height** — the attachment panel opening or closing, a link preview appearing.
+    ///
+    /// **True by default, which is the legacy screen**, and it is not a preference: it depends on how the host reserves the space below the
+    /// messages, and the two screens do it differently.
+    ///
+    /// The legacy screen writes `contentInset.bottom` on its collection view by hand, so an animated height change here costs it nothing. The
+    /// SwiftUI screen places this bar in a `safeAreaInset`, and **SwiftUI answers an *animated* change of that content's height by
+    /// reparameterising the scroll view** — shortening it and zeroing the whole bottom inset, then animating the frame back. An **un-animated**
+    /// change of the same height does not provoke it at all, which is what makes this a workable answer rather than a compromise.
+    ///
+    /// **Removed on 2026-08-24 and restored the same evening, which is the part worth keeping.** It was removed because Step 46g had made the
+    /// simplest case clean: an attachment removed at the *end* of a discussion with no keyboard, where the reparameterisation costs fifteen frames
+    /// in which the transcript rides smoothly with the panel and nothing is wrong. That measurement was true and far too narrow. With a keyboard
+    /// up the inset is 526 rather than 84, so the list is reparameterised to **348pt**; and sending a message with an attachment starts a
+    /// scroll-to-the-end *through* that. Measured: 667 frames out of 781 with the list at some height other than its own, a 7,357pt scroll running
+    /// for **3.3 seconds** inside a viewport growing from 348 to 472 with `inset=0` throughout, every position it computed answering a geometry
+    /// that was wrong and still moving.
+    ///
+    /// So the rule stands as it was first written: **no scroll offset can repair a reparameterisation**, and the only reliable answer is not to
+    /// provoke one. What would buy the animation back is making the panel *slide under a clip* while the height this reports changes in one step —
+    /// content that follows without geometry that rides. Not attempted.
+    private let theBarsHeightMayBeAnimated: Bool
+
+    public init(sharedState: ComposeView.SharedState,
+                dataSources: DataSources,
+                actions: any ComposeViewActions,
+                initialDataSourceViewModel: ComposeViewDataSourceModel?,
+                spaceKeptBelowTheBar: CGFloat = 0,
+                theBarsHeightMayBeAnimated: Bool = true) {
         self.sharedState = sharedState
         self.dataSources = dataSources
         self.actions = actions
-        self.initialDataSourceViewModel = dataSources.dataSource.getInitialComposeViewDataSourceModel(discussionIdentifier: sharedState.discussionIdentifier)
-        self.sharedState.setDelegate(to: self)
+        self.initialDataSourceViewModel = initialDataSourceViewModel
+        self.spaceKeptBelowTheBar = spaceKeptBelowTheBar
+        self.theBarsHeightMayBeAnimated = theBarsHeightMayBeAnimated
+        // The shared state calls the actions directly, and holds them weakly. It used to hold *this view* as its delegate, purely so that it could pass a
+        // `ComposeView` to each action — and since a view holds the state through its `@ObservedObject`, the two retained each other and nothing was ever
+        // deallocated. Idempotent, and thus harmless when `init` is evaluated repeatedly.
+        self.sharedState.setActions(to: actions)
     }
     
     private var isMessageEmpty: Bool { sharedState.isTextEditorEmpty && attachments.isEmpty }
@@ -112,22 +172,60 @@ public struct ComposeView: View {
     }
     
     
+    private func onTaskForTheProgressOfTheVideosBeingPrepared() async {
+        let stream = dataSources.dataSource.getAsyncStreamOfTheProgressOfTheVideosBeingPrepared(discussionIdentifier: sharedState.discussionIdentifier)
+        for await fractionCompleted in stream {
+            sharedState.setFractionOfTheVideosBeingPrepared(fractionCompleted)
+        }
+    }
+
+
     private func onChangeOfHasAttachments(_ newValue: Bool) {
         self.sharedState.setDraftHasAttachments(to: newValue)
+    }
+
+
+    private func onChangeOfQuotesAMessage(_ newValue: Bool) {
+        self.sharedState.setDraftQuotesAMessage(to: newValue)
+    }
+
+
+    /// The reader picked the size this draft's photographs are to be sent at.
+    ///
+    /// Not awaited, and nothing here waits on the answer: the choice is recorded on the draft and comes back through the model stream
+    /// like everything else this bar shows, so the menu's checkmark moves when the draft says so rather than when this returns.
+    private func photoFormatTapped(_ format: ObvMediaFormat) {
+        guard format != dataSourceViewModel?.mediaFormatSelection?.selected else { return }
+        Task {
+            do {
+                try await actions.userWantsToChangeTheMediaFormatOfTheDraft(self, discussionIdentifier: sharedState.discussionIdentifier, format: format)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
     }
     
     
     public var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            content
-        }
+        // This view sizes itself to its content, as a bar should. It used to be wrapped in a `VStack` starting with a `Spacer`, which made it take
+        // whatever height it was offered and show its content at the bottom of that. Harmless as long as a `UIHostingController` was the only host, its
+        // view being pinned by constraints — but a SwiftUI host offering it the height of the screen, as `safeAreaInset` does, then got a bar an entire
+        // screen tall. `content` being a single view, no container is needed around it.
+        content
         .onDisappear {
             ComposeAudioPlayer.shared.stop()
+            // A mention request is left waiting on every change of the text selection, and a suspended `async` method keeps its `self` alive — see
+            // `resumeAnyPendingMentionRequest()`. Without this, the shared state of every discussion ever opened stays in memory.
+            sharedState.resumeAnyPendingMentionRequest()
         }
         .task(onTaskForComposeViewParameters)
+        .task(onTaskForTheProgressOfTheVideosBeingPrepared)
         .onChange(of: hasAttachments, perform: onChangeOfHasAttachments)
+        .onChange(of: attachments) { _ in sharedState.draftAttachmentsDidChange() }
         .task { onChangeOfHasAttachments(self.hasAttachments) } // Ensures sharedState.draftHasAttachments is properly reset when showing this view
+        // The same two lines for the quote, for the same reason: the shared state answers the screen's Esc, and must know what the bar shows.
+        .onChange(of: replyTo != nil, perform: onChangeOfQuotesAMessage)
+        .task { onChangeOfQuotesAMessage(self.replyTo != nil) }
     }
     
     private func sendEmoji(count: Int = 1) async {
@@ -145,46 +243,19 @@ public struct ComposeView: View {
     }
     
 
-    private func handleKeyboardAction(action: KeyboardActionType) -> KeyboardResult {
-        switch action {
-
-        case .up:
-            return sharedState.suggestPreviousMentionIfAppropriate()
-
-        case .down:
-            return sharedState.suggestNextMentionIfAppropriate()
-
-        case .enter:
-            
-            // If the user is currently navigating through mentions, typing Enter should insert the mention
-            
-            let result = sharedState.acceptCurrentlySelectedMentionIfAppropriate()
-            switch result {
-            case .handled:
-                return .handled
-            case .ignored:
-                break
-            }
-            
-            // If we reach this point, there was no mention to insert. We might have to send the message
-            
-            switch sharedState.parameters.sendMessageShortcutType {
-            case .enter:
-                if !self.isMessageEmpty {
-                    do { try sharedState.userWantsToSendDraft(request: .currentDraft) } catch { assertionFailure(error.localizedDescription) }
-                    return .handled
-                }
-            case .commandEnter:
-                break
-            }
-            
-            // If we reach this point the enter key should be handled at the text editor level
-            
-            return .ignored
-            
+    /// What the text editors are given to report the keys this view is interested in.
+    ///
+    /// It captures the shared state **weakly**, and nothing else — in particular not this view. SwiftUI keeps the handlers of `onKeyPress` alive well past
+    /// the life of the view that installed them, and the editors have three of them; handing them `self.handleKeyboardAction(action:)`, a bound method,
+    /// therefore captured this whole view struct — and with it the shared state and the actions object — for good. Found in a memory graph: three
+    /// `KeyPress.Handler`s, each holding a closure context whose backtrace ran through `ComposeView.content.getter`.
+    private var keyboardAction: (KeyboardActionType) -> KeyboardResult {
+        { [weak sharedState] action in
+            sharedState?.handleKeyboardAction(action: action) ?? .ignored
         }
     }
-    
+
+
     
     private static let buttonSize: CGFloat = 48.0
     private static let paddingBetweenPlusAndPasteButtons: CGFloat = 10.0
@@ -210,6 +281,11 @@ public struct ComposeView: View {
         public static var heightPlusBottomPadding: CGFloat { paddingBetweenPlusAndPasteButtons + buttonSize }
     }
     
+    @State var showActionsPanel: Bool = false
+    
+    /// The entry chosen in the `+` card, carried out once the card has gone. See ``ComposeView/theCardHasGone()``.
+    @State var actionAwaitingTheCardsDeparture: ComposeViewParameters.Action?
+    
     @State private var emojiButtonTapCount: Int = 0
     @State private var emojiButtonTapTimer: Timer?
 
@@ -232,14 +308,28 @@ public struct ComposeView: View {
             // MARK: - MORE OPTIONS
             // *****************************************************
             
-            if !showAudioRecording { ///Don't show menu button if is it in recording state.
-                                
-                Menu {
-                    menuContent
+            if !showAudioRecording { ///Don't show the plus button if it is in recording state.
+                
+                Button {
+                    showActionsPanel = true
                 } label: {
                     Image(systemIcon: .plus)
                         .font(.system(size: Self.buttonSize/2))
                         .frame(width: Self.buttonSize, height: Self.buttonSize)
+                }
+                /// **No `arrowEdge`.** It names the edge the arrow sits on, so `.top` hangs the card *below* the button —
+                /// which, the button being at the bottom of the screen, put all but two rows of it past the screen edge.
+                /// Left unsaid, the system places the card itself and flips it to wherever it fits.
+                .popover(isPresented: $showActionsPanel, attachmentAnchor: .rect(.bounds)) {
+                    ComposeActionsPanelView(actions: availableActionsForPanel,
+                                            drawsItsOwnCard: false,
+                                            titleForAction: { dataSourceViewModel?.actionTitle(for: $0) ?? $0.title },
+                                            actionTapped: { panelActionTapped($0) })
+                    /// Without this an iPhone turns the popover into a sheet, which is a different control: a sheet comes
+                    /// from the bottom of the screen and says nothing about what opened it, where the point here is that
+                    /// the card belongs to the plus button.
+                    .presentationCompactAdaptationOniOS16Dot4(.popover)
+                    .onDisappear(perform: theCardHasGone)
                 }
                 .disabled(sharedState.isPreventingEdition)
                 .glassButtonStyle()
@@ -310,19 +400,44 @@ public struct ComposeView: View {
                 
                 VStack(alignment: .leading, spacing: 0) {
                     if !attachments.isEmpty {
-                        ComposeAttachmentsView(viewModel: sharedState,
-                                               attachments: attachments,
-                                               attachmentDataSource: dataSources.attachmentDataSource,
-                                               actions: self.actions)
+                        // The size menu sits inside this row, whose height is pinned below, so that it cannot change the bar's height
+                        // (see ``ComposeMediaFormatButton``). A sibling of the thumbnails rather than an overlay, so that the scrolling
+                        // strip never passes under it. Its 6pt top padding matches the thumbnails', so their tops line up.
+                        HStack(alignment: .top, spacing: 8.0) {
+                            if let mediaFormatSelection = dataSourceViewModel?.mediaFormatSelection {
+                                ComposeMediaFormatButton(selection: mediaFormatSelection,
+                                                         isDisabled: sharedState.isPreventingEdition,
+                                                         formatTapped: photoFormatTapped)
+                                .padding(.leading, 12.0)
+                                .padding(.top, 6.0)
+                            }
+                            ComposeAttachmentsView(viewModel: sharedState,
+                                                   isCurrentlySendingMessage: sharedState.isCurrentlySendingMessage,
+                                                   videosAreBeingPrepared: sharedState.fractionOfTheVideosBeingPrepared != nil,
+                                                   theSentAttachmentsAreStillListed: sharedState.theSentAttachmentsAreStillListed,
+                                                   attachments: attachments,
+                                                   attachmentDataSource: dataSources.attachmentDataSource,
+                                                   actions: self.actions)
+                        }
                         .transition(.move(edge: .bottom))
                         Divider()
                             .padding(.horizontal, 12.0)
                     }
                 }
                 .disabled(sharedState.isPreventingEdition)
+                // **Step 46j, stage 1: the animation governs the content and not the height.** It sat *after* the frame, so the one thing it could
+                // have animated was the height — which is the one thing on this screen that must never animate, a `safeAreaInset` answering an
+                // animated height change by reparameterising the scroll view beneath it. Above the frame it reaches the panel's own transition and
+                // nothing else, so the bar's reported height still changes in a single step while the content slides under the clip.
+                //
+                // **It was recorded as "demonstrably inert and nobody knows why", and 46l explains it.** The panel used to pop when an attachment
+                // was added and slide when one was removed — and the direction that slid is exactly the direction that went through
+                // `withAnimation`, the insertion having been excluded by `hasInsertionToPerform`. This modifier was never what animated anything;
+                // the ambient transaction was. Which also means moving it cannot cost the legacy screen its slide, that coming from `withAnimation`
+                // and not from here.
+                .animation(.linear(duration: 0.25), value: !attachments.isEmpty)
                 .frame(height: !attachments.isEmpty ? 125 : 0)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                .animation(.linear(duration: 0.25), value: !attachments.isEmpty)
                 .clipped()
                 
                 // *****************************************************
@@ -404,14 +519,26 @@ public struct ComposeView: View {
                             ZStack(alignment: .center) {
                                 
                                 ComposeTextField(sharedState: self.sharedState.textFieldSharedState,
-                                                 keyboardAction: self.handleKeyboardAction(action:))
+                                                 keyboardAction: self.keyboardAction)
                                 .fixedSize(horizontal: false, vertical: true) // Ensures the height is independent of the "plus"/"emoji" button sizes
                                 .opacity(sharedState.recordingState == .longPressing ? 0.0 : 1.0)
                                 .opacity(sharedState.isPreventingEdition ? 0.1 : 1.0)
                                 .padding(.bottom, 4.0)
                                 
                                 if sharedState.isPreventingEdition {
-                                    ProgressView()
+                                    // A caption and a progress bar while attachments load or a send waits for the draft's videos, both of
+                                    // which can take tens of seconds. For any other reason the bar is shut, a plain spinner.
+                                    if sharedState.attachmentsLoadingFractionCompleted != nil {
+                                        AttachmentsLoadingProgressView(caption: "ATTACHMENTS_LOADING_PROGRESS_CAPTION",
+                                                                       fractionCompleted: sharedState.attachmentsLoadingFractionCompleted)
+                                            .padding(.horizontal, 12.0)
+                                    } else if sharedState.isCurrentlySendingMessage, let fractionOfTheVideosBeingPrepared = sharedState.fractionOfTheVideosBeingPrepared {
+                                        AttachmentsLoadingProgressView(caption: "VIDEOS_BEING_PREPARED_FOR_SENDING_PROGRESS_CAPTION",
+                                                                       fractionCompleted: fractionOfTheVideosBeingPrepared)
+                                            .padding(.horizontal, 12.0)
+                                    } else {
+                                        ProgressView()
+                                    }
                                 }
                                 
                                 if sharedState.recordingState == .longPressing {
@@ -485,6 +612,17 @@ public struct ComposeView: View {
                                         }
                                         .buttonStyle(.borderedProminent)
                                         .controlSize(.small)
+                                        // Reported on a Mac: only the arrow glyph answered a click, the rest of the
+                                        // tinted capsule doing nothing -- a thing a finger forgives and a pointer does
+                                        // not, and the third instance on this screen after the trash of Step 42 and the
+                                        // search bar. The read is that the capsule is drawn by the *style* rather than
+                                        // by the label, and SwiftUI hit-tests what is drawn; unlike the buttons beside
+                                        // it, this label carries no frame of its own, so nothing but the glyph was
+                                        // there to hit. That mechanism is the read and not a measurement -- if the
+                                        // whole capsule still refuses a click, it is something above taking it and
+                                        // this line is not the fix.
+                                        // Placed before the padding below, so the target is the control and not the gap.
+                                        .contentShape(Rectangle())
                                         .transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity),
                                                                 removal: .move(edge: .leading).combined(with: .opacity)))
                                         .padding(.bottom, Self.buttonSize / 4.0)
@@ -531,6 +669,13 @@ public struct ComposeView: View {
             
         }
         .padding(.horizontal, Self.horizontalPadding)
+        // The space below the bar, kept **above** the drop target on purpose, so that the gap is part of what takes a drop rather than a dead
+        // strip under it. See ``spaceKeptBelowTheBar``.
+        .padding(.bottom, spaceKeptBelowTheBar)
+        // Whatever is dropped on this bar goes into the draft — the whole bar, the trailing button and the space below it, and both discussion
+        // screens with it. See ``TakesWhateverIsDroppedOnTheBar``, which also says why this is `onDrop`, and why the messages of the SwiftUI
+        // screen take theirs through the `List`'s own collection view rather than through anything here.
+        .modifier(TakesWhateverIsDroppedOnTheBar(sharedState: sharedState))
         .glassEffectContainer(spacing: 8.0)
         .task(onTaskForAsyncStreamOfComposeViewDataSourceModel)
         .fixedSize(horizontal: false, vertical: true)
@@ -539,22 +684,6 @@ public struct ComposeView: View {
     }
 }
 
-
-extension ComposeView: SharedStateDelegate {
-    
-    func composeViewHasChangedTextAndMentions(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, attributedText: AttributedString) async throws {
-        try await actions.composeViewHasChangedTextAndMentions(self, discussionIdentifier: discussionIdentifier, attributedText: attributedText)
-    }
-    
-    func userWantsToSendDraft(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, attributedText: AttributedString) async throws {
-        try await actions.userWantsToSendDraft(self, discussionIdentifier: discussionIdentifier, attributedText: attributedText)
-    }
-    
-    func userWantsToAddAttachmentsToDraft(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, itemProviders: [NSItemProvider]) async throws {
-        try await actions.userWantsToAddAttachmentsToDraft(self, discussionIdentifier: discussionIdentifier, itemProviders: itemProviders)
-    }
-
-}
 
 extension ComposeView {
     
@@ -571,8 +700,13 @@ extension ComposeView {
                     sharedState.setAudioRecorderState(to: .notRecording)
                 }
                 
+                // **A host that cannot afford an animated height change gets none, in either direction** — see ``theBarsHeightMayBeAnimated``. The
+                // insertion is suppressed for everybody, which it already was; only the removal is conditional.
+                let theBarMustNotAnimateItsHeight = !theBarsHeightMayBeAnimated
+                    && (self.streamedDataSourceViewModel?.mayChangeTheHeightOfTheBar(comparedTo: receivedDataSourceViewModel) ?? false)
+
                 // This test prevents a potential animation glitch
-                if hasInsertionToPerform {
+                if hasInsertionToPerform || theBarMustNotAnimateItsHeight {
                     self.streamedDataSourceViewModel = receivedDataSourceViewModel
                 } else {
                     withAnimation {
@@ -596,8 +730,6 @@ private let dataSourceAndActionsForPreviews = DataSourceAndActionsForPreviews()
 
 @MainActor
 private let parameters = ComposeViewParameters(
-    sortableActions: ComposeViewParameters.SortableAction.allCases,
-    unsortableActions: ComposeViewParameters.UnsortableAction.allCases,
     defaultEmojiButton: "👍",
     sendMessageShortcutType: .enter)
 
@@ -616,7 +748,8 @@ private var composeView = ComposeView(sharedState: sharedState,
                                                          avatarViewDataSource: dataSourceAndActionsForPreviews,
                                                          composeViewParametersDataSource: dataSourceAndActionsForPreviews,
                                                          composeLinkPreviewViewDataSource: dataSourceAndActionsForPreviews),
-                                      actions: dataSourceAndActionsForPreviews)
+                                      actions: dataSourceAndActionsForPreviews,
+                                      initialDataSourceViewModel: dataSourceAndActionsForPreviews.getInitialComposeViewDataSourceModel(discussionIdentifier: .sampleDataForOneToOne))
 
 #Preview {
     composeView

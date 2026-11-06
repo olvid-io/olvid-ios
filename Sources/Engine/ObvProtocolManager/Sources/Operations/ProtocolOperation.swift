@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,12 +26,15 @@ import ObvTypes
 import ObvCrypto
 import OlvidUtils
 
-/// This operation is queued by the `ProtocolStepMetaOperationsCoordinator`. Its purpose is to find a match between the protocol instance inputs and an existing protocol instance. If a match is found, it determines the correct step to execute. This step, itself, is an operation that we queue here on an internal queue.
+/// This operation is queued by the `ProtocolStepMetaOperationsCoordinator`.
+/// Its purpose is to find a match between the protocol instance inputs and an existing protocol instance.
+/// If a match is found, it determines the correct step to execute. This step, itself, is an operation that we queue here on an internal queue.
 /// Note that this operation receives a context. This context is used within the protocol step operation (if one is executed). This context is only commited by the coordinator.
 final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker {
     
     private static let logCategory = "ProtocolOperation"
     let log: OSLog
+    let logger: Logger
     
     override var debugClassName: String {
         return "ProtocolOperation"
@@ -92,6 +95,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
         self.delegateManager = delegateManager
         self.prng = prng
         self.log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolOperation.logCategory)
+        self.logger = Logger(subsystem: delegateManager.logSubsystem, category: ProtocolOperation.logCategory)
         super.init(uid: receivedMessageId.uid)
     }
     
@@ -113,28 +117,29 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
     override func execute() {
         
         guard let delegateManager = delegateManager else {
-            os_log("The delegate manager is not set", log: self.log, type: .fault)
+            logger.fault("The delegate manager is not set")
             cancelAndFinish(forReason: .contextCreatorDelegateNotSet)
             assertionFailure()
             return
         }
 
-        os_log("Starting execute()", log: log, type: .debug)
+        logger.debug("Starting execute()")
         
         guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
+            logger.fault("The context creator is not set")
             cancelAndFinish(forReason: .contextCreatorDelegateNotSet)
             assertionFailure()
             return
         }
 
-        contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+        contextCreator.performBackgroundTask(flowId: flowId) { [weak self] obvContext in
             guard let _self = self else { return }
+            let logger = _self.logger
             
             // MARK: Getting the received message out of the ReceivedMessage database
             
             guard let message = try? ReceivedMessage.get(messageId: _self.receivedMessageId, within: obvContext.context) else {
-                os_log("Could not find a ReceivedMessage corresponding to the given Uid for owned identity %{public}@", log: _self.log, type: .error, _self.receivedMessageId.ownedCryptoIdentity.debugDescription)
+                logger.error("Could not find a ReceivedMessage corresponding to the given Uid for owned identity \(_self.receivedMessageId.ownedCryptoIdentity.debugDescription)")
                 _self.cancelAndFinish(forReason: .messageNotFoundInDatabase)
                 return
             }
@@ -142,9 +147,9 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
             // MARK: Given the message, try to execute a protocol step
             
             guard let (concreteCryptoProtocolInNewState, eraseReceivedMessagesAfterReachingAFinalState) = _self.tryToExecuteAnAppropriateCryptoProtocolStep(given: message, within: obvContext) else {
-                os_log("Could not transition any crypto protocol to a new state using the received message", log: _self.log, type: .error)
+                logger.error("Could not transition any crypto protocol to a new state using the received message")
                 if _self.reasonForCancel == nil {
-                    os_log("The reason for cancel should be set at this point. This is a bug.", log: _self.log, type: .fault)
+                    logger.fault("The reason for cancel should be set at this point. This is a bug.")
                 }
                 assert(_self.isFinished) // Should cancelled and finished by `tryToExecuteAnAppropriateCryptoProtocolStep`
                 return
@@ -155,25 +160,24 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
             
             // MARK: Saving the new state of the protocol instance
             
-            os_log("About to save state of %{public}@", log: _self.log, type: .info, concreteCryptoProtocolInNewState.description)
+            logger.info("About to save state of \(concreteCryptoProtocolInNewState.description, privacy: .public)")
             do {
                 try _self.saveStateOf(concreteCryptoProtocolInNewState, within: obvContext)
             } catch {
-                os_log("Could not save the new state of the protocol", log: _self.log, type: .fault)
+                logger.fault("Could not save the new state of the protocol: \(error.localizedDescription, privacy: .public)")
                 _self.cancelAndFinish(forReason: .couldNotUpdateProtocolState)
                 return
             }
             
-            os_log("State was saved: %{public}@", log: _self.log, type: .info, concreteCryptoProtocolInNewState.description)
+            logger.info("State was saved: \(concreteCryptoProtocolInNewState.description, privacy: .public)")
 
             
             // MARK: If other received messages exist for this same protocol instance, we notify. Note that these messages will be processed within the completion handler of the ReceivedMessageCoordinator (thus, not here)
             
             // MARK: Notifying the linked protocols
-            
-            _self.notifyLinkedProtocols(ofConcreteCryptoProtocolInNewState: concreteCryptoProtocolInNewState, within: obvContext)
-            
+                        
             if concreteCryptoProtocolInNewState.reachedFinalState() {
+                _self.notifyLinkedProtocols(ofConcreteCryptoProtocolInFinalState: concreteCryptoProtocolInNewState)
                 _self.deleteProtocolInstanceRelatedTo(concreteCryptoProtocolInNewState, within: obvContext)
                 if eraseReceivedMessagesAfterReachingAFinalState {
                     _self.deleteRemainingReceivedMessagesRelatedTo(concreteCryptoProtocolInNewState, ownedIdentity: concreteCryptoProtocolInNewState.ownedIdentity, within: obvContext)
@@ -211,29 +215,28 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
     
     // MARK: - Private helper methods
     
-    private func notifyLinkedProtocols(ofConcreteCryptoProtocolInNewState concreteCryptoProtocolInNewState: ConcreteCryptoProtocol, within obvContext: ObvContext) {
+    private func notifyLinkedProtocols(ofConcreteCryptoProtocolInFinalState finalState: ConcreteCryptoProtocol) {
     
         guard let delegateManager = delegateManager else {
-            os_log("The delegate manager is not set", log: log, type: .fault)
+            logger.fault("The delegate manager is not set")
+            assertionFailure()
             return
         }
                 
         guard let channelDelegate = delegateManager.channelDelegate else {
-            os_log("The channel delegate is not set", log: log, type: .fault)
+            logger.fault("The channel delegate is not set")
+            assertionFailure()
             return
         }
 
         do {
-            let messagesToSend = try LinkBetweenProtocolInstances.getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid: concreteCryptoProtocolInNewState.instanceUid,
-                                                                                                                           andOwnedIdentity: concreteCryptoProtocolInNewState.ownedIdentity,
-                                                                                                                           reachesState: concreteCryptoProtocolInNewState.currentState,
-                                                                                                                           within: obvContext.context)
+            let messagesToSend = try LinkBetweenProtocolInstances.getGenericProtocolMessageToSendWhenChildProtocolInstanceReachesFinalState(finalState)
             for message in messagesToSend {
                 guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else { throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend") }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: finalState.obvContext)
             }
         } catch let error {
-            os_log("Could not post a protocol message in order to notify the parent protocol instance: %@", log: log, type: .fault, error.localizedDescription)
+            logger.fault("Could not post a protocol message in order to notify the parent protocol instance: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -247,7 +250,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
         let messageId = try message.messageId
         let ownedIdentity = messageId.ownedCryptoIdentity
         
-        os_log("Looking for a protocol instance with uid %@ and owned identity %@ for messageId %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription, messageId.debugDescription)
+        logger.debug("Looking for a protocol instance with uid \(protocolInstanceUid.debugDescription, privacy: .public) and owned identity \(ownedIdentity.debugDescription) for messageId \(messageId.debugDescription, privacy: .public)")
         
         
         let concreteCryptoProtocol: ConcreteCryptoProtocol?
@@ -258,7 +261,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
                                                            within: obvContext.context) {
             
             let cryptoProtocolIdDescription: String = (try? protocolInstance.cryptoProtocolId.debugDescription) ?? "<Could not parse crypto protocol Id>"
-            os_log("Protocol instance with uid %@ and owned identity %@ for messageId %{public}@ was found: %@", log: log, type: .debug, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription, messageId.debugDescription, cryptoProtocolIdDescription)
+            logger.debug("Protocol instance with uid \(protocolInstanceUid.debugDescription, privacy: .public) and owned identity \(ownedIdentity.debugDescription) for messageId \(messageId.debugDescription, privacy: .public) was found: \(cryptoProtocolIdDescription, privacy: .public)")
             
             concreteCryptoProtocol = cryptoProtocolId.getConcreteCryptoProtocol(from: protocolInstance, prng: prng, delegateManager: delegateManager, within: obvContext)
             if concreteCryptoProtocol == nil {
@@ -267,7 +270,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
             
         } else {
             
-            os_log("We could not find a protocol instance with uid %@ and owned identity %@ for messageId %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription, messageId.debugDescription)
+            logger.debug("We could not find a protocol instance with uid \(protocolInstanceUid.debugDescription, privacy: .public) and owned identity \(ownedIdentity.debugDescription) for messageId \(messageId.debugDescription, privacy: .public)")
                         
             // We create a protocol instance in DB (note that this checks whether the identity in the message is indeed an owned identity)
             
@@ -276,12 +279,13 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
                                    ownedCryptoIdentity: ownedIdentity,
                                    initialState: ConcreteProtocolInitialState(),
                                    delegateManager: delegateManager,
-                                   within: obvContext) != nil else {
-                                    os_log("Could not create a protocol instance with uid %@ and owned identity %@", log: log, type: .error, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription)
-                                    return nil
+                                   within: obvContext) != nil else
+            {
+                logger.error("Could not create a protocol instance with uid \(protocolInstanceUid.debugDescription, privacy: .public) and owned identity \(ownedIdentity.debugDescription)")
+                return nil
             }
             
-            os_log("We just created a protocol instance of %@ with uid %@ and owned identity %@ for messageId %{public}@", log: log, type: .debug, cryptoProtocolId.debugDescription, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription, messageId.debugDescription)
+            logger.debug("We just created a protocol instance of \(cryptoProtocolId.debugDescription, privacy: .public) with uid \(protocolInstanceUid.debugDescription, privacy: .public) and owned identity \(ownedIdentity.debugDescription) for messageId \(messageId.debugDescription, privacy: .public)")
             
             concreteCryptoProtocol =  cryptoProtocolId.getConcreteCryptoProtocolInInitialState(instanceUid: protocolInstanceUid,
                                                                                                ownedCryptoIdentity: ownedIdentity,
@@ -299,23 +303,23 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
     private func tryToExecuteAnAppropriateCryptoProtocolStep(given message: ReceivedMessage, within obvContext: ObvContext) -> (concreteCryptoProtocol: ConcreteCryptoProtocol, eraseReceivedMessagesAfterReachingAFinalState: Bool)? {
         
         guard let delegateManager = delegateManager else {
-            os_log("The delegate manager is not set", log: log, type: .fault)
+            logger.fault("The delegate manager is not set")
             cancelAndFinish(forReason: .contextCreatorDelegateNotSet)
             return nil
         }
 
         guard let concreteCryptoProtocol = try? getConcreteCryptoProtocol(given: message, prng: prng, delegateManager: delegateManager, within: obvContext) else {
-            os_log("Could not construct a ConcreteCryptoProtocol given the ReceivedMessage", log: log, type: .info)
+            logger.error("Could not construct a ConcreteCryptoProtocol given the ReceivedMessage")
             cancelAndFinish(forReason: .couldNotReconstructConcreteCryptoProtocol)
             return nil
         }
         
-        os_log("We managed to get a concrete crypto protocol: %@", log: log, type: .info, concreteCryptoProtocol.description)
+        logger.info("We managed to get a concrete crypto protocol: \(concreteCryptoProtocol.description, privacy: .public)")
         
         // We reconstructed a concrete crypto protocol, that is, a crypto protocol in a well defined state. We can now try to turn the (generic) received protocol message into one of the possible concrete protocol messages of the concrete crypto protocol.
         
         guard let concreteProtocolMessage = concreteCryptoProtocol.getConcreteProtocolMessage(from: message) else {
-            os_log("Could not turn the generic protocol message into a concrete protocol message for the concrete crypto protocol", log: log, type: .error)
+            logger.error("Could not turn the generic protocol message into a concrete protocol message for the concrete crypto protocol")
             cancelAndFinish(forReason: .couldNotConstructConcreteProtocolMessageForTheGivenCryptoProtocol)
             assertionFailure()
             return nil
@@ -323,7 +327,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
         
         // We constructed a concrete crypto protocol and have a concrete protocol message for this protocol. We now try to find an appropriate concrete protocol step to execute, given the current state the protocol is in and the message we received.
         
-        os_log("Trying to find a concrete step to execute with message: %@", log: log, type: .info, concreteProtocolMessage.description)
+        logger.info("Trying to find a concrete step to execute with message: \(concreteProtocolMessage.description, privacy: .public)")
         guard let stepToExecute = concreteCryptoProtocol.getConcreteStepToExecute(message: concreteProtocolMessage) as? ProtocolStep else {
             if let userDialogUuid = message.userDialogUuid {
                 cancelAndFinish(forReason: .couldNotFindConcreteStepToExecuteForReceivedDialogResponse(uuid: userDialogUuid))
@@ -338,18 +342,18 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
         stepToExecute.execute()
         
         guard !stepToExecute.isCancelled else {
-            os_log("The protocol step cancelled", log: log, type: .error)
+            logger.error("The protocol step cancelled")
             cancelAndFinish(forReason: .theProtocolStepCancelled)
             return nil
         }
         
         guard let newProtocolState = stepToExecute.endState else {
-            os_log("Although the protocol step did not cancel, we could not determine a new protocol state", log: log, type: .fault)
+            logger.fault("Although the protocol step did not cancel, we could not determine a new protocol state")
             cancelAndFinish(forReason: .couldNotDetermineNewProtocolState)
             return nil
         }
         
-        os_log("The message %@ lead the protocol into a new state: %@", log: log, type: .debug, concreteProtocolMessage.description, newProtocolState.description)
+        logger.debug("The message \(concreteProtocolMessage.description, privacy: .public) lead the protocol into a new state: \(newProtocolState.description, privacy: .public)")
         
         // If we reached this point, we have a concrete crypto protocol and a new state for this protocol.
         
@@ -382,7 +386,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
         do {
             try ReceivedMessage.deleteAllAssociatedWithProtocolInstance(withUid: concreteCryptoProtocol.instanceUid, ownedIdentity: ownedIdentity, within: obvContext.context)
         } catch {
-            os_log("Could not delete all the received messages associated to the protocol instance to abort", log: log, type: .error)
+            logger.error("Could not delete all the received messages associated to the protocol instance to abort: \(error.localizedDescription, privacy: .public)")
             return
         }
     }
@@ -394,7 +398,7 @@ final class ProtocolOperation: ObvOperation, @unchecked Sendable, ObvErrorMaker 
                                                         ownedCryptoIdentity: concreteCryptoProtocol.ownedIdentity,
                                                         within: obvContext.context)
         } catch {
-            os_log("Could not delete a protocol instance that reached a final state", log: log, type: .error)
+            logger.error("Could not delete a protocol instance that reached a final state: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

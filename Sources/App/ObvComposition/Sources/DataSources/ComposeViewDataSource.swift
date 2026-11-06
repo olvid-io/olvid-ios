@@ -26,6 +26,10 @@ public protocol ComposeViewDataSource: AnyObject {
     func getInitialComposeViewDataSourceModel(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) -> ComposeViewDataSourceModel?
     func getAsyncStreamOfComposeViewDataSourceModel(_ view: ComposeView, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ComposeViewDataSourceModel>)
     func finishAsyncStreamOfComposeViewDataSourceModel(_ view: ComposeView, streamUUID: UUID)
-    
+
+    /// How far the exports of the draft's videos have got, between 0 and 1, or nil when none is running: the current value, then every
+    /// change. A new stream per call, which ends when its consumer stops iterating it.
+    func getAsyncStreamOfTheProgressOfTheVideosBeingPrepared(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) -> AsyncStream<Double?>
+
 }
 

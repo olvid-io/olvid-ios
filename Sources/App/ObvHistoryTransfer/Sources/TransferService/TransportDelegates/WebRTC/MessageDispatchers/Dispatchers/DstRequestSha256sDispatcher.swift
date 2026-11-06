@@ -18,6 +18,9 @@
  */
 
 import Foundation
+import OSLog
+import ObvCrypto
+import ObvAppCoreConstants
 
 
 /// This actor allows to dispatch the sha256s, requested by the destination, to the source.
@@ -25,7 +28,9 @@ import Foundation
 /// - When a sha256 is not requested, we don't dispatch it. We simply remove it from the sha256s that we expect, which will eventually allow to finish the asynchronous loop.
 /// - When a sha256 is requested, we yield its value, allowing the `SourceTransferSteps` to actually send the attachment.
 actor DstRequestSha256sDispatcher {
-    
+
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "DstRequestSha256sDispatcher")
+
     private var pendingMessages = [DstRequestSha256OrDstDoNotRequestSha256]()
     private var allSha256ToProcess: Set<Data> = []
     private var continuationOnDstRequestSha256: AsyncThrowingStream<Data, Error>.Continuation?
@@ -58,13 +63,17 @@ actor DstRequestSha256sDispatcher {
             switch dstDecision {
             case .dstRequestSha256(let dstRequestSha256):
                 sha256 = dstRequestSha256.sha256
+                Self.logger.debug("📰 [\(sha256.hexString().prefix(8), privacy: .public)] The destination requests this attachment")
                 continuationOnDstRequestSha256.yield(sha256)
             case .dstDoNotRequestSha256(let dstDoNotRequestSha256):
                 sha256 = dstDoNotRequestSha256.sha256
+                Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] The destination declines this attachment, it will not be sent")
             }
             allSha256ToProcess.remove(sha256)
+            Self.logger.debug("📰 [\(sha256.hexString().prefix(8), privacy: .public)] \(self.allSha256ToProcess.count) expected attachments left to be accounted for by the destination")
         }
         if allSha256ToProcess.isEmpty {
+            Self.logger.info("📰 The destination accounted for every expected attachment; finishing the stream of requested sha256s")
             continuationOnDstRequestSha256.finish()
             self.continuationOnDstRequestSha256 = nil
         }
@@ -76,6 +85,9 @@ actor DstRequestSha256sDispatcher {
 extension DstRequestSha256sDispatcher {
     
     func finishAllDispatchesByThrowing(_ error: any Error) {
+        if continuationOnDstRequestSha256 != nil {
+            Self.logger.error("📰 Finishing the stream of requested sha256s by throwing (\(self.allSha256ToProcess.count) expected attachments were not yet accounted for): \(String(describing: error), privacy: .public)")
+        }
         continuationOnDstRequestSha256?.finish(throwing: error)
         continuationOnDstRequestSha256 = nil
     }

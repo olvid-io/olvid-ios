@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,6 @@ extension UIBarButtonItem {
         return UIBarButtonItem(barButtonSystemItem: .close, target: target, action: action)
     }
 
-    @available(iOS 14.0, *)
     convenience init(image: UIImage?, style: UIBarButtonItem.Style, title: String, actions: [UIAction]) {
         let button = UIButton(type: .custom)
         button.showsMenuAsPrimaryAction = true

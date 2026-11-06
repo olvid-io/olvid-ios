@@ -116,6 +116,7 @@ public struct PersonalNoteEditorView: View {
                 OlvidButtonNew(action: cancel, style: .glassOrBordered) {
                     Label(title: { Text("Cancel") }, icon: { Image(systemIcon: .xmarkCircle) })
                 }
+                .keyboardShortcut(.cancelAction)
                 OlvidButtonNew(action: ok) {
                     Label(title: { Text("Ok") }, icon: { Image(systemIcon: .checkmarkCircle) })
                 }

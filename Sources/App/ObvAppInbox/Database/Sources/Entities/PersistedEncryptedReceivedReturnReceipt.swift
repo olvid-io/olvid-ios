@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -165,7 +165,7 @@ extension PersistedEncryptedReceivedReturnReceipt {
         let request: NSFetchRequest<PersistedEncryptedReceivedReturnReceipt> = Self.fetchRequest()
         request.predicate = Predicate.withIdentifier(identifier)
         request.fetchLimit = 1
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         guard let item = try context.fetch(request).first else { return }
         try item.deletePersistedEncryptedReceivedReturnReceipt()
     }

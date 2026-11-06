@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -248,12 +248,8 @@ private struct GroupCellButtonContentView: View {
                     //
                     // First line
                     //
-                    if #available(iOS 16, *) {
-                        TitleView(viewModel: viewModel)
-                            .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] } // In case the cell is included in a List (not required for a LazyVStack)
-                    } else {
-                        TitleView(viewModel: viewModel)
-                    }
+                    TitleView(viewModel: viewModel)
+                        .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] } // In case the cell is included in a List (not required for a LazyVStack)
 
                     //
                     // Second line

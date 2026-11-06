@@ -163,6 +163,8 @@ public struct ObvChooseDeviceToReactivateView: View {
             .background(colorScheme == .dark ? Color(UIColor.systemBackground) : Color(UIColor.secondarySystemBackground))
         }
         .task(onTask)
+        // Nothing in this sheet is focusable, and a shortcut is found from the first responder.
+        .takesKeyboardFocusOnAppear()
     }
     
 }
@@ -231,6 +233,7 @@ extension ObvChooseDeviceToReactivateView {
                         OlvidButtonNew(action: actions.userWantsToDismissObvChooseDeviceToReactivateView, style: .glassOrBordered) {
                             Text("MAYBE_LATER")
                         }
+                        .keyboardShortcut(.cancelAction)
                     }
                     .disabled(shouldDisableButtons)
 
@@ -284,6 +287,7 @@ extension ObvChooseDeviceToReactivateView {
                         OlvidButtonNew(action: actions.userWantsToDismissObvChooseDeviceToReactivateView, style: .glassOrBordered) {
                             Text("MAYBE_LATER")
                         }
+                        .keyboardShortcut(.cancelAction)
                     }
                     .disabled(shouldDisableButtons)
                     
@@ -302,6 +306,7 @@ extension ObvChooseDeviceToReactivateView {
                         OlvidButtonNew(action: actions.userWantsToDismissObvChooseDeviceToReactivateView, style: .glassOrBordered) {
                             Text("MAYBE_LATER")
                         }
+                        .keyboardShortcut(.cancelAction)
                     }
                     .disabled(shouldDisableButtons)
                     
@@ -334,6 +339,7 @@ extension ObvChooseDeviceToReactivateView {
                         OlvidButtonNew(action: actions.userWantsToDismissObvChooseDeviceToReactivateView, style: .glassOrBordered) {
                             Text("MAYBE_LATER")
                         }
+                        .keyboardShortcut(.cancelAction)
                     }
                     .disabled(shouldDisableButtons)
                     
@@ -368,6 +374,7 @@ extension ObvChooseDeviceToReactivateView {
                         OlvidButtonNew(action: actions.userWantsToDismissObvChooseDeviceToReactivateView, style: .glassOrBordered) {
                             Text("MAYBE_LATER")
                         }
+                        .keyboardShortcut(.cancelAction)
                     }.disabled(shouldDisableButtons)
                     
                 }

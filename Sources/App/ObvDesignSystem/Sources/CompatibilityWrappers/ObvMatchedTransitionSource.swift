@@ -40,8 +40,19 @@ extension View {
             return self
         }
     }
-    
-    
+
+
+    /// Same as ``matchedTransitionSourceOnIOS18(id:in:)``, the transition starting from and returning to a rectangle with
+    /// these rounded corners rather than a square one — half the diameter for a round avatar. The system accepts no other clip shape.
+    nonisolated public func matchedTransitionSourceOnIOS18(id: some Hashable, in namespace: Namespace.ID, cornerRadius: CGFloat) -> some View {
+        if #available(iOS 18.0, *) {
+            return self.matchedTransitionSource(id: id, in: namespace) { $0.clipShape(RoundedRectangle(cornerRadius: cornerRadius)) }
+        } else {
+            return self
+        }
+    }
+
+
     /// Sets the navigation transition style for this view.
     ///
     /// Add this modifier to a view that appears within a

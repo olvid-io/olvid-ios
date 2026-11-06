@@ -35,10 +35,6 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 public enum ObvMessengerCoreDataNotification {
-	case persistedContactWasInserted(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, isOneToOne: Bool)
-	case persistedContactWasDeleted(objectID: NSManagedObjectID, identity: Data)
-	case persistedContactHasNewCustomDisplayName(contactCryptoId: ObvCryptoId)
-	case persistedContactIsActiveChanged(contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 	case newMessageExpiration(expirationDate: Date)
 	case persistedMessageReactionReceivedWasDeletedOnSentMessage(messagePermanentID: MessageSentPermanentID, contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
 	case persistedMessageReactionReceivedWasInsertedOrUpdated(objectID: TypeSafeManagedObjectID<PersistedMessageReactionReceived>)
@@ -56,12 +52,10 @@ public enum ObvMessengerCoreDataNotification {
 	case ownedCircledInitialsConfigurationDidChange(ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>, ownedCryptoId: ObvCryptoId, newOwnedCircledInitialsConfiguration: CircledInitialsConfiguration)
 	case ownedIdentityHiddenStatusChanged(ownedCryptoId: ObvCryptoId, isHidden: Bool)
 	case badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity(ownedCryptoId: ObvCryptoId)
-	case displayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>)
 	case groupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ObvCryptoId, groupIdentifier: GroupV2Identifier)
 	case persistedMessageReceivedWasDeleted(objectID: NSManagedObjectID, messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, sortIndex: Double, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
 	case theBodyOfPersistedMessageReceivedDidChange(persistedMessageReceivedObjectID: NSManagedObjectID)
 	case persistedDiscussionWasArchived(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
-	case persistedContactWasUpdated(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 	case fyleMessageJoinWithStatusWasInserted(fyleMessageJoinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>)
 	case fyleMessageJoinWithStatusWasUpdated(fyleMessageJoinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>)
 	case discussionLocalConfigurationHasBeenUpdated(newValue: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>)
@@ -69,10 +63,6 @@ public enum ObvMessengerCoreDataNotification {
 	case aSecureChannelWithContactDeviceWasJustCreated(contactDeviceObjectID: TypeSafeManagedObjectID<PersistedObvContactDevice>)
 
 	private enum Name {
-		case persistedContactWasInserted
-		case persistedContactWasDeleted
-		case persistedContactHasNewCustomDisplayName
-		case persistedContactIsActiveChanged
 		case newMessageExpiration
 		case persistedMessageReactionReceivedWasDeletedOnSentMessage
 		case persistedMessageReactionReceivedWasInsertedOrUpdated
@@ -90,12 +80,10 @@ public enum ObvMessengerCoreDataNotification {
 		case ownedCircledInitialsConfigurationDidChange
 		case ownedIdentityHiddenStatusChanged
 		case badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity
-		case displayedContactGroupWasJustCreated
 		case groupV2TrustedDetailsShouldBeReplacedByPublishedDetails
 		case persistedMessageReceivedWasDeleted
 		case theBodyOfPersistedMessageReceivedDidChange
 		case persistedDiscussionWasArchived
-		case persistedContactWasUpdated
 		case fyleMessageJoinWithStatusWasInserted
 		case fyleMessageJoinWithStatusWasUpdated
 		case discussionLocalConfigurationHasBeenUpdated
@@ -113,10 +101,6 @@ public enum ObvMessengerCoreDataNotification {
 
 		static func forInternalNotification(_ notification: ObvMessengerCoreDataNotification) -> NSNotification.Name {
 			switch notification {
-			case .persistedContactWasInserted: return Name.persistedContactWasInserted.name
-			case .persistedContactWasDeleted: return Name.persistedContactWasDeleted.name
-			case .persistedContactHasNewCustomDisplayName: return Name.persistedContactHasNewCustomDisplayName.name
-			case .persistedContactIsActiveChanged: return Name.persistedContactIsActiveChanged.name
 			case .newMessageExpiration: return Name.newMessageExpiration.name
 			case .persistedMessageReactionReceivedWasDeletedOnSentMessage: return Name.persistedMessageReactionReceivedWasDeletedOnSentMessage.name
 			case .persistedMessageReactionReceivedWasInsertedOrUpdated: return Name.persistedMessageReactionReceivedWasInsertedOrUpdated.name
@@ -134,12 +118,10 @@ public enum ObvMessengerCoreDataNotification {
 			case .ownedCircledInitialsConfigurationDidChange: return Name.ownedCircledInitialsConfigurationDidChange.name
 			case .ownedIdentityHiddenStatusChanged: return Name.ownedIdentityHiddenStatusChanged.name
 			case .badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity: return Name.badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity.name
-			case .displayedContactGroupWasJustCreated: return Name.displayedContactGroupWasJustCreated.name
 			case .groupV2TrustedDetailsShouldBeReplacedByPublishedDetails: return Name.groupV2TrustedDetailsShouldBeReplacedByPublishedDetails.name
 			case .persistedMessageReceivedWasDeleted: return Name.persistedMessageReceivedWasDeleted.name
 			case .theBodyOfPersistedMessageReceivedDidChange: return Name.theBodyOfPersistedMessageReceivedDidChange.name
 			case .persistedDiscussionWasArchived: return Name.persistedDiscussionWasArchived.name
-			case .persistedContactWasUpdated: return Name.persistedContactWasUpdated.name
 			case .fyleMessageJoinWithStatusWasInserted: return Name.fyleMessageJoinWithStatusWasInserted.name
 			case .fyleMessageJoinWithStatusWasUpdated: return Name.fyleMessageJoinWithStatusWasUpdated.name
 			case .discussionLocalConfigurationHasBeenUpdated: return Name.discussionLocalConfigurationHasBeenUpdated.name
@@ -151,26 +133,6 @@ public enum ObvMessengerCoreDataNotification {
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .persistedContactWasInserted(contactPermanentID: let contactPermanentID, ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId, isOneToOne: let isOneToOne):
-			info = [
-				"contactPermanentID": contactPermanentID,
-				"ownedCryptoId": ownedCryptoId,
-				"contactCryptoId": contactCryptoId,
-				"isOneToOne": isOneToOne,
-			]
-		case .persistedContactWasDeleted(objectID: let objectID, identity: let identity):
-			info = [
-				"objectID": objectID,
-				"identity": identity,
-			]
-		case .persistedContactHasNewCustomDisplayName(contactCryptoId: let contactCryptoId):
-			info = [
-				"contactCryptoId": contactCryptoId,
-			]
-		case .persistedContactIsActiveChanged(contactID: let contactID):
-			info = [
-				"contactID": contactID,
-			]
 		case .newMessageExpiration(expirationDate: let expirationDate):
 			info = [
 				"expirationDate": expirationDate,
@@ -254,10 +216,6 @@ public enum ObvMessengerCoreDataNotification {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .displayedContactGroupWasJustCreated(permanentID: let permanentID):
-			info = [
-				"permanentID": permanentID,
-			]
 		case .groupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: let ownCryptoId, groupIdentifier: let groupIdentifier):
 			info = [
 				"ownCryptoId": ownCryptoId,
@@ -278,10 +236,6 @@ public enum ObvMessengerCoreDataNotification {
 		case .persistedDiscussionWasArchived(discussionPermanentID: let discussionPermanentID):
 			info = [
 				"discussionPermanentID": discussionPermanentID,
-			]
-		case .persistedContactWasUpdated(contactObjectID: let contactObjectID):
-			info = [
-				"contactObjectID": contactObjectID,
 			]
 		case .fyleMessageJoinWithStatusWasInserted(fyleMessageJoinObjectID: let fyleMessageJoinObjectID):
 			info = [
@@ -322,6 +276,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	func postOnDispatchQueue(_ queue: DispatchQueue) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		queue.async {
 			NotificationCenter.default.post(name: name, object: nil, userInfo: userInfo)
 		}
@@ -329,49 +285,18 @@ public enum ObvMessengerCoreDataNotification {
 
 	private func postOnDispatchQueue(withLabel label: String, object anObject: Any? = nil) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
+		nonisolated(unsafe) let anObject = anObject
 		DispatchQueue(label: label).async {
 			NotificationCenter.default.post(name: name, object: anObject, userInfo: userInfo)
 		}
 	}
 
-	public static func observePersistedContactWasInserted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedObvContactIdentity>, ObvCryptoId, ObvCryptoId, Bool) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactWasInserted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactPermanentID = notification.userInfo!["contactPermanentID"] as! ObvManagedObjectPermanentID<PersistedObvContactIdentity>
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			let isOneToOne = notification.userInfo!["isOneToOne"] as! Bool
-			block(contactPermanentID, ownedCryptoId, contactCryptoId, isOneToOne)
-		}
-	}
-
-	public static func observePersistedContactWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Data) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactWasDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
-			let identity = notification.userInfo!["identity"] as! Data
-			block(objectID, identity)
-		}
-	}
-
-	public static func observePersistedContactHasNewCustomDisplayName(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactHasNewCustomDisplayName.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			block(contactCryptoId)
-		}
-	}
-
-	public static func observePersistedContactIsActiveChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactIsActiveChanged.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactID = notification.userInfo!["contactID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
-			block(contactID)
-		}
-	}
-
 	public static func observeNewMessageExpiration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Date) -> Void) -> NSObjectProtocol {
 		let name = Name.newMessageExpiration.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let expirationDate = notification.userInfo!["expirationDate"] as! Date
 			block(expirationDate)
@@ -380,6 +305,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedMessageReactionReceivedWasDeletedOnSentMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (MessageSentPermanentID, ObvManagedObjectPermanentID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessageReactionReceivedWasDeletedOnSentMessage.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let messagePermanentID = notification.userInfo!["messagePermanentID"] as! MessageSentPermanentID
 			let contactPermanentID = notification.userInfo!["contactPermanentID"] as! ObvManagedObjectPermanentID<PersistedObvContactIdentity>
@@ -389,6 +316,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedMessageReactionReceivedWasInsertedOrUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedMessageReactionReceived>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessageReactionReceivedWasInsertedOrUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedMessageReactionReceived>
 			block(objectID)
@@ -397,6 +326,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedContactGroupHasUpdatedContactIdentities(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Set<PersistedObvContactIdentity>, Set<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedContactGroupHasUpdatedContactIdentities.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let persistedContactGroupObjectID = notification.userInfo!["persistedContactGroupObjectID"] as! NSManagedObjectID
 			let insertedContacts = notification.userInfo!["insertedContacts"] as! Set<PersistedObvContactIdentity>
@@ -407,6 +338,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeAReadOncePersistedMessageSentWasSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (MessageSentPermanentID, ObvManagedObjectPermanentID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.aReadOncePersistedMessageSentWasSent.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let persistedMessageSentPermanentID = notification.userInfo!["persistedMessageSentPermanentID"] as! MessageSentPermanentID
 			let persistedDiscussionPermanentID = notification.userInfo!["persistedDiscussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
@@ -416,6 +349,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedDiscussionHasNewTitle(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>, String) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedDiscussionHasNewTitle.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
 			let title = notification.userInfo!["title"] as! String
@@ -425,6 +360,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedDiscussionWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedDiscussionWasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
 			let objectIDOfDeletedDiscussion = notification.userInfo!["objectIDOfDeletedDiscussion"] as! TypeSafeManagedObjectID<PersistedDiscussion>
@@ -434,6 +371,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeOwnedIdentityWasReactivated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasReactivated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedIdentityObjectID = notification.userInfo!["ownedIdentityObjectID"] as! NSManagedObjectID
 			block(ownedIdentityObjectID)
@@ -442,6 +381,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeOwnedIdentityWasDeactivated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasDeactivated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedIdentityObjectID = notification.userInfo!["ownedIdentityObjectID"] as! NSManagedObjectID
 			block(ownedIdentityObjectID)
@@ -450,6 +391,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedMessageSystemWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessageSystemWasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
 			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
@@ -459,6 +402,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedMessagesWereDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, Set<ObvManagedObjectPermanentID<PersistedMessage>>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessagesWereDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
 			let messagePermanentIDs = notification.userInfo!["messagePermanentIDs"] as! Set<ObvManagedObjectPermanentID<PersistedMessage>>
@@ -468,6 +413,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedMessagesWereWiped(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, Set<ObvManagedObjectPermanentID<PersistedMessage>>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessagesWereWiped.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
 			let messagePermanentIDs = notification.userInfo!["messagePermanentIDs"] as! Set<ObvManagedObjectPermanentID<PersistedMessage>>
@@ -477,6 +424,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedDiscussionStatusChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, PersistedDiscussion.Status) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedDiscussionStatusChanged.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
 			let newStatus = notification.userInfo!["newStatus"] as! PersistedDiscussion.Status
@@ -486,6 +435,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedGroupV2UpdateIsFinished(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>, ObvCryptoId, GroupV2Identifier) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedGroupV2UpdateIsFinished.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
@@ -496,6 +447,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeOwnedCircledInitialsConfigurationDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>, ObvCryptoId, CircledInitialsConfiguration) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedCircledInitialsConfigurationDidChange.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedIdentityPermanentID = notification.userInfo!["ownedIdentityPermanentID"] as! ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
@@ -506,6 +459,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeOwnedIdentityHiddenStatusChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Bool) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityHiddenStatusChanged.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let isHidden = notification.userInfo!["isHidden"] as! Bool
@@ -515,22 +470,18 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeBadgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			block(ownedCryptoId)
 		}
 	}
 
-	public static func observeDisplayedContactGroupWasJustCreated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<DisplayedContactGroup>) -> Void) -> NSObjectProtocol {
-		let name = Name.displayedContactGroupWasJustCreated.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let permanentID = notification.userInfo!["permanentID"] as! ObvManagedObjectPermanentID<DisplayedContactGroup>
-			block(permanentID)
-		}
-	}
-
 	public static func observeGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, GroupV2Identifier) -> Void) -> NSObjectProtocol {
 		let name = Name.groupV2TrustedDetailsShouldBeReplacedByPublishedDetails.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownCryptoId = notification.userInfo!["ownCryptoId"] as! ObvCryptoId
 			let groupIdentifier = notification.userInfo!["groupIdentifier"] as! GroupV2Identifier
@@ -540,6 +491,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedMessageReceivedWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Data, ObvCryptoId, Double, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessageReceivedWasDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
@@ -552,6 +505,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeTheBodyOfPersistedMessageReceivedDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
 		let name = Name.theBodyOfPersistedMessageReceivedDidChange.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let persistedMessageReceivedObjectID = notification.userInfo!["persistedMessageReceivedObjectID"] as! NSManagedObjectID
 			block(persistedMessageReceivedObjectID)
@@ -560,22 +515,18 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observePersistedDiscussionWasArchived(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedDiscussionWasArchived.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
 			block(discussionPermanentID)
 		}
 	}
 
-	public static func observePersistedContactWasUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactWasUpdated.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactObjectID = notification.userInfo!["contactObjectID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
-			block(contactObjectID)
-		}
-	}
-
 	public static func observeFyleMessageJoinWithStatusWasInserted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
 		let name = Name.fyleMessageJoinWithStatusWasInserted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let fyleMessageJoinObjectID = notification.userInfo!["fyleMessageJoinObjectID"] as! TypeSafeManagedObjectID<FyleMessageJoinWithStatus>
 			block(fyleMessageJoinObjectID)
@@ -584,6 +535,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeFyleMessageJoinWithStatusWasUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
 		let name = Name.fyleMessageJoinWithStatusWasUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let fyleMessageJoinObjectID = notification.userInfo!["fyleMessageJoinObjectID"] as! TypeSafeManagedObjectID<FyleMessageJoinWithStatus>
 			block(fyleMessageJoinObjectID)
@@ -592,6 +545,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeDiscussionLocalConfigurationHasBeenUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (PersistedDiscussionLocalConfigurationValue, TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) -> Void) -> NSObjectProtocol {
 		let name = Name.discussionLocalConfigurationHasBeenUpdated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let newValue = notification.userInfo!["newValue"] as! PersistedDiscussionLocalConfigurationValue
 			let localConfigurationObjectID = notification.userInfo!["localConfigurationObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>
@@ -601,6 +556,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeStatusOfSentFyleMessageJoinDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, TypeSafeManagedObjectID<PersistedMessageSent>, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.statusOfSentFyleMessageJoinDidChange.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let sentJoinID = notification.userInfo!["sentJoinID"] as! TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>
 			let messageID = notification.userInfo!["messageID"] as! TypeSafeManagedObjectID<PersistedMessageSent>
@@ -611,6 +568,8 @@ public enum ObvMessengerCoreDataNotification {
 
 	public static func observeASecureChannelWithContactDeviceWasJustCreated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvContactDevice>) -> Void) -> NSObjectProtocol {
 		let name = Name.aSecureChannelWithContactDeviceWasJustCreated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let contactDeviceObjectID = notification.userInfo!["contactDeviceObjectID"] as! TypeSafeManagedObjectID<PersistedObvContactDevice>
 			block(contactDeviceObjectID)

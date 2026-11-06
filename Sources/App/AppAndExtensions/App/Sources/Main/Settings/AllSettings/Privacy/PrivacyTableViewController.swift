@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -60,8 +60,8 @@ final class PrivacyTableViewController: UITableViewController {
     }
 
     private func observeNotifications() {
-        let token = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: nil) {  _ in
-            Task { [weak self] in
+        let token = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: nil) { [weak self]  _ in
+            Task {
                 await self?.reload()
             }
         }

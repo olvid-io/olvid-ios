@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,7 @@
 import ObvUI
 import UIKit
 import ObvSystemIcon
+import OlvidUtils
 
 final class ExpirationIndicatorView: UIView {
     

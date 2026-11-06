@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,7 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
     public func prependLogSubsystem(with prefix: String) {
         logSubsystem = "\(prefix).\(logSubsystem)"
         self.log = OSLog(subsystem: logSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
+        self.logger = Logger(subsystem: logSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
     }
 
     public func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {}
@@ -46,11 +47,13 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
     // MARK: Instance variables
     
     private var log: OSLog
+    private var logger: Logger
 
     // MARK: Initialiser
 
     public init() {
         self.log = OSLog(subsystem: ObvNetworkFetchManagerImplementationDummy.defaultLogSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
+        self.logger = Logger(subsystem: ObvNetworkFetchManagerImplementationDummy.defaultLogSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
     }
     
     public func remoteIdentityIsNowAContact(contactIdentifier: ObvContactIdentifier, flowId: FlowIdentifier) async throws {
@@ -117,10 +120,10 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("disconnectWebsockets does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func downloadMessages(for ownedIdentity: ObvCrypto.ObvCryptoIdentity, flowId: OlvidUtils.FlowIdentifier) async {
-        os_log("downloadMessages(for:flowId:) does nothing in this dummy implementation", log: log, type: .error)
+    public func downloadMessages(for ownedIdentity: ObvCrypto.ObvCryptoIdentity, trigger: ObvServerRequestTiming.Trigger, flowId: OlvidUtils.FlowIdentifier) async {
+        os_log("downloadMessages(for:trigger:flowId:) does nothing in this dummy implementation", log: log, type: .error)
     }
-    
+
     public func getEncryptedMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) -> ObvNetworkReceivedMessageEncrypted? {
         os_log("getEncryptedMessage(messageId: MessageIdentifier) does nothing in this dummy implementation", log: log, type: .error)
         return nil
@@ -155,16 +158,23 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("storeCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func deleteApplicationMessageAndAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws {
+    public func deleteApplicationMessageAndAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws -> Task<Void, Never> {
         os_log("deleteMessageAndAttachments does nothing in this dummy implementation", log: log, type: .error)
+        return Task {}
+    }
+
+    public func deleteApplicationMessagesAndAttachments(messageIds: [ObvMessageIdentifier], flowId: FlowIdentifier) async throws {
+        os_log("deleteApplicationMessagesAndAttachments does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func markApplicationMessageForDeletionAndProcessAttachments(messageId: ObvMessageIdentifier, attachmentsProcessingRequest: ObvAttachmentsProcessingRequest, flowId: FlowIdentifier) async throws {
+    public func markApplicationMessageForDeletionAndProcessAttachments(messageId: ObvMessageIdentifier, attachmentsProcessingRequest: ObvAttachmentsProcessingRequest, flowId: FlowIdentifier) async throws -> Task<Void, Never> {
         os_log("markMessageForDeletion(messageId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
+        return Task {}
     }
     
-    public func markAttachmentForDeletion(attachmentId: ObvTypes.ObvAttachmentIdentifier, flowId: OlvidUtils.FlowIdentifier) async throws {
+    public func markAttachmentForDeletion(attachmentId: ObvTypes.ObvAttachmentIdentifier, flowId: OlvidUtils.FlowIdentifier) async throws -> Task<Void, Never> {
         os_log("markAttachmentForDeletion(attachmentId: AttachmentIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
+        return Task {}
     }
     
     public func resumeDownloadOfAttachment(attachmentId: ObvTypes.ObvAttachmentIdentifier, flowId: OlvidUtils.FlowIdentifier) async throws {
@@ -174,6 +184,10 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
     public func appCouldNotFindFileOfDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
         os_log("appCouldNotFindFileOfDownloadedAttachment does nothing in this dummy implementation", log: log, type: .error)
     }
+
+    public func appFoundACorruptFileForDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
+        os_log("appFoundACorruptFileForDownloadedAttachment does nothing in this dummy implementation", log: log, type: .error)
+    }
     
     public func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         os_log("pauseDownloadOfAttachment does nothing in this dummy implementation", log: log, type: .error)
@@ -182,6 +196,15 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
     public func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
         os_log("requestDownloadAttachmentProgressesUpdatedSince does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "requestDownloadAttachmentProgressesUpdatedSince does nothing in this dummy implementation")
+    }
+
+    public func getAsyncStreamOfDownloadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentDownloadProgress>) {
+        os_log("getAsyncStreamOfDownloadProgress does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getAsyncStreamOfDownloadProgress does nothing in this dummy implementation")
+    }
+
+    public func finishAsyncStreamOfDownloadProgress(streamUUID: UUID) async throws {
+        os_log("finishAsyncStreamOfDownloadProgress does nothing in this dummy implementation", log: log, type: .error)
     }
     
     public func connectWebSocket() {
@@ -196,7 +219,7 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("sendDeleteReturnReceipt() does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func postServerQuery(_: ServerQuery, within: NSManagedObjectContext) {
+    public func postServerQuery(_: ServerQuery, within: NSManagedObjectContext) throws {
         os_log("postServerQuery(_: ServerQuery, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
@@ -224,6 +247,11 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         throw Self.makeError(message: "deleteServerSessionsAssociatedToNonExistingOwnedIdentity does nothing in this dummy implementation")
     }
 
+    public func deleteInboxMessagesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
+        os_log("deleteInboxMessagesAssociatedToNonExistingOwnedIdentity does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "deleteInboxMessagesAssociatedToNonExistingOwnedIdentity does nothing in this dummy implementation")
+    }
+
     public func getAsyncStreamOfEncryptedReceivedReturnReceipt() async -> AsyncStream<ObvEncryptedReceivedReturnReceipt> {
         os_log("getAsyncStreamOfEncryptedReceivedReturnReceipt does nothing in this dummy implementation", log: log, type: .error)
         let stream = AsyncStream(ObvEncryptedReceivedReturnReceipt.self) { _ in }
@@ -244,6 +272,30 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
     public func fetchOnHoldMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws -> ObvMessageOrObvOwnedMessage? {
         os_log("fetchOnHoldMessage does nothing in this dummy implementation", log: log, type: .error)
         return nil
+    }
+
+    public func getPayloadsOfMessagesOnHold(messageIds: [ObvMessageIdentifier], flowId: FlowIdentifier) async throws -> [ObvMessageIdentifier: Data] {
+        os_log("getPayloadsOfMessagesOnHold does nothing in this dummy implementation", log: log, type: .error)
+        return [:]
+    }
+
+    public func getAsyncStreamOfEngineDiagnostics(flowId: FlowIdentifier) -> AsyncStream<ObvEngineDiagnostic> {
+        logger.error("getAsyncStreamOfEngineDiagnostics does nothing in this dummy implementation")
+        // Finished at once rather than left open: a consumer waiting for figures that will never come would look exactly like one still measuring.
+        return AsyncStream { $0.finish() }
+    }
+
+    public func howLongTheListingHasBeenUnableToReachTheServer(since: Date, now: Date) async -> TimeInterval? {
+        // Nil rather than a duration, and it needs no complaint: this implementation does no listing, so *nothing is known* is the truthful answer and is
+        // the one that leaves a caller free to carry on.
+        return nil
+    }
+
+    public func getInboxCounts(alsoCountingMessagesWaitingForAManualDownload: Bool, alsoCountingMessagesOfInactiveProfiles: Bool, flowId: FlowIdentifier) async throws -> ObvInboxCounts {
+        logger.error("getInboxCounts does nothing in this dummy implementation")
+        // Thrown rather than answered with noughts: a caller draining the inbox reads nought as *there is nothing left to do* and would stop, which
+        // is the one wrong answer a dummy can give here.
+        throw Self.makeError(message: "getInboxCounts does nothing in this dummy implementation")
     }
 
     // MARK: - Implementing ObvManager

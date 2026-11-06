@@ -45,6 +45,12 @@
             "value": "그룹 만들기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utwórz grupę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "Создать группу"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup oluştur"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Створити групу"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo một nhóm"
           }
         },
         "zh-Hans": {
@@ -123,6 +141,12 @@
             "value": "가입한 그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy, do których należysz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -141,10 +165,22 @@
             "value": "Присоединенные группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Katıldığınız gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Приєднані групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các nhóm đã tham gia"
           }
         },
         "zh-Hans": {
@@ -199,6 +235,12 @@
             "value": "관리하는 그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy, którymi administrujesz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -217,10 +259,22 @@
             "value": "Группы, которыми вы управляете"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönettiğiniz gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи, які ви адмініструєте"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các nhóm mà bạn quản lý"
           }
         },
         "zh-Hans": {
@@ -277,6 +331,12 @@
             "value": "그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -295,10 +355,22 @@
             "value": "Группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm"
           }
         },
         "zh-Hans": {
@@ -355,6 +427,12 @@
             "value": "설정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ustawienia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -373,10 +451,22 @@
             "value": "Настройки"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Налаштування"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cài đặt"
           }
         },
         "zh-Hans": {
@@ -433,6 +523,12 @@
             "value": "저장 공간 관리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zarządzanie pamięcią"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -451,10 +547,22 @@
             "value": "Управление хранилищем"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depolama yönetimi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Керування сховищем"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản lý bộ nhớ"
           }
         },
         "zh-Hans": {
@@ -511,6 +619,12 @@
             "value": "그룹 검색"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Szukaj grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -529,10 +643,22 @@
             "value": "Поиск группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup ara"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пошук групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tìm kiếm nhóm"
           }
         },
         "zh-Hans": {

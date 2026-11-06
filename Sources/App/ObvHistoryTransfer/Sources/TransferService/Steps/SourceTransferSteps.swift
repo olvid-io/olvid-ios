@@ -22,10 +22,11 @@ import OSLog
 import ObvTypes
 import ObvAppTypes
 import ObvAppCoreConstants
+import ObvCrypto
 
 
 public protocol SourceTransferStepsDataSource: AnyObject, Sendable {
-    func historyTransferRequiresAllDiscussionIdentifiers(_ actor: SourceTransferSteps, ownedCryptoId: ObvCryptoId) async throws -> [ObvDiscussionIdentifier]
+    func historyTransferRequiresAllDiscussionIdentifiers(_ actor: SourceTransferSteps, ownedCryptoId: ObvCryptoId) async throws -> Set<ObvDiscussionIdentifier>
     func historyTransferRequiresAllHashAndSizesOfFyles(_ actor: SourceTransferSteps, ownedCryptoId: ObvCryptoId) async throws -> [Data: UInt64]
     func historyTransferRequiresTitleAndAllMessageIdentifiersOfDiscussion(_ actor: SourceTransferSteps, discussionIdentifier: ObvDiscussionIdentifier) async throws -> (discussionTitle: String, messageIdentifiers: [ObvMessageAppIdentifier])
     func historyTransferRequiresMessages(_ actor: SourceTransferSteps, discussionIdentifier: ObvDiscussionIdentifier, messageIdentifiers: [ObvMessageAppIdentifier]) async throws -> SourceTransferSteps.MessagesToSend
@@ -190,7 +191,7 @@ public actor SourceTransferSteps {
                 
                 await self.progressReportingHelper.fetchingDiscussionsListInProgress()
                 
-                let discussionIdentifiers: [ObvDiscussionIdentifier] = try await dataSource.historyTransferRequiresAllDiscussionIdentifiers(self, ownedCryptoId: self.ownedCryptoId)
+                let discussionIdentifiers: Set<ObvDiscussionIdentifier> = try await dataSource.historyTransferRequiresAllDiscussionIdentifiers(self, ownedCryptoId: self.ownedCryptoId)
                 
                 await self.progressReportingHelper.fetchingDiscussionsListDone(numberOfDiscussionsFound: discussionIdentifiers.count)
                 
@@ -204,11 +205,12 @@ public actor SourceTransferSteps {
                     await self.progressReportingHelper.fetchingAllHashAndSizesOfFylesInProgress()
                     sha256Map = try await dataSource.historyTransferRequiresAllHashAndSizesOfFyles(self, ownedCryptoId: self.ownedCryptoId)
                     await self.progressReportingHelper.fetchingAllHashAndSizesOfFylesDone(sha256Map: sha256Map)
+                    Self.logger.info("📰 Found \(sha256Map.count) distinct fyles on this source device, totalling \(sha256Map.values.reduce(0, +)) bytes")
                 }
                 
                 await self.progressReportingHelper.negotiatingWhatToSendInProgress()
                 
-                let messageToSend = SrcDiscussionList(discussionIdentifiers: discussionIdentifiers, sha256Map: sha256Map)
+                let messageToSend = SrcDiscussionList(discussionIdentifiers: Array(discussionIdentifiers), sha256Map: sha256Map)
                 
                 async let dstExpectedSha256 = transferTransportDelegate.send(srcDiscussionList: messageToSend)
                 
@@ -255,6 +257,8 @@ public actor SourceTransferSteps {
                 await self.progressReportingHelper.negotiatingWhatToSendDone(
                     numberOfMessagesToSend: allDstDiscussionExpectedRangesReceived.numberOfMessagesToSend,
                     sha256sToSend: allSha256ExpectedByDestination.sha256s)
+
+                Self.logger.info("📰 Negotiation done: the destination expects \(allDstDiscussionExpectedRangesReceived.numberOfMessagesToSend) messages and \(allSha256ExpectedByDestination.sha256s.count) attachments (\(allSha256ExpectedByDestination.totalByteCountToSend) bytes)")
                 
                 // Send the requested messages to the destination. This corresponds to SrcSendMessagesStep in the Java version.
                 // We use an `async let` to avoid awaiting for the messages to be sent, as we want to send the attachments in parallel.
@@ -334,8 +338,12 @@ public actor SourceTransferSteps {
                     await self.progressReportingHelper.sendingAttachmentsStarting()
                     
                     let streamOfSha256sRequestedByDestination = try await transferTransportDelegate.receiveSha256sRequestedByDestination(allSha256ExpectedByDestination: allSha256ExpectedByDestination)
-                    
+
+                    var sha256sRequestedByDestination = Set<Data>()
+                    var failedSha256s = Set<Data>()
                     for try await sha256 in streamOfSha256sRequestedByDestination {
+                        sha256sRequestedByDestination.insert(sha256)
+                        Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Attachment requested by the destination (\(sha256sRequestedByDestination.count)/\(allSha256ExpectedByDestination.sha256s.count), \(allSha256ExpectedByDestination.sha256s[sha256] ?? 0) bytes). Sending it now")
                         do {
                             let safeAttachmentURL = try await dataSource.historyTransferRequiresSafeAttachmentURL(self, sha256: sha256)
                             try await transferTransportDelegate.send(
@@ -343,6 +351,7 @@ public actor SourceTransferSteps {
                                 sha256: sha256,
                                 progressUpdater: self.progressReportingHelper)
                             try await dataSource.historyTransferNoLongerRequiresSafeAttachmentURL(self, sha256: sha256, url: safeAttachmentURL)
+                            Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Attachment sent")
                         } catch {
                             if error is CancellationError {
                                 throw error // Catched in the global try/catch
@@ -354,14 +363,23 @@ public actor SourceTransferSteps {
                                     throw error // Catched in the global try/catch
                                 }
                             } else {
+                                failedSha256s.insert(sha256)
+                                Self.logger.error("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Failed to send attachment: \(String(describing: error), privacy: .public). We continue with the other attachments")
                                 await self.progressReportingHelper.sendingOfSpecificAttachmentFailed(sha256: sha256)
                                 // We continue with the other attachments
                             }
                         }
                     }
                     
-                    Self.logger.info("📰 All \(allSha256ExpectedByDestination.sha256s.count) were sent (except for those that were not required)")
-                    
+                    // The destination accounted for every expected attachment, but may have declined some of them
+                    // (DstDoNotRequestSha256), so they were never requested and never sent. Record them as skipped so
+                    // the attachment step closes out (sent + failed + skipped == total) instead of freezing while the
+                    // transfer is reported as done.
+                    let skippedSha256s = Set(allSha256ExpectedByDestination.sha256s.keys).subtracting(sha256sRequestedByDestination)
+                    await self.progressReportingHelper.sendingAttachmentsDone(skippedSha256s: skippedSha256s)
+
+                    Self.logger.info("📰 Attachment phase done on this source: \(sha256sRequestedByDestination.count - failedSha256s.count) sent, \(failedSha256s.count) failed, \(skippedSha256s.count) skipped (not requested by the destination), out of \(allSha256ExpectedByDestination.sha256s.count) expected")
+
                 }
                 
                 Self.logger.info("📰 Waiting until all `SrcMessages` have been sent")
@@ -384,7 +402,7 @@ public actor SourceTransferSteps {
                     Self.logger.info("📰🛑 Source transfer step task was cancelled. We do not propagate the error.")
                     await self.progressReportingHelper.doneAndExportWasCancelledByUser()
                 } else if let error = error as? TransferTransportDelegateError {
-                    Self.logger.error("📰 Source transfer step task throwed: \(error.localizedDescription).")
+                    Self.logger.error("📰 Source transfer step task throwed: \(String(describing: error), privacy: .public).")
                     switch error {
                     case .transferTransportDelegateFailed:
                         await self.progressReportingHelper.doneAndExportFailed()
@@ -393,7 +411,7 @@ public actor SourceTransferSteps {
                     }
                     throw error
                 } else {
-                    Self.logger.error("📰 Source transfer step task throwed: \(error.localizedDescription)")
+                    Self.logger.error("📰 Source transfer step task throwed: \(String(describing: error), privacy: .public)")
                     throw error
                 }
                 
@@ -491,6 +509,17 @@ private actor ExportProgressReportingHelper: FyleProgressUpdater, DoneProgressUp
     private var byteCountFailedToSend: UInt64 {
         guard let fylesToSend else { return 0 }
         return failedFyleSha256s.compactMap { fylesToSend[$0] }.map { $0.over - $0.sent }.reduce(0, +)
+    }
+
+    /// sha256s of fyles that were part of the negotiated total but that the destination never requested
+    /// (it replied with a `DstDoNotRequestSha256`, or simply did not request them). They are neither sent
+    /// nor failed: they are recorded here, once the attachment phase ends, so the accounting closes out.
+    private var skippedFyleSha256s: Set<Data> = []
+    private var skippedFylesCount: Int { skippedFyleSha256s.count }
+    /// Bytes from skipped fyles that will never be sent: `over - sent` for each skipped fyle.
+    private var byteCountSkipped: UInt64 {
+        guard let fylesToSend else { return 0 }
+        return skippedFyleSha256s.compactMap { fylesToSend[$0] }.map { $0.over - $0.sent }.reduce(0, +)
     }
     
     // Methods called by the source transfer step task
@@ -605,6 +634,23 @@ private actor ExportProgressReportingHelper: FyleProgressUpdater, DoneProgressUp
         guard failedFyleSha256s.insert(sha256).inserted else { return }
         reportCurrentSendingAttachmentsInProgressState()
     }
+
+
+    /// Called once, when the attachment-sending phase has finished, to close out the accounting.
+    ///
+    /// The destination accounts for every expected attachment (it requests it or declines it), so the request
+    /// stream finishes even when some attachments were declined. Those declined attachments were never sent and
+    /// are not failures: we record them as "skipped" so the attachment step reaches a terminal state with
+    /// `sent + failed + skipped == total`, instead of staying frozen mid-progress while the transfer is reported
+    /// as done (which is the misleading UI we are fixing).
+    func sendingAttachmentsDone(skippedSha256s: Set<Data>) {
+        guard let fylesToSend else { return } // No attachment phase took place
+        // Excluding failed fyles keeps the buckets disjoint even if a misbehaving peer both requests and
+        // declines the same sha256: counting a fyle as failed *and* skipped would make the bucket sums
+        // exceed the negotiated total and underflow the UInt64 "bytes remaining" computation.
+        self.skippedFyleSha256s.formUnion(skippedSha256s.filter { fylesToSend.keys.contains($0) && !failedFyleSha256s.contains($0) })
+        reportCurrentSendingAttachmentsInProgressState()
+    }
     
     
     func doneAndExportWasSuccessful() {
@@ -697,15 +743,17 @@ private actor ExportProgressReportingHelper: FyleProgressUpdater, DoneProgressUp
 
     private func reportCurrentSendingAttachmentsInProgressState() {
         guard let fylesToSend, let sentFylesCount, let byteCountSent, let byteCountToSend else { assertionFailure(); return }
-        let bytesRemaining = byteCountToSend - byteCountSent - byteCountFailedToSend
+        let bytesRemaining = byteCountToSend - byteCountSent - byteCountFailedToSend - byteCountSkipped
         // Avoid division by zero: a zero rate produces no ETA.
         let eta: TimeInterval? = bytesPerSecond.flatMap { $0 > 0 ? Double(bytesRemaining) / $0 : nil }
         Self.logger.debug("📰 Will report sendingAttachments in progress state")
         reportNewProgressToView(state: .sendingAttachments(status: .inProgress(
             sentFylesCount: sentFylesCount,
             failedFylesCount: failedFylesCount,
+            skippedFylesCount: skippedFylesCount,
             byteCountSent: byteCountSent,
             byteCountFailedToSend: byteCountFailedToSend,
+            byteCountSkipped: byteCountSkipped,
             numberOfFylesToSend: fylesToSend.count,
             byteCountToSend: byteCountToSend,
             bytesPerSecond: bytesPerSecond,

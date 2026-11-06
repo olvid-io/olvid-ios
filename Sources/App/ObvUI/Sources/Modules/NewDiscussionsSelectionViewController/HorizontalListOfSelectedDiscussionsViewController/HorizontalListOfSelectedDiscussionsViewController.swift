@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,6 @@ public protocol HorizontalListOfSelectedDiscussionsViewControllerDelegate: AnyOb
 
 
 // A horizontally scrolling collectionViewController that shows selected discussions
-@available(iOS 16.0, *)
 final class HorizontalListOfSelectedDiscussionsViewController: UIViewController {
     
     private enum Section: Int, CaseIterable {
@@ -71,7 +70,6 @@ final class HorizontalListOfSelectedDiscussionsViewController: UIViewController 
 
 
 // MARK: - Internal functions
-@available(iOS 16.0, *)
 extension HorizontalListOfSelectedDiscussionsViewController {
     
     func setSelectedDiscussion(to selectedDiscussion: [Cell.ViewModel]) {
@@ -91,7 +89,6 @@ extension HorizontalListOfSelectedDiscussionsViewController {
 
 
 // MARK: - Setup
-@available(iOS 16.0, *)
 extension HorizontalListOfSelectedDiscussionsViewController {
     
     private func configureHierarchy() {

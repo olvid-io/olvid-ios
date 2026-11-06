@@ -42,6 +42,8 @@ final class MarkInboxMessageAndAttachmentsForDeletionOperation: ContextualOperat
         super.init()
     }
     
+    /// The attachments this operation marked. The caller cancels their downloads: until a download is cancelled, a `URLSession` can still write
+    /// into the file of a message that is about to be deleted.
     private(set) var attachmentsMarkedForDeletion = [ObvAttachmentIdentifier]()
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
@@ -51,7 +53,7 @@ final class MarkInboxMessageAndAttachmentsForDeletionOperation: ContextualOperat
                 return
             }
             
-            try inboxMessage.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: attachmentToMarkForDeletion)
+            attachmentsMarkedForDeletion = try inboxMessage.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: attachmentToMarkForDeletion)
             
         } catch {
             assertionFailure()

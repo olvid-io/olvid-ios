@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import OlvidUtils
 import CoreData
 import ObvTypes
@@ -36,7 +36,13 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
     private let logger: Logger
     private let flowId: FlowIdentifier
     
-    init(ownedIdentity: ObvCryptoIdentity, listOfMessageAndAttachmentsOnServer: [ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer], downloadTimestampFromServer: Date, localDownloadTimestamp: Date, logger: Logger, flowId: FlowIdentifier) {
+    init(ownedIdentity: ObvCryptoIdentity,
+         listOfMessageAndAttachmentsOnServer: [ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer],
+         downloadTimestampFromServer: Date,
+         localDownloadTimestamp: Date,
+         logger: Logger,
+         flowId: FlowIdentifier
+    ) {
         self.ownedIdentity = ownedIdentity
         self.listOfMessageAndAttachmentsOnServer = listOfMessageAndAttachmentsOnServer
         self.downloadTimestampFromServer = downloadTimestampFromServer
@@ -47,6 +53,13 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
     }
     
     private(set) var idsOfMessagesToProcess = [ObvMessageIdentifier]()
+
+    /// Every message of `listOfMessageAndAttachmentsOnServer` that is now in the store, whether this operation inserted it or found it already there.
+    ///
+    /// The caller needs this to decide what to tell the server about each listed message, and `idsOfMessagesToProcess` cannot serve: it deliberately excludes
+    /// rows that exist but need no channel processing. The distinction matters because the loop below `continue`s past a message it could not insert — so a UID
+    /// present in the server's listing is not evidence that we hold the message, and telling the server to delete one we failed to save would lose it.
+    private(set) var idsOfMessagesSafelyInDatabase = Set<UID>()
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
@@ -63,6 +76,8 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
                 
                 if try InboxMessage.get(messageId: messageId, within: obvContext.context) != nil {
                     
+                    idsOfMessagesSafelyInDatabase.insert(messageAndAttachmentsOnServer.messageUidFromServer)
+
                     if try InboxMessage.getMessageToBeProcessedByChannel(messageIdentifier: messageId, within: obvContext.context) != nil {
                         idsOfMessagesToProcess.append(messageId)
                     }
@@ -94,6 +109,9 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
                         case .aMessageWithTheSameMessageIdAlreadyExists:
                             logger.fault("[\(flowIdDescription)] Could not insert message in DB for identity \(ownedIdentityDescription): \(inboxMessageError.localizedDescription)")
                             assertionFailure()
+                            // The `get` above found nothing and the initializer did, so another thread inserted the message in between. The row exists, which
+                            // is all the caller needs to know.
+                            idsOfMessagesSafelyInDatabase.insert(messageAndAttachmentsOnServer.messageUidFromServer)
                             continue
                         case .tryingToInsertAMessageThatWasAlreadyDeleted:
                             // This can happen
@@ -133,6 +151,7 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
                         
                     }
                     
+                    idsOfMessagesSafelyInDatabase.insert(messageAndAttachmentsOnServer.messageUidFromServer)
                     idsOfMessagesToProcess.append(messageId)
 
                 }

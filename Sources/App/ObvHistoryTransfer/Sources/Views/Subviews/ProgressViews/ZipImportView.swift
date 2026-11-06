@@ -386,7 +386,7 @@ private struct ZipImportInProgressInternalView: View {
                                 case .exportWasSuccessful(let failedFylesCount):
                                     if failedFylesCount == 0 {
                                         Task {
-                                            try await Task.sleep(seconds: 0.3)
+                                            try? await Task.sleep(seconds: 0.3)
                                             triggerConfettiCanon = true
                                         }
                                     }
@@ -595,14 +595,14 @@ extension ActionsForPreviews: TransferServiceForZipImportView {
     func viewRequiresAsyncStreamOfTransferImportState(_ view: ZipImportView) async -> AsyncStream<TransferImportState> {
         let stream = AsyncStream<TransferImportState> { (continuation: AsyncStream<TransferImportState>.Continuation) in
             Task {
-                try await Task.sleep(seconds: 1)
+                try? await Task.sleep(seconds: 1)
                 continuation.yield(.initializing(.connectingToSourceDeviceOrUnzippingFile(progress: 0.0)))
-                try await Task.sleep(seconds: 1)
+                try? await Task.sleep(seconds: 1)
                 continuation.yield(.initializing(.connectingToSourceDeviceOrUnzippingFile(progress: 0.5)))
-                try await Task.sleep(seconds: 1)
+                try? await Task.sleep(seconds: 1)
                 continuation.yield(.initializing(.connectedToSourceDeviceOrFileUnzipped))
                 
-                try await Task.sleep(seconds: 1)
+                try? await Task.sleep(seconds: 1)
                 continuation.yield(.destinationTransferStepsState(.done(status: .exportWasSuccessful(failedFylesCount: 0))))
                 
             }

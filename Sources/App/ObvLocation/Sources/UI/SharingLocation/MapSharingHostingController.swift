@@ -31,15 +31,10 @@ public protocol MapSharingHostingControllerDelegate: AnyObject {
 
 /// This `UIHostingController` is presented when the user taps on the location button in a discussion's composition view (and after performing the necessary checks to make sure we have the appropriate permissions).
 @available(iOS 17.0, *)
-public final class MapSharingHostingController: KeyboardHostingController<ObvSharingMapView> {
+public final class MapSharingHostingController: UIHostingController<ObvSharingMapView> {
 
     
     private weak var internalDelegate: MapSharingHostingControllerDelegate?
-    
-    // MARK: Attributes - Private - Notifications
-    private var isRegisteredToNotifications = false
-    private var observationTokens = [NSObjectProtocol]()
-    public override var canBecomeFirstResponder: Bool { true }
     
     public init(discussionIdentifier: ObvDiscussionIdentifier,
                 isAlreadyContinouslySharingLocationFromCurrentDevice: Bool,
@@ -57,17 +52,6 @@ public final class MapSharingHostingController: KeyboardHostingController<ObvSha
     @MainActor @preconcurrency required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-    deinit {
-        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
-    }
-    
-    
-    public override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        registerForNotification()
-    }
-    
     
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -105,21 +89,6 @@ extension MapSharingHostingController: ObvSharingMapViewActionsProtocol {
 }
 
 
-
-@available(iOS 17, *)
-extension MapSharingHostingController {
-
-    private func registerForNotification() {
-        guard !isRegisteredToNotifications else { return }
-        isRegisteredToNotifications = true
-        
-        observationTokens.append(contentsOf: [
-            KeyboardNotification.observeKeyboardDidInputEscapeKeyNotification(queue: OperationQueue.main) { [weak self] in
-                self?.dismiss(animated: true, completion: nil)
-            },
-        ])
-    }
-}
 
 private final class Actions: ObvSharingMapViewActionsProtocol {
     

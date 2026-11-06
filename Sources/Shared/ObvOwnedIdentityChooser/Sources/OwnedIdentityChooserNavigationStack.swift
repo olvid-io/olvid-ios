@@ -84,14 +84,33 @@ public struct OwnedIdentityChooserNavigationStack: View {
     /// This is thus only set when the user taps on an owned identity that is different from the current one.
     @State private var ownedCryptoIdSwitchedTo: ObvCryptoId?
 
-    @Environment(\.colorScheme) var colorScheme: ColorScheme
-
+    /// What the chooser paints behind its content: the app theme's page colour, which is the partner of the card
+    /// colour ``ObvCardView`` fills each row with.
+    ///
+    /// **Read, never composed.** This used to branch on `@Environment(\.colorScheme)` and return
+    /// `UIColor.secondarySystemBackground` in light and `.black` in dark — which are *exactly* the two values this one
+    /// property resolves to, so it was a hand-copy of the theme with the usual consequence: nothing keeps a copy in
+    /// step, and the copy cannot carry what it never read.
+    ///
+    /// What it could not carry is **elevation**. Apple's dark mode has two levels, base and elevated, and the system
+    /// raises modally presented content to the elevated level so that it reads as floating; a *dynamic* colour resolves
+    /// that on its own, where a branch on `colorScheme` — which reports light against dark and nothing about elevation
+    /// — can only ever produce the base value. Because both this and the card's colour are dynamic, elevation lifts
+    /// **both** together, black and `#1C1C1E` becoming `#1C1C1E` and `#2C2C2E`: the sheet separates from what is behind
+    /// it *and* the cards stay visible against it.
+    ///
+    /// **Do not read these names as UIKit's — `AppThemeColorScheme` inverts them** (`AppThemeColorScheme.swift:165`).
+    /// The theme's `systemBackground` is UIKit's `secondarySystemBackground` in light and UIKit's `systemBackground` in
+    /// dark, and its `secondarySystemBackground` is the other way about. So the theme's *secondary* is the lighter,
+    /// card-coloured one and the theme's *primary* is the page. Reaching for `UIColor.secondarySystemBackground` here
+    /// on the strength of the name gives the page the card's own colour and the rows vanish in dark mode, which is
+    /// precisely what it did.
+    ///
+    /// The background does have to be painted rather than left to the presentation: the content is a `ScrollView`
+    /// rather than a `List`, and the hosting controller presents this as a bare `UIHostingController`, so nothing else
+    /// would fill it. Hence the name.
     private var backgroundColorInUIKitMode: UIColor {
-        if colorScheme == .light {
-            return .secondarySystemBackground
-        } else {
-            return .black
-        }
+        AppTheme.shared.colorScheme.systemBackground
     }
     
     private var topPadding: CGFloat {
@@ -135,6 +154,7 @@ public struct OwnedIdentityChooserNavigationStack: View {
                                 } label: {
                                     Image(systemIcon: .xmark)
                                 }
+                                .keyboardShortcut(configuration.isEmbeddedInHostingController ? .cancelAction : nil)
                             }
                             .sharedBackgroundVisibility(.automatic)
                         }
@@ -153,6 +173,7 @@ public struct OwnedIdentityChooserNavigationStack: View {
                                 } label: {
                                     Text("Cancel")
                                 }
+                                .keyboardShortcut(configuration.isEmbeddedInHostingController ? .cancelAction : nil)
                             }
                         }
                 }
@@ -176,6 +197,10 @@ public struct OwnedIdentityChooserNavigationStack: View {
             
         }
         .padding(.top, topPadding)
+        // Esc is carried by the close button only when this stack is presented from UIKit, where nothing else answers the key; a SwiftUI sheet closes on
+        // Esc by itself on Catalyst, and the binding toggled by the button would present it again if both ran. Nothing in the stack is focusable, and a
+        // shortcut is found from the first responder.
+        .takesKeyboardFocusOnAppear()
         .sensoryFeedbackOniOS17(.success, trigger: toggleToPerformSensoryFeedback)
         .onChange(of: ownedCryptoIdTappedByUser) { newValue in
             guard let newValue else { return }
@@ -236,6 +261,7 @@ private struct HeaderView: View {
             Button(action: { toggleToDismiss.toggle() }) {
                 Text("Cancel")
             }
+            .keyboardShortcut(configuration.isEmbeddedInHostingController ? .cancelAction : nil)
         }
     }
     
@@ -265,22 +291,28 @@ private final class ActionsForPreviews: OwnedIdentityChooserNavigationStackActio
 
 
 private final class DataSourceForPreviews: OwnedIdentityChooserViewDataSource, ObvAvatarViewDataSource {
-    
+
+    private let model: OwnedIdentityChooserViewModel
+
+    init(model: OwnedIdentityChooserViewModel = .sampleData) {
+        self.model = model
+    }
+
     // ObvAvatarViewDataSource
-    
+
     func fetchAvatar(_ view: ObvDesignSystem.ObvAvatarView, photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
         return nil
     }
-    
+
     func fetchAvatarFromCache(_ view: ObvDesignSystem.ObvAvatarView, photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) -> UIImage? {
         return nil
     }
-    
+
     // OwnedIdentityChooserViewDataSource
-    
+
     func getAsyncStreamOfOwnedIdentityChooserViewModel(_ view: OwnedIdentityChooserInnerView, currentOwnedCryptoId: ObvCryptoId) async throws -> (streamUUID: UUID, stream: AsyncStream<OwnedIdentityChooserViewModel>) {
+        let model = self.model
         let stream = AsyncStream(OwnedIdentityChooserViewModel.self) { (continuation: AsyncStream<OwnedIdentityChooserViewModel>.Continuation) in
-            let model = OwnedIdentityChooserViewModel.sampleData
             continuation.yield(model)
         }
         return (UUID(), stream)
@@ -298,6 +330,10 @@ private let actionsForPreviews = ActionsForPreviews()
 
 @MainActor
 private let dataSourceForPreviews = DataSourceForPreviews()
+
+/// Yields profiles spread over two different servers, to preview the server-restricted `.selectProfile` mode.
+@MainActor
+private let dataSourceForPreviewsTwoServers = DataSourceForPreviews(model: .sampleDataWithProfilesOnTwoServers)
 
 #Preview("Change current profile") {
     OwnedIdentityChooserNavigationStack(currentOwnedCryptoId: ObvCryptoId.sampleDatas[0],
@@ -328,8 +364,20 @@ private let dataSourceForPreviews = DataSourceForPreviews()
                              actions: actionsForPreviews,
                              dataSource: dataSourceForPreviews,
                              avatarViewDataSource: dataSourceForPreviews,
-                             configuration: .init(mode: .selectProfile,
+                             configuration: .init(mode: .selectProfile(serverRestriction: nil),
                                                   explanation: "Please select the profile you want to bind to the identity provider.",
+                                                  title: "Title"),
+                             toggleToDismiss: .constant(false))
+}
+
+
+#Preview("Select profile (server-restricted)") {
+    OwnedIdentityChooserNavigationStack(currentOwnedCryptoId: ObvCryptoId.sampleDatas[0],
+                             actions: actionsForPreviews,
+                             dataSource: dataSourceForPreviewsTwoServers,
+                             avatarViewDataSource: dataSourceForPreviewsTwoServers,
+                             configuration: .init(mode: .selectProfile(serverRestriction: .init(serverURL: ObvCryptoId.sampleDatas[0].serverURL)),
+                                                  explanation: "Choose the profile to which this license should be applied.",
                                                   title: "Title"),
                              toggleToDismiss: .constant(false))
 }

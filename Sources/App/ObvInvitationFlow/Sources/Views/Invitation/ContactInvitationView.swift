@@ -126,6 +126,7 @@ public struct ContactInvitationView: View {
                         HStack(alignment: .center) {
                             Spacer()
                             DismissButton(action: { dismiss() })
+                                .keyboardShortcut(.cancelAction)
                         }
                         .onChange(of: viewModel.inviteHasBeenSent) { newValue in
                             if !viewModel.inviteHasBeenSent && newValue {
@@ -238,9 +239,12 @@ public struct ContactInvitationView: View {
     public var body: some View {
         if #available(iOS 16.4, *) {
             contentBody
+                // Nothing in this cover is focusable, and a shortcut is found from the first responder.
+                .takesKeyboardFocusOnAppear()
                 .presentationBackground(.black.opacity(0.5))
         } else {
             contentBody
+                .takesKeyboardFocusOnAppear()
         }
     }
     

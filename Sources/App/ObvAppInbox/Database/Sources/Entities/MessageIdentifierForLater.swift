@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import CoreData
 import ObvTypes
 import ObvCrypto
 import ObvAppTypes
+import OlvidUtils
 
 
 @objc(MessageIdentifierForLater)
@@ -60,6 +61,32 @@ public class MessageIdentifierForLater: NSManagedObject {
         static func withMessageUIDFromEngine(_ uid: UID) -> NSPredicate {
             NSPredicate(Key.rawUID, EqualToData: uid.raw)
         }
+        /// The predicates that, together, match the rows naming these messages. Loop over them, one fetch per predicate:
+        ///
+        ///     for predicate in Predicate.predicatesForMessageIds(messageIds) {
+        ///         // one fetch, using this predicate
+        ///     }
+        ///
+        /// Why an array and not a single predicate: matching many identifiers at once means an `IN` clause, and SQLite limits how
+        /// many values one statement may carry. A predicate becomes a statement, so no single predicate can safely match an
+        /// unlimited number of rows. Putting several smaller `IN` clauses inside one predicate would not help, because they would
+        /// still end up in that same statement. The answer is more fetches, each asking about fewer rows. Returning one predicate
+        /// per fetch makes the caller do that without having to know why.
+        ///
+        /// Each predicate covers at most ``numberOfIdentifiersPerFetch`` messages of a single profile. They are grouped that way so
+        /// that a fetch is one `IN` over the second column of the uniqueness constraint. An empty input returns no predicates, so
+        /// the caller's loop simply performs no fetch.
+        static func predicatesForMessageIds(_ messageIds: [ObvMessageIdentifier]) -> [NSPredicate] {
+            Dictionary(grouping: messageIds, by: { $0.ownedCryptoIdentity }).flatMap { ownedCryptoIdentity, messageIds in
+                messageIds.map(\.uid).toSlices(ofMaxSize: numberOfIdentifiersPerFetch).map { uids in
+                    NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(Key.rawOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity()),
+                        NSPredicate(Key.rawUID, in: uids.map { $0.raw }),
+                    ])
+                }
+            }
+        }
+
         static func withMessageId(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(Key.rawOwnedIdentity, EqualToData: messageId.ownedCryptoIdentity.getIdentity()),
@@ -85,20 +112,13 @@ public class MessageIdentifierForLater: NSManagedObject {
         return NSFetchRequest<NSDictionary>(entityName: Self.entityName)
     }
 
-    /// 2025-07-31 ok
     public static func batchDeleteMessageIdentifierForLater(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws {
-        let request: NSFetchRequest<NSFetchRequestResult> = MessageIdentifierForLater.fetchRequest()
+        let request = MessageIdentifierForLater.fetchRequest()
         request.predicate = Predicate.withMessageId(messageId)
-        let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        deleteRequest.resultType = .resultTypeObjectIDs
-        let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
-        // The previous call **immediately** updates the SQLite database
-        // We merge the changes back to the current context
-        if let objectIDArray = result?.result as? [NSManagedObjectID] {
-            let changes = [NSUpdatedObjectsKey : objectIDArray]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
-        } else {
-            assertionFailure()
+        request.includesPropertyValues = false
+        let objects = try context.fetch(request)
+        for object in objects {
+            context.delete(object)
         }
     }
 
@@ -142,6 +162,94 @@ public class MessageIdentifierForLater: NSManagedObject {
     }
     
     
+    /// How many messages are held for this owned identity. This counts rows without loading any object.
+    public static func countMessageIdentifiersForLater(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Int {
+        let request: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
+        request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        request.resultType = .countResultType
+        return try context.count(for: request)
+    }
+
+
+    /// A page of the message identifiers held for this owned identity, oldest upload first.
+    ///
+    /// A caller that deletes some rows of each page must advance `fetchOffset` by the number it kept, not by the page size, because
+    /// the table shrinks under the walk. A cursor would be the usual answer, but it is not available here: the key is
+    /// `(rawOwnedIdentity, rawUID)`, and both are `Binary`.
+    ///
+    /// The rows are sorted on the upload timestamp and then on `rawUID`. The timestamp alone is not unique: a backlog written from one
+    /// listing holds many rows with the same value, and rows that compare equal have no defined order. Two fetches could then order
+    /// them differently, and a row could be read twice or never read at all. `rawUID` is unique, so the order is total.
+    public static func fetchMessageIdentifiersForLater(ownedCryptoId: ObvCryptoId, fetchOffset: Int, fetchLimit: Int, within context: NSManagedObjectContext) throws -> [ObvMessageIdentifier] {
+
+        guard fetchLimit > 0 else { return [] }
+
+        let request: NSFetchRequest<NSDictionary> = Self.dictionaryFetchRequest()
+
+        request.resultType = .dictionaryResultType
+        request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        // `rawUID` is `Binary`, which is safe here and would not be in a fetched results controller: such a controller sorts rows in
+        // memory by sending `compare:` to these values, and `NSData` does not implement it. This is a plain fetch, sorted by SQLite.
+        request.sortDescriptors = [
+            NSSortDescriptor(key: MessageIdentifierForLater.Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true),
+            NSSortDescriptor(key: MessageIdentifierForLater.Predicate.Key.rawUID.rawValue, ascending: true),
+        ]
+        request.propertiesToFetch = [
+            MessageIdentifierForLater.Predicate.Key.rawOwnedIdentity.rawValue,
+            MessageIdentifierForLater.Predicate.Key.rawUID.rawValue,
+        ]
+        request.fetchOffset = fetchOffset
+        request.fetchLimit = fetchLimit
+        request.includesPendingChanges = true
+
+        guard let results = try context.fetch(request) as? [[String: Data]] else { assertionFailure(); throw ObvError.couldNotCastFetchedResult }
+
+        return try results.map { dict in
+            guard let rawOwnedIdentity = dict[MessageIdentifierForLater.Predicate.Key.rawOwnedIdentity.rawValue] else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            guard let rawUID = dict[MessageIdentifierForLater.Predicate.Key.rawUID.rawValue] else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            guard let messageId = ObvMessageIdentifier(rawOwnedCryptoIdentity: rawOwnedIdentity, rawUid: rawUID) else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            return messageId
+        }
+
+    }
+
+
+    /// How many identifiers may go into one `IN` clause. See the engine's twin.
+    private static var numberOfIdentifiersPerFetch: Int { 100 }
+
+
+    /// Deletes the rows naming these messages. The overload above takes a whole owned identity, which would also
+    /// delete the rows that are legitimately waiting for a contact or a discussion.
+    ///
+    /// Returns how many rows were deleted, which can be fewer than the number of identifiers: a row another process removed in the
+    /// meantime is not fetched at all. The caller pages through these rows, so it needs the count — a page that deleted nothing is a
+    /// page it would be handed again.
+    public static func batchDeleteMessageIdentifierForLater(messageIds: [ObvMessageIdentifier], within context: NSManagedObjectContext) throws -> Int {
+
+        var numberOfRowsDeleted = 0
+
+        for predicate in Predicate.predicatesForMessageIds(messageIds) {
+            let request: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
+            request.predicate = predicate
+            request.includesPropertyValues = false
+            guard let items = try context.fetch(request) as? [MessageIdentifierForLater] else {
+                assertionFailure(); throw ObvError.couldNotCastFetchedResult
+            }
+            items.forEach { context.delete($0) }
+            numberOfRowsDeleted += items.count
+        }
+
+        return numberOfRowsDeleted
+
+    }
+
+
     public static func fetchObsoleteMessageIdentifiersForLater(withTimestampOfFirstNonTruncatedListingAfterInsertionEarlierThan date: Date, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [ObvMessageIdentifier] {
         
         let request: NSFetchRequest<NSDictionary> = Self.dictionaryFetchRequest()

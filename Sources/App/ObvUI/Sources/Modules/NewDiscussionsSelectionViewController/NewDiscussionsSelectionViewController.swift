@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,7 +29,6 @@ public protocol NewDiscussionsSelectionViewControllerDelegate: AnyObject {
 
 /// This view controller is intended to be used anywhere we need to select one or more discussions (e.g., in the share extension or in the app, when forwarding a message).
 /// Under iOS 15, we should use ``DiscussionsSelectionViewController`` instead.
-@available(iOS 16.0, *)
 public final class NewDiscussionsSelectionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, HorizontalListOfSelectedDiscussionsViewControllerDelegate {
 
     private enum Section: Int, CaseIterable {
@@ -55,6 +54,12 @@ public final class NewDiscussionsSelectionViewController: UIViewController, NSFe
     private var searchController: UISearchController!
  
     private let acceptSelectionButton = ObvImageButton()
+
+    /// What the Cancel bar button does, and what Esc does once any search has been left. Set by whoever presents this controller; while nil there is no Cancel
+    /// button and Esc is not answered, which is the case when this controller is embedded rather than presented.
+    public var whatCancelDoes: (() -> Void)? {
+        didSet { configureCancelButton() }
+    }
     
     required public init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -83,8 +88,40 @@ public final class NewDiscussionsSelectionViewController: UIViewController, NSFe
         configureHierarchy()
         configureDataSource()
         configureSearchBar()
+        configureCancelButton()
         searchStore.performInitialFetch()
 
+    }
+
+
+    // MARK: - Cancel, and the Esc key
+
+    private func configureCancelButton() {
+        guard isViewLoaded else { return }
+        if whatCancelDoes == nil {
+            navigationItem.leftBarButtonItem = nil
+        } else {
+            let cancel = UIAction { [weak self] _ in self?.whatCancelDoes?() }
+            navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .cancel, primaryAction: cancel)
+        }
+    }
+
+    /// Esc is offered only while there is a Cancel to run. This screen is UIKit throughout, so no SwiftUI shortcut can carry the key. The selector is named
+    /// after this class, UIKit sending a key command's action to the first responder in the chain that implements it rather than to the controller that
+    /// offered it.
+    public override var keyCommands: [UIKeyCommand]? {
+        guard whatCancelDoes != nil else { return super.keyCommands }
+        return (super.keyCommands ?? []) + [UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(discussionsSelectionAnswersTheEscapeKey))]
+    }
+
+    /// Leaves a search first, and only then cancels, as the "Introduce to…" panel does.
+    @objc private func discussionsSelectionAnswersTheEscapeKey() {
+        if let searchController, searchController.isActive || !(searchController.searchBar.text ?? "").isEmpty {
+            searchController.searchBar.text = ""
+            searchController.isActive = false
+        } else {
+            whatCancelDoes?()
+        }
     }
     
     
@@ -205,7 +242,6 @@ public final class NewDiscussionsSelectionViewController: UIViewController, NSFe
 
 // MARK: - HorizontalListOfSelectedDiscussionsViewControllerDelegate
 
-@available(iOS 16.0, *)
 extension NewDiscussionsSelectionViewController {
     
     public func userWantsToDeselectItem(with discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
@@ -217,7 +253,6 @@ extension NewDiscussionsSelectionViewController {
 
 // MARK: - Setup
 
-@available(iOS 16.0, *)
 extension NewDiscussionsSelectionViewController {
     
     /// Configures the view hierarchy to be used in this vc

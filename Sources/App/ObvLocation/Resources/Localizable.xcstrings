@@ -45,6 +45,12 @@
             "value": "닫기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamknij"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,16 +69,313 @@
             "value": "Закрыть"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Закрити"
           }
         },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đóng"
+          }
+        },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "关闭"
+          }
+        }
+      }
+    },
+    "LOCATION_UNAVAILABLE_ALERT_MESSAGE": {
+      "comment": "Body of that alert: why nothing can be shared, and where the permission lives",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid hat den Standort Ihres Geräts nicht erhalten. Prüfen Sie, ob die Ortungsdienste aktiviert sind und ob Olvid auf Ihren Standort zugreifen darf."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid has not received your device's location. Check that Location Services are turned on and that Olvid is allowed to access your location."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid no ha recibido la ubicación de tu dispositivo. Comprueba que la localización esté activada y que Olvid tenga permiso para acceder a tu ubicación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid n'a pas reçu la position de votre appareil. Vérifiez que le service de localisation est activé et qu'Olvid est autorisé à accéder à votre position."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid non ha ricevuto la posizione del tuo dispositivo. Verifica che la localizzazione sia attiva e che Olvid sia autorizzato ad accedere alla tua posizione."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidはこの端末の位置情報を取得できませんでした。位置情報サービスがオンになっていること、およびOlvidに位置情報へのアクセスが許可されていることを確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid가 이 기기의 위치를 받지 못했습니다. 위치 서비스가 켜져 있고 Olvid에 위치 접근 권한이 허용되어 있는지 확인하세요."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplikacja Olvid nie otrzymała lokalizacji twojego urządzenia. Sprawdź, czy usługi lokalizacji są włączone i czy Olvid ma dostęp do twojej lokalizacji."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid não recebeu a localização do seu dispositivo. Verifique se os serviços de localização estão ativados e se o Olvid tem permissão para acessar sua localização."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Olvid não recebeu a localização do seu dispositivo. Verifique se os serviços de localização estão ativados e se o Olvid tem permissão para aceder à sua localização."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid не получил геопозицию вашего устройства. Проверьте, включены ли службы геолокации и разрешён ли Olvid доступ к вашей геопозиции."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid, cihazınızın konumunu alamadı. Konum Servisleri'nin açık olduğunu ve Olvid'in konumunuza erişmesine izin verildiğini kontrol edin."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid не отримав геопозицію вашого пристрою. Перевірте, чи ввімкнено служби геолокації та чи надано Olvid доступ до вашої геопозиції."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid chưa nhận được vị trí của thiết bị. Hãy kiểm tra xem Dịch vụ định vị đã bật chưa và Olvid có được phép truy cập vị trí của bạn không."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid 未能获取本设备的位置。请检查是否已开启定位服务，并允许 Olvid 访问你的位置。"
+          }
+        }
+      }
+    },
+    "LOCATION_UNAVAILABLE_ALERT_OPEN_SETTINGS": {
+      "comment": "Button of that alert, opening the Settings app",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Ajustes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aller dans les Réglages"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri Impostazioni"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を開く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설정 열기"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz Ustawienia"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Ajustes"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Definições"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть настройки"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar'ı Aç"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкрити Налаштування"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở Cài đặt"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开设置"
+          }
+        }
+      }
+    },
+    "LOCATION_UNAVAILABLE_ALERT_TITLE": {
+      "comment": "Title of the alert shown when the sharing control on the map is tapped while the device has reported no location",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standort nicht verfügbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location unavailable"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ubicación no disponible"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position indisponible"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posizione non disponibile"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置情報を取得できません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위치를 사용할 수 없음"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokalizacja niedostępna"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Localização indisponível"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Localização indisponível"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Геопозиция недоступна"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konum kullanılamıyor"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Геопозиція недоступна"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có vị trí"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法获取位置"
           }
         }
       }
@@ -121,6 +424,12 @@
             "value": "닫기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamknij"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -139,10 +448,22 @@
             "value": "Отклонить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відхилити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đóng"
           }
         },
         "zh-Hans": {
@@ -197,6 +518,12 @@
             "value": "어떤 앱을 사용하시겠어요?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Której aplikacji chcesz użyć?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -215,10 +542,22 @@
             "value": "какое приложение вы хотите использовать?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hangi uygulamayı kullanmak istiyorsunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "який застосунок ви хочете використати?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bạn muốn sử dụng ứng dụng nào?"
           }
         },
         "zh-Hans": {
@@ -273,6 +612,12 @@
             "value": "위치 정보 공개"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz lokalizację"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -291,10 +636,22 @@
             "value": "Открыть местоположение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumu aç"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відкрити місцезнаходження"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cho phép truy cập vị trí"
           }
         },
         "zh-Hans": {
@@ -349,6 +706,12 @@
             "value": "지도에 고정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinezka na mapie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -367,10 +730,22 @@
             "value": "Закрепить на карте"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haritadaki iğne"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Закріпити на карті"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đánh dấu trên bản đồ"
           }
         },
         "zh-Hans": {
@@ -425,6 +800,12 @@
             "value": "공유"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Udostępnij"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -443,10 +824,22 @@
             "value": "Поделиться"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaş"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Поділитися"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chia sẻ"
           }
         },
         "zh-Hans": {
@@ -501,6 +894,12 @@
             "value": "핀 보내기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyślij pinezkę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -519,10 +918,22 @@
             "value": "Отправить PIN-код"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İğne gönder"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Надіслати пін-код"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gửi vị trí"
           }
         },
         "zh-Hans": {
@@ -577,6 +988,12 @@
             "value": "내 위치 공유"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Udostępnij moją lokalizację"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -595,10 +1012,22 @@
             "value": "Поделиться моим местоположением"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konumumu paylaş"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Поділитися моїм місцезнаходженням"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chia sẻ vị trí của tôi"
           }
         },
         "zh-Hans": {
@@ -653,6 +1082,12 @@
             "value": "무기한"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezterminowo"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -671,10 +1106,22 @@
             "value": "Бессрочно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Süresiz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "На невизначений термін"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vô thời hạn"
           }
         },
         "zh-Hans": {
@@ -731,6 +1178,12 @@
             "value": "실시간으로 2분 동안"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "W czasie rzeczywistym przez 2 minuty"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -749,10 +1202,22 @@
             "value": "В реальном времени в течение 2 минут"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 dakika boyunca gerçek zamanlı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "В режимі реального часу протягом 2 хвилин"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thời gian thực trong 2 phút"
           }
         },
         "zh-Hans": {
@@ -807,6 +1272,12 @@
             "value": "1시간 동안"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przez godzinę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -825,10 +1296,22 @@
             "value": "На час"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir saat boyunca"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "На годину"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trong một giờ"
           }
         },
         "zh-Hans": {

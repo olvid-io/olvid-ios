@@ -97,6 +97,7 @@ public struct HiddenProfilePasswordChooserView: View {
                                 OlvidButtonNew(action: dismissTapped, style: .glassOrBordered) {
                                     Text("CANCEL")
                                 }
+                                .keyboardShortcut(.cancelAction)
                                 OlvidButtonNew(action: createPasswordTapped) {
                                     Text("CREATE_PASSWORD")
                                 }

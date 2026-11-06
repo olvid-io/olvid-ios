@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,6 +31,7 @@ protocol NewWelcomeScreenViewActionsProtocol: AnyObject {
     func userWantsToLeaveWelcomeScreenAndHasAnOlvidProfile() async
     func userWantsToLeaveWelcomeScreenAndHasNoOlvidProfileYet() async
     func userWantsToLeaveWelcomeScreenAndFinishOnboarding(ownedIdentityThatCanBeOpened: ObvCryptoId)
+    func userWantsToCloseOnboarding() async
 }
 
 
@@ -40,13 +41,18 @@ struct NewWelcomeScreenView: View {
     
     let actions: NewWelcomeScreenViewActionsProtocol
     let dataSource: NewWelcomeScreenViewDataSource
+    let showCloseButton: Bool
     
     @State private var isBadgeVisible = false
     @State private var ownedIdentityThatCanBeOpened: ObvCryptoId?
     
+    private func userWantsToCloseOnboarding() {
+        Task { await actions.userWantsToCloseOnboarding() }
+    }
+
     private func onAppear() {
         Task {
-            try await Task.sleep(seconds: 1)
+            try? await Task.sleep(seconds: 1)
             withAnimation {
                 isBadgeVisible = true
             }
@@ -113,6 +119,13 @@ struct NewWelcomeScreenView: View {
             Spacer()
 
         }
+        .toolbar {
+            if showCloseButton {
+                ToolbarItem(placement: .cancellationAction) {
+                    ObvButtonWithCancelRole(action: userWantsToCloseOnboarding)
+                }
+            }
+        }
     }
 }
 
@@ -136,15 +149,16 @@ struct NewWelcomeScreenView_Previews: PreviewProvider {
         func userWantsToLeaveWelcomeScreenAndFinishOnboarding(ownedIdentityThatCanBeOpened: ObvTypes.ObvCryptoId) {}
         func userWantsToLeaveWelcomeScreenAndHasNoOlvidProfileYet() async {}
         func userWantsToLeaveWelcomeScreenAndHasAnOlvidProfile() async {}
+        func userWantsToCloseOnboarding() async {}
     }
     
     private static let actions = ActionsForPreviews()
     
     static var previews: some View {
-        NewWelcomeScreenView(actions: actions, dataSource: dataSourceForPreviews)
-        NewWelcomeScreenView(actions: actions, dataSource: dataSourceForPreviews)
+        NewWelcomeScreenView(actions: actions, dataSource: dataSourceForPreviews, showCloseButton: true)
+        NewWelcomeScreenView(actions: actions, dataSource: dataSourceForPreviews, showCloseButton: false)
             .environment(\.locale, .init(identifier: "fr"))
-        NewWelcomeScreenView(actions: actions, dataSource: dataSourceForPreviews)
+        NewWelcomeScreenView(actions: actions, dataSource: dataSourceForPreviews, showCloseButton: false)
             .previewLayout(.sizeThatFits)
             .padding(.top, 20)
             .padding(.leading, 20)

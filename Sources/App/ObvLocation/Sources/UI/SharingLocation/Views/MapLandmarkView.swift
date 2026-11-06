@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,12 +25,8 @@ struct MapLandmarkView: View {
             ZStack {
                 
                 ZStack {
-                    if #available(iOS 16.0, *) {
-                        DropPin()
-                            .fill(.shadow(.inner(color: .init(.sRGBLinear, white: 0, opacity: 0.15), radius: 5.0, x: 0.0, y: -5.0)))
-                    } else {
-                        DropPin()
-                    }
+                    DropPin()
+                        .fill(.shadow(.inner(color: .init(.sRGBLinear, white: 0, opacity: 0.15), radius: 5.0, x: 0.0, y: -5.0)))
                 }
                 .foregroundColor(.red)
                 .shadow(radius: 3.0, x: 0.0, y: 3.0)
@@ -42,14 +38,9 @@ struct MapLandmarkView: View {
             .frame(width: 45.0, height: 70.0)
             
             ZStack {
-                if #available(iOS 16.0, *) {
-                    Circle()
-                        .fill(.shadow(.inner(color: .init(.sRGBLinear, white: 0, opacity: 0.15), radius: 1.0, x: 0.0, y: -3.0)))
-                        .foregroundColor(.red)
-                } else {
-                    Circle()
-                        .foregroundColor(.red)
-                }
+                Circle()
+                    .fill(.shadow(.inner(color: .init(.sRGBLinear, white: 0, opacity: 0.15), radius: 1.0, x: 0.0, y: -3.0)))
+                    .foregroundColor(.red)
             }
             .frame(width: 6.0, height: 6.0)
             .shadow(radius: 2.0, x: 0.0, y: 1.0)
@@ -58,9 +49,15 @@ struct MapLandmarkView: View {
     }
 }
 
-struct DropPin: Shape {
+/// The teardrop of a map pin, as a shape so that whoever draws one decides how large it is.
+///
+/// Public because the single discussion screen draws its own, at the size the message cell uses — see `MessageLocationView` in `ObvSingleDiscussion`. The bezier
+/// lives here, and only here; the sizes belong to each screen.
+public struct DropPin: Shape {
     
-    func path(in rect: CGRect) -> Path {
+    public init() {}
+    
+    public func path(in rect: CGRect) -> Path {
         var path = Path()
         
         let radius = rect.width / 2.0

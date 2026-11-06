@@ -59,7 +59,7 @@ extension TextEditor {
     @MainActor
     public func autocorrectionObv(autocorrection: ObvTextAutocorrectionType = .default, spellChecking: ObvSpellCheckingType = .default) -> some View {
         #if canImport(UIKit)
-        return self.introspect(.textEditor, on: .iOS(.v16, .v17, .v18, .v26), customize: { uiTextView in
+        return self.introspect(.textEditor, on: .iOS(.v16, .v17, .v18, .v26, .v27), customize: { uiTextView in
             uiTextView.autocorrectionType = autocorrection.uiTextAutocorrectionType
             uiTextView.spellCheckingType = spellChecking.uiTextSpellCheckingType
         })

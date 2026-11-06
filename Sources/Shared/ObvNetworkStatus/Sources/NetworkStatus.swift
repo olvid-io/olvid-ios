@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,12 @@ import Foundation
 import Network
 
 
-public protocol ObvNetworkInterfaceChangeListener: AnyObject {
+/// Something that wants to be told when the network interface changes.
+///
+/// **`Sendable` because the telling happens somewhere else.** ``ObvNetworkStatus`` is an actor and hands each listener to a `Task` of its own, so a listener
+/// crosses out of the actor to be called — which is a thing only a `Sendable` value may do. Requiring it here is what makes that crossing checked rather than
+/// assumed, and it costs nothing: a listener is a class isolated to an actor of its own, and such a type is `Sendable` already.
+public protocol ObvNetworkInterfaceChangeListener: AnyObject, Sendable {
     func networkInterfaceTypeChanged(isConnected: Bool) async
 }
 

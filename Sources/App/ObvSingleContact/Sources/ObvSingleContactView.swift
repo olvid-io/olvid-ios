@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -522,8 +522,10 @@ struct ObvSingleContactInternalView: View {
                 
                 // Card allowing to introduce the contact to other contacts
                 // Not shown for a revoked contact.
-                
-                if viewModel.isActive {
+                // Not shown for a non-one2one contact, as the ContactMutualIntroductionProtocol
+                // fails if one of the two contacts is not one2one.
+
+                if viewModel.isActive && viewModel.isOneToOne {
                     IntroduceContactView(name: viewModel.nicknameOrShortName, internalActions: internalActions)
                         .padding([.horizontal, .top])
                 }
@@ -1259,6 +1261,13 @@ private struct HeaderView: View {
         }
     }
     
+    /// The avatar's picture as stored, where the avatar's own is sized for its 120pt circle.
+    private var loadPictureShownLarge: (@MainActor () async -> CGImage?)? {
+        guard let photoURL = avatarModel.photoURL else { return nil }
+        let avatarViewDataSource = self.avatarViewDataSource
+        return { try? await avatarViewDataSource.fetchPictureAsStored(photoURL: photoURL) }
+    }
+
     var body: some View {
         VStack {
             ObvAvatarView(model: avatarModel,
@@ -1266,6 +1275,8 @@ private struct HeaderView: View {
                           size: .xLarge,
                           dataSource: avatarViewDataSource,
                           showGreenShieldIfAppropriate: true)
+            .showsProfilePictureLargeWhenTapped(circleDiameter: ObvAvatarSize.xLarge.frameSize.width,
+                                                loadPicture: loadPictureShownLarge)
             Text(headerTitle)
                 .font(.system(.title, design: .rounded))
                 .fontWeight(.semibold)

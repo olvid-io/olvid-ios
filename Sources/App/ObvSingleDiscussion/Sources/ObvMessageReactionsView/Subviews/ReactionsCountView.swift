@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -166,16 +166,9 @@ private struct PreviewView: View {
             Color(UIColor.systemBackground).ignoresSafeArea()
             VStack {
                 Color.blue
-                if #available(iOS 16, *) {
-                    ViewThatFits {
-                        ReactionsCountView(messageIdentifier: messageIdentifier,
-                                           dataSource: dataSource)
-                        ScrollView(.horizontal) {
-                            ReactionsCountView(messageIdentifier: messageIdentifier,
-                                               dataSource: dataSource)
-                        }
-                    }
-                } else {
+                ViewThatFits {
+                    ReactionsCountView(messageIdentifier: messageIdentifier,
+                                       dataSource: dataSource)
                     ScrollView(.horizontal) {
                         ReactionsCountView(messageIdentifier: messageIdentifier,
                                            dataSource: dataSource)

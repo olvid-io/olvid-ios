@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -202,6 +202,38 @@ extension PendingServerQuery {
         }
         let items = try context.fetch(request)
         return items
+    }
+
+
+    /// Returns the set of local file URLs (typically pointing inside the network manager's
+    /// `pendingUserDataUploads` staging directory) that are currently referenced as the `dataURL` of an
+    /// active `.putUserData` server query. Used by the bootstrap sweep to distinguish orphan staging
+    /// files from files still owned by a pending upload.
+    static func getAllPutUserDataFileURLs(within context: NSManagedObjectContext) throws -> Set<URL> {
+        let rows = try getAllServerQuery(isWebSocket: .any, within: context)
+        var urls = Set<URL>()
+        for row in rows {
+            guard case .putUserData(label: _, dataURL: let dataURL, dataKey: _) = row.queryType else { continue }
+            urls.insert(dataURL)
+        }
+        return urls
+    }
+
+
+    /// Async variant of ``getAllPutUserDataFileURLs(within:)`` that runs the fetch on a freshly created
+    /// background context, so async callers (e.g. the bootstrap sweep) don't have to manage the
+    /// continuation themselves.
+    static func getAllPutUserDataFileURLs(contextCreator: ObvCreateContextDelegate) async throws -> Set<URL> {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<URL>, Error>) in
+            contextCreator.performBackgroundTask { context in
+                do {
+                    let urls = try getAllPutUserDataFileURLs(within: context)
+                    continuation.resume(returning: urls)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
     
     

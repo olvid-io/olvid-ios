@@ -20,8 +20,8 @@
 import Foundation
 import OSLog
 import ObvAppCoreConstants
+import ObvAppTypes
 import BackgroundTasks
-import UIKit
 
 
 public struct ObvContinuedProcessingTaskManager {
@@ -145,26 +145,13 @@ extension ObvContinuedProcessingTaskManager {
     
     private static func executeAsStandardTask(launchHandler: @escaping (ObvBGContinuedProcessingTask?) async throws -> Void) {
         Task {
+            let screenAwakeRequest = await IdleTimerManager.shared.disableIdleTimer(reason: .longRunningTask)
             do {
-                startWithIdleTimerDisabled()
-                defer { stopWithIdleTimerDisabled() }
                 _ = try await launchHandler(nil)
             } catch {
                 Self.logger.error("Launch handler threw an error: \(error)")
             }
-        }
-    }
-
-    
-    private static func startWithIdleTimerDisabled() {
-        DispatchQueue.main.async {
-            UIApplication.shared.isIdleTimerDisabled = true
-        }
-    }
-
-    private static func stopWithIdleTimerDisabled() {
-        DispatchQueue.main.async {
-            UIApplication.shared.isIdleTimerDisabled = false
+            await IdleTimerManager.shared.enableIdleTimer(disableRequestIdentifier: screenAwakeRequest)
         }
     }
 

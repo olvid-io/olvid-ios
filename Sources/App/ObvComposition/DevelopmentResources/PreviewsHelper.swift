@@ -56,7 +56,7 @@ final class DataSourceAndActionsForPreviews {}
 
 extension DataSourceAndActionsForPreviews: ComposeViewActions {
     
-    func composeViewHasChangedTextAndMentions(_ view: ComposeView, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, attributedText: AttributedString) async throws {
+    func composeViewHasChangedTextAndMentions(_ sharedState: ComposeView.SharedState, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, attributedText: AttributedString) async throws {
         print("[debug] composeViewHasChangedMentions \(discussionIdentifier)")
     }
     
@@ -72,15 +72,11 @@ extension DataSourceAndActionsForPreviews: ComposeViewActions {
         print("[debug] userDidRecordAudio \(discussionIdentifier) with url: \(url)")
     }
     
-    func userWantsToSendDraft(_ view: ComposeView, discussionIdentifier: ObvDiscussionIdentifier, attributedText: AttributedString) async throws {
+    func userWantsToSendDraft(_ sharedState: ComposeView.SharedState, discussionIdentifier: ObvDiscussionIdentifier, attributedText: AttributedString) async throws {
         print("[debug] userWantstoSendDraft \(discussionIdentifier), text: \(attributedText)")
     }
         
-    func actionTapped(_ view: ComposeView, for action: ComposeViewParameters.SortableAction, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, contactIdentifier: ObvContactIdentifier?) async throws {
-        print("[debug] actionTappd for \(action)")
-    }
-    
-    func actionTapped(_ view: ComposeView, for action: ComposeViewParameters.UnsortableAction, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) {
+    func actionTapped(_ view: ComposeView, for action: ComposeViewParameters.Action, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, contactIdentifier: ObvContactIdentifier?) async throws {
         print("[debug] actionTappd for \(action)")
     }
     
@@ -92,8 +88,10 @@ extension DataSourceAndActionsForPreviews: ComposeViewActions {
         print("[debug] userWantstoRemoveReplyToMessage: \(discussionIdentifier)")
     }
     
-    func userWantsToAddAttachmentsToDraft(_ view: ComposeView, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, itemProviders: [NSItemProvider]) async throws {
+    func userWantsToAddAttachmentsToDraft(_ sharedState: ComposeView.SharedState, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, itemProviders: [NSItemProvider]) async throws -> [TextToPasteIntoTheDraft] {
         print("[debug] userWantsToAddAttachmentsToDraft: \(discussionIdentifier), providers count: \(itemProviders.count)")
+        // Nothing to paste back: a preview has no operation to decide what was text.
+        return []
     }
     
     func userWantsToDeleteDraftAttachment(_ view: ComposeAttachmentView, attachmentIdentifier: ComposeAttachmentView.AttachmentIdentifier) async throws {
@@ -106,6 +104,10 @@ extension DataSourceAndActionsForPreviews: ComposeViewActions {
     
     func userWantsToDeleteDraftAttachment(_ view: ComposeView, attachmentIdentifier: ComposeAttachmentView.AttachmentIdentifier) async throws {
         print("[debugs] user wants to delete draft attachment")
+    }
+
+    func userWantsToChangeTheMediaFormatOfTheDraft(_ view: ComposeView, discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, format: ObvMediaFormat) async throws {
+        print("[debug] userWantsToChangeTheMediaFormatOfTheDraft: \(format.rawValue)")
     }
 
 }
@@ -154,9 +156,16 @@ extension DataSourceAndActionsForPreviews: ComposeViewDataSource {
     }
     
     func finishAsyncStreamOfComposeViewDataSourceModel(_ view: ComposeView, streamUUID: UUID) {
-        
+
     }
-    
+
+    func getAsyncStreamOfTheProgressOfTheVideosBeingPrepared(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) -> AsyncStream<Double?> {
+        AsyncStream { continuation in
+            continuation.yield(nil)
+            continuation.finish()
+        }
+    }
+
 }
 
 
@@ -189,7 +198,19 @@ extension DataSourceAndActionsForPreviews: ComposeAttachmentViewDataSource {
     
     func finishAsyncStreamOfComposeViewDataSourceFyleModel(streamUUID: UUID) {
     }
-    
+
+    func getProgressOfTheVideoBeingPrepared(attachmentIdentifier: ComposeAttachmentView.AttachmentIdentifier) -> Double? {
+        nil
+    }
+
+    func getAsyncStreamOfTheProgressOfTheVideoBeingPrepared(attachmentIdentifier: ComposeAttachmentView.AttachmentIdentifier) -> AsyncStream<Double?> {
+        AsyncStream { $0.finish() }
+    }
+
+    func getAsyncStreamOfFramesForAnimatedImage(attachmentIdentifier: ComposeAttachmentView.AttachmentIdentifier, maxPixelSize: Int) -> AsyncStream<CGImage> {
+        AsyncStream { $0.finish() }
+    }
+
 }
 
 extension DataSourceAndActionsForPreviews: ComposeReplyToViewDataSource {
@@ -260,7 +281,8 @@ extension ComposeViewDataSourceModel {
                                    attachments: [],
                                    linkPreview: nil,
                                    audio: nil,
-                                   replyTo: nil),
+                                   replyTo: nil,
+                                   mediaFormatSelection: nil),
         ComposeViewDataSourceModel(discussionIdentifier: .sampleDataForOneToOne,
                                    isDraftDeleted: false,
                                    hasSomeExpiration: false,
@@ -272,7 +294,8 @@ extension ComposeViewDataSourceModel {
                                    attachments: [persistedDraftFyleJoinID],
                                    linkPreview: nil,
                                    audio: nil,
-                                   replyTo: nil),
+                                   replyTo: nil,
+                                   mediaFormatSelection: .init(selected: .med, totalByteCountForFormat: [.max: 2_400_000, .hi: 1_400_000, .med: 450_000, .low: 180_000], formatsWhoseWeightIsAnEstimate: [])),
         ComposeViewDataSourceModel(discussionIdentifier: .sampleDataForOneToOne,
                                    isDraftDeleted: false,
                                    hasSomeExpiration: false,
@@ -284,7 +307,8 @@ extension ComposeViewDataSourceModel {
                                    attachments: [],
                                    linkPreview: persistedLinkPreviewDraftFyleJoinID,
                                    audio: nil,
-                                   replyTo: nil),
+                                   replyTo: nil,
+                                   mediaFormatSelection: nil),
         ComposeViewDataSourceModel(discussionIdentifier: .sampleDataForOneToOne,
                                    isDraftDeleted: false,
                                    hasSomeExpiration: false,
@@ -296,7 +320,8 @@ extension ComposeViewDataSourceModel {
                                    attachments: [persistedDraftFyleJoinID],
                                    linkPreview: persistedLinkPreviewDraftFyleJoinID,
                                    audio: nil,
-                                   replyTo: nil)
+                                   replyTo: nil,
+                                   mediaFormatSelection: .init(selected: .low, totalByteCountForFormat: [.max: 2_400_000], formatsWhoseWeightIsAnEstimate: []))
         ]
 }
 

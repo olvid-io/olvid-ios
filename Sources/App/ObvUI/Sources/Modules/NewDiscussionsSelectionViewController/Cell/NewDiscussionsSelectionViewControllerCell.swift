@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,12 +23,10 @@ import UIKit
 import ObvDesignSystem
 
 
-@available(iOS 16.0, *)
 private let kCircledInitialsViewSize = CircledInitialsView.Size.small
 private let kCircleToTextAreaPadding = CGFloat(8.0)
 private let kRightDetailPlaceholderSideLength = CGFloat(30.0)
 
-@available(iOS 16.0, *)
 extension NewDiscussionsSelectionViewController {
     
     public final class Cell: UICollectionViewListCell {
@@ -67,7 +65,6 @@ extension NewDiscussionsSelectionViewController {
 
 
 // MARK: - SwiftUIDiscussionsCellContentView
-@available(iOS 16.0, *)
 fileprivate struct DiscussionsListShortCellContentView: View {
 
     let viewModel: NewDiscussionsSelectionViewController.Cell.ViewModel
@@ -75,7 +72,7 @@ fileprivate struct DiscussionsListShortCellContentView: View {
     var body: some View {
         HStack(alignment: .top, spacing: kCircleToTextAreaPadding) {
             if let config = viewModel.circledInitialsConfig {
-                CircledInitialsView(configuration: config, size: kCircledInitialsViewSize, style: viewModel.style)
+                CircledInitialsView(configuration: config, size: kCircledInitialsViewSize)
             }
             VStack(alignment: .center, spacing: 3) {
                 HStack(alignment: .firstTextBaseline) {

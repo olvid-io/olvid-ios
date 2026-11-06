@@ -21,6 +21,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.Engine.obvMetaManager,
         .Olvid.Engine.obvNotificationCenter,
         .Olvid.Engine.obvProtocolManager,
+        .Olvid.Engine.obvReturnReceiptSendManager,
         .Olvid.Engine.obvServerInterface,
         .Olvid.Engine.obvSyncSnapshotManager,
         .Olvid.Engine.obvNetworkSendManager,

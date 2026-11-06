@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,11 +33,17 @@ public protocol ObvSideBarViewActions {
 
 public struct ObvSideBarViewModel: Equatable, Sendable {
     let badgeCountForLatestDiscussions: Int
+    /// The cards of the contacts suggestions while the contacts tab shows their entry; 0 otherwise.
+    let badgeCountForContacts: Int
+    /// Whether one of those cards is new since the user last opened the suggestions: the badge is then red, and grey otherwise.
+    let badgeForContactsHasANewCard: Bool
     let badgeCountForInvitations: Int
     let flowToHighlight: ObvAppTypes.ObvFlow
-    
-    public init(badgeCountForLatestDiscussions: Int, badgeCountForInvitations: Int, flowToHighlight: ObvAppTypes.ObvFlow) {
+
+    public init(badgeCountForLatestDiscussions: Int, badgeCountForContacts: Int, badgeForContactsHasANewCard: Bool, badgeCountForInvitations: Int, flowToHighlight: ObvAppTypes.ObvFlow) {
         self.badgeCountForLatestDiscussions = badgeCountForLatestDiscussions
+        self.badgeCountForContacts = badgeCountForContacts
+        self.badgeForContactsHasANewCard = badgeForContactsHasANewCard
         self.badgeCountForInvitations = badgeCountForInvitations
         self.flowToHighlight = flowToHighlight
     }
@@ -58,7 +64,7 @@ public struct ObvSideBarView: View {
     let actions: ObvSideBarViewActions
     let dataSource: ObvSideBarViewDataSource
 
-    @State private var streamedViewModel = ObvSideBarViewModel(badgeCountForLatestDiscussions: 0, badgeCountForInvitations: 0, flowToHighlight: .latestDiscussions)
+    @State private var streamedViewModel = ObvSideBarViewModel(badgeCountForLatestDiscussions: 0, badgeCountForContacts: 0, badgeForContactsHasANewCard: false, badgeCountForInvitations: 0, flowToHighlight: .latestDiscussions)
 
     private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "ObvSideBarView")
     
@@ -144,7 +150,9 @@ public struct ObvSideBarView: View {
                     title: String(localizedInThisBundle: "CONTACTS"),
                     icon: .person,
                     isSelected: streamedViewModel.flowToHighlight == .contacts,
-                    badgeValue: 0)
+                    badgeValue: streamedViewModel.badgeCountForContacts,
+                    // The red of the other items while a suggestion is new; grey once the user has seen them all.
+                    badgeColor: Color(uiColor: streamedViewModel.badgeForContactsHasANewCard ? .red : .systemGray))
                 .listRowBackground(Color.clear)
                 
                 SidebarButton(
@@ -187,6 +195,7 @@ private struct SidebarButton: View {
     let icon: SystemIcon
     let isSelected: Bool
     let badgeValue: Int
+    var badgeColor = Color(uiColor: .red)
     
     private var iconColor: Color {
         if colorScheme == .dark {
@@ -211,11 +220,7 @@ private struct SidebarButton: View {
     @Environment(\.colorScheme) var colorScheme
 
     private var imageFont: Font {
-        if #available(iOS 16, *) {
-            return .system(size: imageSize, weight: imageWeight, design: imageDesign)
-        } else {
-            return .system(size: imageSize)
-        }
+        return .system(size: imageSize, weight: imageWeight, design: imageDesign)
     }
     
 
@@ -252,7 +257,7 @@ private struct SidebarButton: View {
             }
             .overlay(alignment: .topTrailing) {
                 if badgeValue > 0 {
-                    ObvBadgeNumberOfNewMessages(numberOfNewReceivedMessages: badgeValue)
+                    ObvBadgeNumberOfNewMessages(numberOfNewReceivedMessages: badgeValue, color: badgeColor)
                         .offset(x: -12, y: 4)
                 }
             }
@@ -306,15 +311,15 @@ extension DataSourceAndActionsForPreviews: ObvSideBarViewDataSource {
             Task {
                 while true {
                     try? await Task.sleep(seconds: 2)
-                    continuation.yield(.init(badgeCountForLatestDiscussions: 2, badgeCountForInvitations: 0, flowToHighlight: .latestDiscussions))
+                    continuation.yield(.init(badgeCountForLatestDiscussions: 2, badgeCountForContacts: 0, badgeForContactsHasANewCard: false, badgeCountForInvitations: 0, flowToHighlight: .latestDiscussions))
                     try? await Task.sleep(seconds: 2)
-                    continuation.yield(.init(badgeCountForLatestDiscussions: 5, badgeCountForInvitations: 1, flowToHighlight: .invitations))
+                    continuation.yield(.init(badgeCountForLatestDiscussions: 5, badgeCountForContacts: 4, badgeForContactsHasANewCard: true, badgeCountForInvitations: 1, flowToHighlight: .invitations))
                     try? await Task.sleep(seconds: 2)
-                    continuation.yield(.init(badgeCountForLatestDiscussions: 3, badgeCountForInvitations: 1, flowToHighlight: .latestDiscussions))
+                    continuation.yield(.init(badgeCountForLatestDiscussions: 3, badgeCountForContacts: 4, badgeForContactsHasANewCard: false, badgeCountForInvitations: 1, flowToHighlight: .latestDiscussions))
                     try? await Task.sleep(seconds: 2)
-                    continuation.yield(.init(badgeCountForLatestDiscussions: 10, badgeCountForInvitations: 0, flowToHighlight: .latestDiscussions))
+                    continuation.yield(.init(badgeCountForLatestDiscussions: 10, badgeCountForContacts: 0, badgeForContactsHasANewCard: false, badgeCountForInvitations: 0, flowToHighlight: .latestDiscussions))
                     try? await Task.sleep(seconds: 2)
-                    continuation.yield(.init(badgeCountForLatestDiscussions: 0, badgeCountForInvitations: 0, flowToHighlight: .latestDiscussions))
+                    continuation.yield(.init(badgeCountForLatestDiscussions: 0, badgeCountForContacts: 0, badgeForContactsHasANewCard: false, badgeCountForInvitations: 0, flowToHighlight: .latestDiscussions))
                 }
             }
         }
@@ -344,7 +349,6 @@ extension DataSourceAndActionsForPreviews: ObvSideBarViewActions {
 @MainActor
 private let dataSourceAndActionsForPreviews = DataSourceAndActionsForPreviews()
 
-@available(iOS 16.0, *)
 #Preview {
     NavigationSplitView {
         ObvSideBarView(actions: dataSourceAndActionsForPreviews,

@@ -32,6 +32,7 @@ import ObvAppCoreConstants
 final class ResumeOrPauseAttachmentDownloadOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
 
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ResumeOrPauseAttachmentDownloadOperation.self))
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ResumeOrPauseAttachmentDownloadOperation.self))
 
     private let receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>
     private let resumeOrPause: ResumeOrPause
@@ -75,7 +76,10 @@ final class ResumeOrPauseAttachmentDownloadOperation: ContextualOperationWithSpe
                     try await  obvEngine.pauseDownloadOfAttachment(attachmentIndex, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId)
                 }
             } catch {
-                assertionFailure(error.localizedDescription)
+                // **Logged rather than asserted, since 2026-08-31.** The engine used to swallow a failed pause and announce one anyway; it throws now, and
+                // the case that reaches here is an attachment the engine considers `.downloaded` while this join still believes it is downloading — which an
+                // ordinary tap can produce, and which a trap on every debug build would only bury in noise. The repair for that state is elsewhere.
+                Self.logger.error("Could not \(String(describing: self.resumeOrPause), privacy: .public) the download of an attachment: \(error.localizedDescription, privacy: .public)")
             }
         }
         

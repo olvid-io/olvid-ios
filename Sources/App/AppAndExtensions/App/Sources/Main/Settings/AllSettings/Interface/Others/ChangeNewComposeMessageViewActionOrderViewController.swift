@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import CoreData
 import ObvUI
 import ObvUICoreData
 import Combine
@@ -38,7 +39,7 @@ protocol ComposeMessageViewSettingsViewControllerActions: AnyObject {
 }
 
 
-final class ComposeMessageViewSettingsViewController: KeyboardTableViewController {
+final class ComposeMessageViewSettingsViewController: UITableViewController {
 
     private var notificationTokens = [NSObjectProtocol]()
     private var cancellables = Set<AnyCancellable>()
@@ -50,9 +51,9 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
         self.actions = actions
         super.init(style: .insetGrouped)
 
-        observePreferredComposeMessageViewActionsDidChangeNotifications()
-        observeDiscussionLocalConfigurationHasBeenUpdatedNotifications()
+        reloadWhenThisDiscussionsConfigurationChangesInTheViewContext()
         reloadOnPreferredEmojisListChange()
+        reloadOnDoubleTapEmojiChange()
 
     }
 
@@ -61,43 +62,69 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
         cancellables.forEach { $0.cancel() }
     }
 
-    private func observePreferredComposeMessageViewActionsDidChangeNotifications() {
-        let token = ObvMessengerSettingsNotifications.observePreferredComposeMessageViewActionsDidChange(queue: OperationQueue.main) { [weak self] in
-            assert(Thread.isMainThread)
-            guard let self else { return }
-            guard let section = Section.shown(forInput: input).firstIndex(of: .preferredComposeMessageViewActionsOrder) else { assertionFailure(); return }
-            let cells = self.tableView.visibleCells.compactMap { $0 as? ActionCell }
-            self.tableView.beginUpdates()
-            let actions = ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder
-            for index in 0..<actions.count {
-                let action = actions[index]
-                guard let cell = (cells.first { $0.action == action }) else { continue }
-                guard let srcIndexPath = self.tableView.indexPath(for: cell) else { assertionFailure(); continue }
-                let destIndexPath = IndexPath(row: index, section: section)
-                guard srcIndexPath != destIndexPath else { continue }
-                self.tableView.moveRow(at: srcIndexPath, to: destIndexPath)
-            }
-            self.tableView.endUpdates()
-            if let section = Section.shown(forInput: input).firstIndex(of: .resetPreferredComposeMessageViewActions) {
-                self.tableView.reloadRows(at: [IndexPath.init(row: 0, section: section)], with: .none)
-            }
-        }
-        self.notificationTokens.append(token)
+    /// Esc closes this screen when it is presented on its own, which is how the composition bar shows it; its close button is a UIKit bar button, so no
+    /// SwiftUI shortcut can carry the key. Pushed within the settings, it offers nothing, and Esc is left to the navigation it is part of.
+    ///
+    /// The selector is named after this screen because UIKit sends a key command's action to the first responder in the chain that implements it,
+    /// not to the controller that offered the command: with a common name, the settings' own Esc landed here and closed them.
+    override var keyCommands: [UIKeyCommand]? {
+        guard presentingViewController != nil, navigationController?.viewControllers.first === self else { return super.keyCommands }
+        return (super.keyCommands ?? []) + [UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(composeMessageViewSettingsAnswerTheEscapeKey))]
     }
 
-    private func observeDiscussionLocalConfigurationHasBeenUpdatedNotifications() {
-        let token = ObvMessengerCoreDataNotification.observeDiscussionLocalConfigurationHasBeenUpdated { [weak self] value, objectId in
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                guard case .defaultEmoji = value else { return }
-                guard let sectionToReload = Section.shown(forInput: input).firstIndex(of: .defaultEmojiAtDiscussionLevel) else { return }
-                self.tableView.reloadSections([sectionToReload], with: .none)
-            }
+    @objc private func composeMessageViewSettingsAnswerTheEscapeKey() {
+        dismiss(animated: true)
+    }
+
+    /// Redraws the two discussion-level rows when this discussion's configuration changes under them, which is what an
+    /// emoji chosen on another of the user's devices does.
+    ///
+    /// **The view context's own change rather than `discussionLocalConfigurationHasBeenUpdated`**, which these rows used to
+    /// watch. That notification and the merge into the view context are two independent hops off the saving thread — the
+    /// notification through a queue of its own, the merge through `viewContext.perform` — and nothing orders them. The rows
+    /// read a view-context object, so a reload arriving first redraws the value that is already there and nothing reloads
+    /// them again. Observing the merge cannot be early by construction.
+    private func reloadWhenThisDiscussionsConfigurationChangesInTheViewContext() {
+        guard case .local(let configuration) = input, let viewContext = configuration.managedObjectContext else { return }
+        let objectID = configuration.objectID
+        let token = NotificationCenter.default.addObserver(forName: .NSManagedObjectContextObjectsDidChange, object: viewContext, queue: .main) { [weak self] notification in
+            guard let self else { return }
+            let touched = (notification.userInfo?[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? [])
+                .union(notification.userInfo?[NSRefreshedObjectsKey] as? Set<NSManagedObject> ?? [])
+            guard touched.contains(where: { $0.objectID == objectID }) else { return }
+            let sectionsToReload = [Section.defaultEmojiAtDiscussionLevel, Section.doubleTapEmojiAtDiscussionLevel]
+                .compactMap { Section.shown(forInput: self.input).firstIndex(of: $0) }
+            guard !sectionsToReload.isEmpty else { return }
+            self.tableView.reloadSections(IndexSet(sectionsToReload), with: .none)
         }
         self.notificationTokens.append(token)
     }
     
     
+    /// The global double tap emoji travels between a user's own devices, so it can change while this screen is open.
+    ///
+    /// **On the main queue**, unlike the list above: that one is only ever written by this app's own UI, where an atom
+    /// arriving from another device is applied by a background operation, so the value is published off the main thread.
+    /// And after `dropFirst`, a `@Published` handing its current value to every new subscriber being a reload of rows
+    /// that do not exist yet.
+    private func reloadOnDoubleTapEmojiChange() {
+        ObvMessengerSettingsObservableObject.shared.$defaultDoubleTapEmoji
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let indexPathsToReload: [IndexPath] = [
+                    DoubleTapEmojiAtAppLevelItem.changeDoubleTapEmojiAtAppLevel.indexPath(forInput: input),
+                    DoubleTapEmojiAtAppLevelItem.resetButton.indexPath(forInput: input),
+                    DoubleTapEmojiAtDiscussionLevelItem.changeDoubleTapEmojiAtDiscussionLevel.indexPath(forInput: input),
+                ].compactMap({ $0 })
+                guard !indexPathsToReload.isEmpty else { return }
+                tableView.reloadRows(at: indexPathsToReload, with: .automatic)
+            }
+            .store(in: &cancellables)
+    }
+
+
     private func reloadOnPreferredEmojisListChange() {
         ObvMessengerSettingsObservableObject.shared.$preferredEmojisList
             .sink { [weak self] _ in
@@ -118,68 +145,67 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.tableView.isEditing = true
-        self.tableView.allowsSelectionDuringEditing = true
         self.title = NSLocalizedString("NEW_COMPOSE_MESSAGE_VIEW_PREFERENCES", comment: "ComposeMessageViewSettingsViewController title")
     }
-
-    private func processPreferredComposeMessageViewActionsDidChangeNotifications() {
-        assert(Thread.isMainThread)
-        guard let section = Section.shown(forInput: input).firstIndex(of: .preferredComposeMessageViewActionsOrder) else { assertionFailure(); return }
-        let cells = tableView.visibleCells.compactMap { $0 as? ActionCell }
-        tableView.beginUpdates()
-        let actions = ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder
-        for index in 0..<actions.count {
-            let action = actions[index]
-            guard let cell = (cells.first { $0.action == action }) else { continue }
-            guard let srcIndexPath = tableView.indexPath(for: cell) else { assertionFailure(); continue }
-            let destIndexPath = IndexPath(row: index, section: section)
-            guard srcIndexPath != destIndexPath else { continue }
-            tableView.moveRow(at: srcIndexPath, to: destIndexPath)
-        }
-        tableView.endUpdates()
-        tableView.reloadSections([section], with: .none)
-    }
-
     
     // MARK: - Section
     
     private enum Section: CaseIterable {
         
-        case preferredComposeMessageViewActionsOrder
-        case resetPreferredComposeMessageViewActions
         case defaultEmojiAtAppLevel
         case defaultPreferredEmojisAtAppLevel
         case defaultEmojiAtDiscussionLevel
-        
+
+        /// What a **double tap** on a message reacts with, globally.
+        ///
+        /// **A section of its own rather than a row of `defaultEmojiAtAppLevel`**, because that section carries a reset button whose enablement is a fact about
+        /// the quick emoji; a second emoji sharing it would make the reset ambiguous. So it follows the shape this file already has, one section per setting.
+        ///
+        /// Global, so shown for both inputs — and, like its discussion-level twin below, only while the reader is on the
+        /// SwiftUI discussion.
+        case doubleTapEmojiAtAppLevel
+
+        /// What a **double tap** reacts with in this discussion, overriding the section above. The twin of
+        /// ``defaultEmojiAtDiscussionLevel``, shown only when this screen was opened from a discussion.
+        case doubleTapEmojiAtDiscussionLevel
+
+        /// **Neither double-tap section is offered on the legacy discussion**, which answers a double tap by showing the bar
+        /// of favourite emojis: `SingleDiscussionViewAppDataSource` is the only reader of either value, and it serves the
+        /// SwiftUI screen alone. Shown there, they would be settings a reader can change to no effect at all, with nothing
+        /// saying why. Both conditions go at the cutover, when there is one discussion screen again.
         static func shown(forInput input: ComposeMessageViewSettingsViewControllerInput) -> [Section] {
+            let doubleTapIsAnswered = ObvMessengerSettings.Interface.discussionLayoutType == .swiftUI
             switch input {
             case .local:
-                return [
-                    .preferredComposeMessageViewActionsOrder,
-                    .resetPreferredComposeMessageViewActions,
+                var sections: [Section] = [
                     .defaultPreferredEmojisAtAppLevel,
                     .defaultEmojiAtAppLevel,
                     .defaultEmojiAtDiscussionLevel,
                 ]
+                if doubleTapIsAnswered {
+                    sections += [.doubleTapEmojiAtAppLevel, .doubleTapEmojiAtDiscussionLevel]
+                }
+                return sections
             case .global:
-                return [
-                    .preferredComposeMessageViewActionsOrder,
-                    .resetPreferredComposeMessageViewActions,
+                var sections: [Section] = [
                     .defaultPreferredEmojisAtAppLevel,
                     .defaultEmojiAtAppLevel,
                 ]
+                if doubleTapIsAnswered {
+                    sections += [.doubleTapEmojiAtAppLevel]
+                }
+                return sections
             }
         }
         
         
         var numberOfItems: Int {
             switch self {
-            case .preferredComposeMessageViewActionsOrder: return PreferredComposeMessageViewActionsOrderItem.shown.count
-            case .resetPreferredComposeMessageViewActions: return ResetPreferredComposeMessageViewActionsItem.shown.count
             case .defaultEmojiAtAppLevel: return DefaultEmojiAtAppLevelItem.shown.count
             case .defaultPreferredEmojisAtAppLevel: return DefaultPreferredEmojisAtAppLevelItem.shown.count
             case .defaultEmojiAtDiscussionLevel: return DefaultEmojiAtDiscussionLevelItem.shown.count
+            case .doubleTapEmojiAtAppLevel: return DoubleTapEmojiAtAppLevelItem.shown.count
+            case .doubleTapEmojiAtDiscussionLevel: return DoubleTapEmojiAtDiscussionLevelItem.shown.count
             }
         }
 
@@ -189,19 +215,6 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
         }
 
 
-        var canEditOrMoveRow: Bool {
-            switch self {
-            case .preferredComposeMessageViewActionsOrder:
-                return true
-            case .defaultEmojiAtAppLevel,
-                    .defaultEmojiAtDiscussionLevel,
-                    .defaultPreferredEmojisAtAppLevel,
-                    .resetPreferredComposeMessageViewActions:
-                return false
-            }
-        }
-        
-        
         func section(forInput input: ComposeMessageViewSettingsViewControllerInput) -> Int? {
             Self.shown(forInput: input).firstIndex(of: self)
         }
@@ -210,56 +223,6 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
     
     
     // MARK: - Items
-    
-    private enum PreferredComposeMessageViewActionsOrderItem: CaseIterable {
-
-        private static var preferredActions: [NewComposeMessageViewSortableAction] {
-            ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder
-        }
-
-        static var shown: [NewComposeMessageViewSortableAction] {
-            preferredActions
-        }
-
-        static func shownItemAt(item: Int) -> NewComposeMessageViewSortableAction? {
-            return shown[safe: item]
-        }
-        
-        static func indexPath(ofAction action: NewComposeMessageViewSortableAction, forInput input: ComposeMessageViewSettingsViewControllerInput) -> IndexPath? {
-            guard let section = Section.preferredComposeMessageViewActionsOrder.section(forInput: input) else { return nil }
-            guard let row = Self.shown.firstIndex(of: action) else { return nil }
-            return IndexPath(row: row, section: section)
-        }
-        
-    }
-    
-    
-    private enum ResetPreferredComposeMessageViewActionsItem: CaseIterable {
-
-        case resetButton
-        
-        static var shown: [Self] {
-            return Self.allCases
-        }
-
-        static func shownItemAt(item: Int) -> Self? {
-            return shown[safe: item]
-        }
-
-        var cellIdentifier: String {
-            switch self {
-            case .resetButton: return "ResetPreferredComposeMessageViewActionsItem.resetButton"
-            }
-        }
-        
-        func indexPath(forInput input: ComposeMessageViewSettingsViewControllerInput) -> IndexPath? {
-            guard let section = Section.resetPreferredComposeMessageViewActions.section(forInput: input) else { return nil }
-            guard let row = Self.shown.firstIndex(of: self) else { return nil }
-            return IndexPath(row: row, section: section)
-        }
-        
-    }
-
     
     private enum DefaultPreferredEmojisAtAppLevelItem: CaseIterable {
         
@@ -319,8 +282,67 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
     }
     
 
+    /// The two rows of the double-tap emoji section, and the twin of ``DefaultEmojiAtAppLevelItem``.
+    private enum DoubleTapEmojiAtAppLevelItem: CaseIterable {
+
+        case changeDoubleTapEmojiAtAppLevel
+        case resetButton
+
+        static var shown: [Self] {
+            return Self.allCases
+        }
+
+        static func shownItemAt(item: Int) -> Self? {
+            return shown[safe: item]
+        }
+
+        var cellIdentifier: String {
+            switch self {
+            case .changeDoubleTapEmojiAtAppLevel: return "DoubleTapEmojiAtAppLevelItem.changeDoubleTapEmojiAtAppLevel"
+            case .resetButton: return "DoubleTapEmojiAtAppLevelItem.resetButton"
+            }
+        }
+
+        func indexPath(forInput input: ComposeMessageViewSettingsViewControllerInput) -> IndexPath? {
+            guard let section = Section.doubleTapEmojiAtAppLevel.section(forInput: input) else { return nil }
+            guard let row = Self.shown.firstIndex(of: self) else { return nil }
+            return IndexPath(row: row, section: section)
+        }
+
+    }
+
+
+    private enum DoubleTapEmojiAtDiscussionLevelItem: CaseIterable {
+
+        case changeDoubleTapEmojiAtDiscussionLevel
+        case resetButton
+
+        static var shown: [Self] {
+            return Self.allCases
+        }
+
+        static func shownItemAt(item: Int) -> Self? {
+            return shown[safe: item]
+        }
+
+        var cellIdentifier: String {
+            switch self {
+            case .changeDoubleTapEmojiAtDiscussionLevel: return "DoubleTapEmojiAtDiscussionLevel.changeDoubleTapEmojiAtDiscussionLevel"
+            case .resetButton: return "DoubleTapEmojiAtDiscussionLevel.resetButton"
+            }
+        }
+
+        func indexPath(forInput input: ComposeMessageViewSettingsViewControllerInput) -> IndexPath? {
+            guard let section = Section.doubleTapEmojiAtDiscussionLevel.section(forInput: input) else { return nil }
+            guard let row = Self.shown.firstIndex(of: self) else { return nil }
+            return IndexPath(row: row, section: section)
+        }
+
+    }
+
+
     private enum DefaultEmojiAtDiscussionLevelItem: CaseIterable {
-        
+
         case changeDefaultEmojiAtDiscussionLevel
         case resetButton
 
@@ -348,6 +370,26 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
     }
     
     
+    /// How the emoji picker is presented from this screen.
+    ///
+    /// **A fraction of the room there is, rather than `.medium()`.** A medium detent is half of whatever contains the
+    /// sheet, and what contains it differs: this screen fills an iPhone, so half of it held eight rows of emojis, while on
+    /// an iPad it is itself a form sheet and half of *that* held three. A resolver is handed the height the sheet could
+    /// have, so one rule covers a phone, a form sheet and Slide Over without asking which it is in — and asking was its own
+    /// trap, a form sheet overriding the traits of what it presents so that a controller inside one answers `.compact` on
+    /// an iPad.
+    private func configureTheEmojiPickersSheet(_ sheet: UISheetPresentationController) {
+        sheet.detents = [.custom(identifier: Self.emojiPickerDetent) { context in
+            context.maximumDetentValue * 0.75
+        }]
+        sheet.prefersGrabberVisible = true
+        sheet.preferredCornerRadius = 30.0
+    }
+
+
+    private static let emojiPickerDetent = UISheetPresentationController.Detent.Identifier("emojiPicker")
+
+
     // MARK: - Table view data source
 
     override func numberOfSections(in tableView: UITableView) -> Int {
@@ -371,36 +413,6 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
         }
 
         switch section {
-            
-        case .preferredComposeMessageViewActionsOrder:
-            
-            guard let action = PreferredComposeMessageViewActionsOrderItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
-            let cell = tableView.dequeueReusableCell(withIdentifier: "PreferredActionCell") ?? ActionCell(action: action)
-            cell.selectionStyle = .none
-            var configuration = cell.defaultContentConfiguration()
-            configuration.text = action.title
-            configuration.image = UIImage(systemIcon: action.icon)
-            cell.contentConfiguration = configuration
-            return cell
-
-        case .resetPreferredComposeMessageViewActions:
-
-            guard let item = ResetPreferredComposeMessageViewActionsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
-            
-            switch item {
-                
-            case .resetButton:
-                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
-                cell.isUserInteractionEnabled = ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder != NewComposeMessageViewSortableAction.defaultOrder
-                var configuration = cell.defaultContentConfiguration()
-                configuration.text = NSLocalizedString("RESET_COMPOSE_MESSAGE_VIEW_ACTIONS_ORDER", comment: "reset compose view message action title")
-                if cell.isUserInteractionEnabled {
-                    configuration.textProperties.color = AppTheme.shared.colorScheme.link
-                }
-                cell.contentConfiguration = configuration
-                return cell
-                
-            }
             
         case .defaultPreferredEmojisAtAppLevel:
 
@@ -464,6 +476,77 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
 
             }
                         
+        case .doubleTapEmojiAtAppLevel:
+
+            guard let item = DoubleTapEmojiAtAppLevelItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+
+            switch item {
+
+            case .changeDoubleTapEmojiAtAppLevel:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                var cellConfiguration = cell.defaultContentConfiguration()
+                cellConfiguration.text = NSLocalizedString("DOUBLE_TAP_EMOJI", comment: "")
+                cell.contentConfiguration = cellConfiguration
+                let label = UILabel(frame: CGRect(x: 0, y: 0, width: 100, height: 20))
+                label.textAlignment = .right
+                label.textColor = AppTheme.shared.colorScheme.secondaryLabel
+                label.text = ObvMessengerSettings.Emoji.defaultDoubleTapEmoji ?? ObvMessengerConstants.defaultDoubleTapEmoji
+                cell.accessoryView = label
+                return cell
+
+            case .resetButton:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                cell.isUserInteractionEnabled = ObvMessengerSettings.Emoji.defaultDoubleTapEmoji != nil && ObvMessengerSettings.Emoji.defaultDoubleTapEmoji != ObvMessengerConstants.defaultDoubleTapEmoji
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = NSLocalizedString("RESET_DISCUSSION_EMOJI_TO_DEFAULT", comment: "")
+                if cell.isUserInteractionEnabled {
+                    configuration.textProperties.color = AppTheme.shared.colorScheme.link
+                }
+                cell.contentConfiguration = configuration
+                return cell
+
+            }
+
+        case .doubleTapEmojiAtDiscussionLevel:
+
+            guard let item = DoubleTapEmojiAtDiscussionLevelItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+
+            guard case .local(let discussionConfiguration) = input else { assertionFailure(); return cellInCaseOfError }
+
+            switch item {
+
+            case .changeDoubleTapEmojiAtDiscussionLevel:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                var cellConfiguration = cell.defaultContentConfiguration()
+                // `String(localized:)` rather than the `NSLocalizedString` beside it: the localisation tooling extracts
+                // the modern form and not the legacy one, so a key spelled the old way only reaches the catalogue
+                // through a build in Xcode.
+                cellConfiguration.text = String(localized: "DISCUSSION_DOUBLE_TAP_EMOJI")
+                cell.contentConfiguration = cellConfiguration
+                let label = UILabel(frame: CGRect(x: 0, y: 0, width: 100, height: 20))
+                label.textAlignment = .right
+                label.textColor = AppTheme.shared.colorScheme.secondaryLabel
+                if let doubleTapEmoji = discussionConfiguration.doubleTapEmoji {
+                    label.text = doubleTapEmoji
+                } else {
+                    label.text = "\(CommonString.Word.Default) (\(ObvMessengerSettings.Emoji.defaultDoubleTapEmoji ?? ObvMessengerConstants.defaultDoubleTapEmoji))"
+                }
+                cell.accessoryView = label
+                return cell
+
+            case .resetButton:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                cell.isUserInteractionEnabled = discussionConfiguration.doubleTapEmoji != nil
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = NSLocalizedString("RESET_DISCUSSION_EMOJI_TO_DEFAULT_DISCUSSION_LEVEL", comment: "")
+                if cell.isUserInteractionEnabled {
+                    configuration.textProperties.color = AppTheme.shared.colorScheme.link
+                }
+                cell.contentConfiguration = configuration
+                return cell
+
+            }
+
         case .defaultEmojiAtDiscussionLevel:
 
             guard let item = DefaultEmojiAtDiscussionLevelItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
@@ -512,22 +595,6 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
 
         switch section {
             
-        case .preferredComposeMessageViewActionsOrder:
-            
-            break
-            
-        case .resetPreferredComposeMessageViewActions:
-
-            guard let item = ResetPreferredComposeMessageViewActionsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
-            
-            switch item {
-                
-            case .resetButton:
-                
-                ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder = NewComposeMessageViewSortableAction.defaultOrder
-                
-            }
-            
         case .defaultPreferredEmojisAtAppLevel:
 
             guard let item = DefaultPreferredEmojisAtAppLevelItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
@@ -550,9 +617,7 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
                 } else {
                 
                     if let sheet = vc.sheetPresentationController {
-                        sheet.detents = [.medium()]
-                        sheet.prefersGrabberVisible = true
-                        sheet.preferredCornerRadius = 30.0
+                        configureTheEmojiPickersSheet(sheet)
                     }
                     present(vc, animated: true) {
                         tableView.deselectRow(at: indexPath, animated: true)
@@ -595,9 +660,7 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
                 } else {
                     
                     if let sheet = vc.sheetPresentationController {
-                        sheet.detents = [.medium()]
-                        sheet.prefersGrabberVisible = true
-                        sheet.preferredCornerRadius = 30.0
+                        configureTheEmojiPickersSheet(sheet)
                     }
                     present(vc, animated: true) {
                         tableView.deselectRow(at: indexPath, animated: true)
@@ -609,6 +672,110 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
                 ObvMessengerSettings.Emoji.defaultEmojiButton = ObvMessengerConstants.defaultEmoji
                 tableView.reloadRows(at: indexPathsToReload, with: .automatic)
 
+            }
+
+        case .doubleTapEmojiAtAppLevel:
+
+            guard let item = DoubleTapEmojiAtAppLevelItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+
+            // The discussion-level row shows this value in brackets while the discussion has chosen nothing of its own,
+            // so it changes with it.
+            let indexPathsToReload: [IndexPath] = [
+                DoubleTapEmojiAtAppLevelItem.changeDoubleTapEmojiAtAppLevel.indexPath(forInput: input),
+                DoubleTapEmojiAtAppLevelItem.resetButton.indexPath(forInput: input),
+                DoubleTapEmojiAtDiscussionLevelItem.changeDoubleTapEmojiAtDiscussionLevel.indexPath(forInput: input),
+            ].compactMap({ $0 })
+
+            switch item {
+
+            case .changeDoubleTapEmojiAtAppLevel:
+                let model = EmojiPickerViewModel(selectedEmoji: ObvMessengerSettings.Emoji.defaultDoubleTapEmoji ?? ObvMessengerConstants.defaultDoubleTapEmoji) { emoji in
+                    ObvMessengerSettings.Emoji.setDefaultDoubleTapEmoji(to: emoji, changeMadeFromAnotherOwnedDevice: false)
+                    tableView.reloadRows(at: indexPathsToReload, with: .automatic)
+                }
+                let vc = EmojiPickerHostingViewController(model: model)
+
+                // Presented exactly as its twin is, a Mac having no sheet detents worth using.
+                if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+
+                    let nav = UINavigationController(rootViewController: vc)
+                    present(nav, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
+
+                } else {
+
+                    if let sheet = vc.sheetPresentationController {
+                        configureTheEmojiPickersSheet(sheet)
+                    }
+                    present(vc, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
+
+                }
+
+            case .resetButton:
+                ObvMessengerSettings.Emoji.setDefaultDoubleTapEmoji(to: ObvMessengerConstants.defaultDoubleTapEmoji, changeMadeFromAnotherOwnedDevice: false)
+                tableView.reloadRows(at: indexPathsToReload, with: .automatic)
+
+            }
+
+        case .doubleTapEmojiAtDiscussionLevel:
+
+            guard let item = DoubleTapEmojiAtDiscussionLevelItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+
+            guard case .local(let discussionConfiguration) = input else { assertionFailure(); return }
+
+            switch item {
+
+            case .changeDoubleTapEmojiAtDiscussionLevel:
+                let model = EmojiPickerViewModel(selectedEmoji: discussionConfiguration.doubleTapEmoji) { [weak self] emoji in
+                    guard let self, let actions = self.actions else { assertionFailure(); return }
+                    let value: PersistedDiscussionLocalConfigurationValue = .doubleTapEmoji(emoji)
+                    let localConfigurationObjectID = discussionConfiguration.typedObjectID
+                    let indexPathToReload = DoubleTapEmojiAtDiscussionLevelItem.resetButton.indexPath(forInput: input)
+                    Task {
+                        do {
+                            try await actions.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+                            await MainActor.run { self.tableView.reloadRows(at: [indexPath, indexPathToReload].compactMap({ $0 }), with: .none) }
+                        } catch {
+                            assertionFailure()
+                        }
+                    }
+                }
+                let vc = EmojiPickerHostingViewController(model: model)
+
+                if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+
+                    let nav = UINavigationController(rootViewController: vc)
+                    present(nav, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
+
+                } else {
+
+                    if let sheet = vc.sheetPresentationController {
+                        configureTheEmojiPickersSheet(sheet)
+                    }
+                    present(vc, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
+                    }
+
+                }
+
+            case .resetButton:
+                guard let actions = self.actions else { assertionFailure(); return }
+                let value: PersistedDiscussionLocalConfigurationValue = .doubleTapEmoji(nil)
+                let localConfigurationObjectID = discussionConfiguration.typedObjectID
+                let indexPathToReload = DoubleTapEmojiAtDiscussionLevelItem.changeDoubleTapEmojiAtDiscussionLevel.indexPath(forInput: input)
+                Task {
+                    do {
+                        try await actions.userWantsToUpdateDiscussionLocalConfiguration(self, value: value, localConfigurationObjectID: localConfigurationObjectID)
+                        await MainActor.run { self.tableView.reloadRows(at: [indexPath, indexPathToReload].compactMap({ $0 }), with: .none) }
+                    } catch {
+                        assertionFailure()
+                    }
+                }
             }
 
         case .defaultEmojiAtDiscussionLevel:
@@ -646,9 +813,7 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
                 } else {
                 
                     if let sheet = vc.sheetPresentationController {
-                        sheet.detents = [.medium()]
-                        sheet.prefersGrabberVisible = true
-                        sheet.preferredCornerRadius = 30.0
+                        configureTheEmojiPickersSheet(sheet)
                     }
                     present(vc, animated: true) {
                         tableView.deselectRow(at: indexPath, animated: true)
@@ -681,14 +846,13 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
         guard let section = Section.shownSectionAt(section: section, forInput: input) else { assertionFailure(); return nil }
 
         switch section {
-        case .preferredComposeMessageViewActionsOrder:
-            return NSLocalizedString("NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_HEADER", comment: "Section header")
         case .defaultEmojiAtAppLevel:
             return NSLocalizedString("DEFAULT_EMOJI_AT_APP_LEVEL", comment: "Section header")
         case .defaultPreferredEmojisAtAppLevel:
             return NSLocalizedString("DEFAULT_PREFERRED_EMOJIS_LIST", comment: "Section header")
-        case .resetPreferredComposeMessageViewActions,
-                .defaultEmojiAtDiscussionLevel:
+        case .doubleTapEmojiAtAppLevel:
+            return NSLocalizedString("DOUBLE_TAP_EMOJI_AT_APP_LEVEL", comment: "Section header")
+        case .defaultEmojiAtDiscussionLevel, .doubleTapEmojiAtDiscussionLevel:
             return nil
         }
         
@@ -700,8 +864,6 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
         guard let section = Section.shownSectionAt(section: section, forInput: input) else { assertionFailure(); return nil }
 
         switch section {
-        case .preferredComposeMessageViewActionsOrder:
-            return NSLocalizedString("NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_FOOTER", comment: "Section footer")
         case .defaultEmojiAtAppLevel:
             if Section.shown(forInput: input).contains(.defaultEmojiAtDiscussionLevel) {
                 return nil
@@ -712,69 +874,17 @@ final class ComposeMessageViewSettingsViewController: KeyboardTableViewControlle
             return nil
         case .defaultEmojiAtDiscussionLevel:
             return NSLocalizedString("QUICK_EMOJI_EXPLANATION", comment: "Section footer")
-        case .resetPreferredComposeMessageViewActions:
-            return nil
+        case .doubleTapEmojiAtAppLevel:
+            if Section.shown(forInput: input).contains(.doubleTapEmojiAtDiscussionLevel) {
+                return nil
+            } else {
+                return NSLocalizedString("DOUBLE_TAP_EMOJI_EXPLANATION", comment: "Section footer")
+            }
+        case .doubleTapEmojiAtDiscussionLevel:
+            return NSLocalizedString("DOUBLE_TAP_EMOJI_EXPLANATION", comment: "Section footer")
         }
         
     }
 
 
-    override func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
-        guard indexPath.section < Section.shown(forInput: input).count else { assertionFailure(); return false }
-        let section = Section.shown(forInput: input)[indexPath.section]
-        return section.canEditOrMoveRow
-    }
-
-    
-    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        return self.tableView(tableView, canMoveRowAt: indexPath)
-    }
-
-    
-    override func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
-        return .none
-    }
-
-    
-    override func tableView(_ tableView: UITableView, shouldIndentWhileEditingRowAt indexPath: IndexPath) -> Bool {
-        return false
-    }
-
-    
-    override func tableView(_ tableView: UITableView, targetIndexPathForMoveFromRowAt sourceIndexPath: IndexPath, toProposedIndexPath proposedDestinationIndexPath: IndexPath) -> IndexPath {
-        guard sourceIndexPath.section == proposedDestinationIndexPath.section else { return sourceIndexPath }
-        return proposedDestinationIndexPath
-    }
-
-    
-    override func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
-
-        guard sourceIndexPath.section == destinationIndexPath.section else { assertionFailure(); return }
-        
-        guard sourceIndexPath.section < Section.shown(forInput: input).count else { assertionFailure(); return }
-        let section = Section.shown(forInput: input)[sourceIndexPath.section]
-
-        guard case .preferredComposeMessageViewActionsOrder = section else { assertionFailure(); return }
-
-        let movedObject = PreferredComposeMessageViewActionsOrderItem.shown[sourceIndexPath.row]
-        var actions = ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder
-        actions.remove(at: sourceIndexPath.row)
-        actions.insert(movedObject, at: destinationIndexPath.row)
-        ObvMessengerSettings.Interface.preferredComposeMessageViewActionsOrder = actions
-    }
-
-}
-
-
-// MARK: - Helpers
-
-private class ActionCell: UITableViewCell {
-    let action: NewComposeMessageViewSortableAction
-    init(action: NewComposeMessageViewSortableAction) {
-        self.action = action
-        super.init(style: .default, reuseIdentifier: "PreferredActionCell")
-    }
-    required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
 }

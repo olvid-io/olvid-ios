@@ -36,6 +36,22 @@ public enum ObvCommunicationType {
 //        return ObvCommunicationInformation(type: self, peopleInvolved: peopleInvolved)
 //    }
 
+    /// The discussion in which the communication takes place.
+    var discussionKind: PersistedDiscussionAbstractStructure.StructureKind {
+        switch self {
+        case .incomingMessage(contact: _, discussionKind: let discussionKind, messageRepliedTo: _, mentions: _):
+            return discussionKind
+        case .incomingReaction(reactor: _, sentMessageReactedTo: let sentMessageReactedTo):
+            return sentMessageReactedTo.discussionKind
+        case .incomingPollVote(reactor: _, sentMessageVotedTo: let sentMessageVotedTo):
+            return sentMessageVotedTo.discussionKind
+        case .outgoingMessage(sentMessage: let sentMessage):
+            return sentMessage.discussionKind
+        case .callLog(callLog: let callLog):
+            return callLog.discussionKind
+        }
+    }
+
 }
 
 

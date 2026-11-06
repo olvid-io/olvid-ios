@@ -19,6 +19,7 @@
 
 import Foundation
 import CoreData
+import ImageIO
 import ObvDesignSystem
 import ObvTypes
 import ObvUICoreData
@@ -98,7 +99,14 @@ extension ObvAvatarViewAppDataSource: ObvAvatarViewDataSource {
     public func fetchAvatarFromCacheForLegacyViews(photoURL: URL, avatarSize: ObvAvatarSize) -> UIImage? {
         return fetchAvatarFromCache(localPhotoURL: photoURL, avatarSize: avatarSize)
     }
-    
+
+    public func fetchPictureAsStored(photoURL: URL) async throws -> CGImage? {
+        // Detached, so that a large picture decodes on neither the main actor nor the actor serving the avatars.
+        return await Task.detached(priority: .userInitiated) {
+            AvatarHelper.decodePictureAsStored(localPhotoURL: photoURL)
+        }.value
+    }
+
 }
 
 
@@ -149,9 +157,9 @@ private actor AvatarHelper {
     
     /// Appropriate function to call to fetch an avatar image (for an owned identity, a contact, a group member, a group, ...), when the local URL of the photo is known.
     func fetchAvatarImage(localPhotoURL: URL, size: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
-        
+
         let image: UIImage
-        
+
         if let cachedImage = cacheOfLocalImages.object(forKey: localPhotoURL as NSURL) {
             image = cachedImage
         } else {
@@ -160,13 +168,26 @@ private actor AvatarHelper {
             cacheOfLocalImages.setObject(imageFromDisk, forKey: localPhotoURL as NSURL, cost: data.count)
             image = imageFromDisk
         }
-        
+
         let frameSizeInPixels = await size.frameSizeInPixels
         let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
         return thumbnail
-        
+
     }
-    
+
+
+    /// Upright, and decoded now rather than when first drawn, which would be on the main thread. Not cached: it is only asked for when the reader taps a picture.
+    nonisolated static func decodePictureAsStored(localPhotoURL: URL) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(localPhotoURL as CFURL, nil) else { return nil }
+        // Without a maximum pixel size, the thumbnail is as large as the picture.
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
 
     /// Helper function for `fetchAvatarImage(_:ownedCryptoId:)`. It allows to fetch an return an avatar photo for the owned identity asynchronously.
     private func fetchAvatarImageOfPersistedObvOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> UIImage? {

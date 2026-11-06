@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -145,10 +145,45 @@ extension [OwnedIdentityChooserViewModel.OwnedIdentity] {
 
 
 extension OwnedIdentityChooserViewModel {
-    
+
     @MainActor
     static var sampleData: Self {
         .init(ownedIdentities: [OwnedIdentity].sampleData)
     }
-    
+
+}
+
+
+extension ObvCryptoId {
+
+    /// A sample owned identity located on a server that differs from the one of `ObvCryptoId.sampleDatas`.
+    /// Used to preview the server-restricted profile chooser, where profiles on a different server are shown in a separate,
+    /// non-selectable group. It is kept out of `sampleDatas` on purpose, since the other sample arrays (titles, colors, …) are
+    /// indexed by position against `sampleDatas`.
+    @MainActor
+    static let sampleDataOnDifferentServer: Self = try! ObvCryptoId(identity: Data(hexString: "68747470733a2f2f7365727665722e626f622e6f6c7669642e696f0000b82ae0c57e570389cb03d5ad93dab4606bda7bbe01c09ce5e423094a8603a61e01693046e10e04606ef4461d31e1aa1819222a0a606a250e91749095a4410778c1")!)
+
+}
+
+
+extension OwnedIdentityChooserViewModel {
+
+    /// A sample model mixing the four `sampleData` profiles (all on the same server) with one profile on a different server,
+    /// so the server-restricted chooser can be previewed with both a selectable group and a non-selectable group.
+    @MainActor
+    static var sampleDataWithProfilesOnTwoServers: Self {
+        var ownedIdentities = [OwnedIdentity].sampleData
+        ownedIdentities.append(.init(ownedCryptoId: .sampleDataOnDifferentServer,
+                                     avatarViewModel: .init(characterOrIcon: .character("E"),
+                                                            colors: .init(foreground: .white, background: .purple),
+                                                            photoURL: nil),
+                                     title: "Eve",
+                                     subtitle: "On another server",
+                                     totalBadgeCount: 0,
+                                     showGreenShield: false,
+                                     showRedShield: false,
+                                     showHiddenProfileIcon: false))
+        return .init(ownedIdentities: ownedIdentities)
+    }
+
 }

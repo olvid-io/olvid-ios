@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,10 +19,12 @@
 
 import Foundation
 import CoreData
+import OSLog
 import ObvEngine
 import ObvTypes
 import OlvidUtils
 import ObvSettings
+import ObvAppCoreConstants
 
 
 @objc(PersistedContactGroupJoined)
@@ -51,6 +53,7 @@ public final class PersistedContactGroupJoined: PersistedContactGroup {
         return ObvUICoreDataConstants.ContainerURL.forCustomGroupProfilePictures.appendingPathComponent(customPhotoFilename)
     }
 
+    private var changedKeys = Set<String>()
 
     // MARK: - Initializer
 
@@ -107,6 +110,12 @@ public final class PersistedContactGroupJoined: PersistedContactGroup {
 
 extension PersistedContactGroupJoined {
     
+    struct Predicate {
+        enum Key: String {
+            case groupNameCustom = "groupNameCustom"
+        }
+    }
+    
     func setGroupNameCustom(to groupNameCustom: String?) throws -> Bool {
         let groupNameCustomHadToBeUpdated: Bool
         let newGroupNameCustom = groupNameCustom?.trimmingCharacters(in: .whitespacesAndNewlines).mapToNilIfZeroLength()
@@ -148,4 +157,77 @@ extension PersistedContactGroupJoined {
             return
         }
     }
+    
+}
+
+
+// MARK: - willSave/didSave
+
+extension PersistedContactGroupJoined {
+
+    override public func willSave() {
+        super.willSave()
+        changedKeys = Set(changedValues().keys)
+    }
+
+    override public func didSave() {
+        super.didSave()
+        defer { changedKeys.removeAll() }
+        guard !isDeleted else { return }
+        if changedKeys.contains(Predicate.Key.groupNameCustom.rawValue) {
+            do {
+                let groupIdentifier = try self.obvGroupIdentifier
+                Task { await PersistedContactGroupJoined.observersHolder.aGroupV1CustomNameChanged(groupIdentifier: groupIdentifier) }
+            } catch {
+                assertionFailure(error.localizedDescription) // Continue anyway
+            }
+        }
+    }
+
+}
+
+
+// MARK: - PersistedContactGroupJoined observers
+
+public protocol PersistedContactGroupJoinedObserver: AnyObject, Sendable {
+    func aGroupV1CustomNameChanged(groupIdentifier: ObvGroupV1Identifier) async
+}
+
+public extension PersistedContactGroupJoinedObserver {
+    func aGroupV1CustomNameChanged(groupIdentifier: ObvGroupV1Identifier) async {}
+}
+
+extension PersistedContactGroupJoined {
+
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "PersistedContactGroupJoined")
+
+    nonisolated(unsafe) private static var observersHolder = ObserversHolder()
+
+    public static func addObvObserver(_ newObserver: PersistedContactGroupJoinedObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
+}
+
+private actor ObserversHolder: PersistedContactGroupJoinedObserver {
+
+    private var observers = [WeakObserver]()
+
+    private final class WeakObserver {
+        private(set) weak var value: PersistedContactGroupJoinedObserver?
+        init(value: PersistedContactGroupJoinedObserver?) { self.value = value }
+    }
+
+    func addObserver(_ newObserver: PersistedContactGroupJoinedObserver) {
+        observers.append(.init(value: newObserver))
+    }
+
+    func aGroupV1CustomNameChanged(groupIdentifier: ObvGroupV1Identifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aGroupV1CustomNameChanged(groupIdentifier: groupIdentifier) }
+            }
+        }
+    }
+
 }

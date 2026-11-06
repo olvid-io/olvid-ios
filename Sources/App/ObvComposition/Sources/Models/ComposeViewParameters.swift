@@ -23,17 +23,11 @@ import ObvSystemIcon
 
 public struct ComposeViewParameters: Sendable, Equatable {
 
-    let sortableActions: [SortableAction]
-    let unsortableActions: [UnsortableAction]
     let defaultEmojiButton: String // Global to all discussions
     let sendMessageShortcutType: SendMessageShortcutType
     
-    public init(sortableActions: [SortableAction],
-                unsortableActions: [UnsortableAction],
-                defaultEmojiButton: String,
+    public init(defaultEmojiButton: String,
                 sendMessageShortcutType: SendMessageShortcutType) {
-        self.sortableActions = sortableActions
-        self.unsortableActions = unsortableActions
         self.defaultEmojiButton = defaultEmojiButton
         self.sendMessageShortcutType = sendMessageShortcutType
     }
@@ -53,7 +47,8 @@ extension ComposeViewParameters {
 
 extension ComposeViewParameters {
     
-    public enum SortableAction: Int, Identifiable, Sendable, Equatable, CaseIterable {
+    /// An entry of the `+` card.
+    public enum Action: Int, Identifiable, Sendable, Equatable, CaseIterable {
         
         case oneTimeEphemeralMessage = 0
         case scanDocument = 1
@@ -64,6 +59,7 @@ extension ComposeViewParameters {
         case shareLocation = 6
         case createPoll = 7
         case pasteContent = 8
+        case composeMessageSettings = 9
         
         public var id: Int { self.rawValue }
      
@@ -87,13 +83,15 @@ extension ComposeViewParameters {
                 return String(localizedInThisBundle: "CREATE_POLL")
             case .pasteContent:
                 return String(localizedInThisBundle: "PASTE_CONTENT")
+            case .composeMessageSettings:
+                return String(localizedInThisBundle: "COMPOSE_MESSAGE_SETTINGS")
             }
         }
 
         var icon: SystemIcon {
             switch self {
             case .oneTimeEphemeralMessage:
-                return .flameFill
+                return .flame
             case .scanDocument:
                 return .scanner
             case .shootPhotoOrMovie:
@@ -103,36 +101,48 @@ extension ComposeViewParameters {
             case .choseFile:
                 return .paperclip
             case .introduceThisContact:
-                return .person2Circle
+                return .person2
             case .shareLocation:
-                return .locationCircle
+                return .location
             case .createPoll:
                 return .chartBarYaxis
             case .pasteContent:
                 return .docOnDoc
+            case .composeMessageSettings:
+                return .gearshape
             }
         }
 
-    }
-
-    public enum UnsortableAction: Int, Identifiable, Sendable, Equatable, CaseIterable {
-        case composeMessageSettings = 0
-        public var id: Int { self.rawValue }
-        
-        var title: String {
-            switch self {
-            case .composeMessageSettings:
-                return String(localizedInThisBundle: "COMPOSE_MESSAGE_SETTINGS")
-            }
-        }
-
-        var icon: SystemIcon {
-            switch self {
-            case .composeMessageSettings:
-                return .gearshapeFill
-            }
+        /// The kind of an action, which is all the menu needs in order to group them: it draws the actions in the
+        /// order ``orderShownInPanel`` states and cuts a section wherever the kind changes. The order the cases are
+        /// written in below therefore decides nothing.
+        enum Kind {
+            case contact
+            case ephemeral
+            case insert
+            case capture
+            case attach
+            /// The settings of the bar itself, the one entry that does not put anything into the draft.
+            case settings
         }
         
+        var kind: Kind {
+            switch self {
+            case .introduceThisContact:
+                return .contact
+            case .oneTimeEphemeralMessage:
+                return .ephemeral
+            case .shareLocation, .createPoll:
+                return .insert
+            case .shootPhotoOrMovie, .scanDocument:
+                return .capture
+            case .chooseImageFromLibrary, .choseFile, .pasteContent:
+                return .attach
+            case .composeMessageSettings:
+                return .settings
+            }
+        }
+
     }
 
 }

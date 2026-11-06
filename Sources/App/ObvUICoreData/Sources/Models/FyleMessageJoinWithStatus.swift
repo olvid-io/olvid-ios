@@ -25,12 +25,14 @@ import OlvidUtils
 import UniformTypeIdentifiers
 import ObvSettings
 import ObvTypes
+import ObvCrypto
 
 @objc(FyleMessageJoinWithStatus)
 public class FyleMessageJoinWithStatus: NSManagedObject, FyleJoin {
     
     private static let entityName = "FyleMessageJoinWithStatus"
     private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: FyleMessageJoinWithStatus.self))
+    private static let logger = Logger(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: FyleMessageJoinWithStatus.self))
 
     // MARK: - Properties
 
@@ -63,6 +65,39 @@ public class FyleMessageJoinWithStatus: NSManagedObject, FyleJoin {
     
     public var isPreviewType: Bool {
         return contentType.conforms(to: .olvidLinkPreview)
+    }
+
+    /// Whether this attachment is shown as a picture — in a bubble, in the grid of a message carrying several — rather than as an attachment card.
+    ///
+    /// Asked of the type system rather than of a list of five identifiers, which is what this used to be and which left TIFF, BMP and camera RAW looking like
+    /// documents. Every one of them is something ImageIO decodes and the reader thinks of as a photograph.
+    ///
+    /// Vector images are the exception, and are excluded on purpose: they conform to `public.image` but ImageIO does not rasterise them, so treating one as a
+    /// picture would reserve a bubble for an image that never arrives. A card, which says its name and its size, is the honest thing to show.
+    public var isImageType: Bool {
+        guard contentType.conforms(to: .image) else { return false }
+        guard !contentType.conforms(to: .svg) else { return false }
+        return true
+    }
+
+    /// Whether this attachment is shown as a video preview — a picture of a frame with a play glyph on it — rather than as an attachment card. Step 63.
+    ///
+    /// `public.movie` and nothing wider. `public.audiovisual-content` would have been the tempting choice and is **wrong**: `public.audio` conforms to it too, so
+    /// every voice message would have become a video. `public.video` — a stream with no sound — conforms to `public.movie`, so it is already covered.
+    public var isVideoType: Bool {
+        contentType.conforms(to: .movie)
+    }
+
+    /// Whether this attachment is a paginated document, of the sort worth showing the first page of.
+    ///
+    /// `public.compositeContent` is exactly the set wanted, verified rather than assumed: PDF, `.docx`, `.doc`, Pages, `.xlsx`, `.pptx`, Keynote and EPUB conform
+    /// to it, while RTF, HTML, plain text and zip archives do not. No list of identifiers to maintain, and none to fall behind the next format Apple adds.
+    ///
+    /// **Wider than the legacy screen**, which gives its large preview to PDFs alone — `fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType` promises more
+    /// than it delivers, being `conforms(to: .pdf)` and nothing else. Nothing new is needed to render the others: the thumbnail path goes through QuickLook, which
+    /// does not care what a file is. Narrow this to `.pdf` to return to the legacy behaviour.
+    public var isDocumentType: Bool {
+        contentType.conforms(to: .compositeContent)
     }
     
     public var message: PersistedMessage? {
@@ -292,6 +327,13 @@ extension FyleMessageJoinWithStatus {
         static func whereUTIBeginsWith(_ text: String) -> NSPredicate {
             NSPredicate(beginsWithText: text, forKey: Key.uti)
         }
+        static func fyleSha256IsIn(sha256s: [Data]) -> NSPredicate {
+            assert(sha256s.count < 200)
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                fyleIsNonNil,
+                NSPredicate(Key.fyleSha256, in: sha256s),
+            ])
+        }
     }
     
     
@@ -310,6 +352,65 @@ extension FyleMessageJoinWithStatus {
     
     public static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> FyleMessageJoinWithStatus? {
         return try context.existingObject(with: objectID) as? FyleMessageJoinWithStatus
+    }
+
+
+    /// Observes one join, so that a screen showing that attachment of that message can be told when its file arrives.
+    public static func getFetchedResultsController(objectID: NSManagedObjectID, within context: NSManagedObjectContext) -> NSFetchedResultsController<FyleMessageJoinWithStatus> {
+        let request: NSFetchRequest<FyleMessageJoinWithStatus> = FyleMessageJoinWithStatus.fetchRequest()
+        request.predicate = NSPredicate(format: "self == %@", objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
+
+    /// Returns the subset of `sha256s` corresponding to fyles that at least one (non-wiped, received or sent) join still awaits: the join references the fyle, but the file is not available on disk.
+    ///
+    /// This is used during a message history transfer, on the destination device, to decide what to do with the attachments that were declared as expected during negotiation but that no
+    /// transferred message ended up requiring. Those still awaited by an existing message (e.g., a message known before the transfer whose attachment was never downloaded) must be
+    /// requested to the source; the others must be declined (`DstDoNotRequestSha256`). Requesting an attachment no message awaits (e.g., the user deleted the photo from the discussion's
+    /// gallery, which wipes the join but keeps the message) would recreate an orphaned fyle that no message references.
+    ///
+    /// The "file not on disk" rule deliberately mirrors the request/decline decision made in ``PersistedMessage.createDuringHistoryTransfer(_:within:)`` when storing transferred messages.
+    public static func filterSha256sOfFylesStillAwaitedByAJoin(sha256s: Set<Data>, within context: NSManagedObjectContext) throws -> Set<Data> {
+        Self.logger.info("📰 Determining which of the \(sha256s.count) sha256s correspond to a fyle still awaited by a join")
+        let sliceSize = 100
+        var stillAwaited = Set<Data>()
+        var sha256sReferencedByAFetchedJoin = Set<Data>()
+        let slices = [Data](sha256s).toSlices(ofMaxSize: sliceSize)
+        for slice in slices {
+            let request: NSFetchRequest<FyleMessageJoinWithStatus> = FyleMessageJoinWithStatus.fetchRequest()
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.isWiped(is: false),
+                Predicate.fyleSha256IsIn(sha256s: slice),
+            ])
+            let results = try context.fetch(request)
+            Self.logger.info("📰 Fetched \(results.count) non-wiped joins for a slice of \(slice.count) sha256s")
+            for join in results {
+                guard let fyle = join.fyle else {
+                    // The predicate requires a non-nil fyle, so this means the fyle was deleted between the fetch and now
+                    Self.logger.info("📰 Discarding a \(String(describing: type(of: join)), privacy: .public) (rawStatus: \(join.rawStatus)): its fyle is nil")
+                    continue
+                }
+                let sha256Prefix = fyle.sha256.hexString().prefix(8)
+                sha256sReferencedByAFetchedJoin.insert(fyle.sha256)
+                guard !fyle.fileExistsOnDisk else {
+                    Self.logger.info("📰 [\(sha256Prefix, privacy: .public)] Discarding for the \(String(describing: type(of: join)), privacy: .public) (rawStatus: \(join.rawStatus)): the fyle's file already exists on disk")
+                    continue
+                }
+                Self.logger.info("📰 [\(sha256Prefix, privacy: .public)] Still awaited by a \(String(describing: type(of: join)), privacy: .public) (rawStatus: \(join.rawStatus), totalByteCount: \(join.totalByteCount)): the fyle's file is not on disk")
+                stillAwaited.insert(fyle.sha256)
+            }
+        }
+        for sha256 in sha256s.subtracting(sha256sReferencedByAFetchedJoin) {
+            Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Discarding: no non-wiped join references a fyle with this sha256")
+        }
+        Self.logger.info("📰 Done determining the still awaited fyles: \(stillAwaited.count) still awaited out of \(sha256s.count) sha256s")
+        return stillAwaited
     }
 
     

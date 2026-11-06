@@ -47,6 +47,12 @@
             "value": "연락처"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakty"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -65,10 +71,22 @@
             "value": "Контакты"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакти"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh bạ"
           }
         },
         "zh-Hans": {
@@ -125,6 +143,12 @@
             "value": "대화"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dyskusje"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -143,10 +167,22 @@
             "value": "Дискуссии"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbetler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Обговорення"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các cuộc trò chuyện"
           }
         },
         "zh-Hans": {
@@ -203,6 +239,12 @@
             "value": "그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -221,10 +263,22 @@
             "value": "Группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm"
           }
         },
         "zh-Hans": {
@@ -279,6 +333,12 @@
             "value": "초대"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaproszenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -297,10 +357,22 @@
             "value": "Приглашения"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davetler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запрошення"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lời mời"
           }
         },
         "zh-Hans": {

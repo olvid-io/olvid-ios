@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -1276,6 +1276,14 @@ public struct GroupV2 {
             case groupAdminServerAuthenticationPrivateKey = "ga"
             var key: Data { rawValue.data(using: .utf8)! }
         }
+        
+        /// The keys to send a member of the group. The admin key is withheld from a member without the group-admin
+        /// permission; the seeds are passed as held.
+        public func forAMember(whoIsAdmin recipientIsAdmin: Bool) -> BlobKeys {
+            return .init(blobMainSeed: self.blobMainSeed,
+                         blobVersionSeed: self.blobVersionSeed,
+                         groupAdminServerAuthenticationPrivateKey: recipientIsAdmin ? self.groupAdminServerAuthenticationPrivateKey : nil)
+        }
 
         public func obvEncode() throws -> ObvEncoded {
             var obvDict = [Data: ObvEncoded]()
@@ -1415,8 +1423,18 @@ public struct GroupV2 {
                              groupAdminServerAuthenticationPrivateKeyCandidates: groupAdminServerAuthenticationPrivateKeyCandidates)
 
         }
-        
-        
+
+
+        /// Returns a copy with `blobVersionSeeds` merged into `blobVersionSeedCandidates`.
+        /// Used to inject seeds received out-of-band (e.g. via `PreShotVersionSeedMessage`) into the decryption candidate set.
+        public func insertingBlobVersionSeeds(_ blobVersionSeeds: Set<Seed>) -> Self {
+            return Self.init(
+                inviterIdentityAndBlobMainSeedCandidates: self.inviterIdentityAndBlobMainSeedCandidates,
+                blobVersionSeedCandidates: self.blobVersionSeedCandidates.union(blobVersionSeeds),
+                groupAdminServerAuthenticationPrivateKeyCandidates: self.groupAdminServerAuthenticationPrivateKeyCandidates)
+        }
+
+
         public func invitersInclude(_ identity: ObvCryptoIdentity) -> Bool {
             return inviterIdentityAndBlobMainSeedCandidates.first(where: { $0.key == identity }) != nil
         }

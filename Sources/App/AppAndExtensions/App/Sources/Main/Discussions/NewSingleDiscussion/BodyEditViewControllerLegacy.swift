@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -131,6 +131,7 @@ private struct BodyEditInnerView: View {
                     .padding(.bottom, 16.0)
                     HStack {
                         OlvidButton(style: .standard, title: Text("Cancel"), systemIcon: .xmarkCircleFill, action: dismissAction)
+                            .keyboardShortcut(.cancelAction)
                         OlvidButton(style: .blue, title: Text("Send"), systemIcon: .paperplaneFill, action: sendAction)
                             .disabled(text.trimmingWhitespacesAndNewlines().mapToNilIfZeroLength() == initialBody)
                     }

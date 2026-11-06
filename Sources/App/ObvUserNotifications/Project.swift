@@ -37,6 +37,19 @@ private let obvUserNotificationsSounds = Target.makeFrameworkTarget(
     ],
     dependencies: [
         .Olvid.App.obvAppCoreConstants,
+        .Olvid.Shared.olvidUtils,
+    ],
+    prepareForSwift6: true)
+
+
+private let obvUserNotificationsContent = Target.makeFrameworkTarget(
+    name: "ObvUserNotificationsContent",
+    sourcesDirectoryName: "Content",
+    dependencies: [
+        .sdk(name: "UserNotifications", type: .framework),
+        .Olvid.Engine.obvEncoder,
+        .Olvid.Shared.obvTypes,
+        .Olvid.App.obvAppTypes,
     ],
     prepareForSwift6: true)
 
@@ -50,6 +63,7 @@ private let obvUserNotificationsCreator = Target.makeFrameworkTarget(
     dependencies: [
         .sdk(name: "UserNotifications", type: .framework),
         .target(name: "ObvUserNotificationsTypes"),
+        .target(name: "ObvUserNotificationsContent"),
         .Olvid.App.obvUICoreData,
         .Olvid.App.obvSettings,
         .Olvid.App.obvCommunicationInteractor,
@@ -71,5 +85,6 @@ let project = Project.createProjectForFrameworks(
         (obvUserNotificationsTypes, nil),
         (obvUserNotificationsDatabase, nil),
         (obvUserNotificationsSounds, nil),
+        (obvUserNotificationsContent, nil),
         (obvUserNotificationsCreator, nil),
     ])

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -75,6 +75,15 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
     public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
         os_log("requestUploadAttachmentProgressesUpdatedSince does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "requestUploadAttachmentProgressesUpdatedSince does nothing in this dummy implementation")
+    }
+
+    public func getAsyncStreamOfUploadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentUploadProgress>) {
+        os_log("getAsyncStreamOfUploadProgress does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getAsyncStreamOfUploadProgress does nothing in this dummy implementation")
+    }
+
+    public func finishAsyncStreamOfUploadProgress(streamUUID: UUID) async throws {
+        os_log("finishAsyncStreamOfUploadProgress does nothing in this dummy implementation", log: log, type: .error)
     }
     
     public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {

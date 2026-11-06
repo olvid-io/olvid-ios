@@ -15,7 +15,6 @@ let obvCircledInitials = Target.makeSwiftLibraryTarget(
     dependencies: [
         .Olvid.Engine.obvCrypto,
         .Olvid.App.obvDesignSystem,
-        .Olvid.App.obvSettings,
         .Olvid.App.obvSystemIcon,
         .Olvid.Shared.obvTypes,
     ],
@@ -60,7 +59,6 @@ let obvCircleAndTitlesView = Target.makeFrameworkTarget(
         .Olvid.App.obvDesignSystem,
         .Olvid.App.obvSystemIcon,
         .Olvid.App.obvAppCoreConstants,
-        .Olvid.Shared.obvAccessibility,
     ],
     enableSwift6: true)
 

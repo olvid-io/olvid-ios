@@ -321,7 +321,7 @@ private struct MainInternalView: View {
                                      avatarViewDataSource: avatarViewDataSource,
                                      configuration: ownedIdentityChooserViewConfiguration,
                                      toggleToDismiss: $showOwnedIdentityChooserView)
-            .presentationDetentsOniOS16([.medium, .large])
+            .presentationDetents([.medium, .large])
         }
     }
 }
@@ -360,48 +360,6 @@ private struct RedDotView: View {
     }
 }
 
-
-// MARK: - Internal ViewModifier
-
-/// Prevents a crash on macOS 26 caused by using the `.popover` modifier on a `ToolbarItem`.
-///
-/// This custom `ViewModifier` provides a platform-specific workaround:
-/// - Uses a `.sheet` modifier on macOS (Catalyst) to avoid the crash.
-/// - Falls back to the standard `.popover` modifier on all other platforms.
-private struct PopoverOrSheetOnCatalyst<PresentedContent: View>: ViewModifier {
-    
-    @Binding var isPresented: Bool
-    let arrowEdge: Edge?
-    let presentedContent: PresentedContent
-
-    func body(content: Content) -> some View {
-        #if targetEnvironment(macCatalyst)
-        content.sheet(isPresented: $isPresented) {
-            presentedContent
-        }
-        #else
-        content.popover(isPresented: $isPresented, arrowEdge: arrowEdge) {
-            presentedContent
-        }
-        #endif
-
-    }
-    
-}
-
-
-private extension View {
-    
-    /// Prevents a crash on macOS 26 caused by using the `.popover` modifier on a `ToolbarItem`.
-    ///
-    /// This custom `ViewModifier` provides a platform-specific workaround:
-    /// - Uses a `.sheet` modifier on macOS (Catalyst) to avoid the crash.
-    /// - Falls back to the standard `.popover` modifier on all other platforms.
-    func popoverOrSheetOnCatalyst<PresentedContent>(isPresented: Binding<Bool>, arrowEdge: Edge? = nil, @ViewBuilder content: @escaping () -> PresentedContent) -> some View where PresentedContent : View {
-        self.modifier(PopoverOrSheetOnCatalyst.init(isPresented: isPresented, arrowEdge: arrowEdge, presentedContent: content()))
-    }
-    
-}
 
 // MARK: - Previews
 
@@ -497,7 +455,6 @@ private final class DataSourceAndActionsForPreviews: ObvProfilePictureBarButtonI
 @MainActor
 private let dataSourceAndActionsForPreviews = DataSourceAndActionsForPreviews()
 
-@available(iOS 16.0, *)
 private struct PreviewView: View {
     
     @State private var currentOwnedCryptoId: ObvCryptoId = DataSourceAndActionsForPreviews.initialCurrentOwnedCryptoId
@@ -531,7 +488,6 @@ private struct PreviewView: View {
     }
 }
 
-@available(iOS 16, *)
 #Preview {
     NavigationView {
         PreviewView()

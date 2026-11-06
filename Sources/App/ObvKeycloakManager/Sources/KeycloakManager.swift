@@ -604,6 +604,8 @@ public actor KeycloakManager: NSObject {
                         case .userHasCancelled:
                             Self.logger.error("🧥 User has cancelled")
                         }
+                    } catch {
+                        Self.logger.error("🧥 Could not synchronise the owned identity with the Keycloak server after uploading it: \(error.localizedDescription, privacy: .public)")
                     }
                 }
                 throw UploadOwnedIdentityError.unkownError(error)
@@ -692,6 +694,13 @@ public actor KeycloakManager: NSObject {
             throw ObvError.delegateIsNil
         }
 
+        let userIdentityCryptoId: ObvCryptoId
+        do {
+            userIdentityCryptoId = try ObvCryptoId(identity: userIdentity)
+        } catch {
+            throw AddContactError.unkownError(error)
+        }
+
         let signedUserDetails: SignedObvKeycloakUserDetails
         switch userIdOrSignedDetails {
         case .userId(let userId):
@@ -730,51 +739,39 @@ public actor KeycloakManager: NSObject {
             }
                     
             do {
-                guard let signatureVerificationKey = iks.signatureVerificationKey else {
-                    // We did not save the signature key used to sign our own details, se we cannot make sure the details of our future contact are signed with the appropriate key.
-                    // We fail and force a resync that will eventually store this server signature verification key
-                    Task {
-                        setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
-                        currentlySyncingOwnedIdentities.remove(ownedCryptoId)
-                        do {
-                            try await synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: false, failedAttempts: 0)
-                        } catch let error as ObvSynchronizeError {
-                            switch error {
-                            case .userHasCancelled:
-                                Self.logger.error("🧥 User has cancelled")
-                                return
-                            }
-                        }
-                    }
-                    throw AddContactError.willSyncKeycloakServerSignatureKey
-                }
-                // The signature key used to sign our own details is available, we use it to check the details of our future contact
+                signedUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(
+                    result.signature,
+                    with: iks.signatureVerificationKeyOrJWKS,
+                    binding: .mustBeBound(to: userIdentityCryptoId)
+                ).signedUserDetails
+            } catch is SignedObvKeycloakUserDetails.ObvError {
+                throw AddContactError.badResponse
+            } catch {
+                // The pinned key rejects the signature. If the JWKS accepts it, the server changed key: a resync asks the user.
+                // With no pinned key, the JWKS was already used above, so this check fails too.
                 do {
-                    signedUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(result.signature, with: signatureVerificationKey)
+                    _ = try JWSUtil.verifySignature(jwks: iks.jwks, signature: result.signature)
                 } catch {
-                    // The signature verification failed when using the key used to signed our own details. We check if the signature is valid using the key sent by the server
-                    do {
-                        _ = try JWSUtil.verifySignature(jwks: iks.jwks, signature: result.signature)
-                    } catch {
-                        // The signature is definitively invalid, we fail
-                        throw AddContactError.invalidSignature(error)
-                    }
-                    // If we reach this point, the signature is valid but with the wrong signature key --> we force a resync to detect key change and prompt user with a dialog
-                    Task {
-                        setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
-                        currentlySyncingOwnedIdentities.remove(ownedCryptoId)
-                        do {
-                            try await synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: false, failedAttempts: 0)
-                        } catch let error as ObvSynchronizeError {
-                            switch error {
-                            case .userHasCancelled:
-                                Self.logger.error("🧥 User has cancelled")
-                                return
-                            }
-                        }
-                    }
-                    throw AddContactError.willSyncKeycloakServerSignatureKey
+                    // The signature is definitively invalid, we fail
+                    throw AddContactError.invalidSignature(error)
                 }
+                // If we reach this point, the signature is valid but with the wrong signature key --> we force a resync to detect key change and prompt user with a dialog
+                Task {
+                    setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
+                    currentlySyncingOwnedIdentities.remove(ownedCryptoId)
+                    do {
+                        try await synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: false, failedAttempts: 0)
+                    } catch let error as ObvSynchronizeError {
+                        switch error {
+                        case .userHasCancelled:
+                            Self.logger.error("🧥 User has cancelled")
+                            return
+                        }
+                    } catch {
+                        Self.logger.error("🧥 Could not synchronise the owned identity with the Keycloak server while adding a contact: \(error.localizedDescription, privacy: .public)")
+                    }
+                }
+                throw AddContactError.willSyncKeycloakServerSignatureKey
             }
 
             
@@ -846,8 +843,8 @@ public actor KeycloakManager: NSObject {
             throw error
         }
 
-        let storeSession: (OIDExternalUserAgentSession) -> Void = { currentAuthorizationFlow in
-            Task { [weak self] in
+        let storeSession: (OIDExternalUserAgentSession) -> Void = { [weak self] currentAuthorizationFlow in
+            Task {
                 await self?.setCurrentAuthorizationFlow(to: currentAuthorizationFlow)
             }
         }
@@ -941,12 +938,13 @@ public actor KeycloakManager: NSObject {
             }
         }
         
-        let authState = createOIDAuthStateFromTokens(
+        let authState = try createOIDAuthStateFromTokens(
             discoveryResult: discoveryResult,
-            keycloakConfiguration: keycloakConfiguration,
             accessToken: result.accessToken,
-            refreshToken: result.refreshToken)
-        
+            refreshToken: result.refreshToken,
+            clientIdReturnedByServer: result.clientId,
+            clientSecretReturnedByServer: result.clientSecret)
+
         authState.stateChangeDelegate = self
         
         assert(authState.isAuthorized)
@@ -986,7 +984,7 @@ public actor KeycloakManager: NSObject {
         
         let keycloakState = keycloakStateAndUserDetails.keycloakState
         
-        guard keycloakState.supportedAuthenticationMethods.idBased != nil else {
+        guard discoveryResult.supportsIdBasedAuth || (keycloakState.supportedAuthenticationMethods.idBased != nil) else {
             // The Keycloak server does not support ID-based authentication
             throw ObvError.unsupportedIdBasedAuthentication
         }
@@ -1042,12 +1040,13 @@ public actor KeycloakManager: NSObject {
         
         // Use the refresh token and accessToken
         
-        let authState = createOIDAuthStateFromTokens(
+        let authState = try createOIDAuthStateFromTokens(
             discoveryResult: discoveryResult,
-            keycloakConfiguration: keycloakConfiguration,
             accessToken: resultSession.accessToken,
-            refreshToken: resultSession.refreshToken)
-        
+            refreshToken: resultSession.refreshToken,
+            clientIdReturnedByServer: resultSession.clientId,
+            clientSecretReturnedByServer: resultSession.clientSecret)
+
         ownedCryptoIdForOIDAuthState[authState] = ownedCryptoId
         authState.stateChangeDelegate = self
         
@@ -1058,50 +1057,139 @@ public actor KeycloakManager: NSObject {
     }
     
     
-    /// Wraps a raw access + refresh token pair into an `OIDAuthState` without going through the normal
-    /// OIDC browser flow.
+    /// Wraps a raw access token (and optional refresh token) into an `OIDAuthState` without going through
+    /// the normal OIDC browser flow. Used when tokens are obtained out-of-band (magic-link or ID-based auth).
     ///
-    /// AppAuth only supports creating an `OIDAuthState` from a full authorisation response. When tokens are
-    /// obtained out-of-band (magic-link or ID-based auth), we bootstrap a synthetic one by constructing a
-    /// dummy `OIDTokenRequest` / `OIDTokenResponse` that satisfies the `OIDAuthState` initialiser. The
-    /// resulting state is indistinguishable from one produced by a normal OIDC flow and is accepted by all
-    /// downstream Keycloak API calls.
+    /// Mirrors the Android `AuthState.initializeFromMagicLinkOrIdBasedAuthResponse(...)`. AppAuth only knows
+    /// how to build an `OIDAuthState` from request/response pairs, so we synthesise the appropriate ones:
+    ///
+    /// - **No refresh token, or no server-returned `clientId`** (in which case a refresh could never be
+    ///   performed — the tokens may belong to a client we don't know): we build an *implicit*-grant token
+    ///   response carrying only the access token.
+    /// - **Refresh token and `clientId` both present:** we simulate a real authorization-code flow — an
+    ///   `OIDAuthorizationResponse` followed by an authorization-code `OIDTokenResponse` carrying the refresh
+    ///   token (and client secret when present). This is the shape AppAuth expects in order to use the refresh
+    ///   token later.
+    ///
+    /// The `clientId` / `clientSecret` used here are the ones the server returned alongside the tokens (newer
+    /// keycloak plugins only). There is **no fallback to the configuration**: if the server did not return a
+    /// `clientId`, we take the no-refresh branch, exactly as Android does (`refreshToken == null || clientId == null`).
+    ///
+    /// - Note: AppAuth only attempts to refresh the access token once it knows the token has expired, so we
+    ///   seed the expiration in **both** branches from the access-token JWT's `exp` claim (see the inline
+    ///   comment on `expiresInParameter`). Without it AppAuth would treat the token as non-expiring and never
+    ///   refresh. In the no-refresh branch, the expiration ensures an expired token triggers re-authentication
+    ///   rather than being used past its lifetime.
     private func createOIDAuthStateFromTokens(
         discoveryResult: KeycloakServerDiscoveryResult,
-        keycloakConfiguration: ObvKeycloakConfiguration,
         accessToken: String,
-        refreshToken: String
-    ) -> OIDAuthState {
-        
-        let dummyTokenRequest = OIDTokenRequest(
-            configuration: discoveryResult.oidServiceConfiguration,
-            grantType: OIDGrantTypeRefreshToken,
-            authorizationCode: nil,
-            redirectURL: nil,
-            clientID: keycloakConfiguration.clientId,
-            clientSecret: keycloakConfiguration.clientSecret,
-            scope: nil,
-            refreshToken: refreshToken,
-            codeVerifier: nil,
-            additionalParameters: nil
-        )
-        
-        let tokenResponse = OIDTokenResponse(
-            request: dummyTokenRequest,
-            parameters: [
-                "access_token":  accessToken  as NSString,
-                "refresh_token": refreshToken as NSString,
-                "token_type":    "Bearer"     as NSString,
-            ])
-        
-        let authState = OIDAuthState(
-            authorizationResponse: nil,
-            tokenResponse: tokenResponse,
-            registrationResponse: nil
-        )
+        refreshToken: String?,
+        clientIdReturnedByServer: String?,
+        clientSecretReturnedByServer: String?
+    ) throws -> OIDAuthState {
 
-        return authState
-        
+        let configuration = discoveryResult.oidServiceConfiguration
+        // The magic-link / ID-based session may be bound to a different OIDC client than the one used for
+        // interactive OIDC, so refreshing requires the client credentials the tokens were actually issued for.
+        // Newer keycloak plugins return them in the response; older plugins do not. When `clientId` is nil we
+        // cannot refresh, and the guard below falls through to the no-refresh branch (mirroring Android). We
+        // deliberately do not fall back to the configuration's client id here.
+        let clientId = clientIdReturnedByServer
+        let clientSecret = clientSecretReturnedByServer
+
+        let kRedirectURI = "https://\(ObvAppCoreConstants.Host.forOpenIdRedirect)/"
+        guard let redirectURL = URL(string: kRedirectURI) else {
+            assertionFailure()
+            throw ObvError.unexpectedError
+        }
+
+        // AppAuth only attempts to refresh the access token once it knows the token has expired; if the
+        // expiration date is never set it treats the token as non-expiring and never refreshes. We read the
+        // absolute expiration from the (unverified) access-token JWT and hand it to AppAuth under its
+        // `expires_in` key. That key normally carries a number of seconds, but AppAuth's field mapping passes a
+        // value that is already an `NSDate` straight through to `accessTokenExpirationDate` (see kExpiresInKey
+        // and dateSinceNowConversion in OIDTokenResponse.m / OIDFieldMapping.m) — so we pass the exact date and
+        // avoid any "seconds from now" skew. If the expiration cannot be determined, we omit it.
+        let expiresInParameter: Date? = (try? JWSUtil.getUnverifiedExpiration(ofJWT: accessToken))
+
+        // If there is no refresh token, we won't be able to refresh the access token.
+        // We build an implicit-grant auth state carrying only the access token.
+
+        guard let refreshToken, let clientId else {
+
+            let tokenRequest = OIDTokenRequest(
+                configuration: configuration,
+                grantType: "implicit", // No OIDGrantTypeImplicit constant exists in AppAuth-iOS; matches Android's GrantTypeValues.IMPLICIT
+                authorizationCode: nil,
+                redirectURL: nil,
+                clientID: "fake",
+                clientSecret: nil,
+                scope: nil,
+                refreshToken: nil,
+                codeVerifier: nil,
+                additionalParameters: nil)
+
+            var parameters: [String: any NSCopying & NSObjectProtocol] = [
+                "access_token": accessToken as NSString,
+                "token_type":   "Bearer"    as NSString,
+            ]
+            if let expiresInParameter { parameters["expires_in"] = expiresInParameter as NSDate } // See kExpiresInKey in OIDTokenResponse.m
+
+            let tokenResponse = OIDTokenResponse(
+                request: tokenRequest,
+                parameters: parameters)
+
+            return OIDAuthState(
+                authorizationResponse: nil,
+                tokenResponse: tokenResponse,
+                registrationResponse: nil)
+
+        }
+
+        // We have a refresh token: simulate a real OpenID Connect authorization-code authentication
+        // so that AppAuth is able to use the refresh token.
+
+        let authorizationRequest = OIDAuthorizationRequest(
+            configuration: configuration,
+            clientId: clientId,
+            clientSecret: clientSecret,
+            scopes: [OIDScopeOpenID],
+            redirectURL: redirectURL,
+            responseType: OIDResponseTypeCode,
+            additionalParameters: nil)
+
+        let authorizationResponse = OIDAuthorizationResponse(
+            request: authorizationRequest,
+            parameters: [:])
+
+        let tokenRequest = OIDTokenRequest(
+            configuration: configuration,
+            grantType: OIDGrantTypeAuthorizationCode,
+            authorizationCode: "fake", // We don't actually use an authorization code, but this is required by AppAuth
+            redirectURL: redirectURL,
+            clientID: clientId,
+            clientSecret: clientSecret,
+            scope: nil,
+            refreshToken: nil,
+            codeVerifier: nil,
+            additionalParameters: nil)
+
+        var parameters: [String: any NSCopying & NSObjectProtocol] = [
+            "access_token":  accessToken  as NSString,
+            "refresh_token": refreshToken as NSString,
+            "token_type":    "Bearer"     as NSString,
+        ]
+        if let expiresInParameter { parameters["expires_in"] = expiresInParameter as NSDate } // See kExpiresInKey in OIDTokenResponse.m
+
+        let tokenResponse = OIDTokenResponse(
+            request: tokenRequest,
+            parameters: parameters)
+
+        return OIDAuthState(
+            authorizationResponse: authorizationResponse,
+            tokenResponse: tokenResponse,
+            registrationResponse: nil)
+
     }
 
     
@@ -1285,7 +1373,7 @@ public actor KeycloakManager: NSObject {
         let keycloakServerSignatureVerificationKey: ObvJWK
         let signedUserDetails: SignedObvKeycloakUserDetails
         do {
-            (signedUserDetails, keycloakServerSignatureVerificationKey) = try SignedObvKeycloakUserDetails.verifySignedUserDetails(apiResult.signature, with: jwks)
+            (signedUserDetails, keycloakServerSignatureVerificationKey) = try SignedObvKeycloakUserDetails.verifySignedUserDetails(apiResult.signature, with: jwks, binding: .notCheckedForOurOwnDetailsFromTheServer)
         } catch {
             Self.logger.error("🧥 The server signature is invalid")
             throw GetOwnDetailsError.invalidSignature(error)
@@ -1909,6 +1997,8 @@ public actor KeycloakManager: NSObject {
                     Self.logger.error("🧥 User has cancelled")
                     return
                 }
+            } catch {
+                Self.logger.error("🧥 Could not synchronise the owned identity with the Keycloak server on the delayed retry: \(error.localizedDescription, privacy: .public)")
             }
         }
 
@@ -2031,12 +2121,29 @@ public actor KeycloakManager: NSObject {
                 
                 return try await getInternalKeycloakState(for: ownedCryptoId, failedAttempts: failedAttempts + 1)
             }
-            
+
+            // The `performAction()` above may have refreshed the access token — and, when the keycloak server
+            // has refresh-token rotation enabled, the refresh token too. This `authState` is a throwaway copy
+            // deserialized from the engine, with no `stateChangeDelegate`, so AppAuth's refresh is not persisted
+            // automatically (unlike the states built by `authenticateWithOIDC` / `authenticateWithID`). We
+            // therefore re-serialize and save it now. Without this, a rotated refresh token would be lost and
+            // the next synchronization would attempt a refresh with a stale token, breaking transparent
+            // re-authentication. Saving is idempotent when no refresh occurred.
+            do {
+                let refreshedRawAuthState = try authState.serialize()
+                try await delegate.saveKeycloakAuthState(with: ownedCryptoId, rawAuthState: refreshedRawAuthState)
+            } catch {
+                Self.logger.fault("🧥 Could not persist the (possibly refreshed) auth state: \(error.localizedDescription)")
+                assertionFailure()
+                // Continue anyway — we can still use the in-memory refreshed token for this run.
+            }
+
             let internalKeycloakState = InternalKeycloakState(
                 keycloakServer: obvKeycloakState.keycloakServer,
                 jwks: obvKeycloakState.jwks,
                 authState: authState,
                 signatureVerificationKey: obvKeycloakState.signatureVerificationKey,
+                signatureVerificationKeyOrJWKS: obvKeycloakState.signatureVerificationKeyOrJWKS,
                 accessToken: accessToken,
                 latestGroupUpdateTimestamp: obvKeycloakState.latestGroupUpdateTimestamp,
                 latestRevocationListTimestamp: obvKeycloakState.latestLocalRevocationListTimestamp,
@@ -2511,9 +2618,9 @@ extension KeycloakManager {
                 let menu = UIAlertController(title: title, message: message, preferredStyle: UIDevice.current.actionSheetIfPhoneAndAlertOtherwise)
                 
                 let authenticateActionTitle = Strings.authenticateActionTitle(displayName: displayName)
-                let authenticateAction = UIAlertAction(title: authenticateActionTitle, style: .default) { _ in
+                let authenticateAction = UIAlertAction(title: authenticateActionTitle, style: .default) { [weak self] _ in
                     Self.logger.info("🧥 In openKeycloakAuthenticationRequired: Performing alert's authentication action")
-                    Task { [weak self] in
+                    Task {
                         guard let _self = self else { return }
                         do {
                             let authState = try await _self.authenticateWithOIDC(
@@ -2641,8 +2748,8 @@ extension KeycloakManager {
 
             let menu = UIAlertController(title: Strings.KeycloakRevocation, message: Strings.KeycloakRevocationMessage, preferredStyle: UIDevice.current.actionSheetIfPhoneAndAlertOtherwise)
             
-            let revokeAction = UIAlertAction(title: Strings.KeycloakRevocationButton, style: .default) { _ in
-                Task { [weak self] in
+            let revokeAction = UIAlertAction(title: Strings.KeycloakRevocationButton, style: .default) { [weak self] _ in
+                Task {
                     guard let _self = self else { return }
                     assert(Thread.isMainThread)
                     do {
@@ -2733,6 +2840,8 @@ extension KeycloakManager {
                     Self.logger.error("🧥 User cancelled")
                     return
                 }
+            } catch {
+                Self.logger.error("🧥 Could not synchronise the owned identity with the Keycloak server after a successful re-authentication: \(error.localizedDescription, privacy: .public)")
             }
         }
 
@@ -2796,6 +2905,8 @@ fileprivate struct InternalKeycloakState {
     let jwks: ObvJWKSet
     let authState: OIDAuthState
     let signatureVerificationKey: ObvJWK?
+    /// Taken from ``ObvKeycloakState/signatureVerificationKeyOrJWKS``, so that the rule lives in one place.
+    let signatureVerificationKeyOrJWKS: ObvJWKSet
     let accessToken: String
     let latestGroupUpdateTimestamp: Date?
     let latestRevocationListTimestamp: Date?
@@ -2895,7 +3006,7 @@ extension OIDAuthState {
             self.performAction { (accessToken, idToken, error) in
                 if let error {
                     let nsError = error as NSError
-                    if nsError.domain == OIDGeneralErrorDomain {   //, nsError.code == OIDErrorCode.networkError.rawValue {
+                    if nsError.domain == OIDGeneralErrorDomain { //, nsError.code == OIDErrorCode.networkError.rawValue {
                         // If the error is a network error, we throw, so as to make sure we don't prompt the user to authenticate
                         return continuation.resume(throwing: error)
                     } else {

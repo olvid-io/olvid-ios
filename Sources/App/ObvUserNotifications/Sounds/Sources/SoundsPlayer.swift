@@ -23,6 +23,7 @@ import AVFoundation
 import os.log
 import UIKit
 import ObvAppCoreConstants
+import OlvidUtils
 
 
 extension Sound {
@@ -108,6 +109,7 @@ public final class SoundsPlayer<S: Sound>: NSObject {
         currentAudioPlayer.delegate = self.obvAVAudioPlayerDelegate
         self.soundCurrentlyPlaying = sound
         currentAudioPlayer.play()
+        logAudioSessionUseToTheInAppLogs("notification sound player plays \(filename)")
         if let feedback = sound.feedback {
             self.feedbackGenerator.notificationOccurred(feedback)
         }
@@ -119,6 +121,7 @@ public final class SoundsPlayer<S: Sound>: NSObject {
             os_log("🎵 Stop %{public}@", log: self.log, type: .info, filename)
             self.currentAudioPlayer?.stop()
             self.currentAudioPlayer = nil
+            logAudioSessionUseToTheInAppLogs("notification sound player stops \(filename)")
         }
     }
 
@@ -140,6 +143,16 @@ public final class SoundsPlayer<S: Sound>: NSObject {
 }
 
 
+/// Written with the prefix of the app's call lines, as the in-app log of a call without audio needs to know who last used the shared audio session.
+/// An `AVAudioPlayer` activates the session by itself when it plays.
+private func logAudioSessionUseToTheInAppLogs(_ message: String) {
+    let session = AVAudioSession.sharedInstance()
+    let inputs = session.currentRoute.inputs.map({ $0.portType.rawValue }).joined(separator: "+")
+    let outputs = session.currentRoute.outputs.map({ $0.portType.rawValue }).joined(separator: "+")
+    ObvDisplayableLogs.shared.log("☎️ [-] \(message); audio session: category=\(session.category.rawValue) mode=\(session.mode.rawValue) options=\(session.categoryOptions.rawValue) route=\(inputs.isEmpty ? "none" : inputs)->\(outputs.isEmpty ? "none" : outputs)")
+}
+
+
 // MARK: - Private AVAudioPlayerDelegate
 
 private final class ObvAVAudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
@@ -152,10 +165,14 @@ private final class ObvAVAudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
     }
     
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        guard let categoryToRestore = self.categoryToRestore else { return }
+        guard let categoryToRestore = self.categoryToRestore else {
+            logAudioSessionUseToTheInAppLogs("notification sound player finished")
+            return
+        }
         defer { self.categoryToRestore = nil }
         do {
             try AVAudioSession.sharedInstance().setCategory(categoryToRestore, mode: .default, options: [])
+            logAudioSessionUseToTheInAppLogs("notification sound player finished and restored the category")
         } catch {
             assertionFailure()
             logger.fault("Could not restore the previous share audio session category: \(error.localizedDescription)")

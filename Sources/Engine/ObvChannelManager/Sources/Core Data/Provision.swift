@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -185,7 +185,7 @@ extension Provision {
         let fetchRequest = NSFetchRequest<Provision>(entityName: Provision.entityName)
         fetchRequest.predicate = Predicate.withZeroReceiveKeys
         fetchRequest.fetchBatchSize = 1_000
-        fetchRequest.propertiesToFetch = []
+        fetchRequest.includesPropertyValues = false
         let emptyProvisions = try context.fetch(fetchRequest)
         for provision in emptyProvisions {
             context.delete(provision)

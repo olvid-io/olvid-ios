@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -288,7 +288,6 @@ public struct ObvGroupsListView: View {
         } else if itemToScrollToWrapper.scrollToTop {
             itemToScrollToWrapper.scrollToTop = false
             withAnimation {
-                print("DO SCROLL TO TOP")
                 scrollViewProxy.scrollTo(Self.topItem, anchor: .center)
             }
         }

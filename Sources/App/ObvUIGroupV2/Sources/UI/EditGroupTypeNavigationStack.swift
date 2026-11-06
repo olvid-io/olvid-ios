@@ -76,11 +76,9 @@ public struct EditGroupTypeNavigationStack: View {
                 mode: .edition(groupIdentifier: groupIdentifier, navigation: self, actions: actions),
                 dataSource: subDataSources.editGroupTypeViewDataSource)
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    ObvButtonWithCancelRole(action: cancelButtonTapped)
-                }
-            }
+            .escapeKeyGoesBackOrCloses(isAtRoot: !navigateToFullListOfGroupMembersViewForAdminEdition,
+                                       goBack: { navigateToFullListOfGroupMembersViewForAdminEdition = false },
+                                       close: cancelButtonTapped)
             .navigationDestination(isPresented: $navigateToFullListOfGroupMembersViewForAdminEdition) {
                 FullListOfGroupMembersView(mode: .editAdmins(groupIdentifier: groupIdentifier,
                                                              selectedGroupType: selectedGroupType,

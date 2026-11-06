@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,6 +26,7 @@ import ObvAppTypes
 import ObvAppCoreConstants
 import OlvidUtils
 import ObvEncoder
+import os
 
 @MainActor
 final class ComposeAttachmentViewAppDataSource {
@@ -68,7 +69,7 @@ extension ComposeAttachmentViewAppDataSource: ComposeAttachmentViewDataSource {
                 contentTypeAndImage = .init(contentType: .olvidLinkPreview, image: nil)
                 audioURL = nil
             } else if persistedDraftFyleJoin.isAudioType {
-                audioURL = AudioManager.getCachedAudioURL(for: persistedDraftFyleJoin)
+                audioURL = AudioManager.getCachedAudioURL(for: persistedDraftFyleJoinObjectID)
                 contentTypeAndImage = .init(contentType: .audio, image: AttachmentThumbnailManager.getCachedThumbnail(for: persistedDraftFyleJoin, cacheDelegate: cacheDelegate))
                 linkMetadata = nil
             } else {
@@ -104,6 +105,40 @@ extension ComposeAttachmentViewAppDataSource: ComposeAttachmentViewDataSource {
     func finishAsyncStreamOfComposeViewDataSourceFyleModel(streamUUID: UUID) {
         guard let manager = composeViewDataSourceFyleModelStreamManagerForStreamUUID.removeValue(forKey: streamUUID) else { return }
         manager.finishStream()
+    }
+
+
+    func getProgressOfTheVideoBeingPrepared(attachmentIdentifier: ObvComposition.ComposeAttachmentView.AttachmentIdentifier) -> Double? {
+        switch attachmentIdentifier {
+        case .persistedDraftFyleJoinObjectID(let objectID):
+            return DraftVideoExportProgressStore.shared.fractionCompleted(forJoin: TypeSafeManagedObjectID<PersistedDraftFyleJoin>(objectID: objectID))
+        }
+    }
+
+
+    func getAsyncStreamOfTheProgressOfTheVideoBeingPrepared(attachmentIdentifier: ObvComposition.ComposeAttachmentView.AttachmentIdentifier) -> AsyncStream<Double?> {
+        switch attachmentIdentifier {
+        case .persistedDraftFyleJoinObjectID(let objectID):
+            return DraftVideoExportProgressStore.shared.progressUpdates(forJoin: TypeSafeManagedObjectID<PersistedDraftFyleJoin>(objectID: objectID))
+                .atMostOneValue(every: 1.0)
+        }
+    }
+
+
+    /// The frames of an animated attachment, played by ``AnimatedImageFrames``, as in the discussion. The file is read through its `Fyle`, whose name says
+    /// nothing about what it is, hence the UTI handed on as a hint.
+    func getAsyncStreamOfFramesForAnimatedImage(attachmentIdentifier: ObvComposition.ComposeAttachmentView.AttachmentIdentifier, maxPixelSize: Int) -> AsyncStream<CGImage> {
+        let persistedDraftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>
+        switch attachmentIdentifier {
+        case .persistedDraftFyleJoinObjectID(let objectID):
+            persistedDraftFyleJoinObjectID = TypeSafeManagedObjectID<PersistedDraftFyleJoin>(objectID: objectID)
+        }
+        guard let persistedDraftFyleJoin = try? PersistedDraftFyleJoin.get(withObjectID: persistedDraftFyleJoinObjectID, within: viewContext),
+              let fyle = persistedDraftFyleJoin.fyle,
+              fyle.fileExistsOnDisk else {
+            return AsyncStream { $0.finish() }
+        }
+        return AnimatedImageFrames.stream(fileURL: fyle.url, uti: persistedDraftFyleJoin.uti, maxPixelSize: maxPixelSize)
     }
 
 }
@@ -177,7 +212,7 @@ extension ComposeAttachmentViewAppDataSource {
                             guard let self else { return }
                             if let imageGenerated = await AttachmentThumbnailManager.getThumbnail(draftFyleJoinObjectID: draftFyleJoinObjectID, cacheDelegate: cacheDelegate, within: frc.managedObjectContext) {
                                 let contentTypeAndImage = ComposeViewDataSourceFyleModel.ContentTypeAndImage(contentType: contentType, image: imageGenerated)
-                                let model = ComposeViewDataSourceFyleModel(attachmentType: .init(type: attachmentType), contentTypeAndImage: contentTypeAndImage, linkMetadata: nil, audioURL: AudioManager.getCachedAudioURL(for: persistedDraftFyleJoin))
+                                let model = ComposeViewDataSourceFyleModel(attachmentType: .init(type: attachmentType), contentTypeAndImage: contentTypeAndImage, linkMetadata: nil, audioURL: AudioManager.getCachedAudioURL(for: draftFyleJoinObjectID))
                                 self.yieldModelIfNeeded(model: model, within: frc.managedObjectContext)
                             }
                         }
@@ -186,7 +221,7 @@ extension ComposeAttachmentViewAppDataSource {
                     let audioURL: URL?
                     
                     if persistedDraftFyleJoin.isAudioType {
-                        audioURL = AudioManager.getCachedAudioURL(for: persistedDraftFyleJoin)
+                        audioURL = AudioManager.getCachedAudioURL(for: draftFyleJoinObjectID)
                         if audioURL == nil {
                             Task { [weak self] in
                                 guard let self else { return }
@@ -219,14 +254,27 @@ extension ComposeAttachmentViewAppDataSource {
     }
 }
 
+/// The hardlink of each draft attachment. Behind a lock: read on the main actor and on contexts' queues, and written from the tasks that
+/// request a hardlink.
+private final class HardlinksOfDraftAttachments: Sendable {
+
+    private let hardlinkForJoin = OSAllocatedUnfairLock(uncheckedState: [TypeSafeManagedObjectID<PersistedDraftFyleJoin>: HardLinkToFyle]())
+
+    subscript(_ draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) -> HardLinkToFyle? {
+        get { hardlinkForJoin.withLockUnchecked { $0[draftFyleJoinObjectID] } }
+        set { hardlinkForJoin.withLockUnchecked { $0[draftFyleJoinObjectID] = newValue } }
+    }
+
+}
+
+
 class AudioManager {
     
     /// Maps a draft fyle join onto a hard link URL, making it possible for the cell to compute a thumnail
-    private static var hardlinkForDraftFyleObjectID = [TypeSafeManagedObjectID<PersistedDraftFyleJoin>: HardLinkToFyle]()
+    private static let hardlinkForDraftFyleObjectID = HardlinksOfDraftAttachments()
 
-    public static func getCachedAudioURL(for persistedDraftFyleJoin: PersistedDraftFyleJoin) -> URL? {
-        let draftFyleJoinObjectID = persistedDraftFyleJoin.typedObjectID
-        
+    /// Takes the attachment's object ID rather than the attachment, so that it can be asked off the attachment's context's queue.
+    public static func getCachedAudioURL(for draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) -> URL? {
         if let hardlink = AudioManager.hardlinkForDraftFyleObjectID[draftFyleJoinObjectID], let hardlinkURL = hardlink.hardlinkURL, FileManager.default.fileExists(atPath: hardlinkURL.path) {
             return hardlinkURL
         }
@@ -253,7 +301,7 @@ class AudioManager {
         if let hardlink = AudioManager.hardlinkForDraftFyleObjectID[draftFyleJoinObjectID], let hardlinkURL = hardlink.hardlinkURL, FileManager.default.fileExists(atPath: hardlinkURL.path) {
             return hardlinkURL
         } else if !hardlinkToFyleRequested { //  Hardlink missing, it is not already requested, so we make a request to get it
-            AudioManager.hardlinkForDraftFyleObjectID.removeValue(forKey: draftFyleJoinObjectID)
+            AudioManager.hardlinkForDraftFyleObjectID[draftFyleJoinObjectID] = nil
             
             let fyleElement: FyleElement? = await context.perform {
                 let draft = PersistedDraftFyleJoin.get(objectID: draftFyleJoinObjectID, within: context)
@@ -294,7 +342,7 @@ class LinkMetadataManager {
 class AttachmentThumbnailManager {
     
     /// Maps a draft fyle join onto a hard link URL, making it possible for the cell to compute a thumnail
-    private static var hardlinkForDraftFyleObjectID = [TypeSafeManagedObjectID<PersistedDraftFyleJoin>: HardLinkToFyle]()
+    private static let hardlinkForDraftFyleObjectID = HardlinksOfDraftAttachments()
     
     private static let thumbnailSize = CGSize(width: 80.0, height: 125.0)
     
@@ -333,7 +381,7 @@ class AttachmentThumbnailManager {
                 return try? await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: AttachmentThumbnailManager.thumbnailSize))
             }
         } else if !hardlinkToFyleRequested { //  Hardlink missing, it is not already requested, so we make a request to get it
-            AttachmentThumbnailManager.hardlinkForDraftFyleObjectID.removeValue(forKey: draftFyleJoinObjectID)
+            AttachmentThumbnailManager.hardlinkForDraftFyleObjectID[draftFyleJoinObjectID] = nil
             
             let fyleElement: FyleElement? = await context.perform {
                 let draft = PersistedDraftFyleJoin.get(objectID: draftFyleJoinObjectID, within: context)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -80,15 +80,15 @@ actor ObvPushNotificationManager {
     private func observeNotifications() async {
         let log = self.log
         notificationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeServerRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications(within: NotificationCenter.default) {
+            ObvEngineNotificationNew.observeServerRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications(within: NotificationCenter.default) { [weak self] in
                 os_log("Since the server reported that we need to register to push notification, we do so now", log: log, type: .info)
-                Task { [weak self] in await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities() }
+                Task { await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities() }
             },
             ObvMessengerSettingsNotifications.observeReceiveCallsOnThisDeviceSettingDidChange { [weak self] in
                 Task { [weak self] in await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities() }
             },
-            ObvEngineNotificationNew.observeEngineRequiresOwnedIdentityToRegisterToPushNotifications(within: NotificationCenter.default) { (ownedCryptoId, performOwnedDeviceDiscoveryOnFinish)  in
-                Task { [weak self] in
+            ObvEngineNotificationNew.observeEngineRequiresOwnedIdentityToRegisterToPushNotifications(within: NotificationCenter.default) { [weak self] (ownedCryptoId, performOwnedDeviceDiscoveryOnFinish)  in
+                Task {
                     await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
                     if performOwnedDeviceDiscoveryOnFinish {
                         await self?.startOwnedDeviceDiscoveryProtocol(ownedCryptoId: ownedCryptoId)

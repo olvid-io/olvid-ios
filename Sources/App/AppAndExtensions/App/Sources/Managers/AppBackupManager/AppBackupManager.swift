@@ -152,19 +152,15 @@ extension AppBackupManager {
         }
 
         // Begin background task
-        self.backgroundTaskIdentifier = await UIApplication.shared.beginBackgroundTask(withName: "Olvid Automatic Backup") {
-            os_log("Could not perform automatic backup to CloudKit, could not begin background task", log: Self.log, type: .fault)
-            return
+        //
+        // **The expiration handler ends the task, and that is not a formality**: a background task the system has to take back terminates the app. This handler
+        // used to log a line about being unable to *begin* one and return, which is neither what had happened nor an answer to it.
+        self.backgroundTaskIdentifier = await UIApplication.shared.beginBackgroundTask(withName: "Olvid Automatic Backup") { [weak self] in
+            os_log("The background task for the automatic backup expired. Ending it, which abandons the upload.", log: Self.log, type: .fault)
+            Task { await self?.endTheBackgroundTaskIfOneIsHeld() }
         }
         guard let backgroundTaskIdentifier = self.backgroundTaskIdentifier else { assertionFailure(); return }
-        defer {
-            Task {
-                // End background task
-                self.backgroundTaskIdentifier = nil
-                os_log("Ending flow created for uploadind backup for background task identifier: %{public}d", log: Self.log, type: .info, backgroundTaskIdentifier.rawValue)
-                await UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
-            }
-        }
+        defer { endTheBackgroundTaskIfOneIsHeld() }
         guard backgroundTaskIdentifier != .invalid else {
             ObvMessengerInternalNotification.backupForUploadFailedToUpload.postOnDispatchQueue()
             throw Self.makeError(message: "Could not perform automatic backup to CloudKit, running in the background isn't possible.")
@@ -188,6 +184,20 @@ extension AppBackupManager {
     }
     
     
+    /// Ends the background task held for a backup upload, if one is still held.
+    ///
+    /// Safe to call twice: the expiration handler and the end of the upload race, and whichever arrives second must not end an identifier the other has
+    /// already given back. The identifier is cleared before anything is awaited, so it is also what reopens the re-entrancy guard at the top of
+    /// ``performBackupToICloud(manuallyRequestByUser:)`` — which used to wait for a detached task to run.
+    private func endTheBackgroundTaskIfOneIsHeld() {
+        guard let backgroundTaskIdentifier else { return }
+        self.backgroundTaskIdentifier = nil
+        guard backgroundTaskIdentifier != .invalid else { return }
+        os_log("Ending the background task for the backup upload, with identifier: %{public}d", log: Self.log, type: .info, backgroundTaskIdentifier.rawValue)
+        Task { await UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier) }
+    }
+
+
     private func newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, backupRequestUuid: UUID, manuallyRequestByUser: Bool) async throws {
         os_log("New encrypted backup available for upload to CloudKit", log: Self.log, type: .info)
         let backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: Self.log)

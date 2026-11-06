@@ -206,6 +206,7 @@ public struct SharingProfileView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     if #available(iOS 26.0, *) {
                         Button(role: .close) { router.dismiss() }
+                            .keyboardShortcut(.cancelAction)
                     } else {
                         Button(action: { router.dismiss() }) {
                             Image(systemIcon: .xmark)
@@ -213,6 +214,7 @@ public struct SharingProfileView: View {
                                 .frame(width: 44, height: 44)
                                 .background(Circle().fill(Color(UIColor.white.withAlphaComponent(0.6)))) // Customize the color
                         }
+                        .keyboardShortcut(.cancelAction)
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -234,9 +236,12 @@ public struct SharingProfileView: View {
     public var body: some View {
         if #available(iOS 16.4, *) {
             contentBody
+                // Nothing in this cover is focusable, and a shortcut is found from the first responder.
+                .takesKeyboardFocusOnAppear()
                 .presentationBackground(.clear)
         } else {
             contentBody
+                .takesKeyboardFocusOnAppear()
         }
     }
 }

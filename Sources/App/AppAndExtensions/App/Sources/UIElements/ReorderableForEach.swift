@@ -89,16 +89,25 @@ struct ReorderableForEach<Content: View, Item: ReorderableItem>: View {
                  currentDrop: $currentDrop
         )
         .if(item != none) { view in
-            /// Drag remove the item from the list
+            /// Drag removes the item from the list, which is how one is taken out of the row for good.
+            ///
+            /// **The closure returns the provider and changes nothing.** UIKit calls it while it is still building the drag
+            /// session, and what this does a moment later is delete the element the dragged view is built from — so done
+            /// here it destroys that view, and the drag interaction it owns, from inside that interaction's own callback.
+            /// SwiftUI then frees dependency-graph nodes UIKit still holds, and the process dies later somewhere
+            /// unrelated. A turn's delay is enough: by then the session exists and owns its preview.
             view.onDrag({
-                if draggedItem == nil {
-                    haptic()
+                let itemProvider = NSItemProvider(object: "\(item.id)" as NSString)
+                DispatchQueue.main.async {
+                    if draggedItem == nil {
+                        haptic()
+                    }
+                    withAnimation {
+                        draggedItem = item
+                        items.removeAll(where: { $0 == item })
+                    }
                 }
-                withAnimation {
-                    draggedItem = item
-                    items.removeAll(where: { $0 == item })
-                }
-                return NSItemProvider(object: "\(item.id)" as NSString)
+                return itemProvider
             }, preview: {
                 content(item)
                     .frame(width: 60.0, height: 60.0, alignment: .center)

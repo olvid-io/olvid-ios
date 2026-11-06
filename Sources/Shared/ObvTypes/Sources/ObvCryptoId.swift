@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,7 @@
 import Foundation
 import ObvCrypto
 import ObvEncoder
+import OlvidUtils
 
 public struct ObvCryptoId: @unchecked Sendable {
 
@@ -36,9 +37,16 @@ public struct ObvCryptoId: @unchecked Sendable {
     }
     
     public func belongsTo(serverURL: URL) -> Bool {
-        return cryptoIdentity.serverURL == serverURL
+        // Two server URLs denote the same server when they share the same host (case-insensitive). Comparing the host rather than
+        // the whole URL ignores cosmetic differences — scheme/host casing, a trailing slash, an explicit default port — that can
+        // appear when one side is a stored/normalized URL and the other is taken verbatim from a scanned OlvidURL (a license or a
+        // keycloak configuration). Olvid identifies a server by its host, so this is the right granularity.
+        guard let host = cryptoIdentity.serverURL.host(), let otherHost = serverURL.host() else {
+            return cryptoIdentity.serverURL == serverURL
+        }
+        return host.caseInsensitiveCompare(otherHost) == .orderedSame
     }
-    
+
     private static func makeError(message: String, code: Int = 0) -> Error {
         NSError(domain: "ObvCryptoId", code: code, userInfo: [NSLocalizedFailureReasonErrorKey: message])
     }
@@ -124,7 +132,7 @@ extension ObvCryptoId: ObvCodable {
     }
     
     public init?(_ obvEncoded: ObvEncoded) {
-        guard let cryptoIdentity = ObvCryptoIdentity(obvEncoded) else { assertionFailure(); return nil }
+        guard let cryptoIdentity = ObvCryptoIdentity(obvEncoded) else { /*assertionFailure();*/ return nil }
         self.init(cryptoIdentity: cryptoIdentity)
     }
     
@@ -146,24 +154,6 @@ extension ObvCryptoId: Codable {
         let container = try decoder.singleValueContainer()
         let identity = try container.decode(Data.self)
         self = try ObvCryptoId(identity: identity)
-    }
-    
-}
-
-
-private extension Data {
-    
-    /// 2024-09-10: This use to be an implementation of `public static func < (lhs: Data, rhs: Data) -> Bool` so as to make `Data` conform to `Comparable`.
-    /// The method was renamed (and the conformance removed) in order to allow for a private extension of `Data`. This prevents any potential future bug, in case another compliance
-    /// is coded elsewhere.
-    static func isLessThan(lhs: Data, rhs: Data) -> Bool {
-        guard lhs.count == rhs.count else { return lhs.count < rhs.count }
-        let bytesPair = zip(lhs, rhs)
-        for bytes in bytesPair {
-            guard bytes.0 != bytes.1 else { continue }
-            return bytes.0 < bytes.1
-        }
-        return false
     }
     
 }

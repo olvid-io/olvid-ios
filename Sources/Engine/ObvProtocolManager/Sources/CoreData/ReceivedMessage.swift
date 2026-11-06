@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -205,10 +205,16 @@ extension ReceivedMessage {
             ])
         }
         static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
+            withOwnedCryptoIdentity(ownedCryptoIdentity.getIdentity())
+        }
+        static func withOwnedCryptoIdentity(_ rawOwnedCryptoIdentity: Data) -> NSPredicate {
+            NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: rawOwnedCryptoIdentity)
         }
         static func withProtocolInstanceUid(_ protocolInstanceUid: UID) -> NSPredicate {
-            NSPredicate(Key.rawProtocolInstanceUid, EqualToData: protocolInstanceUid.raw)
+            withProtocolInstanceUid(protocolInstanceUid.raw)
+        }
+        static func withProtocolInstanceUid(_ rawProtocolInstanceUid: Data) -> NSPredicate {
+            NSPredicate(Key.rawProtocolInstanceUid, EqualToData: rawProtocolInstanceUid)
         }
         static func withTimestamp(earlierThan timestamp: Date) -> NSPredicate {
             NSPredicate(Key.timestamp, earlierThan: timestamp)
@@ -235,6 +241,23 @@ extension ReceivedMessage {
         request.fetchLimit = 1
         let item = (try context.fetch(request)).first
         return item
+    }
+    
+    
+    /// Returns `true` iff a message waits to be processed by the protocol instance with this UID, under this owned identity.
+    ///
+    /// The parameters are the raw values stored by ``ProtocolInstance``, so that a caller asking this of many instances in a row
+    /// does not have to parse an owned identity for each of them.
+    static func exists(rawProtocolInstanceUid: Data, rawOwnedCryptoIdentity: Data, within context: NSManagedObjectContext) throws -> Bool {
+        let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withProtocolInstanceUid(rawProtocolInstanceUid),
+            Predicate.withOwnedCryptoIdentity(rawOwnedCryptoIdentity),
+        ])
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item != nil
     }
     
     
@@ -327,11 +350,51 @@ extension ReceivedMessage {
     static func deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.predicate = Predicate.withCryptoProtocolId(.ownedIdentityTransfer)
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let items = try context.fetch(request)
         try items.forEach { try $0.deleteReceivedMessage() }
     }
     
+
+    /// How many rows there are, per protocol, and how many belong to a protocol id we do not recognise.
+    ///
+    /// **One grouped query rather than one count per protocol.** There are two dozen protocols, so asking each in turn would be two dozen passes over the
+    /// table — and this entity has **no index** on `protocolRawId`, so each of them would be a full table scan. A `GROUP BY` on the raw id answers all of them at once,
+    /// materialising nothing.
+    ///
+    /// The unrecognised rows are returned rather than dropped: the raw ids have gaps, two protocols having been retired, and a row quietly discarded would
+    /// make the per-protocol figures fail to add up to the total — which is the one piece of arithmetic a reader of these figures can actually perform.
+    static func countPerCryptoProtocolId(within context: NSManagedObjectContext) throws -> (perProtocol: [CryptoProtocolId: Int], unrecognised: Int) {
+
+        let rawIdKey = Predicate.Key.protocolRawId.rawValue
+        let countKey = "count"
+
+        let countExpression = NSExpressionDescription()
+        countExpression.name = countKey
+        countExpression.expression = NSExpression(forFunction: "count:", arguments: [NSExpression(forKeyPath: rawIdKey)])
+        countExpression.expressionResultType = .integer64AttributeType
+
+        let request = NSFetchRequest<NSDictionary>(entityName: ReceivedMessage.entityName)
+        request.resultType = .dictionaryResultType
+        request.propertiesToGroupBy = [rawIdKey]
+        request.propertiesToFetch = [rawIdKey, countExpression]
+
+        var perProtocol = [CryptoProtocolId: Int]()
+        var unrecognised = 0
+
+        for item in try context.fetch(request) {
+            guard let count = (item[countKey] as? NSNumber)?.intValue else { assertionFailure(); continue }
+            guard let rawId = (item[rawIdKey] as? NSNumber)?.intValue, let cryptoProtocolId = CryptoProtocolId(rawValue: rawId) else {
+                unrecognised += count
+                continue
+            }
+            perProtocol[cryptoProtocolId, default: 0] += count
+        }
+
+        return (perProtocol, unrecognised)
+
+    }
+
 }
 
 

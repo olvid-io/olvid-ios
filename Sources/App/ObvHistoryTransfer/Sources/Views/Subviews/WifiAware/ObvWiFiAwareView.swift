@@ -396,24 +396,24 @@ extension DataSourceForPreviews: ObvWiFiAwareViewDataSource {
                 
                 while true {
 
-                    try await Task.sleep(seconds: secondsToWait)
+                    try? await Task.sleep(seconds: secondsToWait)
 
                     var allPairedDevices = [ObvWAPairedDevice]()
                     continuation.yield(allPairedDevices)
                                         
-                    try await Task.sleep(seconds: secondsToWait + 10000)
+                    try? await Task.sleep(seconds: secondsToWait + 10000)
                     
                     let device1 = ObvWAPairedDevice(id: 0, pairingInfo: .init(vendorName: "Apple", modelName: "iPhone", pairingName: "Alice's iPhone 17", description: "Some description"))
                     allPairedDevices.append(device1)
                     continuation.yield(allPairedDevices)
                     
-                    try await Task.sleep(seconds: secondsToWait)
+                    try? await Task.sleep(seconds: secondsToWait)
                     
                     let device2 = ObvWAPairedDevice(id: 1, pairingInfo: .init(vendorName: "Apple", modelName: "iPad", pairingName: "Alice's iPad", description: "Some description"))
                     allPairedDevices.append(device2)
                     continuation.yield(allPairedDevices)
 
-                    try await Task.sleep(seconds: secondsToWait + 10000)
+                    try? await Task.sleep(seconds: secondsToWait + 10000)
 
                 }
 

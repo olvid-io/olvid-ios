@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -47,10 +47,8 @@ final class AuxiliaryPreviewMenuManager {
     
     // Boolean checking if we can display the auxiliary view on top of the preview view.
     private func shouldDisplayAuxiliaryOnTop() -> Bool {
-        guard let hasMenuItems = extractedContextMenuViews?.hasMenuItems,
-              let previewRootView = extractedContextMenuViews?.previewRootView,
-              let listRootView = extractedContextMenuViews?.listRootView,
-              hasMenuItems
+        guard let previewRootView = extractedContextMenuViews?.previewRootView,
+              let listRootView = extractedContextMenuViews?.listRootView
         else { return false }
         
         let previewFrame = previewRootView.frame
@@ -121,15 +119,7 @@ final class AuxiliaryPreviewMenuManager {
         
         guard let manager = self.contextMenuManager else { return }
         
-        let contextMenuViews: ExtractedContextMenuViews? = {
-            if #available(iOS 16, *) {
-                return ExtractedContextMenuViewsForiOS16(usingManager: manager)
-            }
-            
-            return nil
-        }()
-        
-        guard let extractedContextMenuViews = contextMenuViews,
+        guard let extractedContextMenuViews = ExtractedContextMenuViews(usingManager: manager),
               let windowRootView = extractedContextMenuViews.windowRootView,
               let previewRootView = extractedContextMenuViews.previewRootView,
               let window = windowRootView.window else { return }

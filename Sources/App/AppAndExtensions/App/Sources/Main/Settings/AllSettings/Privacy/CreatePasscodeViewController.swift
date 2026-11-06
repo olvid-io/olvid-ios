@@ -146,11 +146,13 @@ struct CreatePasscodeView: View {
                     ToolbarItem(placement: .cancellationAction) {
                         if #available(iOS 26.0, *) {
                             Button(role: .cancel, action: model.cancel)
+                                .keyboardShortcut(.cancelAction)
                         } else {
                             Button(action: model.cancel) {
                                 Image(systemIcon: .xmarkCircleFill)
                                     .font(Font.system(size: 24, weight: .semibold, design: .default))
                             }
+                            .keyboardShortcut(.cancelAction)
                         }
                     }
                 }

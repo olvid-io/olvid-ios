@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,7 +33,22 @@ public struct ObvConstants {
     public static let AttachmentCiphertextChunkTypicalLength = 10_485_760 // 2_097_152 = 2MB, 10_485_760 = 10MB
     public static let AttachmentCiphertextMaximumNumberOfChunks = 200
 
-    public static let ServerQueryExpirationDelay = TimeInterval(days: 15)
+    public static let ServerQueryExpirationDelay = TimeInterval(days: 30)
+
+    /// Unified exponential backoff schedule used for all server-query retries (both transient network errors and
+    /// `retryIfNotFound` photo-download retries). `attemptCount` is the 1-based number of failed attempts so far.
+    /// Returns a `TimeInterval` in seconds.
+    public static func serverQueryBackoffDelay(forAttemptCount attemptCount: Int) -> TimeInterval {
+        switch attemptCount {
+        case ...1:  return 5
+        case 2:     return 15
+        case 3:     return 30
+        case 4:     return 60        // 1 min
+        case 5:     return 300       // 5 min
+        case 6:     return 600       // 10 min
+        default:     return 1_800    // 30 min
+        }
+    }
     
     public static let relistDelay: TimeInterval = 5
     

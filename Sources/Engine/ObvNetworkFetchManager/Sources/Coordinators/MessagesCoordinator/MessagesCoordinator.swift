@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvServerInterface
 import ObvTypes
 import ObvOperation
@@ -60,8 +60,14 @@ actor MessagesCoordinator {
     private var cacheOfCurrentDeviceUIDForOwnedIdentity = [ObvCryptoIdentity: UID]()
     
     private typealias DownloadMessagesTask = Task<Void,Error>
-    private var downloadMessagesTaskInProgressForOwnedCryptoId = [ObvCryptoIdentity: DownloadMessagesTask]()
 
+    /// The listing in flight for an owned identity, whichever of the two policies asked for it.
+    ///
+    /// **One slot per owned identity is what stops two listings overlapping**, and that matters for more than wasted effort: an untruncated listing makes
+    /// `ProcessBatchOfUnprocessedMessagesOperation` announce that the server and the inbox hold nothing unprocessed, and what acts on that announcement
+    /// deletes the current device's expired pre-keys. A second listing holding a fetched page it has not saved yet would make that announcement false, and a
+    /// message in that page encrypted with a deleted pre-key is lost for good.
+    private var downloadMessagesTaskInProgressForOwnedCryptoId = [ObvCryptoIdentity: DownloadMessagesTask]()
     private var continuationForAsyncStreamOfObvMessageOrObvOwnedMessage: AsyncStream<[ObvTypes.ObvMessageOrObvOwnedMessage]>.Continuation?
 
 }
@@ -79,7 +85,7 @@ extension MessagesCoordinator: MessagesDelegate {
                 
                 await self.replaceContinuationForAsyncStreamOfObvMessageOrObvOwnedMessage(by: continuation)
 
-                // We stream the messages currently in DB that still nee to be processed by the app (these messages are, in
+                // We stream the messages currently in DB that still need to be processed by the app (these messages are, in
                 // particular, no marked as "on hold")
                 let objectIDsOfProcessableInboxMessages: [NSManagedObjectID]
                 do {
@@ -90,9 +96,12 @@ extension MessagesCoordinator: MessagesDelegate {
                     objectIDsOfProcessableInboxMessages = []
                 }
                 
-                // We split the objectsIDs in slices of 10 items
-                
-                let slices = objectIDsOfProcessableInboxMessages.toSlices(ofMaxSize: 10)
+                // This path and `notifyAboutDecryptedApplicationMessage` both feed the single stream the app consumes, so a reader
+                // watching a backlog is fed by whichever of the two happens to be running. Until 2026-09-15 that was the argument for
+                // one shared constant. The three sizes turned out to answer to three different things, so they are separate now.
+                // Whoever changes one of them should think about the other two.
+
+                let slices = objectIDsOfProcessableInboxMessages.toSlices(ofMaxSize: ObvNetworkFetchDelegateManager.numberOfMessagesStreamedToTheAppAtOnce)
                 
                 for slice in slices {
                     let messages = try await self.getObvMessageOrObvOwnedMessagesToBeProcessedByApp(inboxMessageObjectIDs: slice)
@@ -105,7 +114,7 @@ extension MessagesCoordinator: MessagesDelegate {
     }
 
     
-    func downloadAllMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async {
+    func downloadAllMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, trigger: ObvServerRequestTiming.Trigger, flowId: FlowIdentifier) async {
                 
         Self.logger.debug("[🚩][\(flowId.shortDebugDescription)] Call to downloadAllMessagesAndListAttachments for owned identity \(ownedCryptoId.debugDescription)")
         ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] MessagesCoordinator.downloadAllMessagesAndListAttachments(ownedCryptoId:flowId:)")
@@ -147,7 +156,7 @@ extension MessagesCoordinator: MessagesDelegate {
                 
                 // No download message task was created. So we create one, save it in order to make it accessible to other calls to downloadAllMessagesAndListAttachments(ownedCryptoId:flowId:)
                 
-                let newDownloadMessagesTaskInProgress = createDownloadMessagesAndListAttachmentsTask(ownedCryptoId: ownedCryptoId, flowId: flowId)
+                let newDownloadMessagesTaskInProgress = createDownloadMessagesAndListAttachmentsTask(ownedCryptoId: ownedCryptoId, trigger: trigger, flowId: flowId)
 
                 downloadMessagesTaskInProgressForOwnedCryptoId[ownedCryptoId] = newDownloadMessagesTaskInProgress
                 
@@ -172,7 +181,7 @@ extension MessagesCoordinator: MessagesDelegate {
             
             // No download task is in progress. We create one, and save it in order to make it accessible to other calls to downloadAllMessagesAndListAttachments(ownedCryptoId:flowId:)
             
-            let awaitedTask = createDownloadMessagesAndListAttachmentsTask(ownedCryptoId: ownedCryptoId, flowId: flowId)
+            let awaitedTask = createDownloadMessagesAndListAttachmentsTask(ownedCryptoId: ownedCryptoId, trigger: trigger, flowId: flowId)
             
             downloadMessagesTaskInProgressForOwnedCryptoId[ownedCryptoId] = awaitedTask
 
@@ -202,29 +211,24 @@ extension MessagesCoordinator: MessagesDelegate {
             Self.logger.error("[🚩][\(flowId.shortDebugDescription)] 🖲️ Will retry the call to downloadAllMessagesAndListAttachments in \(Double(delay) / 1000.0) seconds")
             ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] Will retry the call to downloadAllMessagesAndListAttachments in \(delay) seconds")
             await retryManager.waitForDelay(milliseconds: delay)
-            await downloadAllMessagesAndListAttachments(ownedCryptoId: ownedCryptoId, flowId: flowId)
+            await downloadAllMessagesAndListAttachments(ownedCryptoId: ownedCryptoId, trigger: .retryOfAPreviousAttempt, flowId: flowId)
         }
 
     }
     
     
-    private func createDownloadMessagesAndListAttachmentsTask(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) -> DownloadMessagesTask {
+    private func createDownloadMessagesAndListAttachmentsTask(ownedCryptoId: ObvCryptoIdentity, trigger: ObvServerRequestTiming.Trigger, flowId: FlowIdentifier) -> DownloadMessagesTask {
         return Task {
-            
+
             do {
-                try await downloadMessagesAndListAttachments(ownedCryptoId: ownedCryptoId, flowId: flowId, serverTimestampOfLastMessageBeforeTruncation: nil, currentInvalidToken: nil)
+                try await downloadMessagesAndListAttachments(ownedCryptoId: ownedCryptoId, trigger: trigger, flowId: flowId)
                 failedAttemptsCounterManager.reset(counter: .downloadAllMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
                 Self.logger.info("[🚩][\(flowId.shortDebugDescription)] Call to downloadMessagesAndListAttachments for owned identity \(ownedCryptoId.debugDescription) was a success")
             } catch {
-                if let error = error as? ObvError {
-                    switch error {
-                    case .deviceIsNotRegistered:
-                        delegateManager?.networkFetchFlowDelegate.serverReportedThatThisDeviceIsNotRegistered(ownedIdentity: ownedCryptoId, flowId: flowId)
-                        return
-                    default:
-                        break
-                    }
-                } else if let error = error as? ObvServerMethodError {
+                // The companion branch on `ObvError.deviceIsNotRegistered` was deleted on 2026-09-13: that case is never thrown — the server saying so is an
+                // outcome, `.theServerDeclined(reason: .deviceIsNotRegistered)`, handled in the listing loop — and the notification it sent is sent from
+                // `performOneListing` on every attempt that meets it. Nothing changes by removing it; it had not been reachable since the outcome existed.
+                if let error = error as? ObvServerMethodError {
                     switch error {
                     case .ownedIdentityIsNotActive:
                         delegateManager?.networkFetchFlowDelegate.fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ownedCryptoId, flowId: flowId)
@@ -242,193 +246,441 @@ extension MessagesCoordinator: MessagesDelegate {
     }
      
 
-    private func downloadMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier, serverTimestampOfLastMessageBeforeTruncation: Int?, currentInvalidToken: Data?) async throws {
-        
+    /// Lists every page the server has for this owned identity, one after another, exactly as this has always done.
+    ///
+    /// **A loop over ``performOneListing(ownedCryptoId:trigger:resumingAt:flowId:)`` rather than a recursion, and the two differ in more than shape.** Each
+    /// page's payload is released at the end of its iteration, where a recursion suspended at the call for the next page held every page it had ever fetched
+    /// alive until the whole chain unwound — a hundred pages of decoded server payload on a device working through a backlog, which is precisely the device
+    /// that can least afford it.
+    ///
+    /// The retry economics live here and nowhere else: the worker performs one attempt and says what happened, this decides whether to pay a delay and ask
+    /// again. It briefly had a second caller with the opposite policy — one page, no back-off — which the inbox drain listed through; that is gone, and the
+    /// drain now starts an ordinary listing like any other caller and watches the inbox counts to see what it achieves.
+    private func downloadMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, trigger: ObvServerRequestTiming.Trigger, flowId: FlowIdentifier) async throws {
+
+        /// The cursor of the page to ask for next. Nil is *from the beginning*.
+        var resumePoint: Int?
+        /// **Three-valued and it matters.** The caller's trigger names the first attempt only; an attempt that follows a decline is
+        /// `retryOfAPreviousAttempt` and one that follows a truncated page is `continuationOfATruncatedListing`, and the two compose — a decline in the
+        /// middle of a long backlog goes back to the first of them and then returns to the second. Passing the caller's trigger to every attempt would
+        /// mislabel every timing record of every multi-page listing, which is the whole of what that enum exists to distinguish.
+        var triggerOfTheNextAttempt = trigger
+
+        while true {
+
+            let attempt = try await performOneListing(ownedCryptoId: ownedCryptoId, trigger: triggerOfTheNextAttempt, resumingAt: resumePoint, flowId: flowId)
+
+            // **A session that had to be refreshed forgives the back-off accumulated so far**, which is what the `reset` on the invalid-session branch used
+            // to say from inside the recursion. An invalid session is somebody else's success — another request for this identity got a new token — not a
+            // failure of ours, and treating it as one would leave the next real failure waiting out a delay it never earned.
+            if attempt.theBackOffShouldBeForgiven {
+                failedAttemptsCounterManager.reset(counter: .downloadAllMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
+            }
+
+            switch attempt.outcome {
+
+            case .listed(let nextResumePoint, let downloadTimestampFromServer):
+
+                if let nextResumePoint {
+
+                    Self.logger.info("[🚩][\(flowId.shortDebugDescription)] 🌊 Will call downloadMessagesAndListAttachments as the listing was truncated")
+                    ObvDisplayableLogs.shared.log("[\(flowId.shortDebugDescription)] Will call downloadMessagesAndListAttachments as the listing was truncated")
+
+                    do {
+                        try launchProcessingOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId,
+                                                                  executionReason: .truncatedListPerformed,
+                                                                  flowId: flowId)
+                    } catch {
+                        Self.logger.fault("[🚩] We could not process truncated list of messages: \(error.localizedDescription)")
+                        assertionFailure() // In production, continue anyway
+                    }
+
+                    resumePoint = nextResumePoint
+                    triggerOfTheNextAttempt = .continuationOfATruncatedListing
+                    continue
+
+                } else {
+
+                    do {
+                        try launchProcessingOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId,
+                                                                  executionReason: .untruncatedListPerformed(downloadTimestampFromServer: downloadTimestampFromServer),
+                                                                  flowId: flowId)
+                    } catch {
+                        Self.logger.fault("[🚩] We could not process untruncated list of messages: \(error.localizedDescription)")
+                        assertionFailure() // In production, continue anyway
+                    }
+
+                    Self.logger.info("[🚩][\(flowId.shortDebugDescription)] 🌊 Ending the listing as the last one was not truncated")
+                    ObvDisplayableLogs.shared.log("[\(flowId.shortDebugDescription)] Ending the listing as the last one was not truncated")
+
+                    return
+
+                }
+
+            case .theServerDeclined(let reason):
+
+                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAllMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
+                Self.logger.error("[🚩] 🖲️ Will retry the call to downloadMessagesAndListAttachments in \(Double(delay) / 1000.0) seconds (\(reason.rawValue))")
+                await retryManager.waitForDelay(milliseconds: delay)
+                triggerOfTheNextAttempt = .retryOfAPreviousAttempt
+                continue // Same cursor: the page we asked for is still the page we want
+
+            case .theSessionCouldNotBeMadeValid:
+
+                // **Backed off rather than thrown, which is what makes this equivalent to the unbounded spin it replaces.** Two invalid sessions in a row
+                // means the token is being rotated faster than we can use it — another device registering, or a re-registration of our own — and asking
+                // again is still the right answer. All that is added is a delay, and the caller's contract is unchanged.
+                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAllMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
+                Self.logger.error("[🚩] 🖲️ The server session could not be made valid. Will retry the call to downloadMessagesAndListAttachments in \(Double(delay) / 1000.0) seconds")
+                await retryManager.waitForDelay(milliseconds: delay)
+                triggerOfTheNextAttempt = .retryOfAPreviousAttempt
+                continue
+
+            }
+
+        }
+
+    }
+
+
+    // MARK: Listing exactly one page
+
+    /// Why the server refused to answer a listing with a list.
+    ///
+    /// **Two cases rather than one**, because they want opposite things of a caller working to a deadline: a device that is not registered needs registering,
+    /// and the registration that follows starts a listing of its own, where a general error simply wants trying again later. A caller shown one opaque
+    /// *declined* cannot tell the two apart and neither can anybody reading its log.
+    enum ServerDeclinedTheListing: String, Sendable {
+        case deviceIsNotRegistered
+        case generalError
+    }
+
+
+    /// What one attempt at a listing produced. **One page, never two**: a truncated page says where it stopped and leaves the next one to the caller.
+    enum OneListingOutcome: Sendable {
+        /// `nextResumePoint` is nil when the server had nothing more — which is the only thing that means the server is empty, and is what the
+        /// `downloadTimestampFromServer` alongside it is for: it is the cut-off the identity manager uses to delete the current device's expired pre-keys, so
+        /// it has to travel with the page rather than be re-derived.
+        case listed(nextResumePoint: Int?, downloadTimestampFromServer: Date)
+        case theServerDeclined(reason: ServerDeclinedTheListing)
+        /// The session was invalid twice running, so the bounded refresh below gave up.
+        case theSessionCouldNotBeMadeValid
+    }
+
+
+    /// One attempt's outcome, and the one thing about *how* it got there that the caller needs.
+    private struct OneListingAttempt: Sendable {
+        let outcome: OneListingOutcome
+        /// Whether an invalid session was met and answered with a fresh token. Not the test for forgiving the back-off — see ``theBackOffShouldBeForgiven``.
+        let theSessionWasRefreshed: Bool
+
+        /// Whether this attempt should wipe the back-off accumulated so far.
+        ///
+        /// **``theSessionWasRefreshed`` alone reads like the test and is not, because it is true by construction on the one outcome that must not forgive
+        /// anything.** `.theSessionCouldNotBeMadeValid` is returned from exactly one place — the second pass of the bounded refresh loop, which is reached only
+        /// by the first pass having met an invalid session and set that flag. So the policy above was zeroing the counter eight lines before incrementing it,
+        /// every time, and the delay for that outcome was `serverQueryBackoffDelay(forAttemptCount: 1)` — five seconds — on the first spin and on the
+        /// ten-thousandth. The schedule it was meant to climb ends at thirty minutes.
+        ///
+        /// **`.theServerDeclined` was in this set until 2026-09-13 and had the same fault one step removed.** The argument for it was that a refresh which
+        /// *worked* is somebody else's success — another request for this identity got a new token — so the failures before it were not ours to pay for. True
+        /// of the refresh, and it says nothing about what the attempt then did. An attempt that meets an invalid session, refreshes, and is *declined* is an
+        /// attempt that failed; forgiving it zeroes the counter immediately before the decline branch increments it, so the delay is
+        /// `serverQueryBackoffDelay(forAttemptCount: 1)` again. A server rotating tokens *and* answering `generalError` — which is one outage, not two — was
+        /// therefore polled every five seconds for ever, rather than climbing 5, 15, 30, 60, 300, 600, 1800.
+        ///
+        /// **So the test is what the attempt achieved, and only one outcome achieved anything.** Both others go straight on to increment, and forgiving
+        /// either of them cancels the very increment that follows. Nothing is lost by narrowing it: a listing that finishes resets this counter outright
+        /// where the task is created, so forgiveness here is only about a mid-listing page — page forty of a backlog meeting a rotated token — not paying for
+        /// declines it has already served the delay for.
+        var theBackOffShouldBeForgiven: Bool {
+            guard theSessionWasRefreshed else { return false }
+            switch outcome {
+            case .listed:
+                return true
+            case .theServerDeclined, .theSessionCouldNotBeMadeValid:
+                return false
+            }
+        }
+    }
+
+
+
+
+
+
+
+    /// Performs **one** listing attempt: gets a session token, asks the server, and saves what came back.
+    ///
+    /// **It never asks for a second page and it never waits out a back-off.** Both of those are policy, and the two callers above want opposite policies. What
+    /// it does answer for itself is an invalid session, because that is not a failure and costs no round trip to fix — the token is shared by every request
+    /// this identity makes, so somebody else refreshing it between our fetching it and our using it is ordinary, and the cache usually hands over the new one
+    /// at once. Bounded to one such retry: a second invalid session means the token is being rotated faster than we can use it, which is a different
+    /// situation and one a delay suits better than a spin.
+    ///
+    /// **It does not touch `failedAttemptsCounterManager`.** The counter is keyed per owned identity and shared by both policies, so a worker that adjusted
+    /// it would let one caller's failures lengthen the delay another caller pays. Everything it knows that bears on the counter is in what it returns.
+    ///
+    /// Exactly one timing is recorded per **attempt** — so this emits two when it answers an invalid session, which is what a reader wants to see.
+    private func performOneListing(ownedCryptoId: ObvCryptoIdentity, trigger triggerOfTheFirstAttempt: ObvServerRequestTiming.Trigger, resumingAt serverTimestampOfLastMessageBeforeTruncation: Int?, flowId: FlowIdentifier) async throws -> OneListingAttempt {
+
         guard let delegateManager else {
             Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             throw ObvError.theDelegateManagerIsNotSet
         }
-        
+
         guard let identityDelegate = delegateManager.identityDelegate else {
             Self.logger.fault("The identity delegate is not set")
             assertionFailure()
             throw ObvError.theIdentityDelegateIsNotSet
         }
 
-        let sessionToken = try await delegateManager.serverSessionDelegate.getValidServerSessionToken(
-            for: ownedCryptoId,
-            currentInvalidToken: currentInvalidToken,
-            flowId: flowId).serverSessionToken
-        
-        let currentDeviceUid = try await getCurrentDeviceUidOfOwnedIdentity(ownedCryptoIdentity: ownedCryptoId, flowId: flowId)
+        var trigger = triggerOfTheFirstAttempt
+        var currentInvalidToken: Data?
+        var theSessionWasRefreshed = false
 
-        // Perform the server query allowing to download messages and to list their attachments
-        
-        let serverReturnStatus = try await performServerDownloadMessagesAndListAttachmentsMethod(
-            ownedCryptoId: ownedCryptoId,
-            sessionToken: sessionToken,
-            currentDeviceUid: currentDeviceUid,
-            serverTimestampOfLastMessageBeforeTruncation: serverTimestampOfLastMessageBeforeTruncation,
-            identityDelegate: identityDelegate,
-            flowId: flowId)
-        
-        // Process the status returned by the server
-        
-        let downloadTimestampFromServer: Date
-        let messagesAndAttachmentsOnServer: [ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer]
-        let newServerTimestampOfLastMessageBeforeTruncation: Int?
-        
-        switch serverReturnStatus {
-            
-        case .deviceIsNotRegistered:
-            
-            Task { delegateManager.networkFetchFlowDelegate.serverReportedThatThisDeviceIsNotRegistered(ownedIdentity: ownedCryptoId, flowId: flowId) }
-            let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAllMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
-            Self.logger.error("[🚩] 🖲️ Will retry the call to downloadMessagesAndListAttachments in \(Double(delay) / 1000.0) seconds")
-            await retryManager.waitForDelay(milliseconds: delay)
-            try await downloadMessagesAndListAttachments(
-                ownedCryptoId: ownedCryptoId,
-                flowId: flowId,
-                serverTimestampOfLastMessageBeforeTruncation: serverTimestampOfLastMessageBeforeTruncation,
-                currentInvalidToken: nil)
-            return
+        // At most twice: once, and once more with the invalid token named so the session coordinator knows not to hand it back.
+        for attemptNumber in 0..<2 {
 
-        case .invalidSession:
-            
-            failedAttemptsCounterManager.reset(counter: .downloadAllMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
-            try await downloadMessagesAndListAttachments(
-                ownedCryptoId: ownedCryptoId,
-                flowId: flowId,
-                serverTimestampOfLastMessageBeforeTruncation: serverTimestampOfLastMessageBeforeTruncation,
-                currentInvalidToken: sessionToken)
-            return
+            let isTheLastAttempt = (attemptNumber == 1)
 
-        case .generalError:
-            
-            let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAllMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
-            Self.logger.error("🖲️ Will retry the call to downloadMessagesAndListAttachments in \(Double(delay) / 1000.0) seconds")
-            await retryManager.waitForDelay(milliseconds: delay)
-            try await downloadMessagesAndListAttachments(
-                ownedCryptoId: ownedCryptoId,
-                flowId: flowId,
-                serverTimestampOfLastMessageBeforeTruncation: serverTimestampOfLastMessageBeforeTruncation,
-                currentInvalidToken: nil)
-            return
+            // Each phase below is timed separately, and deliberately not summed. Getting the token, asking the server, and saving what came back have entirely
+            // different remedies when one of them is slow, so a reader's report has to be able to say which of the three it was.
 
-        case .listingTruncated(let _downloadTimestampFromServer, let _messagesAndAttachmentsOnServer, let _serverTimestampOfLastMessageBeforeTruncation):
-            downloadTimestampFromServer = _downloadTimestampFromServer
-            messagesAndAttachmentsOnServer = _messagesAndAttachmentsOnServer
-            newServerTimestampOfLastMessageBeforeTruncation = _serverTimestampOfLastMessageBeforeTruncation
+            let startOfTheServerSessionTokenRequest = Date.now
 
-        case .ok(let _downloadTimestampFromServer, let _messagesAndAttachmentsOnServer):
-            downloadTimestampFromServer = _downloadTimestampFromServer
-            messagesAndAttachmentsOnServer = _messagesAndAttachmentsOnServer
-            newServerTimestampOfLastMessageBeforeTruncation = nil
-
-        }
-        
-        // If we reach this point, the server returned a proper list of messages and attachments that we can save.
-        // Note that the listing is truncated iff serverTimestampOfLastMessageBeforeTruncation != nil
-                
-        ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] We successfully downloaded \(messagesAndAttachmentsOnServer.count) messages that we will now save to DB. New serverTimestampOfLastMessageBeforeTruncation: \(String(describing: newServerTimestampOfLastMessageBeforeTruncation))")
-        Self.logger.info("[🚩][\(flowId.shortDebugDescription)] We successfully downloaded \(messagesAndAttachmentsOnServer.count) messages that we will now save to DB. New serverTimestampOfLastMessageBeforeTruncation: \(String(describing: newServerTimestampOfLastMessageBeforeTruncation))")
-
-        // We may have downloaded hundreds of messages. We don't want to save them all in one big operation. So we split the
-        // messagesAndAttachmentsOnServer array into slices, and save then process each slice idependently.
-        
-        let messagesAndAttachmentsOnServerSlices = messagesAndAttachmentsOnServer.toSlices(ofMaxSize: ObvNetworkFetchDelegateManager.batchSize)
-        
-        for (index, messagesAndAttachmentsOnServerSlice) in messagesAndAttachmentsOnServerSlices.enumerated() {
-            
-            let isLastSlice: Bool = (index == messagesAndAttachmentsOnServerSlices.count - 1)
-            
-            let idsOfMessagesToProcess: [ObvMessageIdentifier]
+            let sessionToken: Data
+            let currentDeviceUid: UID
             do {
-                let op1 = SaveMessagesAndAttachmentsFromServerOperation(
-                    ownedIdentity: ownedCryptoId,
-                    listOfMessageAndAttachmentsOnServer: messagesAndAttachmentsOnServerSlice,
-                    downloadTimestampFromServer: downloadTimestampFromServer,
-                    localDownloadTimestamp: Date(),
-                    logger: Self.logger,
+                sessionToken = try await delegateManager.serverSessionDelegate.getValidServerSessionToken(
+                    for: ownedCryptoId,
+                    currentInvalidToken: currentInvalidToken,
+                    flowId: flowId).serverSessionToken
+
+                currentDeviceUid = try await getCurrentDeviceUidOfOwnedIdentity(ownedCryptoIdentity: ownedCryptoId, flowId: flowId)
+            } catch {
+                recordTimingOfTheListing(
+                    trigger: trigger,
+                    outcome: .couldNotPerformTheRequest,
+                    durationOfTheServerSessionTokenRequest: Date.now.timeIntervalSince(startOfTheServerSessionTokenRequest),
+                    durationOfTheRequest: 0)
+                throw error
+            }
+
+            let durationOfTheServerSessionTokenRequest = Date.now.timeIntervalSince(startOfTheServerSessionTokenRequest)
+
+            // Perform the server query allowing to download messages and to list their attachments
+
+            let startOfTheRequest = Date.now
+
+            let serverReturnStatus: ObvServerDownloadMessagesAndListAttachmentsMethod.PossibleReturnStatus
+            do {
+                serverReturnStatus = try await performServerDownloadMessagesAndListAttachmentsMethod(
+                    ownedCryptoId: ownedCryptoId,
+                    sessionToken: sessionToken,
+                    currentDeviceUid: currentDeviceUid,
+                    serverTimestampOfLastMessageBeforeTruncation: serverTimestampOfLastMessageBeforeTruncation,
+                    identityDelegate: identityDelegate,
                     flowId: flowId)
-                try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, queuePriority: .high, log: Self.log, flowId: flowId)
-                idsOfMessagesToProcess = op1.idsOfMessagesToProcess
             } catch {
-                assertionFailure()
-                throw ObvError.failedSaveMessagesAndAttachmentsFromServer
+                recordTimingOfTheListing(
+                    trigger: trigger,
+                    outcome: .couldNotPerformTheRequest,
+                    durationOfTheServerSessionTokenRequest: durationOfTheServerSessionTokenRequest,
+                    durationOfTheRequest: Date.now.timeIntervalSince(startOfTheRequest))
+                throw error
             }
 
-            ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] Among the \(messagesAndAttachmentsOnServer.count) downloaded messages, \(idsOfMessagesToProcess.count) should be processed. isLastSlice: \(isLastSlice.description)")
-            Self.logger.info("[🚩][\(flowId.shortDebugDescription)] Among the \(messagesAndAttachmentsOnServer.count) downloaded messages, \(idsOfMessagesToProcess.count) should be processed. isLastSlice: \(isLastSlice.description)")
-            
-            // All the messages of the slice where saved, we can request them to be marked as listed on the server.
-            // We do this asynchronously so as not to slow down the saving of other messages.
-            
-            Task {
-                do {
-                    let messageUIDs: [UID] = messagesAndAttachmentsOnServerSlice.map(\.messageUidFromServer)
-                    try await delegateManager.batchDeleteAndMarkAsListedDelegate.markSpecificMessagesAsListed(ownedCryptoId: ownedCryptoId, messageUIDs: messageUIDs, flowId: flowId)
-                } catch {
-                    Self.logger.fault("[🚩] The call to markSpecificMessagesAsListed did fail: \(error.localizedDescription)")
-                    assertionFailure()
+            let durationOfTheRequest = Date.now.timeIntervalSince(startOfTheRequest)
+
+            // Process the status returned by the server
+
+            let downloadTimestampFromServer: Date
+            let messagesAndAttachmentsOnServer: [ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer]
+            let newServerTimestampOfLastMessageBeforeTruncation: Int?
+
+            switch serverReturnStatus {
+
+            case .deviceIsNotRegistered:
+
+                recordTimingOfTheListing(
+                    trigger: trigger,
+                    outcome: .deviceIsNotRegistered,
+                    durationOfTheServerSessionTokenRequest: durationOfTheServerSessionTokenRequest,
+                    durationOfTheRequest: durationOfTheRequest)
+                // Fired on every attempt that meets it, as it always has been.
+                Task { delegateManager.networkFetchFlowDelegate.serverReportedThatThisDeviceIsNotRegistered(ownedIdentity: ownedCryptoId, flowId: flowId) }
+                return .init(outcome: .theServerDeclined(reason: .deviceIsNotRegistered), theSessionWasRefreshed: theSessionWasRefreshed)
+
+            case .invalidSession:
+
+                recordTimingOfTheListing(
+                    trigger: trigger,
+                    outcome: .invalidSession,
+                    durationOfTheServerSessionTokenRequest: durationOfTheServerSessionTokenRequest,
+                    durationOfTheRequest: durationOfTheRequest)
+                guard !isTheLastAttempt else {
+                    return .init(outcome: .theSessionCouldNotBeMadeValid, theSessionWasRefreshed: theSessionWasRefreshed)
                 }
-            }
-            
-            // All the messages of the slice where saved, we can request their processing.
-            // We do this asynchronously so as not to slow down the saving of other messages.
+                // No delay here, and none should be added: the cache very often holds the newer token already, in which case the next attempt costs nothing
+                // at all.
+                currentInvalidToken = sessionToken
+                theSessionWasRefreshed = true
+                trigger = .retryOfAPreviousAttempt
+                continue
 
-            do {
-                try launchProcessingOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId,
-                                                          executionReason: .oneSliceOfListOfDownloadedMessagesWasSaved(idsOfMessagesToProcess: idsOfMessagesToProcess),
-                                                          flowId: flowId)
-            } catch {
-                Self.logger.fault("[🚩] We could not process the saved slice of messages: \(error.localizedDescription)")
-                assertionFailure() // In production, save the other slices anyway
+            case .generalError:
+
+                recordTimingOfTheListing(
+                    trigger: trigger,
+                    outcome: .generalError,
+                    durationOfTheServerSessionTokenRequest: durationOfTheServerSessionTokenRequest,
+                    durationOfTheRequest: durationOfTheRequest)
+                return .init(outcome: .theServerDeclined(reason: .generalError), theSessionWasRefreshed: theSessionWasRefreshed)
+
+            case .listingTruncated(let _downloadTimestampFromServer, let _messagesAndAttachmentsOnServer, let _serverTimestampOfLastMessageBeforeTruncation):
+                downloadTimestampFromServer = _downloadTimestampFromServer
+                messagesAndAttachmentsOnServer = _messagesAndAttachmentsOnServer
+                newServerTimestampOfLastMessageBeforeTruncation = _serverTimestampOfLastMessageBeforeTruncation
+
+            case .ok(let _downloadTimestampFromServer, let _messagesAndAttachmentsOnServer):
+                downloadTimestampFromServer = _downloadTimestampFromServer
+                messagesAndAttachmentsOnServer = _messagesAndAttachmentsOnServer
+                newServerTimestampOfLastMessageBeforeTruncation = nil
+
             }
 
-            // We requested the "mark as listed" and the processing of the slice, we loop to the next slice
+            // If we reach this point, the server returned a proper list of messages and attachments that we can save.
+            // Note that the listing is truncated iff serverTimestampOfLastMessageBeforeTruncation != nil
+                    
+            ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] We successfully downloaded \(messagesAndAttachmentsOnServer.count) messages that we will now save to DB. New serverTimestampOfLastMessageBeforeTruncation: \(String(describing: newServerTimestampOfLastMessageBeforeTruncation))")
+            Self.logger.info("[🚩][\(flowId.shortDebugDescription)] We successfully downloaded \(messagesAndAttachmentsOnServer.count) messages that we will now save to DB. New serverTimestampOfLastMessageBeforeTruncation: \(String(describing: newServerTimestampOfLastMessageBeforeTruncation))")
+
+            // We may have downloaded hundreds of messages. We don't want to save them all in one big operation. So we split the
+            // messagesAndAttachmentsOnServer array into slices, and save then process each slice idependently.
             
+            let messagesAndAttachmentsOnServerSlices = messagesAndAttachmentsOnServer.toSlices(ofMaxSize: ObvNetworkFetchDelegateManager.numberOfMessagesSavedToTheInboxAtOnce)
+
+            // Timed apart from the request above: this is the phase whose cost grows with the number of messages the server had for us, and it is ours to make
+            // faster where the request's duration is not.
+            let startOfTheSaveAndProcess = Date.now
+
+            for (index, messagesAndAttachmentsOnServerSlice) in messagesAndAttachmentsOnServerSlices.enumerated() {
+                
+                let isLastSlice: Bool = (index == messagesAndAttachmentsOnServerSlices.count - 1)
+                
+                let idsOfMessagesToProcess: [ObvMessageIdentifier]
+                let idsOfMessagesSafelyInDatabase: Set<UID>
+                do {
+                    let op1 = SaveMessagesAndAttachmentsFromServerOperation(
+                        ownedIdentity: ownedCryptoId,
+                        listOfMessageAndAttachmentsOnServer: messagesAndAttachmentsOnServerSlice,
+                        downloadTimestampFromServer: downloadTimestampFromServer,
+                        localDownloadTimestamp: Date(),
+                        logger: Self.logger,
+                        flowId: flowId)
+                    // At the queue's normal priority, deliberately. This save used to be queued at `.high`, so on a device listing page after page each
+                    // new save overtook whatever was already waiting at normal — the stale-settings pass's marks among them — for as long as the
+                    // listing went on. First come, first served bounds every caller's wait to one turn per other caller.
+                    try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+                    idsOfMessagesToProcess = op1.idsOfMessagesToProcess
+                    idsOfMessagesSafelyInDatabase = op1.idsOfMessagesSafelyInDatabase
+                } catch {
+                    recordTimingOfTheListing(
+                        trigger: trigger,
+                        outcome: .couldNotSaveWhatCameBack,
+                        durationOfTheServerSessionTokenRequest: durationOfTheServerSessionTokenRequest,
+                        durationOfTheRequest: durationOfTheRequest,
+                        durationOfTheSaveAndProcess: Date.now.timeIntervalSince(startOfTheSaveAndProcess),
+                        numberOfMessagesReturned: messagesAndAttachmentsOnServer.count)
+                    assertionFailure()
+                    throw ObvError.failedSaveMessagesAndAttachmentsFromServer
+                }
+
+                ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] Among the \(messagesAndAttachmentsOnServer.count) downloaded messages, \(idsOfMessagesToProcess.count) should be processed. isLastSlice: \(isLastSlice.description)")
+                Self.logger.info("[🚩][\(flowId.shortDebugDescription)] Among the \(messagesAndAttachmentsOnServer.count) downloaded messages, \(idsOfMessagesToProcess.count) should be processed. isLastSlice: \(isLastSlice.description)")
+                
+                // All the messages of the slice were saved, so we can tell the server about each of them: either that we are aware of it, or — when everything
+                // the server holds for it is now in our database — that it can delete it outright.
+                // We do this asynchronously so as not to slow down the saving of other messages.
+                
+                Task {
+                    do {
+                        let messageUIDsAndCategories = Self.messageUIDsAndCategories(
+                            forSlice: messagesAndAttachmentsOnServerSlice,
+                            messageUIDsSafelyInDatabase: idsOfMessagesSafelyInDatabase,
+                            flowId: flowId)
+                        try await delegateManager.batchDeleteAndMarkAsListedDelegate.markSpecificMessagesAsListedOrRequestTheirDeletion(ownedCryptoId: ownedCryptoId, messageUIDsAndCategories: messageUIDsAndCategories, flowId: flowId)
+                    } catch {
+                        Self.logger.fault("[🚩] The call to markSpecificMessagesAsListedOrRequestTheirDeletion did fail: \(error.localizedDescription)")
+                        assertionFailure()
+                    }
+                }
+                
+                // All the messages of the slice where saved, we can request their processing.
+                // We do this asynchronously so as not to slow down the saving of other messages.
+
+                do {
+                    try launchProcessingOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId,
+                                                              executionReason: .oneSliceOfListOfDownloadedMessagesWasSaved(idsOfMessagesToProcess: idsOfMessagesToProcess),
+                                                              flowId: flowId)
+                } catch {
+                    Self.logger.fault("[🚩] We could not process the saved slice of messages: \(error.localizedDescription)")
+                    assertionFailure() // In production, save the other slices anyway
+                }
+
+                // We requested the "mark as listed" and the processing of the slice, we loop to the next slice
+                
+            }
+            recordTimingOfTheListing(
+                trigger: trigger,
+                outcome: newServerTimestampOfLastMessageBeforeTruncation == nil ? .ok : .listingTruncated,
+                durationOfTheServerSessionTokenRequest: durationOfTheServerSessionTokenRequest,
+                durationOfTheRequest: durationOfTheRequest,
+                durationOfTheSaveAndProcess: Date.now.timeIntervalSince(startOfTheSaveAndProcess),
+                numberOfMessagesReturned: messagesAndAttachmentsOnServer.count)
+
+            // We saved all the listed messages, requested them to be "marked as listed", and requested their processing. Whether the server has more is the
+            // caller's business now — this attempt is over either way.
+
+            return .init(outcome: .listed(nextResumePoint: newServerTimestampOfLastMessageBeforeTruncation,
+                                          downloadTimestampFromServer: downloadTimestampFromServer),
+                         theSessionWasRefreshed: theSessionWasRefreshed)
+
         }
 
-        // We saved all the listed messages, request them to be "marked as listed", and requested their processing.
-        // If the listing was truncated, try to list again.
+        // Unreachable: every branch of the loop above either returns or is the invalid-session `continue`, and that one returns on its second pass. Answered
+        // rather than left to fall off the end so that the compiler goes on being what notices a new branch.
+        assertionFailure()
+        return .init(outcome: .theSessionCouldNotBeMadeValid, theSessionWasRefreshed: theSessionWasRefreshed)
 
-        if let newServerTimestampOfLastMessageBeforeTruncation {
-            
-            Self.logger.info("[🚩][\(flowId.shortDebugDescription)] 🌊 Will call downloadMessagesAndListAttachments as the listing was truncated")
-            ObvDisplayableLogs.shared.log("[\(flowId.shortDebugDescription)] Will call downloadMessagesAndListAttachments as the listing was truncated")
-            
-            do {
-                try launchProcessingOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId,
-                                                          executionReason: .truncatedListPerformed,
-                                                          flowId: flowId)
-            } catch {
-                Self.logger.fault("[🚩] We could not process truncated list of messages: \(error.localizedDescription)")
-                assertionFailure() // In production, continue anyway
-            }
-
-            try await downloadMessagesAndListAttachments(ownedCryptoId: ownedCryptoId, flowId: flowId, serverTimestampOfLastMessageBeforeTruncation: newServerTimestampOfLastMessageBeforeTruncation, currentInvalidToken: nil)
-            
-        } else {
-            
-            do {
-                try launchProcessingOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId,
-                                                          executionReason: .untruncatedListPerformed(downloadTimestampFromServer: downloadTimestampFromServer),
-                                                          flowId: flowId)
-            } catch {
-                Self.logger.fault("[🚩] We could not process untruncated list of messages: \(error.localizedDescription)")
-                assertionFailure() // In production, continue anyway
-            }
-
-            Self.logger.info("[🚩][\(flowId.shortDebugDescription)] 🌊 Ending the listing as the last one was not truncated")
-            ObvDisplayableLogs.shared.log("[\(flowId.shortDebugDescription)] Ending the listing as the last one was not truncated")
-            
-        }
-        
     }
     
     
+    /// Keeps how long one attempt at listing took, so that the app can show it and a reader can send it to us.
+    ///
+    /// Every exit of `downloadMessagesAndListAttachments` records exactly one of these, including the ones that failed and the ones that asked for another
+    /// attempt: a run of short failures followed by a success is a shape a single duration could not show.
+    ///
+    /// **Deliberately not awaited.** Listing is how messages arrive, and an instrument has no business standing in the way of the thing it measures — even
+    /// briefly, and even though the cost is small beside a network round trip. Nothing depends on the order the timings land in, because they carry their
+    /// own date and are sorted on the way out.
+    private func recordTimingOfTheListing(trigger: ObvServerRequestTiming.Trigger, outcome: ObvServerRequestTiming.Outcome, durationOfTheServerSessionTokenRequest: TimeInterval, durationOfTheRequest: TimeInterval, durationOfTheSaveAndProcess: TimeInterval? = nil, numberOfMessagesReturned: Int? = nil) {
+        guard let delegateManager else { return }
+        let timing = ObvServerRequestTiming(
+            date: Date.now,
+            request: .downloadMessagesAndListAttachments,
+            trigger: trigger,
+            outcome: outcome,
+            durationOfTheServerSessionTokenRequest: durationOfTheServerSessionTokenRequest,
+            durationOfTheRequest: durationOfTheRequest,
+            durationOfTheSaveAndProcess: durationOfTheSaveAndProcess,
+            numberOfMessagesReturned: numberOfMessagesReturned)
+        Task { await delegateManager.serverRequestTimingStore.record(timing) }
+    }
+
+
     private func performServerDownloadMessagesAndListAttachmentsMethod(ownedCryptoId: ObvCryptoIdentity, sessionToken: Data, currentDeviceUid: UID, serverTimestampOfLastMessageBeforeTruncation: Int?, identityDelegate: ObvIdentityDelegate, flowId: FlowIdentifier) async throws -> ObvServerDownloadMessagesAndListAttachmentsMethod.PossibleReturnStatus {
         
         let method = ObvServerDownloadMessagesAndListAttachmentsMethod(
@@ -530,8 +782,9 @@ extension MessagesCoordinator: MessagesDelegate {
             inbox: delegateManager.inbox,
             logger: Self.logger,
             flowId: flowId)
+        // At the queue's normal priority, like every operation on that queue that does not delete rows. See
+        // ``ObvNetworkFetchDelegateManager/queueAndAwaitCompositionOfOneContextualOperation(op1:queuePriority:log:flowId:)``.
         let composedOp = try delegateManager.createCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
-        composedOp.queuePriority = .high
         composedOp.completionBlock = { [weak self] in
             Task { [weak self] in
                 guard let self else { return }
@@ -671,7 +924,7 @@ extension MessagesCoordinator: MessagesDelegate {
             assertionFailure()
             throw ObvError.theDelegateManagerIsNotSet
         }
-        
+
         let op1 = SaveMessagesAndAttachmentsFromServerOperation(
             ownedIdentity: ownedCryptoId,
             listOfMessageAndAttachmentsOnServer: [message],
@@ -685,14 +938,19 @@ extension MessagesCoordinator: MessagesDelegate {
             throw ObvError.failedSaveMessagesAndAttachmentsFromServer
         }
 
-        // The message received on the websocket was saved, we can request it to be marked as listed on the server.
+        // The message received on the websocket was saved, so we can tell the server about it: either that we are aware of it, or — when everything the server
+        // holds for it is now in our database — that it can delete it outright.
         // We do this asynchronously.
         
         Task {
             do {
-                try await delegateManager.batchDeleteAndMarkAsListedDelegate.markSpecificMessagesAsListed(ownedCryptoId: ownedCryptoId, messageUIDs: [message.messageUidFromServer], flowId: flowId)
+                let messageUIDsAndCategories = Self.messageUIDsAndCategories(
+                    forSlice: [message],
+                    messageUIDsSafelyInDatabase: op1.idsOfMessagesSafelyInDatabase,
+                    flowId: flowId)
+                try await delegateManager.batchDeleteAndMarkAsListedDelegate.markSpecificMessagesAsListedOrRequestTheirDeletion(ownedCryptoId: ownedCryptoId, messageUIDsAndCategories: messageUIDsAndCategories, flowId: flowId)
             } catch {
-                Self.logger.fault("The call to markSpecificMessagesAsListed did fail: \(error.localizedDescription)")
+                Self.logger.fault("The call to markSpecificMessagesAsListedOrRequestTheirDeletion did fail: \(error.localizedDescription)")
                 assertionFailure()
             }
         }
@@ -729,6 +987,67 @@ extension MessagesCoordinator: MessagesDelegate {
 
     }
     
+}
+
+
+// MARK: - Deciding what to tell the server about each listed message
+
+extension MessagesCoordinator {
+
+    /// Decides, for each message of a listing we have just saved, whether to tell the server that we are aware of it or that it can delete it.
+    ///
+    /// A message can be deleted from the server as soon as its row is committed when **everything the server holds for it is already in our database**. That is
+    /// the case exactly when it has no attachment and no extended payload:
+    /// - an attachment's bytes are fetched separately, chunk by chunk, so the server must keep the message until the last one has arrived;
+    /// - an extended payload (a link preview, say) is fetched separately too, by `ObvServerDownloadMessageExtendedPayloadMethod`, keyed on the message UID and
+    ///   needing a key that only exists once the message has been decrypted. Asking the server to delete such a message before its extended payload has been
+    ///   downloaded would very likely make that content unavailable for good, and the symptom — previews quietly ceasing to arrive — would be near-impossible
+    ///   to attribute afterwards. So those keep the two-step path, and are deleted the ordinary way once the app is done with them.
+    ///
+    /// Both facts are read from the **server's own listing**, which is the only authoritative account of what the server holds. They are deliberately not read
+    /// from our database: `SaveMessagesAndAttachmentsFromServerOperation` continues past an attachment it could not insert, so a row can exist with fewer
+    /// attachments than the server has — possibly none — and a database-side test would then delete an attachment we never recorded.
+    ///
+    /// Messages absent from `messageUIDsSafelyInDatabase` are dropped entirely rather than being reported to the server in either category. The save operation
+    /// continues past a message it could not insert, so a UID appearing in the listing is not evidence that we hold the message; saying nothing about it leaves
+    /// it to be listed again, which is the only outcome that gives us another chance to save it.
+    fileprivate static func messageUIDsAndCategories(forSlice slice: [ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer], messageUIDsSafelyInDatabase: Set<UID>, flowId: FlowIdentifier) -> [ObvServerDeleteMessageAndAttachmentsMethod.MessageUIDAndCategory] {
+
+        var messageUIDsAndCategories = [ObvServerDeleteMessageAndAttachmentsMethod.MessageUIDAndCategory]()
+        var numberOfDeletionsRequested = 0
+        var numberOfMessagesMarkedAsListed = 0
+        var numberOfMessagesDropped = 0
+
+        for messageAndAttachmentsOnServer in slice {
+
+            let messageUID = messageAndAttachmentsOnServer.messageUidFromServer
+            let numberOfAttachments = messageAndAttachmentsOnServer.attachments.count
+            let hasExtendedPayload = messageAndAttachmentsOnServer.hasEncryptedExtendedMessagePayload
+            let isSafelyInDatabase = messageUIDsSafelyInDatabase.contains(messageUID)
+            let serverHoldsNothingMore = numberOfAttachments == 0 && !hasExtendedPayload
+
+            let category: ObvServerDeleteMessageAndAttachmentsMethod.Category? = isSafelyInDatabase ? (serverHoldsNothingMore ? .requestDeletion : .markAsListed) : nil
+
+            if let category {
+                messageUIDsAndCategories.append(.init(messageUID: messageUID, category: category))
+                switch category {
+                case .requestDeletion: numberOfDeletionsRequested += 1
+                case .markAsListed: numberOfMessagesMarkedAsListed += 1
+                }
+            } else {
+                numberOfMessagesDropped += 1
+            }
+
+        }
+
+        let summary = "[🚩][\(flowId.shortDebugDescription)] Of the \(slice.count) listed message(s), we ask the server to delete \(numberOfDeletionsRequested), to mark \(numberOfMessagesMarkedAsListed) as listed, and say nothing about \(numberOfMessagesDropped) that are not safely in database"
+        ObvDisplayableLogs.shared.log(summary)
+        Self.logger.info("\(summary, privacy: .public)")
+
+        return messageUIDsAndCategories
+
+    }
+
 }
 
 
@@ -962,12 +1281,10 @@ extension MessagesCoordinator {
         case theDelegateManagerIsNotSet
         case theContextCreatorIsNotSet
         case failedDecryptAndSaveExtendedMessagePayload
-        case failedToRemoveExtendedMessagePayload
         case failedSaveMessagesAndAttachmentsFromServer
         case theIdentityDelegateIsNotSet
         case invalidServerResponse
         case couldNotParseReturnStatusFromServer
-        case deviceIsNotRegistered
         case theNotificationDelegateIsNotSet
         case theProcessDownloadedMessageDelegateIsNotSet
     }

@@ -424,12 +424,8 @@ private extension AttributedString {
                     }
                 case .orderedList:
                     if listsForIntentIdentity[.orderedList(identity: intentType.identity)] == nil {
-                        if #available(iOS 16, *) {
-                            if let ordinal = intentAttribute.components.extractFirstListItemOrdinal(), ordinal != 1 {
-                                listsForIntentIdentity[.orderedList(identity: intentType.identity)] = NSTextList(markerFormat: NSTextList.MarkerFormat(rawValue: "{decimal}."), startingItemNumber: ordinal)
-                            } else {
-                                listsForIntentIdentity[.orderedList(identity: intentType.identity)] = NSTextList(markerFormat: NSTextList.MarkerFormat(rawValue: "{decimal}."), options: 0)
-                            }
+                        if let ordinal = intentAttribute.components.extractFirstListItemOrdinal(), ordinal != 1 {
+                            listsForIntentIdentity[.orderedList(identity: intentType.identity)] = NSTextList(markerFormat: NSTextList.MarkerFormat(rawValue: "{decimal}."), startingItemNumber: ordinal)
                         } else {
                             listsForIntentIdentity[.orderedList(identity: intentType.identity)] = NSTextList(markerFormat: NSTextList.MarkerFormat(rawValue: "{decimal}."), options: 0)
                         }

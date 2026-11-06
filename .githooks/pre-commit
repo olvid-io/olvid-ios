@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Pre-commit hook: refuse changes to historical Core Data .xcdatamodel files.
+#
+# Historical .xcdatamodel directories describe schemas that have already shipped to
+# users. Modifying one retroactively breaks migration chains: a user upgrading from
+# an older Olvid build through that schema migrates against the *modified* version
+# of the model, not the one their on-disk data was originally written under. The
+# result is silent data loss or a migration crash that we don't see in QA.
+#
+# This hook walks every tracked .xcdatamodeld bundle, reads its current version from
+# .xccurrentversion (preferring the staged copy when the same commit also updates it
+# — so adding a new version in one commit is allowed), and rejects any staged change
+# inside a non-current .xcdatamodel/.
+#
+# To bypass for an edit that genuinely does not affect on-disk schema (typo fix in a
+# user-info comment, etc.), commit with --no-verify and explain in the message.
+
+set -euo pipefail
+
+fail=0
+
+while IFS= read -r modeld; do
+    xccv="$modeld/.xccurrentversion"
+
+    # Prefer the staged copy of .xccurrentversion when present (covers the case where
+    # this commit adds a new model version and updates the pointer in one shot).
+    tmp=$(mktemp)
+    if ! git show ":$xccv" > "$tmp" 2>/dev/null; then
+        if [[ -f "$xccv" ]]; then
+            cp "$xccv" "$tmp"
+        else
+            rm -f "$tmp"
+            continue
+        fi
+    fi
+    current=$(plutil -extract _XCCurrentVersionName raw -o - "$tmp" 2>/dev/null || true)
+    rm -f "$tmp"
+
+    if [[ -z "$current" ]]; then
+        echo "warning: could not read _XCCurrentVersionName from $xccv — skipping immutability check for this bundle" >&2
+        continue
+    fi
+
+    # Inspect every staged change inside the bundle.
+    while IFS= read -r staged; do
+        rel="${staged#"$modeld"/}"
+        # Match files that live inside a *.xcdatamodel/ subdirectory of the bundle.
+        if [[ "$rel" =~ ^([^/]+\.xcdatamodel)/ ]]; then
+            version_dir="${BASH_REMATCH[1]}"
+            if [[ "$version_dir" != "$current" ]]; then
+                echo "ERROR: $staged"
+                echo "  Historical Core Data model '$version_dir' must not be modified."
+                echo "  Current model is '$current'. To change the schema, add a new model version."
+                echo "  If this edit truly does not affect on-disk schema, bypass with:"
+                echo "    git commit --no-verify"
+                fail=1
+            fi
+        fi
+    done < <(git diff --cached --name-only --diff-filter=ACMRT -- "$modeld")
+done < <(git ls-files | sed -nE 's|^(.*\.xcdatamodeld)/.*|\1|p' | sort -u)
+
+exit $fail

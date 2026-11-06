@@ -65,8 +65,8 @@ final class EngineCoordinator {
             ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: notificationDelegate) { [weak self] (ownedCryptoIdentity) in
                 Task { [weak self] in await self?.processOwnedIdentityWasReactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier()) }
             },
-            ObvIdentityNotificationNew.observeOwnedIdentityWasDeactivated(within: notificationDelegate) { ownedCryptoIdentity in
-                Task { [weak self] in await self?.processOwnedIdentityWasDeactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier()) }
+            ObvIdentityNotificationNew.observeOwnedIdentityWasDeactivated(within: notificationDelegate) { [weak self] ownedCryptoIdentity in
+                Task { await self?.processOwnedIdentityWasDeactivated(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier()) }
             },
             ObvIdentityNotificationNew.observeNewActiveOwnedIdentity(within: notificationDelegate) { [weak self] ownedCryptoIdentity in
                 Task { [weak self] in await self?.processNewActiveOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, flowId: FlowIdentifier()) }
@@ -85,6 +85,9 @@ final class EngineCoordinator {
             },
             ObvIdentityNotificationNew.observeNewRemoteOwnedDevice(within: notificationDelegate) { [weak self] ownedCryptoId, remoteDeviceUid, createdDuringChannelCreation in
                 Task { [weak self] in await self?.processNewRemoteOwnedDevice(ownedCryptoId: ownedCryptoId, remoteDeviceUid: remoteDeviceUid, createdDuringChannelCreation: createdDuringChannelCreation) }
+            },
+            ObvIdentityNotificationNew.observeGroupV2WasDeleted(within: notificationDelegate) { [weak self] (ownedCryptoIdentity, appGroupIdentifier) in
+                Task { [weak self] in await self?.processGroupV2WasDeleted(ownedCryptoIdentity: ownedCryptoIdentity, appGroupIdentifier: appGroupIdentifier, flowId: FlowIdentifier()) }
             },
         ])
         
@@ -501,6 +504,16 @@ extension EngineCoordinator {
 
                 Task {
                     do {
+                        try await networkFetchDelegate.deleteInboxMessagesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: ownedCryptoIds, flowId: flowId)
+                        logger.info("Successfully deleted inbox messages associated to non-existing owned identities.")
+                    } catch {
+                        assertionFailure()
+                        logger.fault("Could not delete inbox messages associated to non-existing owned identities: \(error.localizedDescription)")
+                    }
+                }
+
+                Task {
+                    do {
                         try await protocolDelegate.deleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: ownedCryptoIds, flowId: flowId)
                         logger.info("Successfully deleted certain protocol instances associated to non existing owned identities")
                     } catch {
@@ -721,17 +734,42 @@ extension EngineCoordinator {
         }
         
         // Perform an owned device discovery
-        
+
         do {
             assert(obvEngine != nil)
             try await obvEngine?.performOwnedDeviceDiscovery(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedCryptoId))
         } catch {
             assertionFailure(error.localizedDescription) // In production, continue anyway
         }
-        
+
     }
-    
-    
+
+
+    /// When the identity manager deletes a `ContactGroupV2`, forward the event to the protocol manager so
+    /// it can drop any protocol-side state tied to the group (today: pre-shot `blobVersionSeed` rows
+    /// received out-of-band for that group). The TTL sweep would eventually remove them anyway; this is
+    /// just a proactive cleanup so the table doesn't carry stranded seeds for a group that no longer exists.
+    private func processGroupV2WasDeleted(ownedCryptoIdentity: ObvCryptoIdentity, appGroupIdentifier: Data, flowId: FlowIdentifier) async {
+
+        guard let protocolDelegate = delegateManager?.protocolDelegate else { assertionFailure(); return }
+
+        guard let groupIdentifier = GroupV2.Identifier(appGroupIdentifier: appGroupIdentifier) else {
+            assertionFailure("Could not decode appGroupIdentifier as a GroupV2.Identifier")
+            return
+        }
+
+        do {
+            try await protocolDelegate.processContactGroupV2WasDeleted(
+                ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedCryptoIdentity),
+                groupIdentifier: groupIdentifier,
+                flowId: flowId)
+        } catch {
+            os_log("Could not forward groupV2WasDeleted to the protocol manager: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+        }
+    }
+
+
     /// When a contact becomes trusted, we start a contact device discovery protocol to found out about all her devices.
     /// We also notify the fetch manager in case we previously received messages from that contact, using our current device prekeys: in that case we kept the messages within the inbox, waiting for the (unknown) remote identity
     /// to become a contact (which is exactly what happened).
@@ -1341,16 +1379,33 @@ extension EngineCoordinator {
     /// Called when an owned identity gets deleted from identity manager database
     /// Almost all the owned identity deletion work is performed in the OwnedIdentityDeletionProtocol (including deleting messages from the Inbox/Outbox).
     /// Here, we simply clean the PersistedEngineDialog database and inform the network fetch manager about the new list of active owned identities (this essentially makes sure the appropriate WebSockets are connected).
+    ///
+    /// The inbox is the one thing that protocol does not always finish: it marks the rows and leaves them to sweeps nobody awaits, which the deletion of the
+    /// owned identity itself can outrun. Whatever they did not reach is collected by `deleteItemsAssociatedToNonExistingOwnedIdentity` below, with the server
+    /// sessions and pending server queries of profiles that no longer exist.
     public func anOwnedIdentityWasDeleted(deletedOwnedCryptoId: ObvCryptoIdentity) async {
         let flowId = FlowIdentifier()
-        
+
         deleteItemsAssociatedToNonExistingOwnedIdentity(flowId: flowId)
-        
+
+        // Tell the protocol manager so it can drop any protocol-side state tied to the deleted owned
+        // identity (today: pre-shot blobVersionSeed rows received for any of its groups).
+        if let protocolDelegate = delegateManager?.protocolDelegate {
+            do {
+                try await protocolDelegate.processOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId(cryptoIdentity: deletedOwnedCryptoId), flowId: flowId)
+            } catch {
+                os_log("Could not forward ownedIdentityWasDeleted to the protocol manager: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure() // In production, continue anyway
+            }
+        } else {
+            assertionFailure()
+        }
+
         guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
         guard let appNotificationCenter = self.appNotificationCenter else { return }
-        
+
         let log = self.log
-        
+
         do {
             try await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
         } catch {

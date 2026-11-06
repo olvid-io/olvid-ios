@@ -714,7 +714,7 @@ extension PersistedMessageSent {
                     Self.logger.error("Trying to create PersistedMessageSentRecipientInfos for an inactive contact, which is not allowed.")
                     throw ObvUICoreDataError.contactIdentityIsNotActive
                 }
-                let recipientIdentity = contactIdentity.cryptoId.getIdentity()
+                let recipientIdentity = contactIdentity.identity
                 let infos = try PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity,
                                                                    messageSent: self)
                 self.unsortedRecipientsInfos.insert(infos)
@@ -730,7 +730,10 @@ extension PersistedMessageSent {
                         Self.logger.error("One of the group contacts is inactive. We do not create PersistedMessageSentRecipientInfos for this contact.")
                         continue
                     }
-                    let recipientIdentity = recipient.cryptoId.getIdentity()
+                    guard let recipientIdentity = try? recipient.cryptoId.getIdentity() else {
+                        Self.logger.error("One of the group contacts cannot be read. We do not create PersistedMessageSentRecipientInfos for this contact.")
+                        continue
+                    }
                     let infos = try PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity, messageSent: self)
                     self.unsortedRecipientsInfos.insert(infos)
                 }
@@ -752,11 +755,14 @@ extension PersistedMessageSent {
                             continue
                         }
                     }
-                    let recipientIdentity = recipient.identity
+                    guard let recipientIdentity = recipient.cryptoId?.getIdentity() else {
+                        Self.logger.error("One of the group members cannot be read. We do not create PersistedMessageSentRecipientInfos for this member.")
+                        continue
+                    }
                     let infos = try PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity, messageSent: self)
                     self.unsortedRecipientsInfos.insert(infos)
                 }
-                
+
             case .none:
 
                 throw ObvUICoreDataError.unexpectedDiscussionKind
@@ -880,6 +886,31 @@ extension PersistedMessageSent {
     
     
     public static func createPersistedMessageSentFromShareExtension(body: String, fyleJoins: [FyleJoin], discussion: PersistedDiscussion) throws -> PersistedMessageSent {
+        let bodyAndMentions: StringAndUserMentions?
+        let trimmedBody = body.trimmingWhitespacesAndNewlines()
+        if !trimmedBody.isEmpty {
+            bodyAndMentions = .init(body: trimmedBody, mentions: [])
+        } else {
+            bodyAndMentions = nil
+        }
+        let persistedMessageSent = try PersistedMessageSent(
+            bodyAndMentions: bodyAndMentions,
+            replyTo: nil,
+            fyleJoins: fyleJoins,
+            discussion: discussion,
+            readOnce: false,
+            visibilityDuration: nil,
+            existenceDuration: nil,
+            forwarded: false,
+            location: nil,
+            poll: nil,
+            timestamp: Date.now,
+            messageIdentifierFromEngine: nil, // since this message is sent from the current device
+            infosFromOtherOwnedDevice: nil)
+        return persistedMessageSent
+    }
+    
+    public static func createPersistedMessageSentFromIntentExtension(body: String, fyleJoins: [FyleJoin], discussion: PersistedDiscussion) throws -> PersistedMessageSent {
         let bodyAndMentions: StringAndUserMentions?
         let trimmedBody = body.trimmingWhitespacesAndNewlines()
         if !trimmedBody.isEmpty {
@@ -1334,9 +1365,15 @@ extension PersistedMessageSent {
         // Determine the crypto ids of the potential recipients of the message, i.e., those to whom the message shall still be sent.
         // We will filter those identities later in this operation to only keep those to whom the message can indeed be sent.
         
-        let cryptoIdsWithoutMessageIdentifierFromEngine = Set(self.unsortedRecipientsInfos
+        let cryptoIdsWithoutMessageIdentifierFromEngine: Set<ObvCryptoId> = Set(self.unsortedRecipientsInfos
             .filter({ $0.messageIdentifierFromEngine == nil })
-            .map({ $0.recipientCryptoId }))
+            .compactMap({
+                guard let recipientCryptoId = try? $0.recipientCryptoId else {
+                    Self.logger.fault("Leaving out of the recipients a recipient whose identity cannot be read (\($0.recipientIdentity.count, privacy: .public) bytes)")
+                    return nil
+                }
+                return recipientCryptoId
+            }))
         
         guard let ownedCryptoId = self.discussion?.ownedIdentity?.cryptoId else {
             assertionFailure()
@@ -1595,11 +1632,11 @@ extension PersistedMessageSent {
             let groupUid = contactGroup.groupUid
             let groupOwner: ObvCryptoId
             if let groupJoined = contactGroup as? PersistedContactGroupJoined {
-                guard let owner = groupJoined.owner else {
-                    Self.logger.error("The owner is nil. This is ok if it was just deleted.")
+                guard let owner = groupJoined.owner, let ownerCryptoId = try? owner.cryptoId else {
+                    Self.logger.error("The owner is nil or cannot be read. This is ok if it was just deleted.")
                     return nil
                 }
-                groupOwner = owner.cryptoId
+                groupOwner = ownerCryptoId
             } else  if let groupOwned = contactGroup as? PersistedContactGroupOwned {
                 guard let owner = groupOwned.owner else {
                     Self.logger.error("The owner is nil. This is ok if it was just deleted.")
@@ -1699,16 +1736,31 @@ extension PersistedMessageSent {
 
 extension PersistedMessageSent {
     
-    var copyActionCanBeMadeAvailableForSentMessage: Bool {
-        return shareActionCanBeMadeAvailableForSentMessage
+    var copyTextActionCanBeMadeAvailableForSentMessage: Bool {
+        return !isWiped && !isLocationMessage && !isPoll
     }
 
     var shareActionCanBeMadeAvailableForSentMessage: Bool {
         return !isWiped && !isEphemeralMessageWithLimitedVisibility && !isLocationMessage && !isPoll && self.fyleMessageJoinWithStatuses.allSatisfy({ $0.status == .complete })
     }
     
+    /// Why this sent message may not be forwarded, or nil when it may. See ``WhyAMessageCannotBeForwarded``, whose case order this asks in.
+    ///
+    /// **Transcribed from `shareActionCanBeMadeAvailableForSentMessage` rather than delegating to it**, for the reason given on the received twin.
+    ///
+    /// There is no ``WhyAMessageCannotBeForwarded/itHasNotBeenOpenedYet`` here, and that is not an omission: the reader wrote this message, so there is nothing
+    /// about it they have yet to see.
+    var whyThisSentMessageCannotBeForwarded: WhyAMessageCannotBeForwarded? {
+        if isWiped { return .itHasBeenDeleted }
+        if isEphemeralMessageWithLimitedVisibility { return .itIsEphemeral }
+        if isLocationMessage { return .itIsALocation }
+        if isPoll { return .itIsAPoll }
+        if !fyleMessageJoinWithStatuses.allSatisfy({ $0.status == .complete }) { return .oneOfItsAttachmentsIsNotAvailableYet }
+        return nil
+    }
+
     var forwardActionCanBeMadeAvailableForSentMessage: Bool {
-        return shareActionCanBeMadeAvailableForSentMessage
+        return whyThisSentMessageCannotBeForwarded == nil
     }
 
     var infoActionCanBeMadeAvailableForSentMessage: Bool {
@@ -1855,6 +1907,16 @@ extension PersistedMessageSent {
     }
 
     
+    /// For a fetch that asks for attributes rather than for messages, as ``PersistedMessage/dictionaryFetchRequest()`` does for the parent entity and as
+    /// ``PersistedMessageReceived/dictionaryFetchRequestForReceivedMessages()`` does for the sibling one.
+    ///
+    /// Not named `dictionaryFetchRequest()`, for the reason given beside that sibling: it would be indistinguishable from the parent's and is therefore read as an
+    /// override of it, which a static method declared in an extension cannot be.
+    @nonobjc static func dictionaryFetchRequestForSentMessages() -> NSFetchRequest<NSDictionary> {
+        return NSFetchRequest<NSDictionary>(entityName: PersistedMessageSent.entityName)
+    }
+
+
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageSent> {
         return NSFetchRequest<PersistedMessageSent>(entityName: PersistedMessageSent.entityName)
     }
@@ -2062,8 +2124,90 @@ extension PersistedMessageSent {
         ])
         return try context.fetch(request)
     }
-    
-    
+
+
+    /// Returns the most recent sent messages, ordered by `timestamp` descending and capped to
+    /// `fetchLimit`.
+    ///
+    /// Sent messages have no "unread" state, so there is no `restrictToNewMessages` knob on this
+    /// counterpart of
+    /// ``PersistedMessageReceived/getLastReceivedMessagesWithinDiscussions(discussionScope:restrictToNewMessages:searchTerms:startDate:endDate:fetchLimit:within:)``.
+    ///
+    /// - Parameters:
+    ///   - discussionScope: Selects which discussions are queried.
+    ///     - `.any(restrictToNonHiddenProfiles:)` queries across all discussions; when the
+    ///       associated `restrictToNonHiddenProfiles` is `true`, messages belonging to hidden
+    ///       owned identities are filtered out.
+    ///     - `.restricted(to:)` limits the fetch to the given set of `ObvDiscussionIdentifier`s.
+    ///       Identifiers that don't resolve to a local discussion are silently skipped; if none
+    ///       resolve, the function returns an empty array. This case does not filter on
+    ///       hidden-profile status — the caller is assumed to be authoritative about which
+    ///       discussions to include.
+    ///   - searchTerms: Optional. Each non-empty term becomes a case- and diacritic-insensitive
+    ///     substring match on the message body; all terms must match.
+    ///   - startDate: Optional. Restricts the result to messages whose `timestamp` falls within
+    ///     the (inclusive) range.
+    ///   - endDate: Optional. Restricts the result to messages whose `timestamp` falls within
+    ///     the (inclusive) range.
+    ///   - fetchLimit: Hard cap on the number of results.
+    ///   - context: The managed object context to fetch in.
+    public static func getLastSentMessagesWithinDiscussions(
+        discussionScope: DiscussionsScope,
+        searchTerms: [String]? = nil,
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        fetchLimit: Int,
+        within context: NSManagedObjectContext
+    ) throws -> [PersistedMessageSent] {
+
+        let fetchRequest: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
+
+        var subPredicate: [NSPredicate] = []
+
+        switch discussionScope {
+        case .any(restrictToNonHiddenProfiles: let restrictToNonHiddenProfiles):
+            if restrictToNonHiddenProfiles {
+                subPredicate.append(PersistedMessage.Predicate.ownedIdentityIsNotHidden)
+            }
+        case .restricted(let discussionIdentifiers):
+            let discussionObjectIDs: [NSManagedObjectID] = try discussionIdentifiers.compactMap {
+                try PersistedDiscussion.getPersistedDiscussionObjectID(discussionIdentifier: $0, within: context)?.objectID
+            }
+            guard !discussionObjectIDs.isEmpty else { return [] }
+            subPredicate.append(NSPredicate(PersistedMessage.Predicate.Key.discussion, in: discussionObjectIDs))
+        }
+
+        subPredicate.append(contentsOf: searchAndDateSubpredicates(searchTerms: searchTerms, startDate: startDate, endDate: endDate))
+
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subPredicate)
+
+        fetchRequest.fetchLimit = fetchLimit
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.Predicate.Key.timestamp.rawValue, ascending: false)]
+
+        return try context.fetch(fetchRequest)
+
+    }
+
+
+    /// Builds the body-text and timestamp subpredicates shared by the "last N messages" fetches.
+    /// Each non-empty `searchTerm` becomes a case- and diacritic-insensitive `body CONTAINS` clause;
+    /// all terms are ANDed via the compound predicate at the call site. `startDate`/`endDate` become
+    /// inclusive `timestamp >= startDate` / `timestamp <= endDate` clauses.
+    private static func searchAndDateSubpredicates(searchTerms: [String]?, startDate: Date?, endDate: Date?) -> [NSPredicate] {
+        var subs: [NSPredicate] = []
+        for term in searchTerms ?? [] where !term.isEmpty {
+            subs.append(NSPredicate(containsText: term, forKey: PersistedMessage.Predicate.Key.body))
+        }
+        if let startDate {
+            subs.append(NSPredicate(PersistedMessage.Predicate.Key.timestamp, laterThan: startDate))
+        }
+        if let endDate {
+            subs.append(NSPredicate(PersistedMessage.Predicate.Key.timestamp, earlierOrAt: endDate))
+        }
+        return subs
+    }
+
+
     public static func get(senderSequenceNumber: Int, senderThreadIdentifier: UUID, ownedIdentity: Data, discussion: PersistedDiscussion) throws -> PersistedMessageSent? {
         guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
@@ -2200,13 +2344,17 @@ extension PersistedMessageSent {
 extension PersistedMessageSent {
 
     public var fyleMessageJoinWithStatusesOfImageType: [SentFyleMessageJoinWithStatus] {
-        fyleMessageJoinWithStatuses.filter({ Self.supportedImageTypeIdentifiers.contains($0.uti)  })
+        fyleMessageJoinWithStatuses.filter({ $0.isImageType })
     }
 
     public var fyleMessageJoinWithStatusesOfAudioType: [SentFyleMessageJoinWithStatus] {
         fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .audio) })
     }
-    
+
+    public var fyleMessageJoinWithStatusesOfVideoType: [SentFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .video) || $0.contentType.conforms(to: .quickTimeMovie) })
+    }
+
     public var fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType: [SentFyleMessageJoinWithStatus] {
         fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .pdf) })
     }
@@ -2250,11 +2398,24 @@ extension PersistedMessageSent {
             .filter { $0.status == .cancelledByServer || $0.status == .complete || $0.isWiped }
     }
 
+
+    /// This message's identifier in the engine, for the APIs that take one — `messageWasProcessed(messageId:attachmentsProcessingRequest:)` in particular.
+    ///
+    /// Nil for a message sent from *this* device: it never went through the engine's inbox, so there is
+    /// nothing there to release. Also nil while a discussion is being deleted or wiped.
+    public var obvMessageIdentifier: ObvMessageIdentifier? {
+        guard let messageIdentifierFromEngine else { return nil }
+        guard let ownedCryptoId = discussion?.ownedIdentity?.cryptoId else { return nil }
+        return ObvMessageIdentifier(rawOwnedCryptoIdentity: ownedCryptoId.getIdentity(), rawUid: messageIdentifierFromEngine)
+    }
+
     
     public var fyleMessageJoinWithStatusesOfOtherTypes: [SentFyleMessageJoinWithStatus] {
         var result = fyleMessageJoinWithStatuses
         result.removeAll(where: { fyleMessageJoinWithStatusesOfImageType.contains($0)})
         result.removeAll(where: { fyleMessageJoinWithStatusesOfAudioType.contains($0)})
+        result.removeAll(where: { fyleMessageJoinWithStatusesOfVideoType.contains($0)})
+        result.removeAll(where: { fyleMessageJoinWithStatusesOfPreviewType.contains($0)})
         return result
     }
 

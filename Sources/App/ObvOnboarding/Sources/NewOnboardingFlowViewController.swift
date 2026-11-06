@@ -57,8 +57,13 @@ public protocol NewOnboardingFlowViewControllerDelegate: AnyObject {
     
     func onboardingRequiresToSyncAppDatabasesWithEngine(onboardingFlow: NewOnboardingFlowViewController) async throws
     
-    func onboardingRequiresToGenerateOwnedIdentity(onboardingFlow: NewOnboardingFlowViewController, identityDetails: ObvIdentityDetails, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, customServerAndAPIKey: ServerAndAPIKey?) async throws -> ObvCryptoId
-    
+    func onboardingRequiresToGenerateOwnedIdentity(onboardingFlow: NewOnboardingFlowViewController, identityDetails: ObvIdentityDetails, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, customServerAndAPIKey: CustomServerAndOptionalAPIKey?) async throws -> ObvCryptoId
+
+    /// Queries the server for the elements (status + permissions) of a scanned `ServerAndAPIKey`.
+    /// Works without an owned identity, so it can be called before any profile exists. Used by the screen
+    /// shown when the user scans a license mid-onboarding, to display its rights and gate acceptance.
+    func onboardingRequiresAPIKeyElements(_ onboardingFlow: NewOnboardingFlowViewController, serverAndAPIKey: ServerAndAPIKey) async throws -> APIKeyElements
+
     func onboardingRequiresAcceptableCharactersForBackupKeyString() async -> CharacterSet
     
     func onboardingRequiresToRecoverBackupFromEncryptedBackup(onboardingFlow: NewOnboardingFlowViewController, encryptedBackup: Data, backupKey: String) async throws -> (backupRequestIdentifier: UUID, backupDate: Date)
@@ -172,12 +177,14 @@ public struct Onboarding {
     /// - The `addNewDevice` mode is used when starting an owned identity transfer protocol on a source device (where the owned identity already exist).
     /// - The `addProfile` mode is used on a device where an owned identity already exist, but where the user wants to add an owned identity existing on another device. This thus starts the owned identity transfer protocol on the target device.
     /// - The `bindExistingProfileToKeycloak` mode is used when a user with an existing profile scans (or taps) an `OlvidURL` of kind `.configuration` with a `ObvKeycloakConfigurationAndServer`. This indicates she wants to start the flow allowing to bind the existing identity to a keycloak.
+    ///
+    /// The `addProfile` mode carries an optional `serverAndAPIKey`. When set, the user reached this onboarding by scanning a license (a `ServerAndAPIKey`) while having one or more existing profiles, and chose, in the profile chooser, to create a brand new profile for that license rather than applying it to an existing profile. In that case the onboarding starts directly on the unmanaged-details screen and creates the profile on the server (and with the API key) of the scanned license.
     public enum Mode {
         case initialOnboarding(mdmConfig: MDMConfiguration?)
         case addNewDevice(ownedCryptoId: ObvCryptoId, ownedDetails: CNContact, isTransferRestricted: Bool)
-        case addProfile
+        case addProfile(serverAndAPIKey: ServerAndAPIKey?)
         case bindExistingProfileToKeycloak(ownedCryptoId: ObvCryptoId, keycloakConfigurationAndServer: ObvKeycloakConfigurationAndServer)
-        
+
         var mdmConfigDuringInitialOnboarding: MDMConfiguration? {
             switch self {
             case .initialOnboarding(let mdmConfig):
@@ -216,9 +223,10 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
     
     public weak var delegate: NewOnboardingFlowViewControllerDelegate?
     
-    /// If, at any point during the onboarding, we receive an `OlvidURL` with a custom API Key and custom Server URL,
+    /// If, at any point during the onboarding, we receive an `OlvidURL` with a custom Server URL (and, usually, a custom API Key),
     /// we store the value here. At the time we request the generation of the owned identity, we pass this value to our delegate.
-    private var customServerAndAPIKey: ServerAndAPIKey?
+    /// The API key is optional: the user may choose to keep only a scanned custom server when its (single-use) key was already used.
+    private var customServerAndAPIKey: CustomServerAndOptionalAPIKey?
     
     private let mode: Onboarding.Mode
     
@@ -291,8 +299,25 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
     /// Called by the `MetaFlowController` when an owned identity transfer protocol fails
     @MainActor
     public func anOwnedIdentityTransferProtocolFailed(ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, error: Error) async {
-        guard protocolInstanceUID == internalState.ownedIdentityTransferProtocolInstanceUID || internalState.userIsEnteringTransferCode else { assertionFailure(); return }
-        internalState = .showOwnedIdentityTransferFailed(error: error)
+        // The internal state only tracks the protocol instance UID from the SAS stage onwards. On the source device, the protocol
+        // can fail before reaching that stage (e.g., while waiting for the target connection after displaying the session number),
+        // in which case the internal state would not let us match the UID: we thus accept any failure notification when this
+        // onboarding was launched to add a new device, as it is the source of at most one transfer protocol.
+        let failureConcernsThisOnboarding: Bool
+        switch mode {
+        case .addNewDevice:
+            failureConcernsThisOnboarding = true
+        case .initialOnboarding, .addProfile, .bindExistingProfileToKeycloak:
+            failureConcernsThisOnboarding = protocolInstanceUID == internalState.ownedIdentityTransferProtocolInstanceUID || internalState.userIsEnteringTransferCode
+        }
+        guard failureConcernsThisOnboarding else { assertionFailure(); return }
+        if let transferError = error as? OwnedIdentityTransferError, case .tryingToTransferAnOwnedIdentityThatAlreadyExistsOnTargetDevice(ownedCryptoId: let existingOwnedCryptoId) = transferError {
+            // This is not a true failure: the profile the user tried to transfer already exists on this device, so there was nothing to transfer.
+            // Instead of the failure screen, we show a dedicated screen allowing the user to navigate to the existing profile.
+            internalState = .profileAlreadyExistsOnTargetDevice(ownedCryptoId: existingOwnedCryptoId)
+        } else {
+            internalState = .showOwnedIdentityTransferFailed(error: error)
+        }
         await showNextOnboardingScreen(animated: true)
     }
     
@@ -340,10 +365,22 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
                     delegate: self)
             }
             
-        case .addProfile:
-            
-            rootViewController = AddProfileViewController(showCloseButton: defaultShowCloseButton, delegate: self)
-            
+        case .addProfile(serverAndAPIKey: let serverAndAPIKey):
+
+            if let serverAndAPIKey {
+                // The user scanned a license while having existing profiles and chose to create a new profile for it.
+                // We remember the scanned server (and API key) so the identity is generated on it, and we start directly on the
+                // unmanaged-details screen rather than the import/restore/create menu.
+                self.customServerAndAPIKey = .init(server: serverAndAPIKey.server, apiKey: serverAndAPIKey.apiKey)
+                self.internalState = .userWantsToChooseUnmanagedDetails
+                rootViewController = NewUnmanagedDetailsChooserViewController(
+                    model: .init(showPositionAndOrganisation: false),
+                    delegate: self,
+                    showCloseButton: defaultShowCloseButton)
+            } else {
+                rootViewController = AddProfileViewController(showCloseButton: defaultShowCloseButton, delegate: self)
+            }
+
         case .bindExistingProfileToKeycloak(ownedCryptoId: let ownedCryptoId, keycloakConfigurationAndServer: let keycloakConfigurationAndServer):
             
             let model = IdentityProviderValidationView.Model(
@@ -515,6 +552,9 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
         case .successfulTransferWasPerfomed(transferredOwnedCryptoId: let transferredOwnedCryptoId, postTransferError: let postTransferError):
             let vc = SuccessfulTransferConfirmationViewController(model: .init(transferredOwnedCryptoId: transferredOwnedCryptoId, postTransferError: postTransferError), delegate: self)
             flowNavigationController.setViewControllers([vc], animated: animated)
+        case .profileAlreadyExistsOnTargetDevice(ownedCryptoId: let ownedCryptoId):
+            let vc = ProfileAlreadyExistsOnTargetDeviceViewController(model: .init(ownedCryptoId: ownedCryptoId), actions: self)
+            flowNavigationController.setViewControllers([vc], animated: animated)
         case .userMustEnterSASOnSourceDevice(sasExpectedOnInput: let sasExpectedOnInput, targetDeviceName: let targetDeviceName, ownedCryptoId: let ownedCryptoId, ownedDetails: let ownedDetails, protocolInstanceUID: let protocolInstanceUID):
             let vc = InputSASOnSourceViewController(model: .init(sasExpectedOnInput: sasExpectedOnInput, targetDeviceName: targetDeviceName, ownedCryptoId: ownedCryptoId, ownedDetails: ownedDetails, protocolInstanceUID: protocolInstanceUID), delegate: self)
             flowNavigationController.setViewControllers([vc], animated: animated)
@@ -549,7 +589,14 @@ public final class NewOnboardingFlowViewController: UIViewController, NewOwnedId
         case .showOwnedIdentityTransferFailed(error: let error):
             let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
             let welcomeScreenVC = flowNavigationController.viewControllers.first as? NewWelcomeScreenViewController ?? vc
-            let failureVC = OwnedIdentityTransferFailureViewController(model: .init(error: error))
+            let failureVC: UIViewController
+            if let transferError = error as? OwnedIdentityTransferError, case .serverRequestFailed = transferError {
+                // This frequent error means the device could not reach the transfer server, which is almost always a local
+                // network issue. We show a dedicated screen with actionable advice instead of the generic failure screen.
+                failureVC = OwnedIdentityTransferNetworkErrorViewController(model: .init(error: error))
+            } else {
+                failureVC = OwnedIdentityTransferFailureViewController(model: .init(error: error))
+            }
             flowNavigationController.setViewControllers([welcomeScreenVC, failureVC], animated: animated)
         case .userWantsToManuallyConfigureTheIdentityProvider:
             let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
@@ -666,6 +713,10 @@ extension NewOnboardingFlowViewController: NewWelcomeScreenViewControllerDelegat
             await requestNextAutorisationPermissionAfterCreatingTheOwnedIdentity(profileKind: profileKindOfCreatedOwnedIdentity)
         } else {
             if let mdmConfig = mode.mdmConfigDuringInitialOnboarding {
+                // The `.keycloakConfigAvailable` state only carries the keycloak configuration, not the distribution server. We park
+                // the distribution server (with no API key, since keycloak handles licensing) in `customServerAndAPIKey` so the
+                // profile is generated on it at identity-generation time.
+                self.customServerAndAPIKey = .init(server: mdmConfig.keycloakConfiguration.distributionServerURL, apiKey: nil)
                 self.internalState = .keycloakConfigAvailable(
                     keycloakConfiguration: mdmConfig.keycloakConfiguration.keycloakConfiguration,
                     magicLink: mdmConfig.keycloakConfiguration.magicLink,
@@ -776,7 +827,7 @@ extension NewOnboardingFlowViewController: NewAutorisationRequesterViewControlle
             if now {
                 let center = UNUserNotificationCenter.current()
                 do {
-                    try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                    try await center.requestAuthorization(options: .requestedByOlvid)
                 } catch {
                     os_log("Could not request authorization for notifications: %@", log: Self.log, type: .error, error.localizedDescription)
                 }
@@ -1076,7 +1127,33 @@ extension NewOnboardingFlowViewController: ObvScannerHostingViewDelegate {
         flowNavigationController?.presentedViewController?.dismiss(animated: true)
         await delegate?.handleOlvidURL(onboardingFlow: self, olvidURL: olvidURL)
     }
-    
+
+}
+
+
+// MARK: - ScannedServerAndAPIKeyViewActionsProtocol
+
+extension NewOnboardingFlowViewController: ScannedServerAndAPIKeyViewActionsProtocol {
+
+    func queryAPIKeyElements(_ view: ScannedServerAndAPIKeyView, serverAndAPIKey: ServerAndAPIKey) async throws -> APIKeyElements {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.onboardingRequiresAPIKeyElements(self, serverAndAPIKey: serverAndAPIKey)
+    }
+
+    func userAcceptsScannedServerAndAPIKey(_ view: ScannedServerAndAPIKeyView, serverAndAPIKey: ServerAndAPIKey) {
+        self.customServerAndAPIKey = .init(server: serverAndAPIKey.server, apiKey: serverAndAPIKey.apiKey)
+        flowNavigationController?.presentedViewController?.dismiss(animated: true)
+    }
+
+    func userAcceptsScannedServerOnly(_ view: ScannedServerAndAPIKeyView, server: URL) {
+        self.customServerAndAPIKey = .init(server: server, apiKey: nil)
+        flowNavigationController?.presentedViewController?.dismiss(animated: true)
+    }
+
+    func userWantsToDismiss(_ view: ScannedServerAndAPIKeyView) {
+        flowNavigationController?.presentedViewController?.dismiss(animated: true)
+    }
+
 }
 
 
@@ -1384,6 +1461,22 @@ extension NewOnboardingFlowViewController: TransferProtocolTargetShowSasViewCont
 }
 
 
+// MARK: - ProfileAlreadyExistsOnTargetDeviceViewActionsProtocol
+
+extension NewOnboardingFlowViewController: ProfileAlreadyExistsOnTargetDeviceViewActionsProtocol {
+
+    func userWantsToNavigateToProfileThatAlreadyExistsOnTargetDevice(ownedCryptoId: ObvCryptoId) async {
+        // The profile already exists on this device: we dismiss the onboarding and navigate to the profile,
+        // exactly as we do after a successful transfer.
+        await delegate?.userWantsToDismissOnboardingAfterSuccessfulOwnedIdentityTransferOnThisTargetDevice(
+            onboardingFlow: self,
+            transferredOwnedCryptoId: ownedCryptoId,
+            userWantsToAddAnotherProfile: false)
+    }
+
+}
+
+
 // MARK: - SuccessfulTransferConfirmationViewControllerDelegate
 
 extension NewOnboardingFlowViewController: SuccessfulTransferConfirmationViewControllerDelegate {
@@ -1577,26 +1670,25 @@ extension NewOnboardingFlowViewController: ObvAppBackupSetupRouterDelegate {
 extension NewOnboardingFlowViewController {
     
     /// Called by the `MetaFlowController` when the user scans (or taps) an `OlvidURL` containing a `ServerAndAPIKey` (i.e, a license)  during an onboarding.
+    ///
+    /// Presents a dedicated screen, modally over the onboarding flow, that displays the scanned server and the rights granted
+    /// by the API key, and lets the user accept or decline. The screen is shown the same way regardless of the current
+    /// `internalState`; its outcome lives in the `customServerAndAPIKey` instance var (consumed later, at identity generation).
     public func handleOlvidURLOfTypeConfigurationWithServerAndAPIKey(serverAndAPIKey: ServerAndAPIKey) async {
-
-        let title = String(localizedInThisBundle: "USE_CUSTOM_API_KEY_AND_SERVER_ALERT_TITLE")
-        let message = String.localizedStringWithFormat(String(localizedInThisBundle: "USE_CUSTOM_API_KEY_AND_SERVER_ALERT_BODY_%@_%@"), serverAndAPIKey.server.absoluteString, serverAndAPIKey.apiKey.uuidString)
-        
-        let alert = UIAlertController(title:  title,
-                                      message: message,
-                                      preferredStyleForTraitCollection: .current)
-        alert.addAction(.init(title: "Cancel", style: .cancel))
-        alert.addAction(.init(title: "Ok", style: .default) { _ in
-            self.customServerAndAPIKey = serverAndAPIKey
-        })
-        
-        present(alert, animated: true)
-
+        let model = ScannedServerAndAPIKeyView.Model(serverAndAPIKey: serverAndAPIKey,
+                                                     defaultServerURL: ObvAppCoreConstants.serverURL)
+        let vc = ScannedServerAndAPIKeyViewController(model: model, actions: self)
+        let nav = UINavigationController(rootViewController: vc)
+        flowNavigationController?.present(nav, animated: true)
     }
     
     
     /// Called by the `MetaFlowController` when the user scans (or taps) an `OlvidURL` containing a `ObvKeycloakConfigurationAndServer` during an onboarding.
     public func handleOlvidURLOfTypeConfigurationWithKeycloakConfigurationAndServer(keycloakConfig: ObvKeycloakConfigurationAndServer) async {
+        // The `.keycloakConfigAvailable` state only carries the keycloak configuration, not the distribution server. We park the
+        // distribution server (with no API key, since keycloak handles licensing) in `customServerAndAPIKey` so the profile is
+        // generated on it at identity-generation time.
+        self.customServerAndAPIKey = .init(server: keycloakConfig.distributionServerURL, apiKey: nil)
         self.internalState = .keycloakConfigAvailable(
             keycloakConfiguration: keycloakConfig.keycloakConfiguration,
             magicLink: keycloakConfig.magicLink,

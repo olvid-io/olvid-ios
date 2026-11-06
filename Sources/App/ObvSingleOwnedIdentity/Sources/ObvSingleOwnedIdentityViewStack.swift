@@ -89,11 +89,7 @@ public struct ObvSingleOwnedIdentityViewStack: View {
                 uiKitDelegateForSwiftUISheet: uiKitDelegateForSwiftUISheet)
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    ObvButtonWithCancelRole(action: userWantsToDismissPresentedNavigationStack)
-                }
-            }
+            .escapeKeyGoesBackOrCloses(isAtRoot: path.isEmpty, goBack: { path.removeLast() }, close: userWantsToDismissPresentedNavigationStack)
             .sheetBackedByUIKitViewControllerOnCatalyst(isPresented: $isEditOwnedDetailsViewPresented, uiKitDelegateForSwiftUISheet: uiKitDelegateForSwiftUISheet) {
                 EditOwnedDetailsView(
                     ownedCryptoId: ownedCryptoId,

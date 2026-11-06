@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,7 +58,13 @@ extension FileSystemService {
         
         let tempFilesURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.url
         try? FileManager.default.removeItem(at: tempFilesURL)
-        
+
+        // Delete the thumbnails directory that earlier versions kept in the application container. Nothing writes
+        // there any more; what it still holds is at most an empty directory per launch of those versions.
+
+        let formerThumbnailsURL = ObvUICoreDataConstants.ContainerURL.mainAppContainer.appendingPathComponent("Thumbnails", isDirectory: true)
+        try? FileManager.default.removeItem(at: formerThumbnailsURL)
+
         // (Re)create the directories
 
         for containerURL in ObvUICoreDataConstants.ContainerURL.allCases {

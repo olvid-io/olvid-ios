@@ -194,7 +194,7 @@ extension ComposeViewDataSourceReplyToModel {
         
         if let messageReceived = persistedMessage as? PersistedMessageReceived {
             if let contact = messageReceived.contactIdentity {
-                textColor = contact.cryptoId.colors.text
+                textColor = (try? contact.cryptoId)?.colors.text ?? .label
                 title = MessageCellStrings.replyingTo(contact.customOrFullDisplayName)
             } else {
                 textColor = .label

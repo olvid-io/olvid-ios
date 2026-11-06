@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -89,6 +89,9 @@ final class UsersViewStore: NSObject, ObservableObject, VerticalUsersViewModelPr
         try? self.frcForContacts.performFetch()
         try? self.frcForGroupMembers?.performFetch()
 
+        // The fetches above are synchronous: the first frame shows the users rather than an empty list, which reads as having no contacts.
+        self.users = currentUsers()
+
     }
     
     deinit {
@@ -156,6 +159,15 @@ extension UsersViewStore: NSFetchedResultsControllerDelegate {
     }
     
     private func updateUsers() {
+        let users = currentUsers()
+        withAnimation {
+            self.users = users
+        }
+    }
+    
+
+    /// The users fetched by both fetched results controllers, sorted.
+    private func currentUsers() -> [PersistedUser] {
         
         let contacts = self.frcForContacts.fetchedObjects ?? []
         let usersFromContacts: [PersistedUser] = contacts.compactMap({ try? .init(contact: $0) })
@@ -163,11 +175,7 @@ extension UsersViewStore: NSFetchedResultsControllerDelegate {
         let groupMembers = self.frcForGroupMembers?.fetchedObjects ?? []
         let usersFromGroupMembers: [PersistedUser] = groupMembers.compactMap({ try? .init(groupMember: $0) })
         
-        let users = (usersFromContacts + usersFromGroupMembers).sorted()
-        
-        withAnimation {
-            self.users = users
-        }
+        return (usersFromContacts + usersFromGroupMembers).sorted()
     }
     
 
@@ -305,6 +313,8 @@ struct VerticalUsersViewConfiguration: VerticalUsersViewConfigurationProtocol {
     let allowMultipleSelection: Bool
     let textAboveUserList: String?
     let selectionStyle: SelectionStyle
+    /// The list of the contacts tab sets it for the entry to the suggestions, and the list of the other known users for its card. The pickers do not.
+    var contactsSuggestionsEntry: ContactsSuggestionsEntryState? = nil
 }
 
 struct HorizontalUsersViewConfiguration: HorizontalUsersViewConfigurationProtocol {
@@ -331,12 +341,7 @@ struct HorizontalAndVerticalUsersViewConfiguration: HorizontalAndVerticalUsersVi
 extension PersistedUser: SingleUserViewForHorizontalUsersLayoutModelProtocol {
     
     var cryptoId: ObvTypes.ObvCryptoId {
-        switch self.kind {
-        case .contact(contact: let contact):
-            return contact.cryptoId
-        case .groupMember(groupMember: let groupMember):
-            return groupMember.cryptoId
-        }
+        userIdentifier.contactCryptoId
     }
     
     var firstName: String? {
@@ -447,19 +452,9 @@ extension PersistedUser: ManagedUserViewForVerticalUsersLayoutModelProtocol {
     
 }
 
-// MARK: - PersistedObvContactIdentity implements ManagedContactViewForVerticalContactsLayoutModelProtocol and SingleContactViewForHorizontalContactsLayoutModelProtocol
+// MARK: - PersistedGroupV2Member provides what PersistedUser forwards to it
 
-extension PersistedObvContactIdentity: SingleUserViewForHorizontalUsersLayoutModelProtocol {}
-extension PersistedObvContactIdentity: ManagedUserViewForVerticalUsersLayoutModelProtocol {}
-
-
-// MARK: - PersistedGroupV2Member implements ManagedContactViewForVerticalContactsLayoutModelProtocol and SingleContactViewForHorizontalContactsLayoutModelProtocol
-
-extension PersistedGroupV2Member: ManagedUserViewForVerticalUsersLayoutModelProtocol, SingleUserViewForHorizontalUsersLayoutModelProtocol {
-    
-    var cryptoId: ObvTypes.ObvCryptoId {
-        self.forcedUnwrapCryptoId
-    }
+extension PersistedGroupV2Member {
     
     var detailsStatus: UserCellViewTypes.UserDetailsStatus {
         return .noNewPublishedDetails

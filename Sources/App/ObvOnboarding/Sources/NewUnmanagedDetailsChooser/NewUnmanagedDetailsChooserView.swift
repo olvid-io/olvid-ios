@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,6 +34,7 @@ protocol NewUnmanagedDetailsChooserViewModelProtocol: ObservableObject, ObvPhoto
 protocol NewUnmanagedDetailsChooserViewActions: AnyObject {
     func userDidChooseUnmanagedDetails(ownedIdentityCoreDetails: ObvIdentityCoreDetails, photo: UIImage?)
     func userIndicatedHerProfileIsManagedByOrganisation()
+    func userWantsToCloseOnboarding() async
     // The following two methods leverages the view controller to show
     // the appropriate UI allowing the user to create her profile picture.
     func userWantsToTakePhoto() async -> UIImage?
@@ -46,6 +47,7 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
     
     @ObservedObject var model: Model
     let actions: NewUnmanagedDetailsChooserViewActions
+    let showCloseButton: Bool
     
     @State private var firstname = ""
     @State private var lastname = ""
@@ -80,6 +82,10 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
             isInterfaceDisabled = true
         }
         actions.userDidChooseUnmanagedDetails(ownedIdentityCoreDetails: coreDetails, photo: model.circledInitialsConfiguration.photo)
+    }
+    
+    private func userWantsToCloseOnboarding() {
+        Task { await actions.userWantsToCloseOnboarding() }
     }
     
     // PhotoButtonViewActionsProtocol
@@ -165,9 +171,17 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
             }
             .padding(.horizontal)
             .disabled(isInterfaceDisabled)
-        }.onAppear(perform: {
+        }
+        .onAppear(perform: {
             isInterfaceDisabled = false
         })
+        .toolbar {
+            if showCloseButton {
+                ToolbarItem(placement: .cancellationAction) {
+                    ObvButtonWithCancelRole(action: userWantsToCloseOnboarding)
+                }
+            }
+        }
     }
 }
 
@@ -241,10 +255,13 @@ private final class ActionsForPreviews: NewUnmanagedDetailsChooserViewActions {
     
     func userDidChooseUnmanagedDetails(ownedIdentityCoreDetails: ObvTypes.ObvIdentityCoreDetails, photo: UIImage?) {}
     func userIndicatedHerProfileIsManagedByOrganisation() {}
+    func userWantsToCloseOnboarding() async {}
     
 }
 
-@MainActor
+// **Not `@MainActor`, deliberately.** `InitialCircleViewNewModelProtocol` is not isolated, and it must not be: what really conforms to it are managed
+// objects — `PersistedObvContactIdentity` and its neighbours — which live on whatever context they were fetched into. An isolated stub would be the one
+// conformer that crosses, which is what the compiler objected to; the equivalent stub on the call screen has never been isolated either.
 private final class ModelForPreviews: NewUnmanagedDetailsChooserViewModelProtocol {
     
     var photoThatCannotBeRemoved: UIImage? { nil }
@@ -274,7 +291,8 @@ private let modelForPreviews = ModelForPreviews(showPositionAndOrganisation: fal
 
 #Preview {
     NewUnmanagedDetailsChooserView(model: modelForPreviews,
-                                   actions: actionsForPreviews)
+                                   actions: actionsForPreviews,
+                                   showCloseButton: true)
     .environment(\.locale, .init(identifier: "fr"))
 }
 

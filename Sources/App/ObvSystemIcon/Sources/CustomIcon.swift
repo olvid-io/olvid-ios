@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 
 
-public enum CustomIcon: SymbolIcon {
+public enum CustomIcon: SymbolIcon, Sendable {
 
     case checkmarkCircleFill
     case checkmarkCircle

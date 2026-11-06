@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import Foundation
 import SwiftUI
+import ObvDesignSystem
 import CoreData
 import ObvTypes
 import ObvUICoreData
@@ -32,8 +33,10 @@ final class ReceivedMessageInfosHostingViewController: UIHostingController<Recei
     init?(messageReceived: PersistedMessageReceived) {
         guard let store = ReceivedMessageInfosViewStore(messageReceived: messageReceived) else { return nil }
         self.store = store
-        let view = ReceivedMessageInfosView(store: store)
+        let actions = MessageInfosViewActions()
+        let view = ReceivedMessageInfosView(store: store, actions: actions)
         super.init(rootView: view)
+        actions.userWantsToDismiss = { [weak self] in self?.dismissPresentedViewController() }
     }
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -43,11 +46,9 @@ final class ReceivedMessageInfosHostingViewController: UIHostingController<Recei
     override func viewDidLoad() {
         super.viewDidLoad()
         self.title = Strings.title
-        let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(dismissPresentedViewController))
-        self.navigationItem.setRightBarButton(doneButton, animated: false)
     }
     
-    @objc private func dismissPresentedViewController() {
+    private func dismissPresentedViewController() {
         if let presentationController = self.navigationController?.presentationController,
            let presentationControllerDelegate = presentationController.delegate {
             presentationControllerDelegate.presentationControllerWillDismiss?(presentationController)
@@ -150,6 +151,7 @@ fileprivate final class ReceivedMessageInfosViewStore: ObservableObject {
 struct ReceivedMessageInfosView: View {
     
     @ObservedObject fileprivate var store: ReceivedMessageInfosViewStore
+    let actions: MessageInfosViewActions
     
     var body: some View {
         ReceivedMessageInfosInnerView(ownedCryptoId: store.ownedCryptoId,
@@ -162,6 +164,13 @@ struct ReceivedMessageInfosView: View {
                                       dateStringFromDate: ReceivedMessageInfosViewStore.dateStringFromDate,
                                       allReceivedFyleMessageJoinWithStatus: store.allReceivedFyleMessageJoinWithStatus)
             .environment(\.managedObjectContext, ObvStack.shared.viewContext)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    ObvButtonWithCancelRole(action: { actions.userWantsToDismiss() })
+                }
+            }
+            // Nothing in this sheet is focusable, and a shortcut is found from the first responder.
+            .takesKeyboardFocusOnAppear()
     }
     
 }

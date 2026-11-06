@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -269,27 +269,29 @@ extension ObvAppNavigationRouter: ObvPresentedNavigationStackNavigation {
 }
 
 extension ObvAppNavigationRouter: ObvSingleContactViewNavigation {
-    
+
     public func userWantsToNavigateToListOfContactDevices(_ view: ObvSingleContact.ObvSingleContactView, contactIdentifier: ObvTypes.ObvContactIdentifier) throws {
-        if let vc = navigationController.viewControllers.first(where: { ($0 as? ObvListOfContactDevicesViewController)?.contactIdentifier == contactIdentifier }) {
-            navigationController.popToViewController(vc, animated: true)
+        let navigationControllerToUse = navigationControllerForPush
+        if let vc = navigationControllerToUse.viewControllers.first(where: { ($0 as? ObvListOfContactDevicesViewController)?.contactIdentifier == contactIdentifier }) {
+            navigationControllerToUse.popToViewController(vc, animated: true)
         } else {
             let vc = ObvListOfContactDevicesViewController(
                 contactIdentifier: contactIdentifier,
                 dataSource: dataSources.listOfContactDevicesViewDataSource,
                 actions: actions)
-            self.navigationController.pushViewController(vc, animated: true)
+            navigationControllerToUse.pushViewController(vc, animated: true)
         }
     }
-    
+
     public func userWantsToNavigateToListOfTrustOrigins(_ view: ObvSingleContact.ObvSingleContactView, contactIdentifier: ObvTypes.ObvContactIdentifier) throws {
-        if let vc = navigationController.viewControllers.first(where: { ($0 as? ObvTrustOriginsListViewController)?.contactIdentifier == contactIdentifier }) {
-            navigationController.popToViewController(vc, animated: true)
+        let navigationControllerToUse = navigationControllerForPush
+        if let vc = navigationControllerToUse.viewControllers.first(where: { ($0 as? ObvTrustOriginsListViewController)?.contactIdentifier == contactIdentifier }) {
+            navigationControllerToUse.popToViewController(vc, animated: true)
         } else {
             let vc = ObvTrustOriginsListViewController(
                 contactIdentifier: contactIdentifier,
                 dataSource: dataSources.trustOriginsListViewDataSource)
-            self.navigationController.pushViewController(vc, animated: true)
+            navigationControllerToUse.pushViewController(vc, animated: true)
         }
     }
     
@@ -306,16 +308,17 @@ extension ObvAppNavigationRouter: ObvSingleContactViewNavigation {
     }
     
     public func userWantsToNavigateToListOfCommonGroupsWithContact(_ view: ObvSingleContact.ObvSingleContactView, contactIdentifier: ObvTypes.ObvContactIdentifier) throws {
-        if let vc = navigationController.viewControllers.first(where: { ($0 as? ObvListOfCommonGroupsWithContactViewController)?.contactIdentifier == contactIdentifier }) {
-            navigationController.popToViewController(vc, animated: true)
+        let navigationControllerToUse = navigationControllerForPush
+        if let vc = navigationControllerToUse.viewControllers.first(where: { ($0 as? ObvListOfCommonGroupsWithContactViewController)?.contactIdentifier == contactIdentifier }) {
+            navigationControllerToUse.popToViewController(vc, animated: true)
         } else {
             let vc = ObvListOfCommonGroupsWithContactViewController(
                 contactIdentifier: contactIdentifier,
                 dataSources: dataSources.listOfCommonGroupsWithContactViewDataSources,
                 navigation: self)
-            self.navigationController.pushViewController(vc, animated: true)
+            navigationControllerToUse.pushViewController(vc, animated: true)
         }
-        
+
     }
     
     public func userWantsToCreateNewGroupWithContact(_ view: ObvSingleContact.ObvSingleContactView, contactIdentifier: ObvTypes.ObvContactIdentifier) async throws {
@@ -370,21 +373,23 @@ extension ObvAppNavigationRouter: SingleGroupV1MainViewNavigation {
     }
     
     public func userWantsToNavigateToFullListOfOtherGroupMembers(_ view: ObvUIGroupSharedBetweenV1AndV2.ListOfGroupMembersView, groupIdentifier: ObvAppTypes.ObvGroupIdentifier) async {
-        if let vc = navigationController.viewControllers.first(where: { ($0 as? ListOfMembersWithSegmentedControlViewController)?.groupIdentifier == groupIdentifier }) {
-            navigationController.popToViewController(vc, animated: true)
+        let navigationControllerToUse = navigationControllerForPush
+        if let vc = navigationControllerToUse.viewControllers.first(where: { ($0 as? ListOfMembersWithSegmentedControlViewController)?.groupIdentifier == groupIdentifier }) {
+            navigationControllerToUse.popToViewController(vc, animated: true)
         } else {
             let vc = ListOfMembersWithSegmentedControlViewController(
                 groupIdentifier: groupIdentifier,
                 dataSources: dataSources.listOfMembersWithSegmentedControlViewDataSources,
                 actions: actions,
                 navigation: self)
-            self.navigationController.pushViewController(vc, animated: true)
+            navigationControllerToUse.pushViewController(vc, animated: true)
         }
     }
-    
+
     public func userWantsToNavigateToViewAllowingToSelectGroupMembersToInviteToOneToOne(_ view: ObvUIGroupSharedBetweenV1AndV2.OneToOneInvitableView.InternalView, groupIdentifier: ObvAppTypes.ObvGroupIdentifier) {
-        if let vc = navigationController.viewControllers.first(where: { ($0 as? OnetoOneInvitableGroupMembersViewController)?.groupIdentifier == groupIdentifier }) {
-            navigationController.popToViewController(vc, animated: true)
+        let navigationControllerToUse = navigationControllerForPush
+        if let vc = navigationControllerToUse.viewControllers.first(where: { ($0 as? OnetoOneInvitableGroupMembersViewController)?.groupIdentifier == groupIdentifier }) {
+            navigationControllerToUse.popToViewController(vc, animated: true)
         } else {
             let vc = OnetoOneInvitableGroupMembersViewController(
                 groupIdentifier: groupIdentifier,
@@ -392,7 +397,7 @@ extension ObvAppNavigationRouter: SingleGroupV1MainViewNavigation {
                 onetoOneInvitableGroupMembersViewCellDataSource: dataSources.onetoOneInvitableGroupMembersViewCellDataSource,
                 avatarViewDataSource: dataSources.avatarViewDataSource,
                 actions: actions)
-            self.navigationController.pushViewController(vc, animated: true)
+            navigationControllerToUse.pushViewController(vc, animated: true)
         }
     }
     
@@ -439,7 +444,7 @@ extension ObvAppNavigationRouter: SingleGroupV2MainViewNavigation {
             dataSource: dataSources.fullListOfGroupMembersViewDataSource,
             subDataSources: dataSources.fullListOfGroupMembersViewSubDataSources,
             uiKitDelegateForSwiftUISheet: self)
-        navigationController.pushViewController(vc, animated: true)
+        navigationControllerForPush.pushViewController(vc, animated: true)
     }
     
     
@@ -464,10 +469,22 @@ extension ObvAppNavigationRouter: FullListOfGroupMembersViewNavigationDuringEdit
 // MARK: - Private helpers
 
 extension ObvAppNavigationRouter {
-    
+
+    /// The navigation controller onto which a "deeper" view should be pushed (or popped to).
+    ///
+    /// When a navigation stack is presented modally on top of the main one (e.g., the list of non-one-to-one contacts
+    /// presented from the Contacts tab), pushes performed from within that presented stack must target the *presented*
+    /// navigation controller, not the main one sitting behind it. Otherwise the push happens on the hidden stack and
+    /// nothing appears to happen. This mirrors the logic in `userWantsToShowSingleContactView`, but without dismissing
+    /// the presented stack: here we follow the currently visible stack rather than entering a fresh contact.
+    private var navigationControllerForPush: UINavigationController {
+        (navigationController.presentedViewController as? UINavigationController) ?? navigationController
+    }
+
     public func userWantsToNavigateToViewAllowingToModifyMembers(groupIdentifier: ObvGroupIdentifier) {
-        if let vc = navigationController.viewControllers.first(where: { ($0 as? ListOfMembersWithAddAndRemoveButtonsViewController)?.groupIdentifier == groupIdentifier }) {
-            navigationController.popToViewController(vc, animated: true)
+        let navigationControllerToUse = navigationControllerForPush
+        if let vc = navigationControllerToUse.viewControllers.first(where: { ($0 as? ListOfMembersWithAddAndRemoveButtonsViewController)?.groupIdentifier == groupIdentifier }) {
+            navigationControllerToUse.popToViewController(vc, animated: true)
         } else {
             let vc = ListOfMembersWithAddAndRemoveButtonsViewController(
                 groupIdentifier: groupIdentifier,
@@ -475,7 +492,7 @@ extension ObvAppNavigationRouter {
                 actions: actions,
                 navigation: self,
                 uiKitDelegateForSwiftUISheet: self)
-            self.navigationController.pushViewController(vc, animated: true)
+            navigationControllerToUse.pushViewController(vc, animated: true)
         }
     }
     
@@ -503,10 +520,19 @@ extension ObvAppNavigationRouter {
     }
     
     private func userWantsToShowSingleGroupView(groupIdentifier: ObvGroupIdentifier) {
+
+        let navigationControllerToUse: UINavigationController
+        if let presentedNavigationController = self.navigationController.presentedViewController as? UINavigationController {
+            navigationControllerToUse = presentedNavigationController
+        } else {
+            self.navigationController.dismiss(animated: true)
+            navigationControllerToUse = self.navigationController
+        }
+
         switch groupIdentifier {
         case .groupV1(let groupV1Identifier):
-            if let vc = navigationController.viewControllers.first(where: { ($0 as? SingleGroupV1MainViewController)?.groupIdentifier == groupV1Identifier }) {
-                navigationController.popToViewController(vc, animated: true)
+            if let vc = navigationControllerToUse.viewControllers.first(where: { ($0 as? SingleGroupV1MainViewController)?.groupIdentifier == groupV1Identifier }) {
+                navigationControllerToUse.popToViewController(vc, animated: true)
             } else {
                 let vc = SingleGroupV1MainViewController(
                     groupIdentifier: groupV1Identifier,
@@ -514,11 +540,11 @@ extension ObvAppNavigationRouter {
                     actions: actions,
                     navigation: self,
                     uiKitDelegateForSwiftUISheet: self)
-                self.navigationController.pushViewController(vc, animated: true)
+                navigationControllerToUse.pushViewController(vc, animated: true)
             }
         case .groupV2(let groupV2Identifier):
-            if let vc = navigationController.viewControllers.first(where: { ($0 as? SingleGroupV2MainViewController)?.groupIdentifier == groupV2Identifier }) {
-                navigationController.popToViewController(vc, animated: true)
+            if let vc = navigationControllerToUse.viewControllers.first(where: { ($0 as? SingleGroupV2MainViewController)?.groupIdentifier == groupV2Identifier }) {
+                navigationControllerToUse.popToViewController(vc, animated: true)
             } else {
                 let vc = SingleGroupV2MainViewController(
                     groupIdentifier: groupV2Identifier,
@@ -527,7 +553,7 @@ extension ObvAppNavigationRouter {
                     actions: actions,
                     navigation: self,
                     uiKitDelegateForSwiftUISheet: self)
-                self.navigationController.pushViewController(vc, animated: true)
+                navigationControllerToUse.pushViewController(vc, animated: true)
             }
         }
     }

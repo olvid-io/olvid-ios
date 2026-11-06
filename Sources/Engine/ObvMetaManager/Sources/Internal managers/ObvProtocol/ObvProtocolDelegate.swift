@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -98,7 +98,29 @@ public protocol ObvProtocolDelegate: ObvManager {
     func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier) throws -> ObvChannelProtocolMessageToSend
     
     func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, remoteIdentity: ObvCryptoIdentity, remoteDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
-    
+
+    /// Called by the engine after the identity manager has deleted a `ContactGroupV2`. The protocol manager
+    /// uses this hook to drop any protocol-side state tied to the group (today: pre-shot
+    /// `blobVersionSeed` rows received out-of-band for that group).
+    func processContactGroupV2WasDeleted(ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) async throws
+
+    /// Called by the engine after the identity manager has deleted an `OwnedIdentity`. The protocol
+    /// manager uses this hook to drop any protocol-side state tied to that owned identity (today:
+    /// pre-shot `blobVersionSeed` rows received for any of its groups). Complementary to
+    /// `deleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity`, which sweeps protocol
+    /// instances; this one targets the pre-shot store directly.
+    func processOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws
+
+    // MARK: - Diagnostics
+
+    /// What the protocol manager holds, counted by protocol: how many protocol instances exist, and how many received protocol messages are still awaiting
+    /// processing.
+    ///
+    /// **The only read on this protocol**, and it exists for the diagnostics panel a reader can mail us — which until now said everything about the inbox and
+    /// nothing about the protocols, so a device caught in a storm of them looked exactly like a healthy one. Two grouped queries over one context,
+    /// materialising nothing, and run off the queue that executes protocol steps rather than on it.
+    func getProtocolCounts(flowId: FlowIdentifier) async throws -> ObvProtocolCounts
+
     // MARK: - Keycloak pushed groups
     
     func getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date) throws -> ObvChannelProtocolMessageToSend

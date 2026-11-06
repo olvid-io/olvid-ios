@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,6 @@
  */
 
 import SwiftUI
-import Combine
 
 
 protocol SingleDigitTextFielddActions {
@@ -39,8 +38,6 @@ struct SingleDigitTextField: View {
     struct Model {
         let index: Int // Index of this text field in the BackupKeyTextField
     }
-    
-    @State private var previousText: String? = nil
     
     private static let maxLength = 1
     
@@ -74,14 +71,14 @@ struct SingleDigitTextField: View {
                     .padding(.horizontal, 1)
                     .opacity(isEnabled ? 0 : 1)
             )
-            .onReceive(Just(text)) { _ in
+            .onChange(of: text.wrappedValue) { newValue in
                 guard let actions, let model else { return }
-                guard previousText != text.wrappedValue else { return }
-                previousText = text.wrappedValue
-                // We limit the string length to maxLength characters.
-                let newText = String(text.wrappedValue.removingAllCharactersNotInCharacterSet(.decimalDigits).prefix(Self.maxLength))
-                if text.wrappedValue != newText {
-                    text.wrappedValue = newText
+                // We limit the string length to maxLength characters. Writing the sanitized value back
+                // re-enters this closure with the clean value, which is the one we report.
+                let sanitized = String(newValue.removingAllCharactersNotInCharacterSet(.decimalDigits).prefix(Self.maxLength))
+                guard newValue == sanitized else {
+                    text.wrappedValue = sanitized
+                    return
                 }
                 actions.singleTextFieldDidChangeAtIndex(model.index)
             }

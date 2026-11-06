@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,6 @@ import UIKit
 /// In that case, the message is not available, making it impossible for the collection view to properly configure the message cell.
 /// We used to return `nil` in that case, which is a bad strategy since this crashes the entire app. Instead, we now return an `InvisibleCell` that is very likely
 /// to be deleted by the collection view soon after it is displayed.
-@available(iOS 14.0, *)
 final class InvisibleCell: UICollectionViewCell {
     
     static var registration: UICollectionView.CellRegistration<InvisibleCell, AnyObject> {
@@ -66,7 +65,6 @@ final class InvisibleCell: UICollectionViewCell {
 }
 
 
-@available(iOS 14.0, *)
 fileprivate struct InvisibleCellCustomContentConfiguration: UIContentConfiguration, Hashable {
     
     func makeContentView() -> UIView & UIContentView {
@@ -80,7 +78,6 @@ fileprivate struct InvisibleCellCustomContentConfiguration: UIContentConfigurati
 }
 
 
-@available(iOS 14.0, *)
 fileprivate final class InvisibleCellContentView: UIView, UIContentView {
     
     var configuration: UIContentConfiguration

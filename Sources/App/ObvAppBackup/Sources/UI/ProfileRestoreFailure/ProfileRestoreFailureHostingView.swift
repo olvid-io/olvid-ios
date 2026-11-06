@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -85,17 +85,17 @@ extension ProfileRestoreFailureHostingView: MFMailComposeViewControllerDelegate 
             guard let self else { return }
             await MainActor.run { [weak self] in
                 guard let self else { return }
-                controller.dismiss(animated: true) {
+                controller.dismiss(animated: true) { [weak self] in
                     if error != nil {
-                        Task { [weak self] in await self?.showFailure() }
+                        Task { await self?.showFailure() }
                     } else {
                         switch result {
                         case .cancelled:
                             return
                         case .saved, .sent:
-                            Task { [weak self] in await self?.showSuccess() }
+                            Task { await self?.showSuccess() }
                         case .failed:
-                            Task { [weak self] in await self?.showFailure() }
+                            Task { await self?.showFailure() }
                         @unknown default:
                             return
                         }

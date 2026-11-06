@@ -94,7 +94,7 @@ extension ObvListOfDeviceBackupProfiles.Profile {
         }
 
         init(ownedCryptoId: ObvCryptoId, displayedLetter: Character, showGreenShield: Bool) {
-            let colors = AppTheme.shared.identityColors(for: ownedCryptoId, using: .hue)
+            let colors = AppTheme.shared.identityColors(for: ownedCryptoId)
             self.colors = (colors.text, colors.background)
             self.displayedLetter = displayedLetter
             self.ownedCryptoId = ownedCryptoId

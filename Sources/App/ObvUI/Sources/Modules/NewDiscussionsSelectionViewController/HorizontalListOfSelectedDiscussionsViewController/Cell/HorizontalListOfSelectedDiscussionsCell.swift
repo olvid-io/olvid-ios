@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,6 @@ import ObvUIObvCircledInitials
 import ObvDesignSystem
 
 
-@available(iOS 16.0, *)
 extension HorizontalListOfSelectedDiscussionsViewController {
     
     public final class Cell: UICollectionViewCell {
@@ -58,7 +57,6 @@ extension HorizontalListOfSelectedDiscussionsViewController {
 }
 
 
-@available(iOS 16.0, *)
 private struct HorizontalListOfSelectedDiscussionsView: View {
     
     let viewModel: HorizontalListOfSelectedDiscussionsViewController.Cell.ViewModel
@@ -67,7 +65,7 @@ private struct HorizontalListOfSelectedDiscussionsView: View {
     var body: some View {
         HStack(alignment: .top) {
             if let config = viewModel.circledInitialsConfig {
-                CircledInitialsView(configuration: config, size: .medium, style: viewModel.style)
+                CircledInitialsView(configuration: config, size: .medium)
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .center) {
@@ -113,7 +111,6 @@ private struct HorizontalListOfSelectedDiscussionsView: View {
 
 
 
-@available(iOS 16.0, *)
 struct HorizontalListOfSelectedDiscussionsView_Previews: PreviewProvider {
     
     static let viewModel = HorizontalListOfSelectedDiscussionsViewController.Cell.ViewModel(
@@ -121,8 +118,7 @@ struct HorizontalListOfSelectedDiscussionsView_Previews: PreviewProvider {
         title: "A very long title that should spane the whole cell",
         subtitle: "Subtitle",
         subtitleLineTwo: "Subtitle line 2",
-        circledInitialsConfig: nil,
-        style: .hue)
+        circledInitialsConfig: nil)
     
     static var previews: some View {
         HorizontalListOfSelectedDiscussionsView(viewModel: Self.viewModel)

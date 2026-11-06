@@ -22,7 +22,7 @@ import UniformTypeIdentifiers
 import ObvSettings
 
 
-public struct FyleElementForFyleMessageJoinWithStatus: FyleElement {
+public struct FyleElementForFyleMessageJoinWithStatus: FyleElement, Sendable {
 
     public let fyleURL: URL
     public let fileName: String

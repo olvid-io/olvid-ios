@@ -47,10 +47,18 @@ extension FyleMessageJoinWithStatus {
         assert(joinObject.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
         if let sentJoin = joinObject as? SentFyleMessageJoinWithStatus {
             switch sentJoin.status {
-            case .uploadable, .complete, .downloadable, .cancelledByServer, .untransferred:
+            case .complete, .downloadable, .cancelledByServer, .untransferred:
                 // No need to perform an update of the progress in this case
                 return
-            case .uploading, .downloading:
+            case .uploadable, .uploading, .downloading:
+                // **`uploadable` is where an upload actually lives**, and leaving it out made these attributes dead for every attachment
+                // ever sent. Nothing in the app or the engine sets a locally sent join to `uploading`: it is created `uploadable` and
+                // goes to `complete`. So a guard admitting only `uploading` never admitted anything, and `fractionCompleted`,
+                // `estimatedTimeRemaining` and `throughput` were never written for a sent attachment.
+                //
+                // It went unnoticed because the legacy screen does not read them: it is handed the `ObvProgress` itself, which
+                // `setProgressTo(_:forJoinWithObjectID:)` advances *before* calling this — so its ring moved while these attributes stood
+                // still. Step 36 needed the attributes, a stream being fed by the object changing rather than by observing a `Progress`.
                 break
             }
         }

@@ -66,6 +66,8 @@ public enum ObvBackupNotification {
 		let name = Name.forInternalNotification(self)
 		let label = "Queue for posting \(name.rawValue) notification"
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		backgroundQueue.async {
 			notificationDelegate.post(name: name, userInfo: userInfo)
 		}
@@ -73,6 +75,8 @@ public enum ObvBackupNotification {
 
 	public static func observeBackupableManagerDatabaseContentChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.backupableManagerDatabaseContentChanged.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			block()
 		}

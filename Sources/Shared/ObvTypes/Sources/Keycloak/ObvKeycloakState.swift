@@ -70,6 +70,18 @@ public struct ObvKeycloakState: ObvErrorMaker {
               clientSecret: clientSecret)
     }
 
+    
+    /// The keys to verify what our keycloak server signs: the pinned `signatureVerificationKey` when there is one, the
+    /// `jwks` otherwise. The JWKS is replaced at every authentication, while the pinned key only changes with the user's
+    /// consent, so a key the user refused can never verify anything.
+    public var signatureVerificationKeyOrJWKS: ObvJWKSet {
+        if let signatureVerificationKey {
+            return ObvJWKSet(fromSingleObvJWK: signatureVerificationKey)
+        } else {
+            return jwks
+        }
+    }
+    
 }
 
 

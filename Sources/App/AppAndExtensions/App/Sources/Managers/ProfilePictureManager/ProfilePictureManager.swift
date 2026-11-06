@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -83,9 +83,27 @@ final class ProfilePictureManager {
             let photoURLsToDeleteFromDisk = photoURLsOnDisk.subtracting(photoURLsInDatabase)
             let photoURLsMissingFromDisk = photoURLsInDatabase.subtracting(photoURLsOnDisk)
 
+            // **Reported unconditionally, and before anything is deleted.** The twin of this sweep in `ObvIdentityManagerImplementation` carries the
+            // reasoning; the short of it is that this is the same shape as the inbox's orphan sweep, which subtracted a `Set<URL>` built by
+            // `appendingPathComponent` from one built by `contentsOfDirectory(at:)` — `/var/mobile/…` against `/private/var/mobile/…`, the same file and
+            // never an exact match — and deleted every live message directory on every launch for as long as nobody looked. Here the database side is
+            // `PersistedObvContactIdentity.customPhotoURL`, which appends to `ContainerURL.forCustomContactProfilePictures`, and the disk side is
+            // `contentsOfDirectory(at:)` through `resolvingSymlinksInPath()`.
+            //
+            // **This one can be broken without anybody noticing**, which is why it is worth a line of its own: it covers only the photos a reader sets by
+            // hand, so a developer with no custom contact photo never reaches the `assertionFailure` below whatever the comparison does.
+            // `bothNonEmptyAndDisjoint` is the derived value that **is** the bug — two sets naming the same photos cannot be disjoint.
+            let bothNonEmptyAndDisjoint = !photoURLsInDatabase.isEmpty && !photoURLsOnDisk.isEmpty && photoURLsInDatabase.isDisjoint(with: photoURLsOnDisk)
+            Self.logger.info("📁 Custom contact photos sweep: \(photoURLsInDatabase.count) in database, \(photoURLsOnDisk.count) on disk, \(photoURLsToDeleteFromDisk.count) to delete from disk, \(photoURLsMissingFromDisk.count) missing from disk, bothNonEmptyAndDisjoint=\(bothNonEmptyAndDisjoint ? "TRUE" : "false", privacy: .public)")
+            if !photoURLsToDeleteFromDisk.isEmpty || !photoURLsMissingFromDisk.isEmpty {
+                // One URL of each shape whenever the two sides disagree, which is the whole diagnosis in a single line.
+                Self.logger.info("📁 Custom contact photos sweep: a database URL reads \(photoURLsInDatabase.first?.path ?? "none", privacy: .public) and a disk URL reads \(photoURLsOnDisk.first?.path ?? "none", privacy: .public)")
+            }
+
             for photoURL in photoURLsToDeleteFromDisk {
                 do {
                     try FileManager.default.removeItem(at: photoURL)
+                    Self.logger.info("📁 Custom contact photos sweep: deleted \(photoURL.path, privacy: .public)")
                 } catch {
                     Self.logger.fault("Cannot delete unused photo: \(error.localizedDescription, privacy: .public)")
                     assertionFailure()

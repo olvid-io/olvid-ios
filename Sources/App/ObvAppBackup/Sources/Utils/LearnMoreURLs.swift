@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,13 +23,9 @@ import Foundation
 struct LearnMoreURLs {
     struct iCloudKeychain {
         static var url: URL? {
-            if #available(iOS 16, *) {
-                let languageCode = Locale.current.language.languageCode
-                if languageCode == .french {
-                    return URL(string: "https://support.apple.com/fr-fr/109016")
-                } else {
-                    return URL(string: "https://support.apple.com/en-us/109016")
-                }
+            let languageCode = Locale.current.language.languageCode
+            if languageCode == .french {
+                return URL(string: "https://support.apple.com/fr-fr/109016")
             } else {
                 return URL(string: "https://support.apple.com/en-us/109016")
             }

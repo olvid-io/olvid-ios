@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -238,7 +238,7 @@ public final class PersistedUserNotification: NSManagedObject {
     
     public static func createForReactionOnSentMessage(creator: Creator, requestIdentifier: String, obvMessage: ObvMessage, sentMessageReactedTo: ObvMessageAppIdentifier, reactor: ObvContactIdentifier, userNotificationCategory: ObvUserNotificationCategoryIdentifier, within context: NSManagedObjectContext) throws -> Self {
         assert(sentMessageReactedTo.isSent)
-        assert(userNotificationCategory == .newReaction)
+        assert(userNotificationCategory == .newReaction || userNotificationCategory == .newReactionWithHiddenContent)
         return try self.init(Kind: .reactionOnSentMessage,
                              creator: creator,
                              requestIdentifier: requestIdentifier,
@@ -294,7 +294,7 @@ extension PersistedUserNotification {
         enum Key: String {
             // Properties
             case messageUploadTimestampFromServer = "messageUploadTimestampFromServer"
-            case rawIsCreatedByNotificationExtension = "rawIsCreatedByNotificationExtension"
+            case rawCreator = "rawCreator"
             case rawKind = "rawKind"
             case rawMessageIdFromServer = "rawMessageIdFromServer"
             case rawObvDiscussionIdentifier = "rawObvDiscussionIdentifier"
@@ -317,6 +317,12 @@ extension PersistedUserNotification {
         static func withRequestIdentifier(requestIdentifier: String) -> NSPredicate {
             .init(Key.requestIdentifier, EqualToString: requestIdentifier)
         }
+        static func withRequestIdentifier(in requestIdentifiers: Set<String>) -> NSPredicate {
+            .init(Key.requestIdentifier, in: Array(requestIdentifiers))
+        }
+        static func withCreator(_ creator: Creator) -> NSPredicate {
+            .init(Key.rawCreator, EqualToInt: creator.rawValue)
+        }
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
             .init(Key.rawOwnedIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
@@ -329,8 +335,15 @@ extension PersistedUserNotification {
         static func withObvDiscussionIdentifier(_ obvDiscussionIdentifier: ObvDiscussionIdentifier) -> NSPredicate {
             .init(Key.rawObvDiscussionIdentifier, EqualToString: obvDiscussionIdentifier.description)
         }
+        static func withObvDiscussionIdentifier(in obvDiscussionIdentifiers: Set<ObvDiscussionIdentifier>) -> NSPredicate {
+            .init(Key.rawObvDiscussionIdentifier, in: obvDiscussionIdentifiers.map(\.description))
+        }
         static func withObvMessageAppIdentifier(_ obvMessageAppIdentifier: ObvMessageAppIdentifier) -> NSPredicate {
             .init(Key.rawObvMessageAppIdentifier, EqualToString: obvMessageAppIdentifier.description)
+        }
+        static func withObvMessageAppIdentifier(notIn obvMessageAppIdentifiers: Set<ObvMessageAppIdentifier>) -> NSPredicate {
+            let inPredicate = NSPredicate(Key.rawObvMessageAppIdentifier, in: obvMessageAppIdentifiers.map(\.description))
+            return NSCompoundPredicate(notPredicateWithSubpredicate: inPredicate)
         }
         static func withStatus(_ status: Status) -> NSPredicate {
             .init(Key.rawStatus, EqualToInt: status.rawValue)
@@ -355,6 +368,12 @@ extension PersistedUserNotification {
         }
         static func withMessageUploadTimestampFromServerEarlierThan(_ date: Date) -> NSPredicate {
             return .init(Key.messageUploadTimestampFromServer, earlierThan: date)
+        }
+        static func withMessageUploadTimestampFromServerLaterThan(_ date: Date) -> NSPredicate {
+            return .init(Key.messageUploadTimestampFromServer, laterThan: date)
+        }
+        static func withMessageUploadTimestampFromServerEarlierOrAt(_ date: Date) -> NSPredicate {
+            return .init(Key.messageUploadTimestampFromServer, earlierOrAt: date)
         }
     }
     
@@ -425,6 +444,116 @@ extension PersistedUserNotification {
     }
     
     
+    /// Returns the most recent pending received-message notifications still relevant to Siri:
+    /// `kind == .receivedMessage`, `status == .shown`, `userNotificationCategory == .newMessage`
+    /// (rows for `.newMessageWithLimitedVisibility` and `.newMessageWithHiddenContent` are excluded,
+    /// so Siri never speaks limited-visibility or hidden content), and whose embedded `PersistedObvMessage`
+    /// has `wasPersistedInApp == false` (so the app DB doesn't already carry the message).
+    ///
+    /// `discussionIdentifiers` (when non-nil) restricts to discussions whose identifier description matches.
+    /// `excludingMessageAppIdentifiers` strips rows whose `messageAppIdentifier` already appeared in the
+    /// app-DB result, as a race safety net on top of the `wasPersistedInApp` filter.
+    /// `startDate`/`endDate` clamp `messageUploadTimestampFromServer` inclusively.
+    /// Results are ordered by `messageUploadTimestampFromServer` descending and capped at `fetchLimit`.
+    public static func getPendingReceivedMessagesForIntents(
+        discussionIdentifiers: Set<ObvDiscussionIdentifier>?,
+        excludingMessageAppIdentifiers: Set<ObvMessageAppIdentifier>,
+        startDate: Date?,
+        endDate: Date?,
+        fetchLimit: Int,
+        within context: NSManagedObjectContext
+    ) throws -> [(messageAppIdentifier: ObvMessageAppIdentifier, discussionIdentifier: ObvDiscussionIdentifier, obvMessage: ObvMessage, obvMessageUpdate: ObvMessage?)] {
+        let request: NSFetchRequest<PersistedUserNotification> = Self.fetchRequest()
+        var subPredicates: [NSPredicate] = [
+            Predicate.forKind(.receivedMessage),
+            Predicate.withStatus(.shown),
+            Predicate.withUserNotificationCategory(.newMessage),
+            Predicate.nonNilObvMessage,
+            Predicate.obvMessageNotYetPersistedByApp,
+        ]
+        if let discussionIdentifiers, !discussionIdentifiers.isEmpty {
+            subPredicates.append(Predicate.withObvDiscussionIdentifier(in: discussionIdentifiers))
+        }
+        if !excludingMessageAppIdentifiers.isEmpty {
+            subPredicates.append(Predicate.withObvMessageAppIdentifier(notIn: excludingMessageAppIdentifiers))
+        }
+        if let startDate {
+            subPredicates.append(Predicate.withMessageUploadTimestampFromServerLaterThan(startDate))
+        }
+        if let endDate {
+            subPredicates.append(Predicate.withMessageUploadTimestampFromServerEarlierOrAt(endDate))
+        }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subPredicates)
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: false)]
+        request.fetchLimit = fetchLimit
+        let items = try context.fetch(request)
+        return items.compactMap { item in
+            guard let rawObvMessageAppIdentifier = item.rawObvMessageAppIdentifier,
+                  let messageAppIdentifier = ObvMessageAppIdentifier(rawObvMessageAppIdentifier),
+                  let rawObvDiscussionIdentifier = item.rawObvDiscussionIdentifier,
+                  let discussionIdentifier = ObvDiscussionIdentifier(rawObvDiscussionIdentifier),
+                  let obvMessage = try? item.rawObvMessage?.obvMessage else {
+                return nil
+            }
+            return (messageAppIdentifier, discussionIdentifier, obvMessage, try? item.rawObvMessageUpdate?.obvMessage)
+        }
+    }
+
+
+    /// Looks up a pending received-message notification by its `ObvMessageAppIdentifier`. Returns the
+    /// decoded discussion identifier and the embedded original `ObvMessage` (plus the latest update
+    /// payload when one exists), or `nil` when no row matches. Filters on `kind == .receivedMessage`
+    /// and `status == .shown` so consumed/removed rows aren't surfaced. Used by the Intents extension
+    /// when Siri marks a message as read but the app database doesn't have a `PersistedMessageReceived`
+    /// for it yet — the embedded payload is what we need to extract the return-receipt element.
+    public static func getPendingReceivedMessageForIntents(
+        messageAppIdentifier: ObvMessageAppIdentifier,
+        within context: NSManagedObjectContext
+    ) throws -> (discussionIdentifier: ObvDiscussionIdentifier, obvMessage: ObvMessage, obvMessageUpdate: ObvMessage?)? {
+        let request: NSFetchRequest<PersistedUserNotification> = Self.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.forKind(.receivedMessage),
+            Predicate.withStatus(.shown),
+            Predicate.withObvMessageAppIdentifier(messageAppIdentifier),
+            Predicate.nonNilObvMessage,
+        ])
+        request.fetchLimit = 1
+        guard let item = try context.fetch(request).first else { return nil }
+        guard let rawObvDiscussionIdentifier = item.rawObvDiscussionIdentifier,
+              let discussionIdentifier = ObvDiscussionIdentifier(rawObvDiscussionIdentifier),
+              let obvMessage = try item.rawObvMessage?.obvMessage else {
+            return nil
+        }
+        return (discussionIdentifier, obvMessage, try? item.rawObvMessageUpdate?.obvMessage)
+    }
+
+
+    /// Maps notification request identifiers (`UNNotificationRequest.identifier` — the same strings the
+    /// system passes in `INSearchForMessagesIntent.notificationIdentifiers`) to the app message
+    /// identifiers of the received-message notifications they represent.
+    ///
+    /// Restricts to `kind == .receivedMessage` and `userNotificationCategory == .newMessage`, mirroring
+    /// ``getPendingReceivedMessagesForIntents(discussionIdentifiers:excludingMessageAppIdentifiers:startDate:endDate:fetchLimit:within:)``
+    /// so limited-visibility and hidden-content notifications are never surfaced to Siri. Unlike the
+    /// pending fetch it deliberately does **not** filter on `wasPersistedInApp` or `status`: Siri
+    /// references a specific notification it is reading, so the row must resolve whether or not the
+    /// message has since been drained into the app database or marked as read.
+    public static func getMessageAppIdentifiers(forRequestIdentifiers requestIdentifiers: Set<String>, within context: NSManagedObjectContext) throws -> [ObvMessageAppIdentifier] {
+        guard !requestIdentifiers.isEmpty else { return [] }
+        let request: NSFetchRequest<PersistedUserNotification> = Self.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.forKind(.receivedMessage),
+            Predicate.withUserNotificationCategory(.newMessage),
+            Predicate.withRequestIdentifier(in: requestIdentifiers),
+        ])
+        let items = try context.fetch(request)
+        return items.compactMap { item in
+            guard let rawObvMessageAppIdentifier = item.rawObvMessageAppIdentifier else { return nil }
+            return ObvMessageAppIdentifier(rawObvMessageAppIdentifier)
+        }
+    }
+
+
     public static func updateStatus(to newStatus: Status, requestIdentifier: String, within context: NSManagedObjectContext) throws {
         guard let persistedUserNotification = try Self.withRequestIdentifier(
             requestIdentifier: requestIdentifier,
@@ -435,6 +564,23 @@ extension PersistedUserNotification {
     }
     
     
+    /// Returns `true` when the Notification Service Extension already created a `PersistedUserNotification`
+    /// for this `(ownedCryptoId, messageIdFromServer)` pair — which means it already posted the `.delivered`
+    /// return receipt at that time. The caller uses this to suppress a duplicate receipt on engine re-fetch.
+    public static func nseHasPostedDeliveredReceipt(ownedCryptoId: ObvCryptoId, messageIdFromServer: UID, within context: NSManagedObjectContext) throws -> Bool {
+        let request: NSFetchRequest<PersistedUserNotification> = Self.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.forKind(.receivedMessage),
+            Predicate.withCreator(.notificationExtension),
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+            Predicate.withMessageIdFromServer(messageIdFromServer),
+        ])
+        request.resultType = .countResultType
+        request.fetchLimit = 1
+        return try context.count(for: request) > 0
+    }
+
+
     public static func exists(requestIdentifier: String, obvMessage: ObvMessage, within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<PersistedUserNotification> = Self.fetchRequest()
         request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [

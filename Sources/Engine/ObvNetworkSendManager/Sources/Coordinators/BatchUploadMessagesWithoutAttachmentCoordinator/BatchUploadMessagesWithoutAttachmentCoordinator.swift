@@ -90,7 +90,7 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
         }
         
         do {
-            try await internalBatchUploadMessagesWithoutAttachment(serverURL: serverURL, isFirstRequest: true, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
+            try await internalBatchUploadMessagesWithoutAttachment(serverURL: serverURL, afterWaitingFor: nil, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
             Self.logger.debug("The call to internalBatchUploadMessagesWithoutAttachment did succeed")
             ObvDisplayableLogs.shared.log("⬆️[BatchUploadMessagesWithoutAttachmentCoordinator] The call to internalBatchUploadMessagesWithoutAttachment did succeed")
             failedAttemptsCounterManager.reset(counter: .batchUploadMessages(serverURL: serverURL))
@@ -129,30 +129,29 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
     }
     
     
-    private func internalBatchUploadMessagesWithoutAttachment(serverURL: URL, isFirstRequest: Bool, fetchLimit: Int, maxNumberOfHeaders: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) async throws {
+    /// Runs an upload task for this server, waiting first for the one already running, if any.
+    ///
+    /// `alreadyAwaited` is the task this call has already waited for, and is nil on the way in. It is what tells a task that will do our
+    /// work from one that has already finished: when a task ends, every caller awaiting it is resumed in an order the actor does not fix,
+    /// so the creator's `defer` may not have cleared the entry yet. A second caller finding that entry would await a finished task and
+    /// return having uploaded nothing, leaving its own messages for whatever calls in next. The fetch manager's
+    /// `BatchDeleteAndMarkAsListedCoordinator` is the twin of this and was written the same way, for the same reason.
+    private func internalBatchUploadMessagesWithoutAttachment(serverURL: URL, afterWaitingFor alreadyAwaited: Task<Void, Error>?, fetchLimit: Int, maxNumberOfHeaders: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) async throws {
         
-        if let currentUploadTask = currentUploadTaskForServerURL[serverURL] {
+        if let currentUploadTask = currentUploadTaskForServerURL[serverURL], currentUploadTask != alreadyAwaited {
             
-            // An upload task already exists. If this is our first request, we await the end of this upload task and perform a recursive call. During the second call:
-            // - If there is no upload task, we will create one and await for it
-            // - If there is one, it's a new one, created after our first call => awaiting for it is sufficient
+            // Somebody else's task is running. Wait for it, then ask again rather than assume it did our work: whether it fetched after
+            // our messages were committed is not something it can be asked.
             
-            if isFirstRequest {
-                
-                defer { if self.currentUploadTaskForServerURL[serverURL] == currentUploadTask { self.currentUploadTaskForServerURL.removeValue(forKey: serverURL) } }
-                try await currentUploadTask.value
-                try await internalBatchUploadMessagesWithoutAttachment(serverURL: serverURL, isFirstRequest: false, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
-                
-            } else {
-                
-                defer { if self.currentUploadTaskForServerURL[serverURL] == currentUploadTask { self.currentUploadTaskForServerURL.removeValue(forKey: serverURL) } }
-                try await currentUploadTask.value
-
-            }
-
+            defer { if self.currentUploadTaskForServerURL[serverURL] == currentUploadTask { self.currentUploadTaskForServerURL.removeValue(forKey: serverURL) } }
+            
+            try await currentUploadTask.value
+            try await internalBatchUploadMessagesWithoutAttachment(serverURL: serverURL, afterWaitingFor: currentUploadTask, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
+            
         } else {
             
-            // There is no current upload task. We create one and execute it now.
+            // Either no task is running, or the only one registered is the one we have just waited for. Both need a task of our own.
+            // Registering it replaces a stale entry, and its owner then clears nothing, every `defer` here matching on identity.
             
             let localUploadTask = createTaskForUploadingBatchOfMessagesWithoutAttachment(serverURL: serverURL, fetchLimit: fetchLimit, maxNumberOfHeaders: maxNumberOfHeaders, delegateManager: delegateManager, flowId: flowId)
             

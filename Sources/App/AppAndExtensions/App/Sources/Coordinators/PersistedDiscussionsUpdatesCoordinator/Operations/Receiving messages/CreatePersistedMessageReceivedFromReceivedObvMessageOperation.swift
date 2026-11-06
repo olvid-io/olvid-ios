@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,12 +36,16 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
     private let messageJSON: MessageJSON
     private let returnReceiptJSON: ReturnReceiptJSON?
     private let source: ObvMessageSource
+    private let pendingSiriReadIntentDate: Date?
+    private let nseAlreadyPostedDeliveredReceipt: Bool
 
-    init(obvMessage: ObvMessage, messageJSON: MessageJSON, source: ObvMessageSource, returnReceiptJSON: ReturnReceiptJSON?) {
+    init(obvMessage: ObvMessage, messageJSON: MessageJSON, source: ObvMessageSource, returnReceiptJSON: ReturnReceiptJSON?, pendingSiriReadIntentDate: Date?, nseAlreadyPostedDeliveredReceipt: Bool) {
         self.obvMessage = obvMessage
         self.messageJSON = messageJSON
         self.returnReceiptJSON = returnReceiptJSON
         self.source = source
+        self.pendingSiriReadIntentDate = pendingSiriReadIntentDate
+        self.nseAlreadyPostedDeliveredReceipt = nseAlreadyPostedDeliveredReceipt
         super.init()
     }
 
@@ -74,7 +78,33 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
 
     
     private(set) var messageReceivedPermanentId: MessageReceivedPermanentID?
-    
+
+    /// The `.delivered` return receipt produced when this operation inserted a new
+    /// `PersistedMessageReceived`. `nil` when no insert happened (existing-row update or early
+    /// return), when the source was `.userNotification` (the NSE already posted the receipt), when
+    /// the sender's payload did not carry a receipt element, or when the sender's devices were not
+    /// known to this device. The coordinator running this operation is responsible for forwarding
+    /// the receipt to the engine after the composed save commits.
+    private(set) var deliveredReceiptToSend: ObvReturnReceiptToSend?
+
+    /// The `.read` return receipt produced when the inserted message ended up in `.read` status
+    /// at insert. With the current model logic this is always `nil`: both branches that
+    /// transition to `.read` at insert (the Siri-mark store consultation and the
+    /// `serverTimestampWhenDiscussionReadOnAnotherOwnedDevice` path) suppress emission via
+    /// `markReadReceiptAsNotToBeSent()` because the read-receipt responsibility belongs to
+    /// another actor — the Intents extension at Siri mark time, and the other owned device
+    /// that initiated the cross-device "discussion read" sync, respectively. The field is
+    /// surfaced for API symmetry with ``deliveredReceiptToSend`` and to automatically pick up
+    /// any future "mark as read at insert" path that legitimately needs the app to emit. The
+    /// coordinator forwards a non-`nil` receipt to the engine.
+    private(set) var readReceiptToSend: ObvReturnReceiptToSend?
+
+    /// Per-attachment `.delivered` receipts produced at insert time for joins whose fyle was
+    /// already on disk (no download needed). The normal attachment download path
+    /// (`UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation`) is never invoked for
+    /// such joins, so their receipts must be captured here and forwarded by the coordinator.
+    private(set) var attachmentDeliveredReceiptsToSend: [ObvReturnReceiptToSend] = []
+
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         let debugDescription = obvMessage.messageIdentifierFromEngine.debugDescription
@@ -98,10 +128,15 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                     obvMessage: obvMessage,
                     messageJSON: messageJSON,
                     returnReceiptJSON: returnReceiptJSON,
-                    source: source)
-                
+                    source: source,
+                    pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+                    nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt)
+
                 self.messageReceivedPermanentId = requestResult.messageReceivedPermanentId
-                return self.result = .messageCreated(discussionPermanentID: requestResult.discussionPermanentID)
+                self.deliveredReceiptToSend = requestResult.deliveredReceiptToSend
+                self.readReceiptToSend = requestResult.readReceiptToSend
+                self.attachmentDeliveredReceiptsToSend = requestResult.attachmentDeliveredReceiptsToSend
+                self.result = .messageCreated(discussionPermanentID: requestResult.discussionPermanentID)
 
             } catch {
                 
@@ -195,7 +230,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                         return result = .messageIsPriorToLastRemoteDeletionRequest
 
                     default:
-                        assertionFailure("We should make sure the type thrown doesn't deserve a special treatment, potentially allowing the message to wait like it does for the, e.g., couldNotFindGroupV2InDatabase error")
+//                        assertionFailure("We should make sure the type thrown doesn't deserve a special treatment, potentially allowing the message to wait like it does for the, e.g., couldNotFindGroupV2InDatabase error")
                         return cancel(withReason: .obvUICoreDataError(error: error))
 
                     }

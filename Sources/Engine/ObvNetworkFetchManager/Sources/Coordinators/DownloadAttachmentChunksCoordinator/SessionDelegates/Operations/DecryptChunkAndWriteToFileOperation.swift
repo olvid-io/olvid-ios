@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import OlvidUtils
 import ObvCrypto
 import ObvMetaManager
@@ -55,6 +55,10 @@ final class DecryptChunkAndWriteToFileOperation: OperationWithSpecificReasonForC
             let chunk = try Chunk.decrypt(encryptedChunkAtFileHandle: fh, with: decryptionKey)
             try fh.close()
             
+            guard chunk.index == chunkNumber else {
+                return cancel(withReason: .unexpectedChunkIndex)
+            }
+            
             guard chunk.data.count == cleartextChunkLengths[chunkNumber] else { 
                 assertionFailure()
                 return cancel(withReason: .unexpectedClearTextChunkLength)
@@ -76,6 +80,7 @@ final class DecryptChunkAndWriteToFileOperation: OperationWithSpecificReasonForC
         
         case unexpectedChunkNumber
         case unexpectedClearTextChunkLength
+        case unexpectedChunkIndex
         case error(error: Error)
 
         public var logType: OSLogType {
@@ -88,6 +93,8 @@ final class DecryptChunkAndWriteToFileOperation: OperationWithSpecificReasonForC
                 return "Unexpected chunk number"
             case .unexpectedClearTextChunkLength:
                 return "Unexpected cleartext chunk length"
+            case .unexpectedChunkIndex:
+                return "The decrypted chunk does not carry the expected chunk number"
             case .error(error: let error):
                 return "DecryptChunkAndWriteToFileOperation error: \(error.localizedDescription)"
             }

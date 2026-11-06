@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,19 @@ public final class PersistedDiscussionLocalConfiguration: NSManagedObject {
     // MARK: Attributes
 
     @NSManaged public private(set) var defaultEmoji: String?
+
+    /// What a **double tap** on a message of this discussion reacts with, overriding `ObvMessengerSettings.Emoji.defaultDoubleTapEmoji`.
+    ///
+    /// The twin of ``defaultEmoji`` in every respect but which gesture it answers, and it is deliberately a second attribute rather than a reuse of that one:
+    /// the double tap used to send whatever the button beside the composition bar sends, and the two are now meant to differ.
+    ///
+    /// **Carried to the user's other devices**, by an `ObvSyncAtom` when it changes and in the profile's sync snapshot when a device joins, where it travels as
+    /// `preferred_reaction`. Changing it marks the previous backed-up profile snapshot obsolete, as changing `doSendReadReceipt` does, so that a device added
+    /// afterwards is given the choice rather than a snapshot taken before it.
+    ///
+    /// ``defaultEmoji`` beside it does none of this: the emoji behind the composition bar's button exists on no other platform, so there is nowhere to send it.
+    @NSManaged public private(set) var doubleTapEmoji: String?
+
     @NSManaged public private(set) var muteNotificationsEndDate: Date?
     @NSManaged private var rawAutoRead: NSNumber?
     @NSManaged private var rawCountBasedRetention: NSNumber?
@@ -203,6 +216,7 @@ private enum PersistedDiscussionLocalConfigurationValueType: CaseIterable, Hasha
     case timeBasedRetention
     case muteNotificationsEndDate
     case defaultEmoji
+    case doubleTapEmoji
     case notificationSound
     case performInteractionDonation
 }
@@ -217,9 +231,13 @@ public enum PersistedDiscussionLocalConfigurationValue: Sendable {
     case timeBasedRetention(_ timeBasedRetention: DurationOptionAltOverride)
     case muteNotificationsEndDate(_ muteNotificationsEndDate: Date?)
     case defaultEmoji(_ emoji: String?)
+
+    /// What a double tap on a message of this discussion reacts with — the twin of ``defaultEmoji`` above.
+    case doubleTapEmoji(_ emoji: String?)
+
     case notificationSound(_ notificationSound: NotificationSound?)
     case performInteractionDonation(_ performInteractionDonation: Bool?)
-    
+
     fileprivate var type: PersistedDiscussionLocalConfigurationValueType {
         switch self {
         case .autoRead: return .autoRead
@@ -231,6 +249,7 @@ public enum PersistedDiscussionLocalConfigurationValue: Sendable {
         case .timeBasedRetention: return .timeBasedRetention
         case .muteNotificationsEndDate: return .muteNotificationsEndDate
         case .defaultEmoji: return .defaultEmoji
+        case .doubleTapEmoji: return .doubleTapEmoji
         case .notificationSound: return .notificationSound
         case .performInteractionDonation: return .performInteractionDonation
         }
@@ -323,6 +342,11 @@ extension PersistedDiscussionLocalConfiguration {
                 self.defaultEmoji = emoji
                 updatedLocalConfigurationValueTypes.insert(.defaultEmoji)
             }
+        case .doubleTapEmoji(emoji: let emoji):
+            if self.doubleTapEmoji != emoji {
+                self.doubleTapEmoji = emoji
+                updatedLocalConfigurationValueTypes.insert(.doubleTapEmoji)
+            }
         case .notificationSound(let notificationSound):
             if self.notificationSound != notificationSound {
                 self.notificationSound = notificationSound
@@ -368,6 +392,7 @@ extension PersistedDiscussionLocalConfiguration {
     struct Predicate {
         enum Key: String {
             case defaultEmoji = "defaultEmoji"
+            case doubleTapEmoji = "doubleTapEmoji"
             case muteNotificationsEndDate = "muteNotificationsEndDate"
             case rawAutoRead = "rawAutoRead"
             case rawCountBasedRetention = "rawCountBasedRetention"
@@ -521,6 +546,8 @@ extension PersistedDiscussionLocalConfiguration {
                     value = .muteNotificationsEndDate(self.muteNotificationsEndDate) // ok
                 case .defaultEmoji:
                     value = .defaultEmoji(self.defaultEmoji) // ok
+                case .doubleTapEmoji:
+                    value = .doubleTapEmoji(self.doubleTapEmoji) // ok
                 case .notificationSound:
                     value = .notificationSound(self.notificationSound) // ok
                 case .performInteractionDonation:
@@ -554,7 +581,13 @@ extension PersistedDiscussionLocalConfiguration {
         // See `PersistedObvOwnedIdentity` for a list of entities that might post a similar notification.
         
         if !isDeleted && !isInserted && !changedKeys.isEmpty {
-            if changedKeys.contains(Predicate.Key.rawDoSendReadReceipt.rawValue) {
+            // Both are in the snapshot and both are a choice the reader made and expects to keep. `muteNotificationsEndDate` is in the snapshot too and is
+            // deliberately absent here: it expires on its own, and marking every profile stale as mutes lapse would be churn for nothing.
+            let keysWorthANewSnapshot: Set<String> = [
+                Predicate.Key.rawDoSendReadReceipt.rawValue,
+                Predicate.Key.doubleTapEmoji.rawValue,
+            ]
+            if !changedKeys.isDisjoint(with: keysWorthANewSnapshot) {
                 if let ownedCryptoId = self.discussion?.ownedIdentity?.cryptoId {
                     Task {
                         await PersistedDiscussionLocalConfiguration.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ownedCryptoId)
@@ -584,7 +617,7 @@ extension PersistedDiscussionLocalConfiguration {
 extension PersistedDiscussionLocalConfiguration {
     
     var syncSnapshotNode: PersistedDiscussionLocalConfigurationSyncSnapshotItem {
-        .init(doSendReadReceipt: doSendReadReceipt, muteNotificationsEndDate: muteNotificationsEndDate)
+        .init(doSendReadReceipt: doSendReadReceipt, muteNotificationsEndDate: muteNotificationsEndDate, preferredReaction: doubleTapEmoji)
     }
     
 }
@@ -595,8 +628,9 @@ struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable 
     private let doSendReadReceipt: Bool?
     private let isMuted: Bool?
     private let muteEndDate: Date?
+    private let preferredReaction: String?
     
-    init(doSendReadReceipt: Bool?, muteNotificationsEndDate: Date?) {
+    init(doSendReadReceipt: Bool?, muteNotificationsEndDate: Date?, preferredReaction: String?) {
         self.doSendReadReceipt = doSendReadReceipt
         if let muteNotificationsEndDate {
             self.isMuted = true
@@ -609,12 +643,14 @@ struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable 
             self.isMuted = false
             self.muteEndDate = nil
         }
+        self.preferredReaction = preferredReaction
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable, Codable {
         case doSendReadReceipt = "send_read_receipt"
         case isMuted = "mute"
         case muteEndDate = "mute_timestamp"
+        case preferredReaction = "preferred_reaction"
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -624,6 +660,7 @@ struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable 
             try container.encodeIfPresent(self.isMuted, forKey: .isMuted)
             try container.encodeIfPresent(self.muteEndDate?.timeIntervalSince1970.toMilliseconds, forKey: .muteEndDate)
         }
+        try container.encodeIfPresent(self.preferredReaction, forKey: .preferredReaction)
     }
     
     init(from decoder: any Decoder) throws {
@@ -641,7 +678,7 @@ struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable 
             self.isMuted = false
             self.muteEndDate = nil
         }
-        
+        self.preferredReaction = try container.decodeIfPresent(String.self, forKey: .preferredReaction)
     }
     
     func useToUpdate(_ configuration: PersistedDiscussionLocalConfiguration) {
@@ -651,6 +688,7 @@ struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable 
         } else {
             configuration.update(with: .muteNotificationsEndDate(nil))
         }
+        configuration.update(with: .doubleTapEmoji(preferredReaction))
     }
     
 }

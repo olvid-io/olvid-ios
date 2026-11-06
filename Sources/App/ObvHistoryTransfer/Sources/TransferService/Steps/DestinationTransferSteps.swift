@@ -29,6 +29,9 @@ import ObvAppCoreConstants
 public protocol DestinationTransferStepsDataSource: AnyObject, Sendable {
     func filterKnownAndCompleteFyles(_ actor: DestinationTransferSteps, sha256s: [Data]) async throws -> [Data]
     func filterKnownMessages(_ actor: DestinationTransferSteps, discussionIdentifier: ObvDiscussionIdentifier, messagesAvailableOnSource: [ObvMessageAppIdentifier]) async throws -> [ObvMessageAppIdentifier]
+    /// Returns the subset of `sha256s` that some message on this destination device still awaits (a join references the fyle but its bytes are not on disk).
+    /// Used at the end of the attachment phase to decide whether an expected-but-not-yet-requested attachment should be requested or declined.
+    func filterFylesStillAwaitedByThisDestination(_ actor: DestinationTransferSteps, sha256s: Set<Data>) async throws -> Set<Data>
 }
 
 
@@ -199,6 +202,8 @@ public actor DestinationTransferSteps {
                     return !sha256AvailableOnThisDestination
                 }
                 
+                Self.logger.info("📰 The source advertises \(sha256sAvailableOnSource.count) fyles; \(knownSha256.count) are already complete on this destination; we expect \(expectedSha256.count) fyles (\(expectedSha256.values.reduce(0, +)) bytes)")
+
                 let messageToSend = DstExpectedSha256(sha256s: expectedSha256)
                 try await transferTransportDelegate.send(dstExpectedSha256: messageToSend)
                 
@@ -246,6 +251,7 @@ public actor DestinationTransferSteps {
                 var allReceivedAndFailedFilesTasks = [Task<(receivedAndSavedAttachmentSha256s: [Data], failedAttachmentSha256s: [Data]), Error>]()
                 var allNotToBeRequestedFilesTasks = [Task<Void, any Error>]()
                 var alreadyRequestedSha256 = Set<Data>() // Allows to avoid requesting the same sha256 twice if present in two distinct message
+                var allSha256sDeclinedToSource = Set<Data>() // Expected sha256s we ended up declining (DstDoNotRequestSha256): they will never be received
                 for try await srcMessages in streamOfSrcMessages {
                     missingMessageCount += srcMessages.missingMessageCount
                     let suggestedDiscussionTitle = receivedSrcDiscussionTitles[srcMessages.discussionIdentifier]
@@ -275,12 +281,19 @@ public actor DestinationTransferSteps {
                     do {
                         let sha256NotYetRequested = sha256ToRequestToSource.filter({ !alreadyRequestedSha256.contains($0.key) })
                         alreadyRequestedSha256.formUnion(sha256NotYetRequested.map(\.key))
+                        if !sha256NotYetRequested.isEmpty {
+                            Self.logger.info("📰 The messages of this batch require \(sha256NotYetRequested.count) attachments that we will request to the source")
+                        }
                         let task = self.requestAttachmentsToSourceTask(sha256s: sha256NotYetRequested, transferTransportDelegate: transferTransportDelegate, actions: actions)
                         allReceivedAndFailedFilesTasks.append(task)
                     }
                     do {
                         let sha256NotYetCommunicated = sha256ToIndicateAsNotRequiredToSource.filter({ !alreadyRequestedSha256.contains($0) })
                         alreadyRequestedSha256.formUnion(sha256NotYetCommunicated)
+                        allSha256sDeclinedToSource.formUnion(sha256NotYetCommunicated)
+                        if !sha256NotYetCommunicated.isEmpty {
+                            Self.logger.info("📰 Declining \(sha256NotYetCommunicated.count) expected attachments that no stored message of this batch requires (DstDoNotRequestSha256)")
+                        }
                         let task = self.indicateAttachmentNotRequiredToSourceTask(sha256s: sha256NotYetCommunicated, transferTransportDelegate: transferTransportDelegate)
                         allNotToBeRequestedFilesTasks.append(task)
                     }
@@ -288,20 +301,26 @@ public actor DestinationTransferSteps {
                 }
                 
                 Self.logger.info("📰 Did exit the stream of messages from the source")
-                
+
                 // Wait until all the attachments tasks are done
-                
+
+                var totalReceivedAttachmentCount = 0
+                var totalFailedAttachmentCount = 0
+
                 for task in allReceivedAndFailedFilesTasks {
 
                     assert(self.currentStepSubTask == nil)
                     self.currentStepSubTask = task
                     let (receivedAndSavedAttachmentSha256s, failedAttachmentSha256s) = try await task.value
                     self.currentStepSubTask = nil
-                    
+
+                    totalReceivedAttachmentCount += receivedAndSavedAttachmentSha256s.count
+                    totalFailedAttachmentCount += failedAttachmentSha256s.count
+
                     await self.progressReportingHelper.receivingAttachmentsInProgress(
                         receivedAndSavedAttachmentSha256s: receivedAndSavedAttachmentSha256s,
                         failedAttachmentSha256s: failedAttachmentSha256s)
-                    
+
                 }
                 for task in allNotToBeRequestedFilesTasks {
                     try await task.value
@@ -309,21 +328,49 @@ public actor DestinationTransferSteps {
                 
                 // We might still have attachments to request to the source. This happens, e.g., in the case the source has a message with an attachment, and the destination has the same message but with a "still to be transferred" attachment.
                 // In this case, the message was not transferred (as it was already known to the destination), but the attachment still needs to be requested.
-                
+                //
+                // But not all of the remaining attachments are necessarily awaited anymore: e.g., the user may have deleted the photo from the discussion's gallery, which wipes the
+                // join but keeps the message. The message is known (not transferred), so no decline was computed for the photo, yet requesting it would recreate an orphaned fyle
+                // that no message references. We therefore only request the attachments some message still awaits, and decline (DstDoNotRequestSha256) the others.
+
                 do {
-                    let sha256NotYetRequested = expectedSha256.filter({ !alreadyRequestedSha256.contains($0.key) })
+                    let sha256NotYetHandled = expectedSha256.filter({ !alreadyRequestedSha256.contains($0.key) })
+
+                    let stillAwaited = try await dataSource.filterFylesStillAwaitedByThisDestination(self, sha256s: Set(sha256NotYetHandled.keys))
+                    let sha256NotYetRequested = sha256NotYetHandled.filter({ stillAwaited.contains($0.key) })
+                    let sha256ToDecline = Set(sha256NotYetHandled.keys).subtracting(stillAwaited)
+
+                    Self.logger.info("📰 Among the \(sha256NotYetHandled.count) expected attachments neither requested nor declined during the message phase, \(sha256NotYetRequested.count) are still awaited by a message (we request them) and \(sha256ToDecline.count) are no longer awaited (we decline them)")
+
+                    if !sha256ToDecline.isEmpty {
+                        allSha256sDeclinedToSource.formUnion(sha256ToDecline)
+                        let task = self.indicateAttachmentNotRequiredToSourceTask(sha256s: sha256ToDecline, transferTransportDelegate: transferTransportDelegate)
+                        try await task.value
+                    }
+
                     let task = self.requestAttachmentsToSourceTask(sha256s: sha256NotYetRequested, transferTransportDelegate: transferTransportDelegate, actions: actions)
-                    
+
                     assert(self.currentStepSubTask == nil)
                     self.currentStepSubTask = task
                     let (receivedAndSavedAttachmentSha256s, failedAttachmentSha256s) = try await task.value
                     self.currentStepSubTask = nil
 
+                    totalReceivedAttachmentCount += receivedAndSavedAttachmentSha256s.count
+                    totalFailedAttachmentCount += failedAttachmentSha256s.count
+
                     await self.progressReportingHelper.receivingAttachmentsInProgress(
                         receivedAndSavedAttachmentSha256s: receivedAndSavedAttachmentSha256s,
                         failedAttachmentSha256s: failedAttachmentSha256s)
                 }
-                
+
+                Self.logger.info("📰 Attachment phase done on this destination: \(totalReceivedAttachmentCount) received and stored, \(totalFailedAttachmentCount) failed, \(allSha256sDeclinedToSource.count) declined, out of \(expectedSha256.count) expected")
+
+                // Every expected attachment was either requested to the source or declined (DstDoNotRequestSha256),
+                // e.g. because no stored message ended up requiring it. Declined attachments will never be received:
+                // record them as skipped so the attachment step closes out (received + failed + skipped == total)
+                // instead of freezing while the transfer is reported as done.
+                await self.progressReportingHelper.receivingAttachmentsDone(skippedSha256s: allSha256sDeclinedToSource)
+
                 await self.progressReportingHelper.doneAndExportWasSuccessful()
 
                 Self.logger.info("📰✅ We successfully reached the end of the DestinationTransferSteps")
@@ -334,7 +381,7 @@ public actor DestinationTransferSteps {
                     Self.logger.info("📰🛑 Destination transfer step task was cancelled. We do not propagate the error.")
                     await self.progressReportingHelper.doneAndExportWasCancelledByUser()
                 } else if let error = error as? TransferTransportDelegateError {
-                    Self.logger.error("📰 Destination transfer step task throwed: \(error.localizedDescription).")
+                    Self.logger.error("📰 Destination transfer step task throwed: \(String(describing: error), privacy: .public).")
                     switch error {
                     case .transferTransportDelegateFailed:
                         await self.progressReportingHelper.doneAndExportFailed()
@@ -343,7 +390,7 @@ public actor DestinationTransferSteps {
                     }
                     throw error
                 } else {
-                    Self.logger.error("📰 Destination transfer step task throwed: \(error.localizedDescription)")
+                    Self.logger.error("📰 Destination transfer step task throwed: \(String(describing: error), privacy: .public)")
                     await self.progressReportingHelper.doneAndExportFailed()
                     throw error
                 }
@@ -399,13 +446,16 @@ extension DestinationTransferSteps {
                 for (sha256, expectedFileSize) in sha256s {
                     await self.progressReportingHelper.receivingAttachmentsStarting() // May be called multiple times, but notifies only once
                     group.addTask {
+                        Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Requesting attachment to the source (\(expectedFileSize) bytes expected)")
                         do {
                             let tempURL = try await transferTransportDelegate.send(
                                 dstRequestSha256: .init(sha256: sha256),
                                 expectedFileSize: expectedFileSize,
                                 progressUpdater: self.progressReportingHelper)
+                            Self.logger.debug("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Attachment fully received at a temporary URL; storing it")
                             try await actions.historyTransferRequiresToStoreAttachmentOnThisDestination(self, sha256: sha256, temporaryURLOfAttachment: tempURL)
                             try? FileManager.default.removeItem(at: tempURL)
+                            Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Attachment received and stored")
                             return .receivedAndSaved(sha256: sha256)
                         } catch {
                             if error is CancellationError {
@@ -418,6 +468,7 @@ extension DestinationTransferSteps {
                                     throw error
                                 }
                             } else {
+                                Self.logger.error("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Failed to receive or store attachment: \(String(describing: error), privacy: .public). We continue with the other attachments")
                                 return .failedToReceiveOrSave(sha256: sha256)
                             }
                         }
@@ -438,7 +489,11 @@ extension DestinationTransferSteps {
                 
                 assert(sha256s.count == receivedAndSavedAttachmentSha256s.count + failedAttachmentSha256s.count)
                 assert(Set(sha256s.map(\.key)) == Set(receivedAndSavedAttachmentSha256s).union(failedAttachmentSha256s))
-                
+
+                if !sha256s.isEmpty {
+                    Self.logger.info("📰 Attachment request batch done: \(receivedAndSavedAttachmentSha256s.count) received and stored, \(failedAttachmentSha256s.count) failed, out of \(sha256s.count) requested")
+                }
+
                 return (receivedAndSavedAttachmentSha256s, failedAttachmentSha256s)
                 
             }
@@ -453,6 +508,7 @@ extension DestinationTransferSteps {
                 for sha256 in sha256s {
                     await self.progressReportingHelper.receivingAttachmentsStarting() // May be called multiple times, but notifies only once
                     group.addTask {
+                        Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Declining attachment (DstDoNotRequestSha256)")
                         try await transferTransportDelegate.send(dstDoNotRequestSha256: .init(sha256: sha256))
                     }
                 }
@@ -731,6 +787,17 @@ private actor ImportProgressReportingHelper: FyleProgressUpdater {
         return failedFyleSha256s.compactMap { fylesToReceive[$0] }.map { $0.over - $0.received }.reduce(0, +)
     }
 
+    /// sha256s of fyles that were part of the expected total but that this destination ultimately declined
+    /// (it sent a `DstDoNotRequestSha256` for them). They are neither received nor failed: they are recorded
+    /// here, once the attachment phase ends, so the accounting closes out.
+    private var skippedFyleSha256s: Set<Data> = []
+    private var skippedFylesCount: Int { skippedFyleSha256s.count }
+    /// Bytes from skipped fyles that will never be received: `over - received` for each skipped fyle.
+    private var byteCountSkipped: UInt64 {
+        guard let fylesToReceive else { return 0 }
+        return skippedFyleSha256s.compactMap { fylesToReceive[$0] }.map { $0.over - $0.received }.reduce(0, +)
+    }
+
     /// Runs every second while message/attachment receiving is active to prune stale window entries
     /// and re-report rates/ETAs even when no progress callbacks arrive.
     private var windowPruningTask: Task<Void, Never>?
@@ -840,7 +907,23 @@ private actor ImportProgressReportingHelper: FyleProgressUpdater {
             reportCurrentReceivingAttachmentsInProgressState()
         }
     }
-    
+
+
+    /// Called once, when the attachment-receiving phase has finished, to close out the accounting.
+    ///
+    /// Every expected attachment is either requested to the source or declined (`DstDoNotRequestSha256`),
+    /// e.g. because no stored message ended up requiring it. Declined attachments are never received and are
+    /// not failures: we record them as "skipped" so the attachment step reaches a terminal state with
+    /// `received + failed + skipped == total`, instead of staying frozen mid-progress while the transfer is
+    /// reported as done (the mirror image of the bug fixed on the export side).
+    func receivingAttachmentsDone(skippedSha256s: Set<Data>) {
+        guard let fylesToReceive, !fylesToReceive.isEmpty else { return } // No attachment phase took place
+        // Excluding failed fyles keeps the buckets disjoint: counting a fyle as failed *and* skipped would
+        // make the bucket sums exceed the expected total and underflow the UInt64 "bytes remaining" computation.
+        self.skippedFyleSha256s.formUnion(skippedSha256s.filter { fylesToReceive.keys.contains($0) && !failedFyleSha256s.contains($0) })
+        reportCurrentReceivingAttachmentsInProgressState()
+    }
+
     func doneAndExportWasSuccessful() {
         self.transferwasSuccessfullyCompleted = true
         windowPruningTask?.cancel()
@@ -928,15 +1011,17 @@ private actor ImportProgressReportingHelper: FyleProgressUpdater {
 
     private func reportCurrentReceivingAttachmentsInProgressState() {
         guard let fylesToReceive, let receivedFylesCount, let byteCountReceived, let byteCountToReceive else { return }
-        let bytesRemaining = byteCountToReceive - byteCountReceived - byteCountFailedToReceive
+        let bytesRemaining = byteCountToReceive - byteCountReceived - byteCountFailedToReceive - byteCountSkipped
         // Avoid division by zero: a zero rate produces no ETA.
         let eta: TimeInterval? = bytesPerSecond.flatMap { $0 > 0 ? Double(bytesRemaining) / $0 : nil }
         reportNewProgressToView(state: .receivingAttachment(
             status: .inProgress(
                 receivedFylesCount: receivedFylesCount,
                 failedFylesCount: failedFylesCount,
+                skippedFylesCount: skippedFylesCount,
                 byteCountReceived: byteCountReceived,
                 byteCountFailedToReceive: byteCountFailedToReceive,
+                byteCountSkipped: byteCountSkipped,
                 numberOfFylesToReceive: fylesToReceive.count,
                 byteCountToReceive: byteCountToReceive,
                 bytesPerSecond: bytesPerSecond,

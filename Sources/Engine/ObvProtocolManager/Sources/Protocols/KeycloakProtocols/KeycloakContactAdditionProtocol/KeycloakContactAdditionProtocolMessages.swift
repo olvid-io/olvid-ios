@@ -87,7 +87,7 @@ extension KeycloakContactAdditionProtocol {
         // Properties specific to this concrete protocol message
 
         let childToParentProtocolMessageInputs: ChildToParentProtocolMessageInputs
-        let deviceUidsSentState: DeviceDiscoveryForRemoteIdentityProtocol.DeviceUidsReceivedState
+        let childFinalState: DeviceDiscoveryForRemoteIdentityProtocol.FinalState
 
         var encodedInputs: [ObvEncoded] {
             return childToParentProtocolMessageInputs.toListOfEncoded()
@@ -97,7 +97,7 @@ extension KeycloakContactAdditionProtocol {
             self.coreProtocolMessage = try CoreProtocolMessage(with: message)
             guard let inputs = ChildToParentProtocolMessageInputs(try message.encodedInputs) else { assertionFailure(); throw Self.makeError(message: "Could not obtain child inputs") }
             childToParentProtocolMessageInputs = inputs
-            deviceUidsSentState = try DeviceDiscoveryForRemoteIdentityProtocol.DeviceUidsReceivedState(childToParentProtocolMessageInputs.childProtocolInstanceEncodedReachedState)
+            childFinalState = try DeviceDiscoveryForRemoteIdentityProtocol.FinalState(inputs)
         }
 
     }

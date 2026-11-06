@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,31 +21,25 @@ import Foundation
 import CoreData
 import ObvUICoreData
 import ObvUIObvCircledInitials
-import ObvDesignSystem
-import ObvSettings
 
 
-@available(iOS 16.0, *)
 extension NewDiscussionsSelectionViewController.Cell {
  
     public struct ViewModel: Hashable, Equatable {
         let circledInitialsConfig: CircledInitialsConfiguration?
         let title: String
-        let style: IdentityColorStyle
         let isArchived: Bool
     }
 
 }
 
 
-@available(iOS 16.0, *)
 extension NewDiscussionsSelectionViewController.Cell.ViewModel {
     
     static func createFromPersistedDiscussion(with discussionId: TypeSafeManagedObjectID<PersistedDiscussion>, within viewContext: NSManagedObjectContext) -> Self? {
         guard let discussion = try? PersistedDiscussion.get(objectID: discussionId.objectID, within: viewContext) else { assertionFailure(); return nil }
         return Self.init(circledInitialsConfig: discussion.circledInitialsConfiguration,
                          title: discussion.title,
-                         style: ObvMessengerSettings.Interface.identityColorStyle,
                          isArchived: discussion.isArchived)        
     }
     

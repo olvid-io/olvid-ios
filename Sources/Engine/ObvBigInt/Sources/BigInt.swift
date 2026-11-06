@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -386,6 +386,28 @@ final public class BigInt: Comparable, Hashable, CustomDebugStringConvertible, D
 
     }
 
+    /// Returns the Jacobi symbol of `self` modulo the odd integer `m`, which is 0, 1 or -1. The result is undefined if `m`
+    /// is even.
+    ///
+    /// When `m` is an odd prime, this is the Legendre symbol:
+    /// - `0` if `m` divides `self`,
+    /// - `1` if `self` is a non-zero square modulo `m`, and
+    /// - `-1` otherwise.
+    public func jacobiSymbol(modulo m: BigInt) -> Int {
+        Int(__gmpz_jacobi(&self.readVal, &m.readVal))
+    }
+
+    /// Returns the Legendre symbol of `self` modulo the odd prime `p`:
+    /// - `0` if `p` divides `self`,
+    /// - `1` if `self` is a non-zero square modulo `p`, and
+    /// - `-1` otherwise.
+    ///
+    /// When `p` is an odd integer that is not prime, this method returns the Jacobi symbol. The result is undefined if `p`
+    /// is even.
+    public func legendreSymbol(modulo p: BigInt) -> Int {
+        jacobiSymbol(modulo: p)
+    }
+    
     // MARK: Comparison Functions
 
     public func isNegative() -> Bool {

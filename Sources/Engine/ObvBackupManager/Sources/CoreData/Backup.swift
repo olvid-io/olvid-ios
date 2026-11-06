@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import CoreData
 import ObvTypes
 import ObvCrypto
@@ -358,7 +358,7 @@ extension Backup {
         
         let request: NSFetchRequest<Backup> = Backup.fetchRequest()
         request.fetchBatchSize = 500
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withBackupKey(equalTo: backupKey),
@@ -378,7 +378,7 @@ extension Backup {
         
         let request: NSFetchRequest<Backup> = Backup.fetchRequest()
         request.fetchBatchSize = 500
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let backups = try context.fetch(request)
         for backup in backups {
             try Self.deleteBackup(backup)

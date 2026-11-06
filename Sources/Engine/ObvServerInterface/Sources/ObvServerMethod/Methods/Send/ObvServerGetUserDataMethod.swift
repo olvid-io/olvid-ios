@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import os.log
+import OSLog
 import ObvCrypto
 import ObvTypes
 import ObvMetaManager
@@ -57,7 +57,7 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
 
     public enum PossibleReturnStatus {
         case ok(userDataFilename: String)
-        case deletedFromServer
+        case deletedFromServerOrNotYetAvailable
         case generalError
     }
 
@@ -102,7 +102,7 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
             return .ok(userDataFilename: filename)
             
         case .deletedFromServer:
-            return .deletedFromServer
+            return .deletedFromServerOrNotYetAvailable
 
         case .generalError:
             os_log("The server reported a general error", log: log, type: .error)

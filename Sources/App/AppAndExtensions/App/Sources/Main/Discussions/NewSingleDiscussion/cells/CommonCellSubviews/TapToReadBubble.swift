@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,8 +20,8 @@
 import UIKit
 import CoreData
 import ObvUICoreData
+import OlvidUtils
 
-@available(iOS 14.0, *)
 final class TapToReadBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {
     
     var tapToReadLabelTextColor: UIColor? {
@@ -142,7 +142,6 @@ final class TapToReadBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
 
 
 
-@available(iOS 14.0, *)
 final class TapToReadView: UIView, UIViewWithTappableStuff {
     
     var tapToReadLabelTextColor: UIColor? {

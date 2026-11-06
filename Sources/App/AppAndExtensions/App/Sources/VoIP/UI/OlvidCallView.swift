@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -111,21 +111,11 @@ struct OlvidCallViewForMacOS<Model: OlvidCallViewModelProtocol>: View {
 
 
     var body: some View {
-        if #available(iOS 16.0, *) {
-                NavigationSplitView {
-                    SidebarView(model: model, actions: actions, chooseParticipantsToAddAction: chooseParticipantsToAddAction, callDuration: $callDuration)
-                } detail: {
-                    DetailsView(model: model, actions: actions, callDuration: $callDuration)
-                }
-        } else {
-            HStack {
-                SidebarView(model: model, actions: actions, chooseParticipantsToAddAction: chooseParticipantsToAddAction, callDuration: $callDuration)
-                    .frame(width: 370)
-                    .padding(.top, 48)
-                DetailsView(model: model, actions: actions, callDuration: $callDuration)
-            }
+        NavigationSplitView {
+            SidebarView(model: model, actions: actions, chooseParticipantsToAddAction: chooseParticipantsToAddAction, callDuration: $callDuration)
+        } detail: {
+            DetailsView(model: model, actions: actions, callDuration: $callDuration)
         }
-        
     }
     
 }
@@ -133,6 +123,7 @@ struct OlvidCallViewForMacOS<Model: OlvidCallViewModelProtocol>: View {
 
 // MARK: - DetailsView
 
+@MainActor
 protocol DetailsViewModelProtocol: ObservableObject, AcceptOrRejectButtonsViewModelProtocol, OngoingCallButtonsViewModelProtocol {
     associatedtype OlvidCallParticipantViewModel: OlvidCallParticipantViewModelProtocol
     associatedtype InitialCircleViewNewModel: InitialCircleViewNewModelProtocol
@@ -638,6 +629,7 @@ private struct OlvidCallViewForIOS<Model: OlvidCallViewModelProtocol>: View, Oth
 
 // MARK: - OtherParticipantsView
 
+@MainActor
 protocol OtherParticipantsViewModelProtocol: ObservableObject {
     associatedtype OlvidCallParticipantViewModel: OlvidCallParticipantViewModelProtocol
     var otherParticipants: [OlvidCallParticipantViewModel] { get }
@@ -805,6 +797,7 @@ private struct BottomSheetView<Model: BottomSheetViewModelProtocol>: View {
 
 // MARK: -
 
+@MainActor
 protocol SidebarViewModelProtocol: ObservableObject, OngoingCallDurationViewModelProtocol, AddParticipantButtonViewModel, ListOfOtherParticipantsViewModelProtocol {
     
 }

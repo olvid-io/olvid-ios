@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -276,17 +276,7 @@ extension BackupTableViewController {
             guard let row = AnnouncingNewBackupsRow.shownRowAt(row: indexPath.row) else { assertionFailure(); return cellInCaseOfError }
             switch row {
             case .announcingNewBackups:
-                if #available(iOS 16, *) {
-                    return tableView.dequeueReusableCell(withIdentifier: row.cellIdentifier) ?? AnnoucingNewBackupsCell(delegate: self, reuseIdentifier: row.cellIdentifier)
-                } else {
-                    let cell = tableView.dequeueReusableCell(withIdentifier: row.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: row.cellIdentifier)
-                    var content = cell.defaultContentConfiguration()
-                    content.text = String(localized: "YOUR_BACKUPS_HAVE_EVOLVED")
-                    content.secondaryText = String(localized: "CHOOSE_YOUR_BACKUP_MODE_BODY")
-                    cell.contentConfiguration = content
-                    cell.accessoryType = .disclosureIndicator
-                    return cell
-                }
+                return tableView.dequeueReusableCell(withIdentifier: row.cellIdentifier) ?? AnnoucingNewBackupsCell(delegate: self, reuseIdentifier: row.cellIdentifier)
             }
             
         case .manualBackup:

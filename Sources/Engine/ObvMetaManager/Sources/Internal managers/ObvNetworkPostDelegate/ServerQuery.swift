@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -73,7 +73,7 @@ extension ServerQuery {
     public enum QueryType {
         case deviceDiscovery(of: ObvCryptoIdentity)
         case putUserData(label: UID, dataURL: URL, dataKey: AuthenticatedEncryptionKey)
-        case getUserData(of: ObvCryptoIdentity, label: UID)
+        case getUserData(of: ObvCryptoIdentity, label: UID, retryIfNotFound: Bool)
         case checkKeycloakRevocation(keycloakServerUrl: URL, signedContactDetails: String)
         case createGroupBlob(groupIdentifier: GroupV2.Identifier, serverAuthenticationPublicKey: PublicKeyForAuthentication, encryptedBlob: EncryptedData)
         case getGroupBlob(groupIdentifier: GroupV2.Identifier)
@@ -160,8 +160,8 @@ extension ServerQuery {
                 return [rawValue, identity].obvEncode()
             case .putUserData(label: let label, dataURL: let dataURL, dataKey: let dataKey):
                 return [rawValue, label, dataURL, dataKey].obvEncode()
-            case .getUserData(of: let identity, label: let label):
-                return [rawValue, identity, label].obvEncode()
+            case .getUserData(of: let identity, label: let label, retryIfNotFound: let retryIfNotFound):
+                return [rawValue, identity, label, retryIfNotFound].obvEncode()
             case .checkKeycloakRevocation(keycloakServerUrl: let keycloakServerUrl, signedContactDetails: let signedContactDetails):
                 return [rawValue, keycloakServerUrl, signedContactDetails].obvEncode()
             case .createGroupBlob(groupIdentifier: let groupIdentifier, serverAuthenticationPublicKey: let serverAuthenticationPublicKey, encryptedBlob: let encryptedBlob):
@@ -219,10 +219,18 @@ extension ServerQuery {
                 guard let dataKey = try? AuthenticatedEncryptionKeyDecoder.decode(listOfEncoded[3]) else { return nil }
                 self = .putUserData(label: label, dataURL: dataURL, dataKey: dataKey)
             case 2:
-                guard listOfEncoded.count == 3 else { return nil }
+                guard listOfEncoded.count == 3 || listOfEncoded.count == 4 else { return nil }
                 guard let identity = ObvCryptoIdentity(listOfEncoded[1]) else { return nil }
                 guard let label = UID(listOfEncoded[2]) else { return nil }
-                self = .getUserData(of: identity, label: label)
+                let retryIfNotFound: Bool
+                if listOfEncoded.count == 4 {
+                    guard let decoded = Bool(listOfEncoded[3]) else { assertionFailure(); return nil }
+                    retryIfNotFound = decoded
+                } else {
+                    // Legacy 3-element encoding from before the retryIfNotFound flag was introduced.
+                    retryIfNotFound = false
+                }
+                self = .getUserData(of: identity, label: label, retryIfNotFound: retryIfNotFound)
             case 3:
                 guard listOfEncoded.count == 3 else { return nil }
                 guard let keycloakServerUrl = URL(listOfEncoded[1]) else { return nil }

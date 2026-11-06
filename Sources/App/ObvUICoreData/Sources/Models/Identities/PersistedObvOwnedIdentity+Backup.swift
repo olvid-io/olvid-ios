@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -56,7 +56,7 @@ public extension PersistedObvOwnedIdentityBackupItem {
         }
         for contact in self.contacts ?? [] {
             guard let persistedContact = ownedIdentity.contacts.first(where: {
-                $0.cryptoId.getIdentity() == contact.identity })
+                $0.identity == contact.identity })
             else {
                 assertionFailure()
                 continue

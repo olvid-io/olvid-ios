@@ -147,7 +147,7 @@ public actor ContinuousSharingLocationManager {
                     
                     guard let delegate else { assertionFailure(); continue }
                     guard let clLocation = update.location else {
-                        Self.logger.warning("The CLLocationUpdate did not contain a location: isStationary: \(update.isStationary)")
+                        Self.logger.warning("The CLLocationUpdate did not contain a location: isStationary: \(Self.stationary(of: update))")
                         continue
                     }
                     
@@ -174,7 +174,7 @@ public actor ContinuousSharingLocationManager {
                         // We don't break out of the loop. We inform our delegate that the continuous sharing should stop.
                         // We will eventually be called back, thanks to our datasource, and stop the monitoring.
                     } else {
-                        let locationData = ObvLocationData(clLocation: clLocation, isStationary: update.isStationary)
+                        let locationData = ObvLocationData(clLocation: clLocation, isStationary: Self.stationary(of: update))
                         let discussionsRequiringHighAccuracy = await delegate.requestUpdatedSetOfDiscussionsRequiringHighAccuracyLocationUpdates(self)
                         let decision = await self.sentContinuousLocationRateLimiter.determineSentContinuousLocationDecision(for: locationData, discussionsRequiringHighAccuracy: discussionsRequiringHighAccuracy)
                         switch decision {
@@ -199,6 +199,24 @@ public actor ContinuousSharingLocationManager {
         }
 
     }
+
+    /// Whether the device is stationary, under whichever name the system gives it.
+    ///
+    /// **`stationary` replaces `isStationary` at iOS 18**, and the location updates this reads exist from iOS 17, so for one version the old spelling is
+    /// still the only one there is. Read here rather than at the two places that want it, so the branch is written once.
+    ///
+    /// **Marked deprecated itself, and that is what silences the old spelling.** An `#available` branch does not suppress a deprecation — the two are
+    /// unrelated diagnostics — where a deprecated context does. It also means the compiler will point at this function on the day the floor reaches iOS 18,
+    /// which is when it should be deleted and `stationary` read directly.
+    @available(iOS, introduced: 17.0, deprecated: 18.0, message: "Once this module's floor is iOS 18, read `stationary` on the update and delete this.")
+    private static func stationary(of update: CLLocationUpdate) -> Bool {
+        if #available(iOS 18.0, *) {
+            return update.stationary
+        } else {
+            return update.isStationary
+        }
+    }
+
 
     /// Stop Sharing location
     @available(iOS 17.0, *)

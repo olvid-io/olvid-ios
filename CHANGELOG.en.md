@@ -1,5 +1,100 @@
 # Changelog
 
+## [4.5.1 (1003)] - 2026-11-03
+
+- A new Suggestions screen in your contacts lets you invite someone in a single swipe. It gathers pending introductions, invitations you received and the members of your groups who are not yet your contacts: swipe a card right to accept or invite, left to ignore.
+- A badge shows how many suggestions are waiting. On Mac, you can also decide each card with the arrow keys.
+- Olvid for Mac launches again on macOS 13.
+- On Mac, a photo shared from another app is now sent right away instead of after a long delay.
+- On Mac, in light mode, the checkboxes are visible again when you select several messages.
+- Various security improvements and bug fixes.
+
+## [4.5 (1001)] - 2026-10-18
+
+- Choose the size of the photos and videos you send! This is the feature many of you have been asking for. When writing a message, pick Low, Medium, High or Original. Smaller sizes upload much faster and reach your contacts sooner, especially on a slow connection, and they download faster on their side too.
+- Long discussions are much faster: they open in about half the time, scroll smoothly however far back you go, and show messages right away instead of grey placeholders. Jumping to a quote, a search result or a notification no longer pauses.
+- Olvid is now available in Turkish and Polish.
+- Animated GIFs now play directly in the composition bar before you send them.
+- Redesigned the menu shown when you press and hold a message: icons first, a roomier emoji bar, and the Liquid Glass look on iOS 26 and macOS 26 or later.
+- Reactions to your messages are now notified even while Olvid is open.
+- Olvid now catches up more reliably when many messages are waiting on the server.
+- With a keyboard on an iPad or a Mac, the Escape key now closes the current screen, or steps back one screen inside a flow.
+- Return, Shift+Return and Cmd+Return in the composition bar now follow the send shortcut chosen in the Interface settings.
+- When notification content is hidden in the privacy settings, reactions, edited messages and missed calls now stay hidden too. A hidden notification still plays the discussion's sound and opens the right screen when tapped.
+- Fixed a bug when sharing from another app: after changing the discussion, the To: row kept showing the previous one. It now shows the discussion you just chose.
+- Fixed a crash that could occur while a profile backup was being prepared as a contact was deleted.
+- Fixed a crash of the notification service that could leave some messages without a notification.
+- Olvid notifications now show up reliably in CarPlay.
+- On iOS 16 and 17, a newline inserted with the Return key now goes in at the caret rather than at the end of the draft.
+- On Mac, a discussion opened on its unread messages no longer jumps once it appears, and the unread marker stays in view.
+- On Mac, the QR code scanner no longer sometimes opens as a tiny box.
+- Various other improvements, security improvements and bug fixes.
+
+## [4.4 (993)] - 2026-09-24
+
+- Ready for iOS 27 and macOS 27.
+- The discussion screen has been rebuilt from the ground up! It is smoother in long conversations. Bubbles, dates, senders, reactions… everything has been redrawn to be even nicer to use.
+- Double-tap a received message to react with your favourite emoji, or a sent message to edit it.
+- Your preferred reaction emoji, whether set for all discussions or for one in particular, is kept in sync across all your devices.
+- You can now select several messages at once and delete or forward them together.
+- The panel that opens when you tap the + button in a discussion has been completely redesigned.
+- Tapping a contact's profile picture now shows it large.
+- Sharing photos, videos, documents and links from other apps into Olvid has been completely redesigned. You now get a single, clearer screen where you pick the profile to send from, choose one or several discussions, preview everything you're about to share, and write an accompanying message.
+- Swipe between the photos and videos you're sharing, and tap any document to open a full preview before sending.
+- New HD / SD quality selector when sharing photos and videos, with the estimated size for each option. Standard quality is used by default and your last choice is remembered.
+- Videos you record directly from Olvid are now captured at a higher quality.
+- Whenever your device is charging and connected, Olvid now quietly works through any messages still waiting to be processed, so your conversations are up to date the moment you open them. A new screen lets you follow that catch-up as it happens.
+- Fixed various problems with the download of large attachments: downloads no longer get stuck or end up partly empty, and attachments still being downloaded are no longer discarded when Olvid launches or returns from the background.
+- You never have to download the same image twice anymore.
+- Fixed the app icon badge sometimes counting one message too many.
+- Read and delivery receipts could be lost or delayed; they are now kept until they are sent.
+- Tapping a reply now scrolls back to the original message again.
+- Some MP3 audio files could not be played in a discussion; they now play correctly and show their length before you play them.
+- When sharing your location, the sharing options could appear greyed out with no explanation; the map now tells you why a location cannot be shared yet.
+- Fixed several problems with the message field, including attachments that could occasionally fail to appear.
+- Restoring a profile from a backup no longer fails when the App Store is unreachable or subscriptions cannot be checked.
+- Fixed an issue where you could be warned that your current device was about to be deactivated when it was not.
+- On iOS 27, typing a code, such as an invitation code, a transfer code or your passcode, could fail to show digits. Fixed.
+- Fixed a problem on iOS 16 where the share extension could fail to display correctly.
+- Your Mac no longer goes to sleep during a call, while you record a voice message, or while Olvid is updating its data after an upgrade.
+
+## [4.3.1 (980)] - 2026-06-19
+
+- If your profile is managed by your organization, staying signed in now works reliably, so you're no longer unexpectedly asked to sign in again. Creating such a profile now correctly uses the server defined by your organization.
+- Scanning a QR code or link that bundles a server and an activation key now opens a redesigned, easier-to-read screen, so you can see exactly what you're about to set up before continuing.
+- Your profile's details now show which server it's hosted on.
+- When you activate a license tied to a specific server, Olvid now only offers the profiles that can actually use it.
+- Calling availability and subscription status are now only shared between your profiles when they're on the same server.
+- Fixed an issue where entering an already-used activation key could leave the screen stuck on a spinner during onboarding.
+
+## [4.3 (978)] - 2026-06-12
+
+- You can now use Olvid with Apple CarPlay. Browse your recent discussions, have messages read aloud, and start calls directly from your car's screen.
+- You can now send messages, make calls, search your conversations, and send voice messages using Siri.
+- Tap the Discussions tab a second time to jump straight back to the top of your conversation list.
+- Olvid is now available in Vietnamese.
+- Group updates, including group photo changes, are now more reliable and more efficient.
+- Improved message processing when launching the app.
+- Refreshed a few in-app notices to use Olvid's newer tip style, including the microphone and camera permission prompts and the "a new version is available" notice.
+- When transferring your profile to a new device, network errors and profiles already present on the new device now show dedicated screens with clear steps to resolve the issue.
+- Fixed a bug where delivery and read receipts could be sent twice in certain situations.
+- Fixed an issue where a contact's internal identifier could briefly appear instead of their name on the call screen.
+- On Mac, copying text from the message compose field now pastes correctly into other apps.
+- Fixed a crash that could occur when editing a message on Mac.
+- Tapping certain actions on a contact or group screen no longer opens a screen behind it.
+- The option to introduce a contact is now hidden when an introduction isn't possible.
+- Fixed an issue where in-app notices could cover the button used to start a new discussion.
+- Fixed an issue where messages could be duplicated on the receiving device during a message history transfer.
+- Fixed the Cancel button on the message history transfer confirmation so it now properly dismisses the prompt.
+- During a message history transfer, attachments the new device doesn't need are now properly skipped instead of leaving incomplete files behind.
+- The transfer progress on the receiving device no longer appears frozen while it skips attachments it doesn't need.
+- After sending your message history, the status shown on the original device now correctly indicates when the other device didn't need some attachments, instead of suggesting something went wrong.
+- Fixed an issue that could slow down or stall the reception of messages while a contact was continuously sharing their location.
+- You can now copy the text of messages with limited visibility.
+- You can now share attachments from messages with limited visibility.
+- Siri no longer offers to save Olvid identifiers to your address book from notifications.
+- Fixed an issue where old reactions and poll votes could be re-sent to all members of certain groups, triggering unwanted notifications.
+
 ## [4.2 (960)] - 2026-05-03
 
 - You can now transfer your chat history between devices — a feature many of you have been waiting for!

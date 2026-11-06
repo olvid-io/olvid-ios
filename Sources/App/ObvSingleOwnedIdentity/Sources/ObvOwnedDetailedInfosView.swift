@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -142,6 +142,8 @@ public struct ObvOwnedDetailedInfosView: View {
             }
         }
         .task(onTask)
+        // Nothing in this sheet is focusable, and a shortcut is found from the first responder.
+        .takesKeyboardFocusOnAppear()
     }
     
 }
@@ -222,6 +224,7 @@ extension ObvOwnedDetailedInfosView {
                 OlvidButtonNew(action: userTappedBackButton) {
                     Label(title: { Text("BACK") }, icon: { Image(systemIcon: .arrowshapeTurnUpBackwardFill) })
                 }
+                .keyboardShortcut(.cancelAction)
                             
             }
 
@@ -291,6 +294,9 @@ extension ObvOwnedDetailedInfosView {
                 ObvSimpleListItemView(
                     title: Text("FORM_COMPANY"),
                     value: model.identityCoreDetails.company)
+                ObvSimpleListItemView(
+                    title: Text("Server"),
+                    value: ownedCryptoId.serverURL.absoluteString)
                 ObvSimpleListItemView(
                     title: Text("Identity"),
                     value: ownedCryptoId.getIdentity().hexString())

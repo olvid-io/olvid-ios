@@ -132,6 +132,8 @@ enum VoIPNotification {
 
 	func postOnDispatchQueue(_ queue: DispatchQueue) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		queue.async {
 			NotificationCenter.default.post(name: name, object: nil, userInfo: userInfo)
 		}
@@ -139,6 +141,9 @@ enum VoIPNotification {
 
 	private func postOnDispatchQueue(withLabel label: String, object anObject: Any? = nil) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
+		nonisolated(unsafe) let anObject = anObject
 		DispatchQueue(label: label).async {
 			NotificationCenter.default.post(name: name, object: anObject, userInfo: userInfo)
 		}
@@ -146,6 +151,8 @@ enum VoIPNotification {
 
 	static func observeReportCallEvent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID, CallReport, GroupIdentifier?, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.reportCallEvent.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let callUUID = notification.userInfo!["callUUID"] as! UUID
 			let callReport = notification.userInfo!["callReport"] as! CallReport
@@ -158,6 +165,8 @@ enum VoIPNotification {
 
 	static func observeNewCallToShow(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (OlvidCallViewController.Model) -> Void) -> NSObjectProtocol {
 		let name = Name.newCallToShow.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let model = notification.userInfo!["model"] as! OlvidCallViewController.Model
 			block(model)
@@ -166,6 +175,8 @@ enum VoIPNotification {
 
 	static func observeNoMoreCallInProgress(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.noMoreCallInProgress.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -173,6 +184,8 @@ enum VoIPNotification {
 
 	static func observeCallWasEnded(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID) -> Void) -> NSObjectProtocol {
 		let name = Name.callWasEnded.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let uuidForCallKit = notification.userInfo!["uuidForCallKit"] as! UUID
 			block(uuidForCallKit)
@@ -181,6 +194,8 @@ enum VoIPNotification {
 
 	static func observeServerDoesNotSupportCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.serverDoesNotSupportCall.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -188,6 +203,8 @@ enum VoIPNotification {
 
 	static func observeShowCallView(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.showCallView.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -195,6 +212,8 @@ enum VoIPNotification {
 
 	static func observeHideCallView(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.hideCallView.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -202,6 +221,8 @@ enum VoIPNotification {
 
 	static func observeNewOwnedWebRTCMessageToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, WebRTCMessageJSON) -> Void) -> NSObjectProtocol {
 		let name = Name.newOwnedWebRTCMessageToSend.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let webrtcMessage = notification.userInfo!["webrtcMessage"] as! WebRTCMessageJSON
@@ -211,6 +232,8 @@ enum VoIPNotification {
 
 	static func observeAnotherCallParticipantStartedCamera(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([String]) -> Void) -> NSObjectProtocol {
 		let name = Name.anotherCallParticipantStartedCamera.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let otherParticipantNames = notification.userInfo!["otherParticipantNames"] as! [String]
 			block(otherParticipantNames)

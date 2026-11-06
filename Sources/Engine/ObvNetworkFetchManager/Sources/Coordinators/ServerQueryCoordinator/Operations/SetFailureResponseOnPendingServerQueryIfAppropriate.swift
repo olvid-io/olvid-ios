@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,6 +27,13 @@ import ObvMetaManager
 /// sometimes we want to fail only if the server query failed to be processed for more than 2 weeks.
 final class SetFailureResponseOnPendingServerQueryIfAppropriate: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
     
+    /// Controls when a failure response is delivered to the protocol.
+    ///
+    /// - `none`: deliver a failure response immediately, unconditionally. Use for permanent failures
+    ///   where retrying cannot help (e.g. payload too large for the server).
+    /// - `ifServerQueryIsTooOld`: deliver a failure response only once the query's `creationDate`
+    ///   exceeds `ServerQueryExpirationDelay`; otherwise return `.retryLater` so the coordinator
+    ///   keeps retrying. Use for transient failures (network unreachable, server gone, etc.).
     enum Condition {
         case none
         case ifServerQueryIsTooOld
@@ -34,7 +41,7 @@ final class SetFailureResponseOnPendingServerQueryIfAppropriate: ContextualOpera
     
     private let pendingServerQueryObjectID: NSManagedObjectID
     private let condition: Condition
-    
+
     init(pendingServerQueryObjectID: NSManagedObjectID, condition: Condition) {
         self.pendingServerQueryObjectID = pendingServerQueryObjectID
         self.condition = condition
@@ -94,6 +101,8 @@ final class SetFailureResponseOnPendingServerQueryIfAppropriate: ContextualOpera
             case .putUserData:
                 let serverResponseType = ServerResponse.ResponseType.putUserData
                 serverQuery.responseType = serverResponseType
+                // Cleanup of the staged upload file (if any) happens in `RespondAndDeleteServerQueryOperation`
+                // once the `PendingServerQuery` row deletion is durably persisted.
 
             case .getUserData:
                 let serverResponseType = ServerResponse.ResponseType.getUserData(result: .deletedFromServer)
@@ -152,12 +161,12 @@ final class SetFailureResponseOnPendingServerQueryIfAppropriate: ContextualOpera
             }
             
             return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
-                        
+
         } catch {
             assertionFailure()
             return cancel(withReason: .coreDataError(error: error))
         }
-        
+
     }
-    
+
 }

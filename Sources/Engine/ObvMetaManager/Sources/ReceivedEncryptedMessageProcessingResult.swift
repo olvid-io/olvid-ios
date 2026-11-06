@@ -36,4 +36,5 @@ public enum ReceivedEncryptedMessageProcessingResult {
     case messageKeyDoesNotSupportGKMV2AlthoughItShould(messageId: ObvMessageIdentifier)
     case unwrapSucceededButRemoteCryptoIdIsUnknown(messageId: ObvMessageIdentifier, remoteCryptoIdentity: ObvCryptoIdentity) // Only used by PreKey channel
     case messageReceivedFromContactThatIsRevokedAsCompromised(messageId: ObvMessageIdentifier)
+    case preKeySignatureWasAlreadyAccepted(messageId: ObvMessageIdentifier) // Only used by PreKey channel: the message was already processed
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -118,7 +118,7 @@ struct FailedAttemptsCounterManager {
             }
 
         }
-        return min(ObvConstants.standardDelay<<min(localCounter, 20), ObvConstants.maximumDelay)
+        return Int(ObvConstants.serverQueryBackoffDelay(forAttemptCount: localCounter) * 1_000)
     }
     
     mutating func reset(counter: Counter) {

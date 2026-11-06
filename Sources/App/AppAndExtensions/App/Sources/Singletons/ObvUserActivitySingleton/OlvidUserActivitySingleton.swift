@@ -35,8 +35,6 @@ final class OlvidUserActivitySingleton: NSObject {
         produceStreamsOnChangeOfDiscussionID()
     }
 
-    private let internalQueue = DispatchQueue(label: "OlvidUserActivitySingleton internal queue")
-    
     private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "OlvidUserActivitySingleton")
 
     public struct DiscussionID: Equatable {
@@ -161,6 +159,12 @@ extension OlvidUserActivitySingleton {
     }
     
     
+    /// Writes the current activity on the main thread, where the whole app reads it.
+    ///
+    /// A private serial queue used to do this. A caller could then read a value that a call it had just made was about to change:
+    /// `ObvFlowController.discussionDisappeared` compares the discussion it is losing with the current one, and saw the previous one whenever two
+    /// discussion screens spoke in the same turn of the run loop, which is what an un-animated transition makes them do.
+    @MainActor
     private func updateWith(newUserActivity: OlvidUserActivity, viewController: UIViewController) {
         
         // Determine the current discussion's permanent ID
@@ -184,45 +188,36 @@ extension OlvidUserActivitySingleton {
             newUserActivityIsForHiddenProfile = false
         }
         
-        internalQueue.async { [weak self] in
-            
-            guard let self else { return }
-            
-            let previousUserActivity = self.currentUserActivity
-                                    
-            guard newUserActivity != previousUserActivity else { return }
-            
-            let previousDiscussionID = self.currentDiscussionID
-            
-            self.currentUserActivity = newUserActivity
-            self.currentDiscussionID = newCurrentDiscussionPermanentID
-            
-            debugPrint("📺 Current user activity is \(newUserActivity.debugDescription)")
-            debugPrint("📺 Current discussion permanentID is \(currentDiscussionID?.objectID.debugDescription ?? "None")")
+        let previousUserActivity = self.currentUserActivity
 
-            // Inform the system about the user new activity
-  
-            if let newUserActivity = self.currentUserActivity, !newUserActivityIsForHiddenProfile {
-                DispatchQueue.main.async {
-                    viewController.userActivity = newUserActivity
-                }
-            }
-            
-            // Notify
-  
-            if previousDiscussionID != self.currentDiscussionID {
-                ObvMessengerInternalNotification.currentDiscussionDidChange(previousDiscussion: previousDiscussionID?.permanentID, currentDiscussion: currentDiscussionID?.permanentID)
-                    .postOnDispatchQueue()
-            }
-            
-            // If the activity changed, re-enable the idle timer of the app
-            
-            if previousUserActivity != self.currentUserActivity {
-                DispatchQueue.main.async {
-                    IdleTimerManager.shared.forceEnableIdleTimer()
-                }
-            }
+        guard newUserActivity != previousUserActivity else { return }
 
+        let previousDiscussionID = self.currentDiscussionID
+
+        self.currentUserActivity = newUserActivity
+        self.currentDiscussionID = newCurrentDiscussionPermanentID
+
+        debugPrint("📺 Current user activity is \(newUserActivity.debugDescription)")
+        debugPrint("📺 Current discussion permanentID is \(currentDiscussionID?.objectID.debugDescription ?? "None")")
+
+        // Inform the system about the user new activity
+
+        if let newUserActivity = self.currentUserActivity, !newUserActivityIsForHiddenProfile {
+            viewController.userActivity = newUserActivity
+        }
+
+        // Notify
+
+        if previousDiscussionID != self.currentDiscussionID {
+            ObvMessengerInternalNotification.currentDiscussionDidChange(previousDiscussion: previousDiscussionID?.permanentID, currentDiscussion: currentDiscussionID?.permanentID)
+                .postOnDispatchQueue()
+        }
+
+        // If the activity changed, re-enable the idle timer of the app. Requests that are independent of the current activity, such as the one made
+        // for an ongoing call, are kept.
+
+        if previousUserActivity != self.currentUserActivity {
+            IdleTimerManager.shared.forceEnableIdleTimer()
         }
 
     }

@@ -31,8 +31,8 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 enum HardLinksToFylesNotifications {
-	case requestHardLinkToFyle(fyleElement: FyleElement, completionHandler: ((Result<HardLinkToFyle,Error>) -> Void))
-	case requestAllHardLinksToFyles(fyleElements: [FyleElement], completionHandler: (([HardLinkToFyle?]) -> Void))
+	case requestHardLinkToFyle(fyleElement: FyleElement, completionHandler: (@Sendable (Result<HardLinkToFyle,Error>) -> Void))
+	case requestAllHardLinksToFyles(fyleElements: [FyleElement], completionHandler: (@Sendable ([HardLinkToFyle?]) -> Void))
 
 	private enum Name {
 		case requestHardLinkToFyle
@@ -83,6 +83,8 @@ enum HardLinksToFylesNotifications {
 
 	func postOnDispatchQueue(_ queue: DispatchQueue) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		queue.async {
 			NotificationCenter.default.post(name: name, object: nil, userInfo: userInfo)
 		}
@@ -90,25 +92,32 @@ enum HardLinksToFylesNotifications {
 
 	private func postOnDispatchQueue(withLabel label: String, object anObject: Any? = nil) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
+		nonisolated(unsafe) let anObject = anObject
 		DispatchQueue(label: label).async {
 			NotificationCenter.default.post(name: name, object: anObject, userInfo: userInfo)
 		}
 	}
 
-	static func observeRequestHardLinkToFyle(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (FyleElement, @escaping ((Result<HardLinkToFyle,Error>) -> Void)) -> Void) -> NSObjectProtocol {
+	static func observeRequestHardLinkToFyle(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (FyleElement, @escaping (@Sendable (Result<HardLinkToFyle,Error>) -> Void)) -> Void) -> NSObjectProtocol {
 		let name = Name.requestHardLinkToFyle.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let fyleElement = notification.userInfo!["fyleElement"] as! FyleElement
-			let completionHandler = notification.userInfo!["completionHandler"] as! ((Result<HardLinkToFyle,Error>) -> Void)
+			let completionHandler = notification.userInfo!["completionHandler"] as! (@Sendable (Result<HardLinkToFyle,Error>) -> Void)
 			block(fyleElement, completionHandler)
 		}
 	}
 
-	static func observeRequestAllHardLinksToFyles(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([FyleElement], @escaping (([HardLinkToFyle?]) -> Void)) -> Void) -> NSObjectProtocol {
+	static func observeRequestAllHardLinksToFyles(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([FyleElement], @escaping (@Sendable ([HardLinkToFyle?]) -> Void)) -> Void) -> NSObjectProtocol {
 		let name = Name.requestAllHardLinksToFyles.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let fyleElements = notification.userInfo!["fyleElements"] as! [FyleElement]
-			let completionHandler = notification.userInfo!["completionHandler"] as! (([HardLinkToFyle?]) -> Void)
+			let completionHandler = notification.userInfo!["completionHandler"] as! (@Sendable ([HardLinkToFyle?]) -> Void)
 			block(fyleElements, completionHandler)
 		}
 	}

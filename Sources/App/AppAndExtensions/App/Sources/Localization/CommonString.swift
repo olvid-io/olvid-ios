@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -115,6 +115,7 @@ extension CommonString.Word {
     static let Settings = NSLocalizedString("Settings", comment: "Settings word, capitalized")
     static let Share = NSLocalizedString("Share", comment: "Share word, capitalized")
     static let Show = NSLocalizedString("Show", comment: "Show word, capitalized")
+    static let Siri = NSLocalizedString("Siri", comment: "Size word, capitalized")
     static let Size = NSLocalizedString("Size", comment: "Size word, capitalized")
     static let Speaker = NSLocalizedString("Speaker", comment: "Speaker word, capitalized")
     static let Stored = NSLocalizedString("Stored", comment: "Stored word, capitalized")
@@ -179,7 +180,7 @@ extension CommonString {
         static let useApplicationDefault = NSLocalizedString("Use application default", comment: "Title")
         static let callBack = NSLocalizedString("CALL_BACK", comment: "Title")
         static let touchToReturnToCall = NSLocalizedString("Touch to return to call", comment: "Title")
-        static let introduceTo = { (contactIdentityDisplayName: String) in
+        static func introduceTo(_ contactIdentityDisplayName: String) -> String {
             String.localizedStringWithFormat(NSLocalizedString("Introduce %@ to...", comment: "Title of the table listing all identities but the one to introduce"), contactIdentityDisplayName)
         }
         static let deleteOwnReaction = NSLocalizedString("DELETE_OWN_REACTION", comment: "Title")
@@ -195,14 +196,13 @@ extension CommonString {
     
     static let removeNickname = NSLocalizedString("Remove nickname", comment: "UIAlertController action")
     static let restoreBackupTitle = NSLocalizedString("Restore a backup", comment: "Button title, Navigation controller title")
-    static let gracePeriodTitle = { (duration: String) in
+    static func gracePeriodTitle(_ duration: String) -> String {
         String.localizedStringWithFormat(NSLocalizedString("GRACE_PERIOD_TITLE_%@", comment: "Notification body"), duration)
     }
-    static let clonedGroupNameFromOriginalName = { (originalName: String) in
+    static func clonedGroupNameFromOriginalName(_ originalName: String) -> String {
         String.localizedStringWithFormat(NSLocalizedString("CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@", comment: ""), originalName)
     }
 
-    static let explanationNonOneToOneContact = NSLocalizedString("EXPLANATION_PLACED_ABOVE_LIST_OF_NON_ONE_TO_ONE_CONTACTS", comment: "")
     static let someOfYourContactsMayNotAppearAsGroupV2Candidates = NSLocalizedString("SOME_OF_YOUR_CONTACTS_MAY_NOT_APPEAR_AS_GROUP_V2_CANDIDATES", comment: "")
     static let explanationForCloneGroupV1ToGroupV2 = NSLocalizedString("EXPLANATION_FOR_CLONING_A_GROUP_V1_TO_GROUP_V2", comment: "")
     

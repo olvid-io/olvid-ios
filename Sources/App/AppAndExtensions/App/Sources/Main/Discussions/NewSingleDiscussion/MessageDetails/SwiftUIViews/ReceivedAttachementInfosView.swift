@@ -103,7 +103,6 @@ struct ReceivedFyleMessageJoinWithStatusView: View {
         receivedFyleMessageJoinWithStatus.throughput
     }
     
-    @available(iOS 15, *)
     private var formattedThroughput: String {
         throughput.formatted(.byteCount(style: .file, allowedUnits: [.gb, .mb, .kb], spellsOutZero: false, includesActualByteCount: false)) + "/s"
     }

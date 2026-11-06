@@ -39,8 +39,9 @@ final class DeleteDraftFyleJoinOfDraftOperation: ContextualOperationWithSpecific
         
         do {
             
+            // An attachment that is already gone is what this operation was asked for, not a failure: a second tap on the same ✕ finds nothing to delete.
             guard let persistedDraftFyleJoin = try PersistedDraftFyleJoin.get(withObjectID: draftFyleJoinObjectID, within: obvContext.context) else {
-                return cancel(withReason: .couldNotFindDraftFyleJoin)
+                return
             }
             
             let draft = persistedDraftFyleJoin.draft
@@ -60,26 +61,21 @@ enum DeleteDraftFyleJoinOfDraftOperationReasonForCancel: LocalizedErrorWithLogTy
     
     case contextIsNil
     case coreDataError(error: Error)
-    case couldNotFindDraftFyleJoin
-    
+
     var logType: OSLogType {
         switch self {
         case .contextIsNil,
              .coreDataError:
             return .fault
-        case .couldNotFindDraftFyleJoin:
-            return .error
         }
     }
-    
+
     var errorDescription: String? {
         switch self {
         case .contextIsNil:
             return "The context is not set"
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
-        case .couldNotFindDraftFyleJoin:
-            return "Could not find draft fyle join in database"
         }
     }
 

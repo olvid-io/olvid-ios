@@ -35,14 +35,16 @@ final class SendPollVoteJSONOperation: ContextualOperationWithSpecificReasonForC
     private let voted: Bool
     private let version: Int
     private let originalServerTimestamp: Date? // Set when re-sending a poll vote to a group v2 member that switch from the pending to the non-pending state
+    private let restrictToContactCryptoId: ObvCryptoId? // Set together with originalServerTimestamp: the poll vote is then sent to that member only
 
-    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, obvEngine: ObvEngine, pollVoteCandidateUuid: UUID, voted: Bool, version: Int, originalServerTimestamp: Date?) {
+    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, obvEngine: ObvEngine, pollVoteCandidateUuid: UUID, voted: Bool, version: Int, originalServerTimestamp: Date?, restrictToContactCryptoId: ObvCryptoId?) {
         self.messageObjectID = messageObjectID
         self.obvEngine = obvEngine
         self.pollVoteCandidateUuid = pollVoteCandidateUuid
         self.voted = voted
         self.version = version
         self.originalServerTimestamp = originalServerTimestamp
+        self.restrictToContactCryptoId = restrictToContactCryptoId
         super.init()
     }
 
@@ -74,22 +76,35 @@ final class SendPollVoteJSONOperation: ContextualOperationWithSpecificReasonForC
         let contactCryptoIds: Set<ObvCryptoId>
         let ownCryptoId: ObvCryptoId
         do {
-            (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
+            let (own, allActiveParticipants) = try discussion.getAllActiveParticipants()
+            ownCryptoId = own
+            if let restrictToContactCryptoId {
+                contactCryptoIds = allActiveParticipants.intersection([restrictToContactCryptoId])
+            } else {
+                contactCryptoIds = allActiveParticipants
+            }
         } catch {
             return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
         }
-        
+
+        guard !contactCryptoIds.isEmpty else {
+            // Happens when the only allowed recipient is not an active participant of the discussion anymore: there is nothing to send.
+            return
+        }
+
         // Create a payload of the PersistedItemJSON we just created and send it.
         // We do not keep track of the message identifiers from engine.
-        
+
         let payload: Data
         do {
             payload = try itemJSON.jsonEncode()
         } catch {
             return cancel(withReason: .failedToEncodePersistedItemJSON)
         }
-        
+
         do {
+            // When the poll vote is re-sent to a specific group member, there is no need to post it to our other owned
+            // devices: they received the original vote and perform their own replay.
             _ = try obvEngine.post(messagePayload: payload,
                                    extendedPayload: nil,
                                    withUserContent: true,
@@ -97,7 +112,7 @@ final class SendPollVoteJSONOperation: ContextualOperationWithSpecificReasonForC
                                    attachmentsToSend: [],
                                    toContactIdentitiesWithCryptoId: contactCryptoIds,
                                    ofOwnedIdentityWithCryptoId: ownCryptoId,
-                                   alsoPostToOtherOwnedDevices: true)
+                                   alsoPostToOtherOwnedDevices: restrictToContactCryptoId == nil)
         } catch {
             return cancel(withReason: .couldNotPostMessageWithinEngine)
         }

@@ -78,6 +78,9 @@ final class MainFlowViewController: UISplitViewController {
     fileprivate let mainTabBarControllerDelegate: UITabBarControllerDelegateWithinMainFlowViewController
     fileprivate let navForDetailsView = UINavigationController(rootViewController: OlvidPlaceholderViewController())
 
+    /// Stops the discussions of the secondary column from sliding on a Mac, including for the back button. See `TheTransitionBetweenDiscussions`.
+    private let theTransitionBetweenDiscussions = TheTransitionBetweenDiscussions()
+
     fileprivate let allFlowControllersForUITabBarController: AllObvFlowViewControllers
     fileprivate let allFlowControllersForUISplitViewController: AllObvFlowViewControllers
 
@@ -170,7 +173,13 @@ final class MainFlowViewController: UISplitViewController {
 
         //self.appDataSourceForObvUIGroupV2Router.setDelegate(to: self)
         self.dataSources.sideBarViewAppDataSource.delegate = self
-                
+        // Only where the delegate has something to say. A navigation controller whose delegate implements `animationControllerFor` is one UIKit
+        // treats as having a custom transition, and it withdraws the interactive pop — which, unlike the flow controllers, this one has no
+        // `gestureRecognizerShouldBegin` to give back. On an iPad, that is the swipe from a discussion back to the placeholder.
+        if !TheTransitionBetweenDiscussions.isAnimated {
+            navForDetailsView.delegate = theTransitionBetweenDiscussions
+        }
+
         if #available(iOS 26, *) {
             // We don't change the appearance under iOS 26
         } else {
@@ -195,15 +204,6 @@ final class MainFlowViewController: UISplitViewController {
         observationTokens.append(contentsOf: [
 
             // ObvMessengerInternalNotification
-            ObvMessengerInternalNotification.observeOlvidSnackBarShouldBeShown { [weak self] ownedCryptoId, category in
-                Task { await self?.showSnackBarOnAllTabBarChildren(with: category, forOwnedIdentity: ownedCryptoId) }
-            },
-            ObvMessengerInternalNotification.observeOlvidSnackBarShouldBeHidden { [weak self] ownedCryptoId in
-                Task { await self?.hideSnackBarOnAllTabBarChildren(forOwnedIdentity: ownedCryptoId) }
-            },
-            ObvMessengerInternalNotification.observeUserWantsToSeeDetailedExplanationsOfSnackBar { [weak self] ownedCryptoId, snackBarCategory in
-                Task { await self?.processUserWantsToSeeDetailedExplanationsOfSnackBar(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory) }
-            },
             ObvMessengerInternalNotification.observeBadgeForNewMessagesHasBeenUpdated { [weak self] ownedCryptoId, newCount in
                 Task { await self?.processBadgeForNewMessagesHasBeenUpdated(ownCryptoId: ownedCryptoId, newCount: newCount) }
             },
@@ -214,10 +214,7 @@ final class MainFlowViewController: UISplitViewController {
                 Task { await self?.processBetaUserWantsToSeeLogString(logString: logString) }
             },
             ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted { [weak self] discussionPermanentID, _ in
-                Task { await self?.processPersistedDiscussionWasDeletedOrArchived(discussionPermanentID: discussionPermanentID) }
-            },
-            ObvMessengerCoreDataNotification.observePersistedDiscussionWasArchived { [weak self] discussionPermanentID in
-                Task { await self?.processPersistedDiscussionWasDeletedOrArchived(discussionPermanentID: discussionPermanentID) }
+                Task { await self?.processPersistedDiscussionWasDeleted(discussionPermanentID: discussionPermanentID) }
             },
         ])
         
@@ -375,58 +372,6 @@ final class MainFlowViewController: UISplitViewController {
     }
 
     
-    /// Called when the user tap the button shown on the snackbar view.
-    @MainActor
-    private func processUserWantsToSeeDetailedExplanationsOfSnackBar(ownedCryptoId: ObvCryptoId, snackBarCategory: OlvidSnackBarCategory) async {
-        assert(Thread.isMainThread)
-        guard self.currentOwnedCryptoId == ownedCryptoId else { return }
-        
-        let vc = OlvidAlertViewController()
-        vc.configure(
-            title: snackBarCategory.detailsTitle,
-            body: snackBarCategory.detailsBody,
-            primaryActionTitle: snackBarCategory.primaryActionTitle,
-            primaryAction: { [weak self] in
-                (self?.presentedViewController as? OlvidAlertViewController)?.dismiss(animated: true) {
-                    switch snackBarCategory {
-                    case .grantPermissionToRecord:
-                        AVAudioSession.sharedInstance().requestRecordPermission { _ in
-                            ObvMessengerInternalNotification.displayedSnackBarShouldBeRefreshed.postOnDispatchQueue()
-                        }
-                    case .grantPermissionToRecordInSettings:
-                        guard let appSettings = URL(string: UIApplication.openRecordSettingsURLString) else { assertionFailure(); return }
-                        guard UIApplication.shared.canOpenURL(appSettings) else { assertionFailure(); return }
-                        UIApplication.shared.open(appSettings, options: [:])
-                    case .newerAppVersionAvailable:
-                        guard UIApplication.shared.canOpenURL(ObvMessengerConstants.shortLinkToOlvidAppIniTunes) else { assertionFailure(); return }
-                        UIApplication.shared.open(ObvMessengerConstants.shortLinkToOlvidAppIniTunes, options: [:], completionHandler: nil)
-                    }
-                }
-            },
-            secondaryActionTitle: snackBarCategory.secondaryActionTitle,
-            secondaryAction: { [weak self] in
-                (self?.presentedViewController as? OlvidAlertViewController)?.dismiss(animated: true) {
-                    switch snackBarCategory {
-                    case .grantPermissionToRecord, .grantPermissionToRecordInSettings:
-                        ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
-                            .postOnDispatchQueue()
-                    case .newerAppVersionAvailable:
-                        ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
-                            .postOnDispatchQueue()
-                    }
-                }
-            })
-        vc.modalPresentationStyle = .pageSheet
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 16.0
-        }
-        self.present(vc, animated: true)
-        
-    }
-    
-
     /// The current `ObvFlowController` currently on screen, if there is one.
     fileprivate var currentFlowController: ObvFlowController? {
         if self.isCollapsed {
@@ -443,26 +388,6 @@ final class MainFlowViewController: UISplitViewController {
     private var alreadyPushingDiscussionViewController = false
     
 
-    @MainActor
-    private func showSnackBarOnAllTabBarChildren(with category: OlvidSnackBarCategory, forOwnedIdentity ownedCryptoId: ObvCryptoId) async {
-        assert(Thread.isMainThread)
-        guard self.currentOwnedCryptoId == ownedCryptoId else { return }
-        allFlowControllers.forEach { flowViewController in
-            flowViewController.showSnackBar(with: category, currentOwnedCryptoId: ownedCryptoId, completion: {})
-        }
-    }
-    
-    
-    @MainActor
-    private func hideSnackBarOnAllTabBarChildren(forOwnedIdentity ownedCryptoId: ObvCryptoId) async {
-        assert(Thread.isMainThread)
-        guard self.currentOwnedCryptoId == ownedCryptoId else { return }
-        allFlowControllers.forEach { flowViewController in
-            flowViewController.removeSnackBar(completion: {})
-        }
-    }
-    
-    
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
     deinit {
@@ -499,6 +424,8 @@ final class MainFlowViewController: UISplitViewController {
                         Self.logger.error("🧥 User cancelled")
                         return
                     }
+                } catch {
+                    Self.logger.error("🧥 Could not synchronise the owned identity with the Keycloak server: \(error.localizedDescription, privacy: .public)")
                 }
             }
         }
@@ -576,8 +503,10 @@ extension MainFlowViewController {
     ///
     /// This method is automatically called when the user presses **Cmd+0**, as defined by the `UIKeyCommand`
     /// in `ObvMenuController`. It pops all discussions from the navigation stack, returning the app to its initial state.
+    ///
+    /// Like every other move between discussions, this does not slide on a Mac. See `TheTransitionBetweenDiscussions`.
     @objc func processUIKeyCommandForHome() {
-        navForDetailsView.popToRootViewController(animated: true)
+        navForDetailsView.popToRootViewController(animated: TheTransitionBetweenDiscussions.isAnimated)
     }
     
     
@@ -626,39 +555,37 @@ extension MainFlowViewController {
     }
 
     
+    /// The discussion the find shortcuts concern, which is whichever one is on top.
+    ///
+    /// **Typed as `SomeSingleDiscussionViewController`, and that is the point of it**: it used to be the concrete `NewSingleDiscussionViewController`, so ⌘F, ⌘G and
+    /// ⇧⌘G reached nothing at all on the SwiftUI screen — they were not broken there, they were never delivered. Asking for the protocol both screens conform to means
+    /// the shortcuts follow whichever screen the reader is on, and that a third screen would need nothing here.
+    private var discussionForTheFindShortcuts: (any SomeSingleDiscussionViewController)? {
+        if let discussionVC = navForDetailsView.topViewController as? any SomeSingleDiscussionViewController {
+            return discussionVC
+        } else if let discussionVC = currentFlowController?.topViewController as? any SomeSingleDiscussionViewController {
+            return discussionVC
+        } else {
+            return nil
+        }
+    }
+
+
     /// Overriding this method allows to be called when the user types the standard keyboard shortcut (Cmd+F) for search.
-    ///
-    /// We pass this information to the most appropriate `NewSingleDiscussionViewController`.
     override func find(_ sender: Any?) {
-        if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
-            return discussionVC.find(sender)
-        } else if let discussionVC = currentFlowController?.topViewController as? NewSingleDiscussionViewController {
-            return discussionVC.find(sender)
-        }
+        discussionForTheFindShortcuts?.find(sender)
     }
-    
-    
+
+
     /// Overriding this method allows to be called when the user types the standard keyboard shortcut (Cmd+G) for "Find next".
-    ///
-    /// We pass this information to the most appropriate `NewSingleDiscussionViewController`.
     override func findNext(_ sender: Any?) {
-        if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
-            return discussionVC.findNext(sender)
-        } else if let discussionVC = currentFlowController?.topViewController as? NewSingleDiscussionViewController {
-            return discussionVC.findNext(sender)
-        }
+        discussionForTheFindShortcuts?.findNext(sender)
     }
-    
-    
+
+
     /// Overriding this method allows to be called when the user types the standard keyboard shortcut (Shift+Cmd+G) for "Find previous".
-    ///
-    /// We pass this information to the most appropriate `NewSingleDiscussionViewController`.
     override func findPrevious(_ sender: Any?) {
-        if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
-            return discussionVC.findPrevious(sender)
-        } else if let discussionVC = currentFlowController?.topViewController as? NewSingleDiscussionViewController {
-            return discussionVC.findPrevious(sender)
-        }
+        discussionForTheFindShortcuts?.findPrevious(sender)
     }
     
 }
@@ -669,29 +596,14 @@ extension MainFlowViewController {
 extension MainFlowViewController {
     
     @MainActor
-    func processPersistedDiscussionWasDeletedOrArchived(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
+    func processPersistedDiscussionWasDeleted(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         
-        if let persistedDiscussion = try? PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: ObvStack.shared.viewContext), !persistedDiscussion.isDeleted {
-            
-            if persistedDiscussion.isArchived {
-                await removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
-                await removeFromTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
-            } else {
-                await refreshFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussion(persistedDiscussion)
-                await refreshTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussion(persistedDiscussion)
-            }
-            
-        } else {
-            
-            await removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
-            await removeFromTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
-            
-        }
-        
+        await removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
+        await removeFromTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
+
     }
     
     
-    /// Helper method for `processPersistedDiscussionWasInserted()`
     @MainActor
     private func removeFromTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(_ discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         var newStack = self.navForDetailsView.viewControllers.compactMap { viewController in
@@ -705,46 +617,10 @@ extension MainFlowViewController {
     }
     
     
-    /// Helper method
     @MainActor
     private func removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(_ discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         for obvFlowController in allFlowControllers {
             await obvFlowController.removeAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
-        }
-    }
-    
-    
-    /// Helper method for `processPersistedDiscussionWasInserted()`
-    @MainActor
-    private func refreshTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussion(_ discussion: PersistedDiscussion) async {
-        var newStack = self.navForDetailsView.viewControllers.compactMap { viewController in
-            guard let someSingleDiscussionVC = viewController as? SomeSingleDiscussionViewController else { return viewController }
-            if someSingleDiscussionVC.discussionPermanentID != discussion.discussionPermanentID {
-                return someSingleDiscussionVC
-            } else {
-                do {
-                    return try currentFlowController?.getNewSingleDiscussionViewController(discussionObjectID: discussion.typedObjectID, initialScroll: .newMessageSystemOrLastMessage)
-                } catch {
-                    assertionFailure(error.localizedDescription) // In production, continue anyway
-                    return nil
-                }
-            }
-        }
-        if newStack.isEmpty {
-            newStack = [OlvidPlaceholderViewController()]
-        }
-        self.navForDetailsView.setViewControllers(newStack, animated: false)
-    }
-    
-    
-    @MainActor
-    private func refreshFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussion(_ discussion: PersistedDiscussion) async {
-        for obvFlowController in self.allFlowControllers {
-            do {
-                try await obvFlowController.refreshAllSingleDiscussionViewControllerForDiscussion(discussion)
-            } catch {
-                assertionFailure(error.localizedDescription) // In production, continue anyway
-            }
         }
     }
     
@@ -823,7 +699,7 @@ extension MainFlowViewController: NewAutorisationRequesterViewControllerDelegate
     private func requestLocalNotificationsAuthorization() async {
         let center = UNUserNotificationCenter.current()
         do {
-            try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            try await center.requestAuthorization(options: .requestedByOlvid)
         } catch {
             Self.logger.error("Could not request authorization for notifications: \(error, privacy: .public)")
         }
@@ -1003,9 +879,14 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         Task { await requestLocalNotificationsAuthorization() }
     }
     
-    func userWantsToForwardMessage(_ vc: ObvFlowController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
+    func userWantsToForwardMessages(_ vc: ObvFlowController, identifiersOfMessagesToForward: [ObvMessageAppIdentifier], identifiersOfDiscussionsWhereMessagesShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        try await mainFlowViewControllerDelegate.userWantsToForwardMessage(self, identifierOfMessageToForwad: identifierOfMessageToForwad, identifiersOfDiscussionsWhereMessageShouldBeForwarded: identifiersOfDiscussionsWhereMessageShouldBeForwarded)
+        try await mainFlowViewControllerDelegate.userWantsToForwardMessages(self, identifiersOfMessagesToForward: identifiersOfMessagesToForward, identifiersOfDiscussionsWhereMessagesShouldBeForwarded: identifiersOfDiscussionsWhereMessagesShouldBeForwarded)
+    }
+
+    func userWantsToDeleteMessages(_ vc: ObvFlowController, persistedMessageObjectIDs: Set<NSManagedObjectID>, deletionType: DeletionType) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToDeleteMessages(self, persistedMessageObjectIDs: persistedMessageObjectIDs, deletionType: deletionType)
     }
     
     func userWantsToUpdateDiscussionLocalConfiguration(_ vc: ObvFlowController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws {
@@ -1043,7 +924,26 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
         mainFlowViewControllerDelegate.userDidSeeNewDetailsOfContact(self, contactIdentifier: contactIdentifier)
     }
-    
+
+
+    func userWantsToStopSuggestingContact(_ flowController: ObvFlowController, contactIdentifier: ObvContactIdentifier) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToStopSuggestingContact(self, contactIdentifier: contactIdentifier)
+    }
+
+
+    func contactSuggestionsWereSeen(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, invitationUUIDs: Set<UUID>) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.contactSuggestionsWereSeen(self, ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, invitationUUIDs: invitationUUIDs)
+    }
+
+
+    /// Both contacts flows count the same suggestions. The sidebar only shows beside the one of the split view, so that is the one it follows.
+    func contactsSuggestionsBadgeWasRecounted(_ flowController: ObvFlowController, badgeCount: Int, hasANewCard: Bool) {
+        guard flowController === allFlowControllersForUISplitViewController.flowControllerForFlow(.contacts) else { return }
+        dataSources.sideBarViewAppDataSource.setBadgeForContacts(count: badgeCount, hasANewCard: hasANewCard)
+    }
+
     
     func userWantsToUpdatePersonalNote(_ flowController: ObvFlowController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
@@ -1267,7 +1167,13 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToDeleteDraftAttachment(self, draftFyleJoinObjectID: draftFyleJoinObjectID)
     }
-    
+
+    func userWantsToChangeTheMediaFormatOfTheDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, format: ObvMediaFormat) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToChangeTheMediaFormatOfTheDraft(self, draftObjectID: draftObjectID, format: format)
+    }
+
+
     func userWantsToUpdateDraftBodyAndMentions(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToUpdateDraftBodyAndMentions(self, draftObjectID: draftObjectID, body: body)
@@ -1914,7 +1820,7 @@ extension MainFlowViewController: ObvInvitationFlow.ObvContactInvitationViewActi
 
     private func userWantsToDiscussWith(contactIdentifier: ObvTypes.ObvContactIdentifier) {
         guard let oneToOneDiscussion = try? PersistedOneToOneDiscussion.getPersistedDiscussionOneToOne(contactId: contactIdentifier, within: ObvStack.shared.viewContext) else { return }
-        guard oneToOneDiscussion.contactIdentity?.cryptoId == contactIdentifier.contactCryptoId else { return }
+        guard (try? oneToOneDiscussion.contactIdentity?.cryptoId) == contactIdentifier.contactCryptoId else { return }
         guard let discussionIdentifier = try? oneToOneDiscussion.discussionIdentifier else { assertionFailure(); return }
         let deepLink = ObvDeepLink.singleDiscussion(discussionIdentifier: discussionIdentifier)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -1988,7 +1894,8 @@ extension MainFlowViewController: ObvInvitationFlow.ListOfContactsAndGroupsViewA
     
     private func persistedObvContactIdentityTapped(currentCryptoId: ObvCryptoId, with objectID: NSManagedObjectID) async -> InvitationContactsListNavigationType {
         guard let persistedContactIdentity = try? PersistedObvContactIdentity.get(objectID: objectID, within: ObvStack.shared.viewContext) else { return .none }
-        let obvContactIdentifier = ObvContactIdentifier(contactCryptoId: persistedContactIdentity.cryptoId, ownedCryptoId: currentCryptoId)
+        guard let contactCryptoId = try? persistedContactIdentity.cryptoId else { return .none }
+        let obvContactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: currentCryptoId)
         if persistedContactIdentity.isOneToOne {
             let deeplink = ObvDeepLink.singleDiscussion(discussionIdentifier: .oneToOne(id: obvContactIdentifier))
             UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -2077,8 +1984,8 @@ extension MainFlowViewController {
     private func observeUserWantsToCallNotifications() {
         os_log("📲 Observing UserWantsToCall notifications", log: log, type: .info)
         
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo { ownedCryptoId, contactCryptoIds, groupId, startCallIntent in
-            Task { [weak self] in await self?.processUserWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId, startCallIntent: startCallIntent) }
+        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo { [weak self] ownedCryptoId, contactCryptoIds, groupId, startCallIntent in
+            Task { await self?.processUserWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId, startCallIntent: startCallIntent) }
         })
         
     }
@@ -2087,6 +1994,8 @@ extension MainFlowViewController {
     @MainActor
     private func processUserWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?, startCallIntent: INStartCallIntent?) async {
         assert(Thread.isMainThread)
+        
+        Self.logger.info("📲 Processing 'User wants to call' notification, checking permissions...")
         
         // Check access to the microphone
         guard AVAudioSession.sharedInstance().recordPermission == .granted else {
@@ -2131,7 +2040,7 @@ extension MainFlowViewController {
         }
         let ownedIdentity = ownedIdentities.first!
         
-        let contactCryptoIds = Set(contacts.map({ $0.cryptoId }))
+        let contactCryptoIds = Set(contacts.compactMap { try? $0.cryptoId })
 
         // If the owned identity is allowed to make outgoing calls, we use it to request turn credentials. If it is not, we look for another owned identity that is allowed to and use it (exclusively) to request turn credentials.
         // This way, if one identity it allowed to make outgoing calls, all other owned identity are as well.
@@ -2160,8 +2069,8 @@ extension MainFlowViewController {
     
     
     private func observeUserWantsToSelectAndCallContactsNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToSelectAndCallContacts { ownedCryptoId, contactCryptoIds, groupId in
-            Task { [weak self] in self?.processUserWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId) }
+        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToSelectAndCallContacts { [weak self] ownedCryptoId, contactCryptoIds, groupId in
+            Task { self?.processUserWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId) }
         })
     }
     
@@ -2212,10 +2121,10 @@ extension MainFlowViewController {
         vc.navigationItem.searchController = vc.searchController
         vc.navigationItem.hidesSearchBarWhenScrolling = false
 
-        vc.navigationItem.rightBarButtonItem = .init(systemItem: .cancel, primaryAction: .init(handler: { [weak self] _ in
+        vc.whatCancelDoes = { [weak self] in
             guard let self else { return }
             presentedViewController?.dismiss(animated: true)
-        }))
+        }
         
         if let presentedViewController {
             presentedViewController.present(nav, animated: true)
@@ -3167,6 +3076,15 @@ extension MainFlowViewController: SettingsFlowViewControllerDelegate {
         try await mainFlowViewControllerDelegate?.userRequestedAppDatabaseSyncWithEngine(mainFlowViewController: self)
     }
 
+
+    func userRequestedDrainOfTheEngineInbox(settingsFlowViewController: SettingsFlowViewController, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport {
+        assert(mainFlowViewControllerDelegate != nil)
+        guard let report = await mainFlowViewControllerDelegate?.userRequestedDrainOfTheEngineInbox(mainFlowViewController: self, run: run) else {
+            return .couldNotBeRun(trigger: .userRequestedItInTheSettings)
+        }
+        return report
+    }
+
     
     func userWantsToConfigureNewBackups(_ settingsFlowViewController: SettingsFlowViewController, context: ObvAppBackupSetupContext) {
         assert(mainFlowViewControllerDelegate != nil)
@@ -3616,11 +3534,13 @@ protocol MainFlowViewControllerDelegate: AnyObject {
     func userWantsToPublishGroupV2Creation(_ mainFlowViewController: MainFlowViewController, groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws
     func userWantsToPublishGroupV2Modification(_ mainFlowViewController: MainFlowViewController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws
     func userRequestedAppDatabaseSyncWithEngine(mainFlowViewController: MainFlowViewController) async throws
+    func userRequestedDrainOfTheEngineInbox(mainFlowViewController: MainFlowViewController, run: ObvInboxDrainInProgress) async -> ObvInboxDrainReport
     func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws
     func userWantsToAddAttachmentsToDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste]
     func userWantsToAddAttachmentsToDraftFromURLs(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
     func userWantsToUpdateDraftBodyAndMentions(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws
     func userWantsToDeleteDraftAttachment(_ mainFlowViewController: MainFlowViewController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws
+    func userWantsToChangeTheMediaFormatOfTheDraft(_ mainFlowViewController: MainFlowViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, format: ObvMediaFormat) async throws
     func userWantsToReplyToMessage(_ mainFlowViewController: MainFlowViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
     func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ mainFlowViewController: MainFlowViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
     func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ mainFlowViewController: MainFlowViewController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
@@ -3676,6 +3596,8 @@ protocol MainFlowViewControllerDelegate: AnyObject {
 
     func userWantsToUpdatePersonalNote(_ mainFlowViewController: MainFlowViewController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws
     func userDidSeeNewDetailsOfContact(_ mainFlowViewController: MainFlowViewController, contactIdentifier: ObvContactIdentifier)
+    func userWantsToStopSuggestingContact(_ mainFlowViewController: MainFlowViewController, contactIdentifier: ObvContactIdentifier) async throws
+    func contactSuggestionsWereSeen(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, invitationUUIDs: Set<UUID>)
 
     func userWantsToReplaceTrustedDetailsByPublishedDetails(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV1Identifier) async throws
     func userHasSeenPublishedDetails(_ mainFlowViewController: MainFlowViewController, publishedDetails: PublishedDetailsValidationViewModel) async throws
@@ -3699,7 +3621,10 @@ protocol MainFlowViewControllerDelegate: AnyObject {
 
     func userWantsToUpdateDiscussionLocalConfiguration(_ vc: MainFlowViewController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws
 
-    func userWantsToForwardMessage(_ mainFlowViewController: MainFlowViewController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
+    func userWantsToForwardMessages(_ mainFlowViewController: MainFlowViewController, identifiersOfMessagesToForward: [ObvMessageAppIdentifier], identifiersOfDiscussionsWhereMessagesShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
+
+    /// Deletes several messages of one discussion at once.
+    func userWantsToDeleteMessages(_ mainFlowViewController: MainFlowViewController, persistedMessageObjectIDs: Set<NSManagedObjectID>, deletionType: DeletionType) async throws
 
 }
 

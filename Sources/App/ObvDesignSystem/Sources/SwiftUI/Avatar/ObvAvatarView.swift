@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -91,11 +91,18 @@ public protocol ObvAvatarViewDataSource: AnyObject {
     // but that still require to fetch an avatar
     func fetchAvatarForLegacyViews(photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
     func fetchAvatarFromCacheForLegacyViews(photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) -> UIImage?
+    /// The picture as stored, not resized, upright and already decoded so that it can be drawn without blocking the main thread.
+    func fetchPictureAsStored(photoURL: URL) async throws -> CGImage?
 }
 
 
 public extension ObvAvatarViewDataSource {
-    
+
+    /// Falls back to the largest avatar, so that a data source that does not implement this still shows a picture.
+    func fetchPictureAsStored(photoURL: URL) async throws -> CGImage? {
+        return try await fetchAvatarForLegacyViews(photoURL: photoURL, avatarSize: .xLarge)?.cgImage
+    }
+
     func fetchAvatarForLegacyViews(photoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
         return nil
     }
@@ -463,7 +470,6 @@ private final class DataSourceForPreviews: ObvAvatarViewDataSource {
 @MainActor
 private let dataSourceForPreviews = DataSourceForPreviews()
 
-@available(iOS 16.0, *)
 #Preview("Map") {
     ZStack {
         Color(.black)
@@ -502,7 +508,6 @@ private let dataSourceForPreviews = DataSourceForPreviews()
 }
 
 
-@available(iOS 16.0, *)
 #Preview("Circle") {
     ZStack {
         Color(.black)
@@ -548,7 +553,6 @@ private let dataSourceForPreviews = DataSourceForPreviews()
     }
 }
 
-@available(iOS 16.0, *)
 #Preview("Squircle") {
     ZStack {
         Color(.black)
@@ -586,7 +590,6 @@ private let dataSourceForPreviews = DataSourceForPreviews()
     }
 }
 
-@available(iOS 16.0, *)
 #Preview("Icon") {
     ZStack {
         Color(.black)

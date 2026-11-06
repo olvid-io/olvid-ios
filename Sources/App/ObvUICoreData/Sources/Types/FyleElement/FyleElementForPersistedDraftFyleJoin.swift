@@ -19,10 +19,11 @@
 
 import Foundation
 import UniformTypeIdentifiers
+import ObvAppTypes
 import ObvSettings
 
 
-public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
+public struct FyleElementForPersistedDraftFyleJoin: FyleElement, Sendable {
 
     public let fyleURL: URL
     public let fileName: String
@@ -35,19 +36,61 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
     let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
     let draftFyleJoinPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>
 
-    init?(_ persistedDraftFyleJoin: PersistedDraftFyleJoin) {
-        guard let fyle = persistedDraftFyleJoin.fyle else { return nil }
+    /// Which of an attachment's files this element names, the two differing for a photograph as soon as the reader picks a size that had
+    /// to be re-encoded.
+    public enum WhichFile {
+
+        /// The file exactly as it was attached.
+        ///
+        /// **What the thumbnail in the composition bar is drawn from, and that is not a preference.** The caches that hold those
+        /// hardlinks — `AttachmentThumbnailManager.hardlinkForDraftFyleObjectID` and its audio sibling — are keyed by the join's object
+        /// ID, are never invalidated, and check only that the file they remember is still on disk. A hardlink that followed the chosen
+        /// size would move underneath them and they would go on serving the first one for ever. Naming the attached file instead makes
+        /// the hardlink a fact about the attachment rather than about the current choice, so there is nothing to invalidate.
+        case asAttached
+
+        /// The file that will actually leave the device — for a photograph, whichever size is chosen.
+        ///
+        /// What QuickLook is given, so that opening an attachment shows what the recipient will get rather than what the camera
+        /// produced. Safe to follow the choice because `FilesViewer` is built afresh on each tap and caches hardlinks only for its own
+        /// lifetime, where the thumbnail caches are static and live as long as the process.
+        case asItWillBeSent
+
+    }
+
+
+    init?(_ persistedDraftFyleJoin: PersistedDraftFyleJoin, _ whichFile: WhichFile) {
+
         guard let draft = persistedDraftFyleJoin.draft else { return nil }
         guard let draftObjectPermanentID = try? draft.objectPermanentID else { return nil }
         guard let persistedDraftFyleJoinObjectPermanentID = try? persistedDraftFyleJoin.objectPermanentID else { return nil }
+
+        let fyle: Fyle
+        switch whichFile {
+        case .asAttached:
+            guard let originalFyle = persistedDraftFyleJoin.originalFyle else { return nil }
+            fyle = originalFyle
+            // The `max` variant carries the name and type the file was attached under; the join's own have moved if a size has been
+            // chosen. Falling back to the join is right for everything with no variants at all — anything that is not a photograph, and
+            // a photograph attached before sizes existed — since nothing has moved there either.
+            let original = persistedDraftFyleJoin.variant(for: .max)
+            self.fileName = original?.fileName ?? persistedDraftFyleJoin.fileName
+            self.contentType = original?.contentType ?? persistedDraftFyleJoin.contentType
+        case .asItWillBeSent:
+            guard let fyleToSend = persistedDraftFyleJoin.fyle else { return nil }
+            fyle = fyleToSend
+            // The join's own three properties mean *what will be sent*, which is the whole invariant this feature rests on.
+            self.fileName = persistedDraftFyleJoin.fileName
+            self.contentType = persistedDraftFyleJoin.contentType
+        }
+
         self.fyleURL = fyle.url
-        self.fileName = persistedDraftFyleJoin.fileName
-        self.contentType = persistedDraftFyleJoin.contentType
         self.sha256 = fyle.sha256
         self.discussionPermanentID = draft.discussion.discussionPermanentID
         self.draftPermanentID = draftObjectPermanentID
         self.draftFyleJoinPermanentID = persistedDraftFyleJoinObjectPermanentID
         self.fullFileIsAvailable = true
+
     }
 
 
@@ -93,12 +136,18 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
             .appendingPathComponent(directory, isDirectory: true)
     }
 
+    /// Where this attachment's hardlink goes: a directory per join, and **within it a directory per file**.
+    ///
+    /// The per-file directory keeps the sizes apart: Low, Med and Hi share one name (`IMG_4021.jpeg`), and `HardLinkToFyle` does nothing
+    /// when the path exists, so the first size opened would otherwise be shown for all of them. Keyed on the file, so sizes sharing a file
+    /// share a hardlink. Everything stays under the join's directory, which is trashed with the attachment or the draft.
     public func directoryForHardLink(in currentSessionDirectoryForHardlinks: URL) -> URL {
         FyleElementForPersistedDraftFyleJoin.fyleMessageJoinWithStatusDirectory(
             discussionPermanentID: discussionPermanentID,
             draftPermanentID: draftPermanentID,
             draftFyleJoinPermanentID: draftFyleJoinPermanentID,
             in: currentSessionDirectoryForHardlinks)
+        .appendingPathComponent(sha256.hexString(), isDirectory: true)
     }
 
     public static func trashDraftDirectory(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, in currentSessionDirectoryForHardlinks: URL) throws {
@@ -123,9 +172,15 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
 // MARK: - FyleElement from a PersistedDraftFyleJoin
 
 public extension PersistedDraftFyleJoin {
-    
+
+    /// The attachment as it was added to the draft. See ``FyleElementForPersistedDraftFyleJoin/WhichFile/asAttached``.
     var fyleElement: FyleElement? {
-        FyleElementForPersistedDraftFyleJoin(self)
+        FyleElementForPersistedDraftFyleJoin(self, .asAttached)
     }
-    
+
+    /// The attachment as it will leave the device. See ``FyleElementForPersistedDraftFyleJoin/WhichFile/asItWillBeSent``.
+    var fyleElementOfTheFileThatWillBeSent: FyleElement? {
+        FyleElementForPersistedDraftFyleJoin(self, .asItWillBeSent)
+    }
+
 }

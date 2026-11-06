@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -83,6 +83,8 @@ extension KeycloakContactAdditionProtocol {
         }
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
 
             let contactIdentity = receivedMessage.contactIdentity
@@ -103,14 +105,18 @@ extension KeycloakContactAdditionProtocol {
                 keycloakState = keycloakStateAndUserDetails.keycloakState
                 signedOwnedDetails = _signedOwnedDetails
             }
-            let jwks = keycloakState.jwks
+            let signatureVerificationKeyOrJWKS = keycloakState.signatureVerificationKeyOrJWKS
             let keycloakServerUrl = keycloakState.keycloakServer
 
             let signedContactUserDetails: SignedObvKeycloakUserDetails
             do {
-                signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(signedContactDetails, with: jwks).signedUserDetails
+                signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(
+                    signedContactDetails,
+                    with: signatureVerificationKeyOrJWKS,
+                    binding: .mustBeBound(to: ObvCryptoId(cryptoIdentity: contactIdentity))
+                ).signedUserDetails
             } catch {
-                os_log("Could not create SignedObvKeycloakUserDetails: %{public}@", log: log, type: .error, error.localizedDescription)
+                logger.error("Could not create SignedObvKeycloakUserDetails: \(error, privacy: .public)")
                 return FinishedState()
             }
             
@@ -129,8 +135,7 @@ extension KeycloakContactAdditionProtocol {
             }
             guard let _ = LinkBetweenProtocolInstances(parentProtocolInstance: thisProtocolInstance,
                                                        childProtocolInstanceUid: childProtocolInstanceUid,
-                                                       expectedChildStateRawId: DeviceDiscoveryForRemoteIdentityProtocol.StateId.deviceUidsReceived.rawValue,
-                                                       messageToSendRawId: ContactDeviceDiscoveryProtocol.MessageId.childProtocolReachedExpectedState.rawValue)
+                                                       messageToSendRawId: KeycloakContactAdditionProtocol.MessageId.deviceDiscoveryDone.rawValue)
             else {
                 os_log("Could not create a link between protocol instances", log: log, type: .fault)
                 return FinishedState()
@@ -171,72 +176,95 @@ extension KeycloakContactAdditionProtocol {
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
 
-        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState {
+            
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
 
             let contactIdentity = startState.contactIdentity
             let identityCoreDetails = startState.identityCoreDetails
             let keycloakServerURL = startState.keycloakServerURL
             let signedOwnedDetails = startState.signedOwnedDetails
-
-            let deviceUidsSentState = receivedMessage.deviceUidsSentState
-
-            let contactDeviceDiscoveryResult = deviceUidsSentState.result
             
-            // Make sure the contact has at least one device. If it's not the case, finish.
+            let childFinalState = receivedMessage.childFinalState
             
-            let contactDeviceUids = Set(contactDeviceDiscoveryResult.devices.map(\.uid))
-            guard !contactDeviceUids.isEmpty else {
+            switch childFinalState {
+                
+            case .serverQueryFailed(_), .cancelled:
+                logger.error("The child contact discovery failed, we do not add the contact.")
                 return FinishedState()
-            }
 
-            // Actually create the contact
-            
-            let contactCreated: Bool
-            let trustTimestamp = Date()
-            let trustOrigin: TrustOrigin = .keycloak(timestamp: trustTimestamp, keycloakServer: keycloakServerURL)
-            if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
-                contactCreated = true
-                try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
-            } else {
-                contactCreated = false
-                try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
-                // No need to add devices, they should be in sync already
-            }
-            
-            // Create the devices by processing the contact discovery result
-            
-            try identityDelegate.processContactDeviceDiscoveryResult(contactDeviceDiscoveryResult, forContactCryptoId: contactIdentity, ofOwnedCryptoId: ownedIdentity, within: obvContext)
+            case .deviceUidsReceived(let deviceUidsReceivedState):
 
-            // Propagate the message to other known devices
-
-            let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
-            if numberOfOtherDevicesOfOwnedIdentity > 0 {
-                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
-                let concreteProtocolMessage = PropagateContactAdditionToOtherDevicesMessage(coreProtocolMessage: coreMessage, 
-                                                                                            contactIdentity: contactIdentity,
-                                                                                            keycloakServerURL: keycloakServerURL,
-                                                                                            identityCoreDetails: identityCoreDetails,
-                                                                                            contactDeviceUids: Array(contactDeviceUids),
-                                                                                            trustTimestamp: trustTimestamp)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                guard deviceUidsReceivedState.remoteIdentity == contactIdentity else {
+                    logger.fault("We received the device uids of an unexpected identity")
                     assertionFailure()
-                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    return FinishedState()
+                }
+                
+                let contactDeviceDiscoveryResult = deviceUidsReceivedState.result
+                
+                // Make sure the contact has at least one device. If it's not the case, finish.
+                
+                let contactDeviceUids = Set(contactDeviceDiscoveryResult.devices.map(\.uid))
+                guard !contactDeviceUids.isEmpty else {
+                    return FinishedState()
+                }
+
+                // Actually create the contact
+                
+                let contactCreated: Bool
+                let trustTimestamp = Date()
+                let trustOrigin: TrustOrigin = .keycloak(timestamp: trustTimestamp, keycloakServer: keycloakServerURL)
+                if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext.context)) == true {
+                    contactCreated = true
+                    try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
+                } else {
+                    contactCreated = false
+                    try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    // No need to add devices, they should be in sync already
+                }
+                
+                // Create the devices by processing the contact discovery result
+                
+                try identityDelegate.processContactDeviceDiscoveryResult(contactDeviceDiscoveryResult, forContactCryptoId: contactIdentity, ofOwnedCryptoId: ownedIdentity, within: obvContext)
+
+                // Propagate the message to other known devices
+
+                let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
+                if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
+                    let concreteProtocolMessage = PropagateContactAdditionToOtherDevicesMessage(coreProtocolMessage: coreMessage,
+                                                                                                contactIdentity: contactIdentity,
+                                                                                                keycloakServerURL: keycloakServerURL,
+                                                                                                identityCoreDetails: identityCoreDetails,
+                                                                                                contactDeviceUids: Array(contactDeviceUids),
+                                                                                                trustTimestamp: trustTimestamp)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+
+                // Send an "invitation" to all contact devices
+                let ownedDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
+                let coreMessage = self.getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: Array(contactDeviceUids), fromOwnedIdentity: ownedIdentity))
+                let concreteMessage = InviteKeycloakContactMessage(coreProtocolMessage: coreMessage, contactIdentity: ownedIdentity, signedContactDetails: signedOwnedDetails, contactDeviceUids: Array(ownedDeviceUids), keycloakServerURL: keycloakServerURL)
+                guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    return FinishedState()
                 }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
 
-            // Send an "invitation" to all contact devices
-            let ownedDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
-            let coreMessage = self.getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: Array(contactDeviceUids), fromOwnedIdentity: ownedIdentity))
-            let concreteMessage = InviteKeycloakContactMessage(coreProtocolMessage: coreMessage, contactIdentity: ownedIdentity, signedContactDetails: signedOwnedDetails, contactDeviceUids: Array(ownedDeviceUids), keycloakServerURL: keycloakServerURL)
-            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                if contactCreated {
+                    return WaitingForConfirmationState(contactIdentity: contactIdentity, keycloakServerUrl: keycloakServerURL)
+                } else {
+                    return FinishedState()
+                }
 
-            if contactCreated {
-                return WaitingForConfirmationState(contactIdentity: contactIdentity, keycloakServerUrl: keycloakServerURL)
-            } else {
-                return FinishedState()
             }
+            
+
         }
 
     }
@@ -301,25 +329,74 @@ extension KeycloakContactAdditionProtocol {
             let contactIdentity = receivedMessage.contactIdentity
             let signedContactDetails = receivedMessage.signedContactDetails
             let contactDeviceUids = receivedMessage.contactDeviceUids
-            let keycloakServerURL = receivedMessage.keycloakServerURL
+            // We ignore the keycloakServerURL of the received message and use our own server instead,
+            // since the sender chooses that URL. Another option would be to check that the two URLs are the same.
+            
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
 
             // Verify the received contact signature
             // To the contrary of the Android version, the iOS version assumes that we only trust our own keycloak server.
             
-            guard let jwks = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext)?.keycloakState.jwks,
-                  let signedContactUserDetails = try? SignedObvKeycloakUserDetails.verifySignedUserDetails(signedContactDetails, with: jwks).signedUserDetails,
-                  let userCoreDetails = try? signedContactUserDetails.getObvIdentityCoreDetails()
-            else {
-                let coreMessage = self.getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: self.ownedIdentity))
-                let concreteProtocolMessage = ConfirmationMessage(coreProtocolMessage: coreMessage, accepted: false)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: self.prng) else {
-                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
-                }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: self.prng, within: obvContext)
 
+            let keycloakStateAndUserDetailsIfManaged: ObvKeycloakStateAndUserDetails?
+            do {
+                keycloakStateAndUserDetailsIfManaged = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext)
+            } catch {
+                logger.error("Could not get the keycloak state of our owned identity: \(error, privacy: .public)")
+                try postConfirmationMessageWithAcceptedToFalse(contactIdentity: contactIdentity, contactDeviceUids: contactDeviceUids)
                 return FinishedState()
             }
 
+            guard let keycloakStateAndUserDetails = keycloakStateAndUserDetailsIfManaged else {
+                logger.error("Our owned identity is not keycloak managed")
+                try postConfirmationMessageWithAcceptedToFalse(contactIdentity: contactIdentity, contactDeviceUids: contactDeviceUids)
+                return FinishedState()
+            }
+            
+            let keycloakServerURL = keycloakStateAndUserDetails.keycloakState.keycloakServer
+            let signatureVerificationKeyOrJWKS = keycloakStateAndUserDetails.keycloakState.signatureVerificationKeyOrJWKS
+            
+            let signedContactUserDetails: SignedObvKeycloakUserDetails
+            do {
+                signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(
+                    signedContactDetails,
+                    with: signatureVerificationKeyOrJWKS,
+                    binding: .mustBeBound(to: ObvCryptoId(cryptoIdentity: contactIdentity))
+                ).signedUserDetails
+            } catch {
+                logger.error("Failed to verify signed details: \(error, privacy: .public)")
+                try postConfirmationMessageWithAcceptedToFalse(contactIdentity: contactIdentity, contactDeviceUids: contactDeviceUids)
+                return FinishedState()
+            }
+            
+            let isRevokedByOwnKeycloakOrExpired: Bool
+            do {
+                isRevokedByOwnKeycloakOrExpired = try identityDelegate.isRevokedByOwnKeycloakOrExpired(
+                    ownedIdentity: ownedIdentity,
+                    identity: contactIdentity,
+                    signedDetails: signedContactUserDetails,
+                    within: obvContext)
+            } catch {
+                logger.error("Could not check whether the user is revoked by the keycloak server: \(error, privacy: .public)")
+                try postConfirmationMessageWithAcceptedToFalse(contactIdentity: contactIdentity, contactDeviceUids: contactDeviceUids)
+                return FinishedState()
+            }
+
+            guard !isRevokedByOwnKeycloakOrExpired else {
+                logger.error("The user is revoked by the keycloak server, or their signed details are too old")
+                try postConfirmationMessageWithAcceptedToFalse(contactIdentity: contactIdentity, contactDeviceUids: contactDeviceUids)
+                return FinishedState()
+            }
+            
+            let userCoreDetails: ObvIdentityCoreDetails
+            do {
+                userCoreDetails = try signedContactUserDetails.getObvIdentityCoreDetails()
+            } catch {
+                logger.error("The signed details of the invite have no acceptable name: \(error, privacy: .public)")
+                try postConfirmationMessageWithAcceptedToFalse(contactIdentity: contactIdentity, contactDeviceUids: contactDeviceUids)
+                return FinishedState()
+            }
+            
             let coreMessage = self.getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
             let concreteProtocolMessage = CheckForRevocationServerQueryMessage(coreProtocolMessage: coreMessage)
             guard let messageToSend = concreteProtocolMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: .checkKeycloakRevocation(keycloakServerUrl: keycloakServerURL, signedContactDetails: signedContactDetails)) else {
@@ -330,6 +407,17 @@ extension KeycloakContactAdditionProtocol {
             return CheckingForRevocationState(contactIdentity: contactIdentity, identityCoreDetails: userCoreDetails, contactDeviceUids: contactDeviceUids, keycloakServerURL: keycloakServerURL)
         }
 
+        
+        private func postConfirmationMessageWithAcceptedToFalse(contactIdentity: ObvCryptoIdentity, contactDeviceUids: [UID]) throws {
+            let coreMessage = self.getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: self.ownedIdentity))
+            let concreteProtocolMessage = ConfirmationMessage(coreProtocolMessage: coreMessage, accepted: false)
+            guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: self.prng) else {
+                throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+            }
+            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: self.prng, within: obvContext)
+        }
+
+        
     }
 
     final class AddContactAndSendConfirmationStep: ProtocolStep, TypedConcreteProtocolStep {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,8 +31,6 @@ import ObvAppCoreConstants
 /// This is used when replying to a received message from a user notification, or when marking a received message as "read" from a user notification.
 final class MarkReceivedMessageAsReadFromCurrentDeviceOperation: ContextualOperationWithSpecificReasonForCancel<MarkReceivedMessageAsReadFromCurrentDeviceOperation.ReasonForCancel>, @unchecked Sendable, OperationProvidingDiscussionReadJSON {
 
-    private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MarkReceivedMessageAsReadFromCurrentDeviceOperation.self))
-
     enum Input {
         case messageReceivedID(MessageReceivedPermanentID)
         case messageID(MessagePermanentID)
@@ -51,7 +49,15 @@ final class MarkReceivedMessageAsReadFromCurrentDeviceOperation: ContextualOpera
     private(set) var ownedIdentityHasAnotherReachableDevice = false
     private(set) var discussionReadJSONToSend: DiscussionReadJSON?
 
-    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+    /// The `.read` return receipt produced by the producer after the message was marked as not new
+    /// on this device. `nil` when the read obligation was already resolved (the user had opted out
+    /// at insert time, the Intents extension already posted the receipt for a Siri-driven mark,
+    /// a previous mark-as-read call on this message already emitted, the sender's payload carries
+    /// no receipt element, or the contact has no known device UIDs). The caller is responsible for
+    /// forwarding the receipt to the engine after the composed save commits.
+    private(set) var readReceiptToSend: ObvReturnReceiptToSend?
+
+    override public func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         do {
             
@@ -96,7 +102,13 @@ final class MarkReceivedMessageAsReadFromCurrentDeviceOperation: ContextualOpera
                                                                                                receivedMessageId: receivedMessageId,
                                                                                                dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew,
                                                                                                requestedOnAnotherOwnedDevice: false)
-            
+
+            // The mark-as-not-new above transitioned the status to .read on *this* device, so the
+            // read-receipt producer can fire. The producer is idempotent: it returns nil if the
+            // read obligation was already resolved (opt-out at insert, prior emission, …) and
+            // atomically flips the flag so a subsequent call can never re-emit.
+            self.readReceiptToSend = persistedMessageReceived.produceReadReceiptToSendIfAppropriate()
+
             do {
                 if let lastReadMessageServerTimestamp {
                     discussionReadJSONToSend = try ownedIdentity.getDiscussionReadJSON(discussionId: discussionId, lastReadMessageServerTimestamp: lastReadMessageServerTimestamp)

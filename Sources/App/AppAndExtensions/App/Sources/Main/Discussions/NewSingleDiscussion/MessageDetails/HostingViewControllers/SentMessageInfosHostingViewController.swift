@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,8 @@ import ObvTypes
 import ObvUICoreData
 import ObvSystemIcon
 import ObvAppTypes
+import ObvDesignSystem
+import OlvidUtils
 
 
 protocol SentMessageInfosHostingViewControllerDelegate: AnyObject {
@@ -44,8 +46,10 @@ final class SentMessageInfosHostingViewController: UIHostingController<SentMessa
         self.internalDelegate = delegate
         guard let store = SentMessageInfosViewStore(messageSent: messageSent) else { return nil }
         self.store = store
-        let view = SentMessageInfosView(model: messageSent, store: store)
+        let actions = MessageInfosViewActions()
+        let view = SentMessageInfosView(model: messageSent, store: store, actions: actions)
         super.init(rootView: view)
+        actions.userWantsToDismiss = { [weak self] in self?.dismissPresentedViewController() }
     }
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -56,8 +60,6 @@ final class SentMessageInfosHostingViewController: UIHostingController<SentMessa
         
         super.viewDidLoad()
         self.title = Strings.title
-        let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(dismissPresentedViewController))
-        self.navigationItem.setRightBarButton(doneButton, animated: false)
         
         // Try to process return receipts saved for later
         userWantsToProcessReceiptsStoredForLater()
@@ -76,7 +78,7 @@ final class SentMessageInfosHostingViewController: UIHostingController<SentMessa
     }
     
 
-    @objc private func dismissPresentedViewController() {
+    fileprivate func dismissPresentedViewController() {
         if let presentationController = self.navigationController?.presentationController,
            let presentationControllerDelegate = presentationController.delegate {
             presentationControllerDelegate.presentationControllerWillDismiss?(presentationController)
@@ -134,24 +136,24 @@ fileprivate final class SentMessageInfosViewStore: ObservableObject {
             .filter { $0.timestampRead != nil }
             .sorted { $0.timestampRead! < $1.timestampRead! }
             .sorted { $0.recipientName < $1.recipientName }
-            .sorted { $0.recipientCryptoId < $1.recipientCryptoId }
+            .sorted { $0.recipientIdentity.isLessThan($1.recipientIdentity) }
             .map({ RecipientAndInfos(infos: $0, dateStringFromDate: dateStringFromDate) })
         let deliveredInfos = unsortedInfos
             .filter { $0.timestampRead == nil && $0.timestampDelivered != nil }
             .sorted { $0.timestampDelivered! < $1.timestampDelivered! }
             .sorted { $0.recipientName < $1.recipientName }
-            .sorted { $0.recipientCryptoId < $1.recipientCryptoId }
+            .sorted { $0.recipientIdentity.isLessThan($1.recipientIdentity) }
             .map({ RecipientAndInfos(infos: $0, dateStringFromDate: dateStringFromDate) })
         let sentInfos = unsortedInfos
             .filter { $0.timestampRead == nil && $0.timestampDelivered == nil && $0.timestampMessageSent != nil }
             .sorted { $0.timestampMessageSent! < $1.timestampMessageSent! }
             .sorted { $0.recipientName < $1.recipientName }
-            .sorted { $0.recipientCryptoId < $1.recipientCryptoId }
+            .sorted { $0.recipientIdentity.isLessThan($1.recipientIdentity) }
             .map({ RecipientAndInfos(infos: $0, dateStringFromDate: dateStringFromDate) })
         let pendingInfos = unsortedInfos
             .filter { $0.timestampRead == nil && $0.timestampDelivered == nil && $0.timestampMessageSent == nil }
             .sorted { $0.recipientName < $1.recipientName }
-            .sorted { $0.recipientCryptoId < $1.recipientCryptoId }
+            .sorted { $0.recipientIdentity.isLessThan($1.recipientIdentity) }
             .map({ RecipientAndInfos(infos: $0, dateStringFromDate: dateStringFromDate) })
         return readInfos + deliveredInfos + sentInfos + pendingInfos
     }
@@ -253,7 +255,7 @@ fileprivate struct RecipientAndInfos: Identifiable {
     let couldNotBeSentToServer: Bool
 
     init(infos: PersistedMessageSentRecipientInfos, dateStringFromDate: (Date?) -> String?) {
-        self.id = infos.recipientCryptoId.getIdentity()
+        self.id = infos.recipientIdentity
         self.recipientName = infos.recipientName
         self.readTimestampAsString = dateStringFromDate(infos.timestampRead)
         self.deliveredTimestampAsString = dateStringFromDate(infos.timestampDelivered)
@@ -271,6 +273,7 @@ struct SentMessageInfosView<Model: SentMessageInfosViewModelProtocol>: View {
     
     @ObservedObject var model: Model
     @ObservedObject fileprivate var store: SentMessageInfosViewStore
+    let actions: MessageInfosViewActions
     
     var body: some View {
         SentMessageInfosInnerView(model: model,
@@ -283,8 +286,22 @@ struct SentMessageInfosView<Model: SentMessageInfosViewModelProtocol>: View {
                                   allSentFyleMessageJoinWithStatus: store.allSentFyleMessageJoinWithStatus,
                                   discussionKind: store.discussionKind)
             .environment(\.managedObjectContext, ObvStack.shared.viewContext)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    ObvButtonWithCancelRole(action: { actions.userWantsToDismiss() })
+                }
+            }
+            // Nothing in this sheet is focusable, and a shortcut is found from the first responder.
+            .takesKeyboardFocusOnAppear()
     }
     
+}
+
+
+/// How the Info views ask to be closed. The hosting controller answers, its dismissal telling the presentation delegate as well; a class, so that the view can be
+/// built before `super.init` and the controller pointed at after it. Shared with `ReceivedMessageInfosView`.
+final class MessageInfosViewActions {
+    var userWantsToDismiss: () -> Void = {}
 }
 
 

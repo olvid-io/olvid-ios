@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -160,7 +160,7 @@ struct ChooseBackupFileView: View, NewBackupFileDropViewActionsDelegate {
                         }
                     }.padding()
                     
-                    if #available(iOS 16, *), UIDevice.current.userInterfaceIdiom != .phone {
+                    if UIDevice.current.userInterfaceIdiom != .phone {
                         NewBackupFileDropView(actions: self)
                             .padding(.horizontal)
                     }
@@ -347,7 +347,6 @@ protocol NewBackupFileDropViewActionsDelegate {
 }
 
 
-@available(iOS 16.0, *)
 fileprivate struct NewBackupFileDropView: View {
     
     let actions: NewBackupFileDropViewActionsDelegate

@@ -27,6 +27,8 @@ import OlvidUtils
 
 final class RecreateURLSessionForCallingUIKitCompletionHandlerOperation: ContextualOperationWithSpecificReasonForCancel<RecreateURLSessionForCallingUIKitCompletionHandlerOperation.ReasonForCancel>, @unchecked Sendable {
     
+    private static let logger = Logger(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: "RecreateURLSessionForCallingUIKitCompletionHandlerOperation")
+
     private let urlSessionIdentifier: String
     private let tracker: AttachmentChunkDownloadProgressTracker
     private let delegateManager: ObvNetworkFetchDelegateManager
@@ -59,6 +61,10 @@ final class RecreateURLSessionForCallingUIKitCompletionHandlerOperation: Context
                 assertionFailure()
                 return cancel(withReason: .cannotDetermineDecryptedAttachmentURL)
             }
+
+            // The second place a session delegate is built with a URL captured once — here for a background session iOS has relaunched us for, which is
+            // exactly the case in which the file may have been removed by a process that is no longer running.
+            Self.logger.info("📁 [\(attachmentId.debugDescription, privacy: .public)] Recreating the URLSession \(self.urlSessionIdentifier, privacy: .public) writing into \(decryptedAttachmentURL.path, privacy: .public): \(attachment.reportOnWhatIsOnDiskForTheChunks(withinInbox: self.delegateManager.inbox), privacy: .public)")
 
             let cleartextChunkLengths = attachment.chunks.compactMap { $0.cleartextChunkLength }
             guard cleartextChunkLengths.count == attachment.chunks.count else {

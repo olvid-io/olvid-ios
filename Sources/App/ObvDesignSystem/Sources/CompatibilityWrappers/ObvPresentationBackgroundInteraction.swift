@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,7 @@ import SwiftUI
 public enum ObvPresentationBackgroundInteraction {
     case automatic
     case enabled
-    case enabledUpThrough(detent: ObvPresentationDetent)
+    case enabledUpThrough(detent: PresentationDetent)
     case disabled
 }
 
@@ -41,20 +41,8 @@ private struct ObvPresentationBackgroundInteractionViewModifier: ViewModifier {
                 content
                     .presentationBackgroundInteraction(.enabled)
             case .enabledUpThrough(let detent):
-                switch detent {
-                case .medium:
-                    content
-                        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                case .large:
-                    content
-                        .presentationBackgroundInteraction(.enabled(upThrough: .large))
-                case .fraction(let cGFloat):
-                    content
-                        .presentationBackgroundInteraction(.enabled(upThrough: .fraction(cGFloat)))
-                case .height(let cGFloat):
-                    content
-                        .presentationBackgroundInteraction(.enabled(upThrough: .height(cGFloat)))
-                }
+                content
+                    .presentationBackgroundInteraction(.enabled(upThrough: detent))
             case .disabled:
                 content
                     .presentationBackgroundInteraction(.disabled)

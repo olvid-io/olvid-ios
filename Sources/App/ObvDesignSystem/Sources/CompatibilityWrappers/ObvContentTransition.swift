@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,7 +38,6 @@ struct ObvContentTransitions: ViewModifier {
         self.obvContentTransition = obvContentTransition
     }
     
-    @available(iOS 16, *)
     var contentTransition: ContentTransition {
         switch obvContentTransition {
         case .identity:
@@ -66,12 +65,8 @@ struct ObvContentTransitions: ViewModifier {
     
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(iOS 16.0, *) {
-            content
-                .contentTransition(contentTransition)
-        } else {
-            content
-        }
+        content
+            .contentTransition(contentTransition)
     }
 
 }

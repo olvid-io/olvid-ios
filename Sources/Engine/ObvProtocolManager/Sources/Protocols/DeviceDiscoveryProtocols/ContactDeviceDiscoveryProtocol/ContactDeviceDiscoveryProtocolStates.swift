@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -39,6 +39,7 @@ extension ContactDeviceDiscoveryProtocol {
         case waitingForChildProtocol = 1
         case childProtocolStateProcessed = 2
         case cancelled = 3
+        case childProtocolFailed = 4
 
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
@@ -46,6 +47,7 @@ extension ContactDeviceDiscoveryProtocol {
             case .waitingForChildProtocol      : return WaitingForChildProtocolState.self
             case .childProtocolStateProcessed  : return ChildProtocolStateProcessedState.self
             case .cancelled                    : return CancelledState.self
+            case .childProtocolFailed          : return ChildProtocolFailedState.self
             }
         }
     }
@@ -95,4 +97,15 @@ extension ContactDeviceDiscoveryProtocol {
         func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
 
+    struct ChildProtocolFailedState: TypeConcreteProtocolState {
+        
+        let id: ConcreteProtocolStateId = StateId.childProtocolFailed
+        
+        init(_: ObvEncoded) {}
+        
+        init() {}
+        
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
+    }
+    
 }

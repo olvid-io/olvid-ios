@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,58 +21,133 @@
 import XCTest
 import OlvidUtils
 import ObvTypes
-import ObvEngine
+import ObvCrypto
+import ObvAppTypes
+import ObvUICoreData
 
-class ObvDeepLinkTests: XCTestCase {
 
-    private static let identityAsURL = URL(string: "https://invitation.olvid.io/#AwAAAIAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAA1-NJhAuO742VYzS5WXQnM3ACnlxX_ZTYt9BUHrotU2UBA_FlTxBTrcgXN9keqcV4-LOViz3UtdEmTZppHANX3JYAAAAAGEFsaWNlIFdvcmsgKENFTyBAIE9sdmlkKQ==")!
+/// Round-trips every ``ObvDeepLink`` through its `description` and back.
+///
+/// The switch below is exhaustive over ``ObvDeepLinkHost`` deliberately: adding a host without adding its link here
+/// stops compiling, which is the only thing that keeps this test honest as the type grows. That is also how it was found
+/// to be six cases and four signatures out of date — it had not been in any target since it was written, so nothing ever
+/// told anybody. See `Target.makeAppUnitTestsTarget(name:sourcesUnderTest:dependencies:)`.
+final class ObvDeepLinkTests: XCTestCase {
 
-    private static let cryptoId = ObvURLIdentity(urlRepresentation: identityAsURL)!.cryptoId
+    private static let identitiesAsURLs: [URL] = [
+        URL(string: "https://invitation.olvid.io/#AwAAAIAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAA1-NJhAuO742VYzS5WXQnM3ACnlxX_ZTYt9BUHrotU2UBA_FlTxBTrcgXN9keqcV4-LOViz3UtdEmTZppHANX3JYAAAAAGEFsaWNlIFdvcmsgKENFTyBAIE9sdmlkKQ==")!,
+        URL(string: "https://invitation.olvid.io/#AwAAAHAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAAVZx8aqikpCe4h3ayCwgKBf-2nDwz-a6vxUo3-ep5azkBUjimUf3J--GXI8WTc2NIysQbw5fxmsY9TpjnDsZMW-AAAAAACEJvYiBXb3Jr")!,
+    ]
 
-    func _testLink(link: ObvDeepLink) {
-        let description = link.description
-        let linkFromDescription = ObvDeepLink(description)
-        
-        XCTAssertNotNil(linkFromDescription)
-        XCTAssertEqual(link, linkFromDescription, "Links are not equals")
+    private static let cryptoIds = identitiesAsURLs.map { ObvURLIdentity(urlRepresentation: $0)!.cryptoId }
+    private static var ownedCryptoId: ObvCryptoId { cryptoIds[0] }
+    private static var contactCryptoId: ObvCryptoId { cryptoIds[1] }
+
+    private static var contactIdentifier: ObvContactIdentifier {
+        .init(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
     }
 
-    func testLinks() throws {
-        let temporaryDirectory = FileManager.default.temporaryDirectory
+    private static var groupV2Identifier: ObvGroupV2Identifier {
+        .init(ownedCryptoId: ownedCryptoId,
+              identifier: .init(groupUID: UID.zero, serverURL: URL(string: "https://test.olvid.io")!, category: .server))
+    }
+
+    private func assertRoundTrips(_ link: ObvDeepLink, file: StaticString = #filePath, line: UInt = #line) {
+        let recovered = ObvDeepLink(link.description)
+        XCTAssertNotNil(recovered, "\(link.description) did not parse back", file: file, line: line)
+        XCTAssertEqual(link, recovered, "\(link.description) did not survive the round trip", file: file, line: line)
+    }
+
+    func testEveryDeepLinkSurvivesItsDescription() throws {
 
         for host in ObvDeepLinkHost.allCases {
             switch host {
+
             case .latestDiscussions:
-                _testLink(link: ObvDeepLink.latestDiscussions(ownedCryptoId: nil))
-                _testLink(link: ObvDeepLink.latestDiscussions(ownedCryptoId: Self.cryptoId))
+                assertRoundTrips(.latestDiscussions(ownedCryptoId: nil))
+                assertRoundTrips(.latestDiscussions(ownedCryptoId: Self.ownedCryptoId))
+
             case .singleDiscussion:
-                let permanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(entityName: "PersistedDiscussion", uuid: UUID())
-                _testLink(link: ObvDeepLink.singleDiscussion(ownedCryptoId: Self.cryptoId, objectPermanentID: permanentID))
+                assertRoundTrips(.singleDiscussion(discussionIdentifier: .oneToOne(id: Self.contactIdentifier)))
+                assertRoundTrips(.singleDiscussion(discussionIdentifier: .groupV2(id: Self.groupV2Identifier)))
+
             case .invitations:
-                _testLink(link: ObvDeepLink.invitations)
-            case .contactGroupDetails:
-                _testLink(link: ObvDeepLink.contactGroupDetails(objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>(entityName: "DisplayedContactGroup", uuid: UUID())))
+                assertRoundTrips(.invitations(ownedCryptoId: Self.ownedCryptoId))
+
+            case .groupV1Details:
+                /// Built from a description rather than from `init(entityName:uuid:)`, which is internal to ObvUICoreData.
+                let entityName = "DisplayedContactGroup"
+                let permanentID = try XCTUnwrap(ObvManagedObjectPermanentID<DisplayedContactGroup>("\(entityName)/\(UUID().uuidString)",
+                                                                                                  expectedEntityName: entityName))
+                assertRoundTrips(.groupV1Details(ownedCryptoId: Self.ownedCryptoId, objectPermanentID: permanentID))
+
+            case .groupV2Details:
+                assertRoundTrips(.groupV2Details(groupIdentifier: Self.groupV2Identifier))
+
             case .contactIdentityDetails:
-                _testLink(link: ObvDeepLink.contactIdentityDetails(objectPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>(entityName: "PersistedObvContactIdentity", uuid: UUID())))
+                assertRoundTrips(.contactIdentityDetails(contactIdentifier: Self.contactIdentifier))
+
             case .airDrop:
-                let url = URL(string: temporaryDirectory.appendingPathComponent("ObvDeepLinkTests.txt", isDirectory: false).path)!
-                _testLink(link: ObvDeepLink.airDrop(fileURL: url))
+                let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("ObvDeepLinkTests.txt", isDirectory: false)
+                assertRoundTrips(.airDrop(fileURL: fileURL))
+
             case .qrCodeScan:
-                _testLink(link: ObvDeepLink.qrCodeScan)
+                assertRoundTrips(.qrCodeScan)
+
             case .myId:
-                _testLink(link: ObvDeepLink.myId(objectPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(entityName: "PersistedObvOwnedIdentity", uuid: UUID())))
+                assertRoundTrips(.myId(ownedCryptoId: Self.ownedCryptoId))
+
             case .requestRecordPermission:
-                _testLink(link: ObvDeepLink.requestRecordPermission)
+                assertRoundTrips(.requestRecordPermission)
+
             case .settings:
-                _testLink(link: ObvDeepLink.settings)
+                assertRoundTrips(.settings)
+
             case .backupSettings:
-                _testLink(link: ObvDeepLink.backupSettings)
+                assertRoundTrips(.backupSettings)
+
+            case .voipSettings:
+                assertRoundTrips(.voipSettings)
+
+            case .discussionsSettings:
+                assertRoundTrips(.discussionsSettings)
+
+            case .privacySettings:
+                assertRoundTrips(.privacySettings)
+
+            case .interfaceSettings:
+                assertRoundTrips(.interfaceSettings)
+
+            case .storageManagementSettings:
+                assertRoundTrips(.storageManagementSettings)
+
             case .message:
-                _testLink(link: ObvDeepLink.message(objectPermanentID: ObvManagedObjectPermanentID<PersistedMessage>(entityName: "PersistedMessage", uuid: UUID())))
+                let discussionIdentifier = ObvDiscussionIdentifier.oneToOne(id: Self.contactIdentifier)
+                assertRoundTrips(.message(.sent(discussionIdentifier: discussionIdentifier,
+                                                senderThreadIdentifier: UUID(),
+                                                senderSequenceNumber: 42)))
+                assertRoundTrips(.message(.received(discussionIdentifier: discussionIdentifier,
+                                                    senderIdentifier: Self.contactCryptoId.getIdentity(),
+                                                    senderThreadIdentifier: UUID(),
+                                                    senderSequenceNumber: 42)))
+
             case .allGroups:
-                _testLink(link: ObvDeepLink.allGroups)
+                assertRoundTrips(.allGroups(ownedCryptoId: Self.ownedCryptoId))
+
+            case .olvidCallView:
+                assertRoundTrips(.olvidCallView)
+
+            case .groupCreation:
+                assertRoundTrips(.groupCreation)
+
+            case .webRTCHistoryTransferConfirmation:
+                let sourceDeviceIdentifier = ObvOwnedDeviceIdentifier(ownedCryptoId: Self.ownedCryptoId, deviceUID: UID.zero)
+                assertRoundTrips(.webRTCHistoryTransferConfirmation(sourceDeviceIdentifier: sourceDeviceIdentifier,
+                                                                    transferId: "a-transfer-id"))
+
             }
         }
+
     }
 
 }

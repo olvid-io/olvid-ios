@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,6 +26,9 @@ public final class ObvCryptoIdentity: NSObject, NSCopying, ObvCodable {
     public let serverURL: URL
     public let publicKeyForAuthentication: PublicKeyForAuthentication
     public let publicKeyForPublicKeyEncryption: PublicKeyForPublicKeyEncryption
+    
+    /// Cached value returned by ``getIdentity()``.
+    private let identity: Data
     
     /// The data passed as a input is expected to be structured as follows:
     /// - The URL of a server (or nothing, for the default server), followed by
@@ -56,15 +59,34 @@ public final class ObvCryptoIdentity: NSObject, NSCopying, ObvCodable {
         guard compactPubKeyEncPubKey.count == compactPubKeyEncKeyLength else { return nil }
         guard let pubKeyEncPubKey = CompactPublicKeyForPublicKeyEncryptionExpander.expand(compactKey: compactPubKeyEncPubKey) else { return nil }
         self.publicKeyForPublicKeyEncryption = pubKeyEncPubKey
+        self.identity = Self.makeIdentity(
+            serverURL: self.serverURL,
+            publicKeyForAuthentication: self.publicKeyForAuthentication,
+            publicKeyForPublicKeyEncryption: self.publicKeyForPublicKeyEncryption
+        )
     }
     
-    public init(serverURL: URL, publicKeyForAuthentication: PublicKeyForAuthentication, publicKeyForPublicKeyEncryption: PublicKeyForPublicKeyEncryption) {
+    public init(serverURL: URL,
+                publicKeyForAuthentication: PublicKeyForAuthentication,
+                publicKeyForPublicKeyEncryption: PublicKeyForPublicKeyEncryption
+    ) {
         self.serverURL = serverURL
         self.publicKeyForAuthentication = publicKeyForAuthentication
         self.publicKeyForPublicKeyEncryption = publicKeyForPublicKeyEncryption
+        self.identity = Self.makeIdentity(
+            serverURL: self.serverURL,
+            publicKeyForAuthentication: self.publicKeyForAuthentication,
+            publicKeyForPublicKeyEncryption: self.publicKeyForPublicKeyEncryption
+        )
     }
     
-    public func getIdentity() -> Data {
+    public func getIdentity() -> Data { self.identity }
+    
+    private static func makeIdentity(
+        serverURL: URL,
+        publicKeyForAuthentication: PublicKeyForAuthentication,
+        publicKeyForPublicKeyEncryption: PublicKeyForPublicKeyEncryption
+    ) -> Data {
         var identity = serverURL.dataRepresentation
         identity.append(UInt8(0))
         identity.append(publicKeyForAuthentication.getCompactKey())
@@ -110,14 +132,11 @@ extension ObvCryptoIdentity {
 
 /// Replaces the NSObject default implementation
 extension ObvCryptoIdentity {
-    static func == (lhs: ObvCryptoIdentity, rhs: ObvCryptoIdentity) -> Bool {
-        guard lhs.publicKeyForAuthentication.isEqualTo(other: rhs.publicKeyForAuthentication) else { return false }
-        guard lhs.publicKeyForPublicKeyEncryption.isEqualTo(other: rhs.publicKeyForPublicKeyEncryption) else { return false }
-        return true
-    }
-    static func != (lhs: ObvCryptoIdentity, rhs: ObvCryptoIdentity) -> Bool {
-        return !(lhs == rhs)
-    }
+    
+    static func == (lhs: ObvCryptoIdentity, rhs: ObvCryptoIdentity) -> Bool { lhs.identity == rhs.identity }
+    
+    static func != (lhs: ObvCryptoIdentity, rhs: ObvCryptoIdentity) -> Bool { !(lhs == rhs) }
+    
     public override func isEqual(_ object: Any?) -> Bool {
         if let o = object as? ObvCryptoIdentity {
             return self == o
@@ -125,7 +144,9 @@ extension ObvCryptoIdentity {
             return false
         }
     }
+    
 }
+
 
 // MARK: Implementing NSCopying
 
@@ -138,7 +159,9 @@ extension ObvCryptoIdentity {
     }
 }
 
+
 // MARK: Implementing ObvEncodable
+
 extension ObvCryptoIdentity {
     
     public func obvEncode() -> ObvEncoded {
@@ -147,16 +170,21 @@ extension ObvCryptoIdentity {
 
 }
 
+
 // MARK: Implementing ObvDecodable
+
 extension ObvCryptoIdentity {
     
     public convenience init?(_ obvEncoded: ObvEncoded) {
         guard let identityAsData = Data(obvEncoded) else { return nil }
         self.init(from: identityAsData)
     }
+    
 }
 
+
 // MARK: Overriding the default implementation of CustomDebugStringConvertible
+
 public extension ObvCryptoIdentity {
     
     override var debugDescription: String {
@@ -168,29 +196,3 @@ public extension ObvCryptoIdentity {
     }
     
 }
-
-//public class ObvCryptoIdentityTransformer: ValueTransformer {
-//    
-//    override public class func transformedValueClass() -> AnyClass {
-//        return ObvCryptoIdentity.self
-//    }
-//    
-//    override public class func allowsReverseTransformation() -> Bool {
-//        return true
-//    }
-//    
-//    /// Transform an ObvIdentity into an instance of Data
-//    override public func transformedValue(_ value: Any?) -> Any? {
-//        guard let obvCryptoIdentity = value as? ObvCryptoIdentity else { return nil }
-//        return obvCryptoIdentity.getIdentity()
-//    }
-//    
-//    override public func reverseTransformedValue(_ value: Any?) -> Any? {
-//        guard let data = value as? Data else { return nil }
-//        return ObvCryptoIdentity(from: data)
-//    }
-//}
-
-//public extension NSValueTransformerName {
-//    static let obvCryptoIdentityTransformerName = NSValueTransformerName(rawValue: "ObvCryptoIdentityTransformer")
-//}

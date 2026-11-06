@@ -20,15 +20,19 @@
 import Foundation
 
 
+/// `@unchecked Sendable` so that ``shared`` can be reached from any isolation: the observers are main-actor state,
+/// and ``post(_:)``, the only `nonisolated` member, touches none of it.
 @MainActor
-public final class ObvDarwinNotificationCenter {
-    
-    public static let shared = ObvDarwinNotificationCenter()
-    
-    
-    public func post(_ darwinNotificationName: String) {
+public final class ObvDarwinNotificationCenter: @unchecked Sendable {
+
+    nonisolated public static let shared = ObvDarwinNotificationCenter()
+
+
+    /// `nonisolated` because `CFNotificationCenterPostNotification` is thread-safe, and a caller about to be
+    /// suspended, such as a share extension going to the background, cannot wait for the main actor.
+    nonisolated public func post(_ darwinNotificationName: String) {
         let name = CFNotificationName(darwinNotificationName as CFString)
-        CFNotificationCenterPostNotification(darwinNotifyCenter, name, nil, nil, true)
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), name, nil, nil, true)
     }
     
 
@@ -38,7 +42,7 @@ public final class ObvDarwinNotificationCenter {
             observers[darwinNotificationName] = currentObservers
         } else {
             observers[darwinNotificationName] = [observer]
-            CFNotificationCenterAddObserver(darwinNotifyCenter,
+            CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
                                             Unmanaged.passUnretained(self).toOpaque(),
                                             Self.didReceiveDarwinNotificationToForwardToObservers,
                                             darwinNotificationName as CFString,
@@ -50,10 +54,8 @@ public final class ObvDarwinNotificationCenter {
     
     // MARK: - Private
     
-    private init() {}
+    nonisolated private init() {}
 
-    private let darwinNotifyCenter = CFNotificationCenterGetDarwinNotifyCenter()
-    
     private var observers = [String: [ObvDarwinNotificationObserver]]()
 
     private static let didReceiveDarwinNotificationToForwardToObservers: CFNotificationCallback = { _, _, name, _, _ in

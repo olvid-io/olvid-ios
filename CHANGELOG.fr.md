@@ -1,5 +1,100 @@
 # Changelog
 
+## [4.5.1 (1003)] - 2026-11-03
+
+- Un nouvel écran Suggestions de vos contacts vous permet d'inviter quelqu'un d'un simple glissement. Il rassemble les mises en relation en attente, les invitations que vous avez reçues et les membres de vos groupes qui ne sont pas encore vos contacts : faites glisser une carte vers la droite pour accepter ou inviter, vers la gauche pour ignorer.
+- Une pastille indique le nombre de suggestions en attente. Sur Mac, vous pouvez aussi traiter chaque carte avec les touches fléchées.
+- Olvid pour Mac se lance à nouveau sur macOS 13.
+- Sur Mac, une photo partagée depuis une autre app est désormais envoyée immédiatement, et non plus après un long délai.
+- Sur Mac, en mode clair, les cases à cocher sont de nouveau visibles lorsque vous sélectionnez plusieurs messages.
+- Diverses améliorations de sécurité et corrections de bugs.
+
+## [4.5 (1001)] - 2026-10-18
+
+- Choisissez la taille des photos et vidéos que vous envoyez ! C'est la fonctionnalité que beaucoup d'entre vous réclamaient. Lors de la rédaction d'un message, choisissez Basse, Moyenne, Haute ou Originale. Les tailles réduites s'envoient beaucoup plus vite et parviennent plus tôt à vos contacts, surtout avec une connexion lente, et se téléchargent aussi plus vite de leur côté.
+- Les longues discussions sont beaucoup plus rapides : elles s'ouvrent environ deux fois plus vite, défilent de façon fluide aussi loin que vous remontiez, et affichent immédiatement les messages au lieu d'emplacements gris. Aller à une citation, un résultat de recherche ou une notification ne marque plus de pause.
+- Olvid est désormais disponible en turc et en polonais.
+- Les GIF animés sont désormais lus directement dans la barre de composition avant leur envoi.
+- Refonte du menu affiché lors d'un appui prolongé sur un message : icônes en premier, barre d'emojis plus spacieuse et apparence Liquid Glass à partir d'iOS 26 et de macOS 26.
+- Les réactions à vos messages sont désormais notifiées même lorsqu'Olvid est ouvert.
+- Olvid rattrape désormais son retard de manière plus fiable lorsqu'un grand nombre de messages est en attente sur le serveur.
+- Avec un clavier sur iPad ou sur Mac, la touche Échap ferme désormais l'écran affiché, ou revient d'un écran en arrière au sein d'un parcours.
+- Retour, Maj+Retour et Cmd+Retour dans la barre de composition suivent désormais le raccourci d'envoi choisi dans les réglages Interface.
+- Lorsque le contenu des notifications est masqué dans les réglages de confidentialité, les réactions, les messages modifiés et les appels manqués restent désormais masqués eux aussi. Une notification masquée joue toujours le son de la discussion et ouvre le bon écran lorsqu'on appuie dessus.
+- Correction d'un bug lors d'un partage depuis une autre application : après un changement de discussion, la ligne « À : » affichait toujours la précédente. Elle affiche désormais la discussion que vous venez de choisir.
+- Correction d'un plantage qui pouvait survenir lorsqu'une sauvegarde de votre profil était en cours de préparation au moment même où un contact était supprimé.
+- Correction d'un plantage du service de notifications qui pouvait laisser certains messages sans notification.
+- Les notifications d'Olvid s'affichent désormais de manière fiable dans CarPlay.
+- Sur iOS 16 et 17, un retour à la ligne inséré avec la touche Retour s'insère désormais à l'emplacement du curseur plutôt qu'à la fin du brouillon.
+- Sur Mac, une discussion ouverte sur ses messages non lus ne saute plus une fois affichée, et le marqueur de messages non lus reste visible.
+- Sur Mac, le lecteur de QR code ne s'ouvre plus parfois sous la forme d'une minuscule boîte.
+- Diverses autres améliorations, améliorations de sécurité et corrections de bugs.
+
+## [4.4 (993)] - 2026-09-24
+
+- Compatible avec iOS 27 et macOS 27.
+- L'écran de discussion a été entièrement reconstruit ! Il est plus fluide dans les longues conversations. Bulles, dates, expéditeurs, réactions… tout a été redessiné pour être encore plus agréable à utiliser.
+- Touchez deux fois un message reçu pour réagir avec votre emoji favori, ou un message envoyé pour le modifier.
+- Votre emoji de réaction préféré, qu'il soit défini pour toutes les discussions ou pour une discussion en particulier, est désormais synchronisé sur tous vos appareils.
+- Vous pouvez désormais sélectionner plusieurs messages à la fois et les supprimer ou les transférer ensemble.
+- Le panneau qui s'ouvre lorsque vous appuyez sur le bouton + dans une discussion a été entièrement repensé.
+- Toucher la photo de profil d'un contact l'affiche désormais en grand.
+- Le partage de photos, de vidéos, de documents et de liens depuis d'autres applications vers Olvid a été entièrement repensé. Un écran unique et plus clair vous permet de choisir le profil depuis lequel envoyer, de sélectionner une ou plusieurs discussions, de prévisualiser tout ce que vous allez partager et de rédiger un message d'accompagnement.
+- Balayez d'une photo ou d'une vidéo à l'autre, et touchez n'importe quel document pour l'afficher en aperçu complet avant l'envoi.
+- Nouveau sélecteur de qualité HD / SD lors du partage de photos et de vidéos, avec la taille estimée pour chaque option. La qualité standard est utilisée par défaut et votre dernier choix est mémorisé.
+- Les vidéos que vous enregistrez directement depuis Olvid sont désormais capturées avec une meilleure qualité.
+- Dès que votre appareil est en charge et connecté, Olvid traite discrètement les messages encore en attente, afin que vos conversations soient à jour au moment où vous les ouvrez. Un nouvel écran vous permet de suivre cette mise à jour en direct.
+- Correction de divers problèmes lors du téléchargement des pièces jointes volumineuses : les téléchargements ne restent plus bloqués et ne se terminent plus en partie vides, et les pièces jointes en cours de téléchargement ne sont plus supprimées au lancement d'Olvid ou à son retour depuis l'arrière-plan.
+- Vous n'avez plus jamais à télécharger deux fois la même image.
+- Correction du badge de l'icône de l'application qui comptait parfois un message de trop.
+- Les accusés de lecture et de réception pouvaient être perdus ou retardés ; ils sont désormais conservés jusqu'à leur envoi.
+- Toucher une réponse fait de nouveau défiler jusqu'au message d'origine.
+- Certains fichiers audio MP3 ne pouvaient pas être lus dans une discussion ; ils sont désormais lus correctement et affichent leur durée avant la lecture.
+- Lors du partage de votre position, les options de partage pouvaient apparaître grisées sans explication ; la carte indique désormais pourquoi une position ne peut pas encore être partagée.
+- Correction de plusieurs problèmes du champ de saisie des messages, notamment des pièces jointes qui pouvaient parfois ne pas apparaître.
+- La restauration d'un profil depuis une sauvegarde n'échoue plus lorsque l'App Store est inaccessible ou que les abonnements ne peuvent pas être vérifiés.
+- Correction d'un problème qui pouvait vous avertir que votre appareil actuel allait être désactivé alors que ce n'était pas le cas.
+- Sous iOS 27, la saisie d'un code, comme un code d'invitation, un code de transfert ou votre code d'accès, pouvait ne pas afficher certains chiffres. C'est corrigé.
+- Correction d'un problème sur iOS 16 où l'extension de partage pouvait ne pas s'afficher correctement.
+- Votre Mac ne se met plus en veille pendant un appel, pendant l'enregistrement d'un message vocal, ni pendant qu'Olvid met à jour ses données après une mise à jour.
+
+## [4.3.1 (980)] - 2026-06-19
+
+- Si votre profil est géré par votre organisation, le maintien de votre connexion fonctionne désormais de façon fiable : vous n'êtes donc plus invité à vous reconnecter de manière inattendue. La création d'un tel profil prend désormais correctement en compte le serveur défini par votre organisation.
+- Scanner un QR code ou un lien regroupant un serveur et une clé d'activation ouvre désormais un écran repensé et plus facile à lire : vous voyez exactement ce que vous vous apprêtez à configurer avant de continuer.
+- Les détails de votre profil indiquent maintenant sur quel serveur il est hébergé.
+- Lorsque vous activez une licence liée à un serveur spécifique, Olvid ne propose désormais que les profils qui peuvent réellement l'utiliser.
+- La disponibilité des appels et le statut d'abonnement ne sont désormais partagés entre vos profils que lorsqu'ils se trouvent sur le même serveur.
+- Correction d'un problème où la saisie d'une clé d'activation déjà utilisée pouvait laisser l'écran bloqué sur un indicateur de chargement pendant l'onboarding.
+
+## [4.3 (978)] - 2026-06-12
+
+- Vous pouvez désormais utiliser Olvid avec CarPlay. Parcourez vos discussions récentes, écoutez vos messages à voix haute et passez des appels directement depuis l'écran de votre voiture.
+- Vous pouvez désormais envoyer des messages, passer des appels, rechercher dans vos conversations et envoyer des messages vocaux grâce à Siri.
+- Touchez une seconde fois l'onglet Discussions pour revenir directement en haut de votre liste de conversations.
+- Olvid est désormais disponible en vietnamien.
+- La mise à jour des groupes, y compris les changements de photo de groupe, est désormais plus fiable et plus efficace.
+- Le traitement des messages au lancement de l'application a été amélioré.
+- Quelques messages d'information de l'application ont été actualisés pour adopter le nouveau style d'astuce d'Olvid : les demandes d'autorisation du microphone et de la caméra, ainsi que l'avis « une nouvelle version est disponible ».
+- Lors du transfert de votre profil vers un nouvel appareil, les erreurs réseau et les profils déjà présents sur le nouvel appareil affichent désormais des écrans dédiés, avec des étapes claires pour résoudre le problème.
+- Correction d'un bug où les accusés de réception et les confirmations de lecture pouvaient être envoyés deux fois dans certaines situations.
+- Correction d'un problème où l'identifiant interne d'un contact pouvait brièvement apparaître à la place de son nom sur l'écran d'appel.
+- Sur Mac, le texte copié depuis le champ de rédaction d'un message se colle désormais correctement dans les autres applications.
+- Correction d'un crash pouvant survenir lors de la modification d'un message sur Mac.
+- Toucher certaines actions sur la fiche d'un contact ou d'un groupe n'ouvre plus un écran situé derrière la fiche.
+- L'option permettant de présenter un contact est désormais masquée lorsqu'une présentation n'est pas possible.
+- Correction d'un problème où des avis intégrés à l'application pouvaient masquer le bouton permettant de démarrer une nouvelle discussion.
+- Correction d'un problème où des messages pouvaient être dupliqués sur l'appareil destinataire lors d'un transfert d'historique de messages.
+- Correction du bouton Annuler sur la confirmation de transfert d'historique de messages, qui referme désormais correctement l'invite.
+- Lors d'un transfert d'historique de messages, les pièces jointes dont le nouvel appareil n'a pas besoin sont désormais correctement ignorées, au lieu de laisser des fichiers incomplets.
+- La progression du transfert sur l'appareil destinataire ne semble plus figée lorsqu'il ignore des pièces jointes dont il n'a pas besoin.
+- Après l'envoi de votre historique de messages, le statut affiché sur l'appareil d'origine indique désormais correctement que l'autre appareil n'avait pas besoin de certaines pièces jointes, au lieu de laisser penser qu'un problème est survenu.
+- Correction d'un problème pouvant ralentir ou bloquer la réception des messages lorsqu'un contact partageait continuellement sa position.
+- Vous pouvez désormais copier le texte des messages à visibilité limitée.
+- Vous pouvez désormais partager les pièces jointes des messages à visibilité limitée.
+- Siri ne propose plus d'enregistrer des identifiants Olvid dans votre carnet d'adresses depuis les notifications.
+- Correction d'un problème où d'anciennes réactions et d'anciens votes de sondage pouvaient être renvoyés à tous les membres de certains groupes, déclenchant des notifications indésirables.
+
 ## [4.2 (960)] - 2026-05-03
 
 - Vous pouvez désormais transférer votre historique de discussion entre vos appareils, une fonctionnalité très attendue !

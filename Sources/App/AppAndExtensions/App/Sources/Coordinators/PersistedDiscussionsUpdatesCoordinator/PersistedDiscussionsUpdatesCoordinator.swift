@@ -19,6 +19,8 @@
 
 import Foundation
 import OSLog
+// For `OSAllocatedUnfairLock`, which holds the attachments already fetched again after a corrupt download.
+import os
 import CoreData
 @preconcurrency import ObvEngine
 import ObvCoreDataStack
@@ -36,6 +38,8 @@ import ObvAppInboxTypes
 import LinkPresentation
 import UniformTypeIdentifiers
 import ObvHistoryTransfer
+import ObvSiriReadIntents
+import ObvUserNotificationsDatabase
 
 
 protocol PersistedDiscussionsUpdatesCoordinatorDelegate: AnyObject {
@@ -66,9 +70,28 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
         queue.name = "PersistedDiscussionsUpdatesCoordinator queue for long running tasks"
         return queue
     }()
-    private let receivedContinuousLocationRateLimiter = ReceivedContinuousLocationRateLimiter()
     private let loadItemProviderHelper = LoadItemProviderHelper()
     private let linkPreviewFetcherForDraft = LinkPreviewFetcherForDraft()
+
+    /// Writes each photo of a draft at the four sizes it may be sent at. See ``DraftPhotoVariantsMaker``, which says why the encoding
+    /// deliberately happens away from `coordinatorsQueue`.
+    private let draftPhotoVariantsMaker = DraftPhotoVariantsMaker()
+
+    /// Exports each video of a draft at the size it will be sent at. See ``DraftVideoVariantsMaker``, and note that it makes **only** the
+    /// chosen size where its photographic sibling makes all four — an export costing tens of seconds where a downscale costs
+    /// milliseconds. The two are separate objects rather than one for exactly that reason: what they schedule and when they cancel it is
+    /// where the whole of the difference lives.
+    private let draftVideoVariantsMaker = DraftVideoVariantsMaker(progressStore: .shared)
+
+    /// The attachments this process has already fetched again after the engine reported them complete and the app could not use the file.
+    ///
+    /// **In memory, and deliberately.** What it bounds is our own automatic re-download, and the cost of forgetting it is one further attempt on the next
+    /// launch — which is the right way round: an attachment is never written off for ever on the strength of a fault that may not have been the file's. A
+    /// counter on disk would buy at most a few saved downloads and would leave a verdict nothing prunes.
+    ///
+    /// Under a lock rather than in an actor because it is read and written from `processAttachmentDownloadedNotification(obvAttachment:)`, which is not
+    /// isolated to anything, and because there is nothing to await while holding it.
+    private let attachmentsAlreadyFetchedAgainAfterAnUnusableDownload = OSAllocatedUnfairLock<Set<ObvAttachmentIdentifier>>(initialState: [])
 
     private var userDefaults: UserDefaults? { UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) }
     private var screenCaptureDetector: ScreenCaptureDetector?
@@ -103,7 +126,6 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
         listenToNotifications()
         Task {
             await PersistedMessageReceived.addObvObserver(self)
-            await ReceivedFyleMessageJoinWithStatus.addObvObserver(self)
             await PersistedDiscussion.addObvObserver(self)
             await PersistedObvOwnedIdentity.addObvObserver(self)
             await PersistedGroupV2Member.addObvObserver(self)
@@ -114,6 +136,8 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
             screenCaptureDetector = await ScreenCaptureDetector()
             await screenCaptureDetector?.setDelegate(to: self)
             await screenCaptureDetector?.startDetecting()
+            await draftPhotoVariantsMaker.setDelegate(to: self)
+            await draftVideoVariantsMaker.setDelegate(to: self)
             discardExpiredPersistedLocationContinuousReceived()
         }
     }
@@ -148,19 +172,22 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
                 await regularlyUpdateFyleMessageJoinWithStatusProgresses()
                 //fake()
             }
-        }
+            Task { await writeTheSizesMissingFromTheMediaOfEveryDraft() }
+            
+            // The following allows to make sure that, if something was shared to Olvid from another app (e.g., the Photos app)
+            // while Olvid was in the background, we will refresh the view context and insert the new objects into it. In practice,
+            // this allows to make sure that messages sent by the share extension (thus stored in the database) are indeed loaded in
+            // the view context (and thus, loaded by the fetch results controller of the corresponding discussion if currently on screen).
+            if let userDefaults = self.userDefaults {
+                userDefaults.deepRefreshObjectsModifiedByShareExtension(viewContext: ObvStack.shared.viewContext)
+            }
 
-        // The following allows to make sure that, if something was shared to Olvid from another app (e.g., the Photos app)
-        // while Olvid was in the background, we will refresh the view context and insert the new objects into it. In practice,
-        // this allows to make sure that messages sent by the share extension (thus stored in the database) are indeed loaded in
-        // the view context (and thus, loaded by the fetch results controller of the corresponding discussion if currently on screen).
-        if let userDefaults = self.userDefaults {
-            userDefaults.deepRefreshObjectsModifiedByShareExtension(viewContext: ObvStack.shared.viewContext)
-        }
+            // Once per launch, like everything above it. This wipe finishes what the share extension ran out of time
+            // to do, so running it on every return to the foreground would be possible and has not been decided.
 
-        // The following bootstrap methods are always called, not only the first time the app appears on screen
-        
-        wipeReadOnceAndLimitedVisibilityMessagesThatTheShareExtensionDidNotHaveTimeToWipe()
+            wipeReadOnceAndLimitedVisibilityMessagesThatTheShareExtensionDidNotHaveTimeToWipe()
+
+        }
 
     }
     
@@ -211,6 +238,8 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
     // Variables used to refresh the attachment downloads progresses
     private var timerForRefreshingAttachmentDownloadProgresses: Timer?
     private static let timeIntervalForRefreshingAttachmentDownloadProgresses: TimeInterval = 0.3
+    /// Location-sharing update messages older than this threshold are discarded as stale (e.g. bursts received after a long offline period).
+    private static let maximumContinuousLocationServerAge = TimeInterval(hours: 1)
     private var dateOfLastReceivedAttachmentProgressRefreshQuery = Date.distantPast
     
     private func periodicallyRefreshReceivedAttachmentProgress() {
@@ -305,9 +334,6 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
             ObvMessengerCoreDataNotification.observeAReadOncePersistedMessageSentWasSent { [weak self] (persistedMessageSentPermanentID, persistedDiscussionPermanentID) in
                 Task { [weak self] in await self?.processAReadOncePersistedMessageSentWasSentNotification(persistedMessageSentPermanentID: persistedMessageSentPermanentID, persistedDiscussionPermanentID: persistedDiscussionPermanentID) }
             },
-            ObvMessengerCoreDataNotification.observePersistedContactWasDeleted { [weak self ] _, _ in
-                self?.processPersistedContactWasDeletedNotification()
-            },
         ])
         
         // Internal notifications (User requests)
@@ -323,7 +349,7 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
                 self?.processUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(ownedCryptoId: ownedCryptoId, discussionId: discussionId, expirationJSON: expirationJSON)
             },
             ObvMessengerInternalNotification.observeUserWantsToUpdateDiscussionLocalConfiguration { [weak self] (value, localConfigurationObjectID) in
-                Task { try await self?.processUserWantsToUpdateDiscussionLocalConfiguration(with: value, localConfigurationObjectID: localConfigurationObjectID) }
+                Task { try? await self?.processUserWantsToUpdateDiscussionLocalConfiguration(with: value, localConfigurationObjectID: localConfigurationObjectID) }
             },
             ObvMessengerInternalNotification.observeUserWantsToUpdateLocalConfigurationOfDiscussion { [weak self] (value, discussionPermanentID, completionHandler) in
                 Task { [weak self] in
@@ -354,7 +380,7 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
                 self?.processUserWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ownedCryptoId, objectIDs: objectIDs)
             },
             ObvMessengerInternalNotification.observeUserHasOpenedAReceivedAttachment { [weak self] receivedFyleJoinID in
-                self?.processUserHasOpenedAReceivedAttachment(receivedFyleJoinID: receivedFyleJoinID)
+                Task { [weak self] in await self?.processUserHasOpenedAReceivedAttachment(receivedFyleJoinID: receivedFyleJoinID) }
             },
             ObvMessengerInternalNotification.observeUserWantsToReorderDiscussions { [weak self] (discussionObjectIds, ownedIdentity, completionHandler) in
                 Task { [weak self] in
@@ -833,7 +859,8 @@ extension PersistedDiscussionsUpdatesCoordinator: ObvDarwinNotificationObserver 
             
             // One or more messages with attachments were sent by the share extension. Since 2024-12-18, this notification
             // is posted when a DeletedOutboxMessage is created by the engine's send manager, i.e., when the message and all
-            // its attachments are sent (i.e., stored on the server). Since the context was saved by the share extension, we were
+            // its attachments are sent (i.e., stored on the server). On macOS it is also posted when the share extension is
+            // dismissed, before the upload ends. Since the context was saved by the share extension, we were
             // not notified. We thus request a transaction history replay
             
             assert(userDefaults != nil)
@@ -974,7 +1001,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 case .done(let attachmentsProcessingRequest):
                     try? await obvEngine.messageWasProcessed(messageId: obvMessage.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
                     await appInboxService.deleteMessageIdentifiersForLater(messageId: messageIdentifierForLater)
-                    
+
+                case .doneWithReactionOrPollVote:
+                    try? await obvEngine.messageWasProcessed(messageId: obvMessage.messageId, attachmentsProcessingRequest: .deleteAll)
+                    await appInboxService.deleteMessageIdentifiersForLater(messageId: messageIdentifierForLater)
+
                 case .definitiveFailure:
                     try? await obvEngine.messageWasProcessed(messageId: obvMessage.messageId, attachmentsProcessingRequest: .deleteAll)
                     await appInboxService.deleteMessageIdentifiersForLater(messageId: messageIdentifierForLater)
@@ -1068,36 +1099,13 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
 }
 
-// MARK: - ReceivedFyleMessageJoinWithStatusObserver
-
-extension PersistedDiscussionsUpdatesCoordinator: ReceivedFyleMessageJoinWithStatusObserver {
-    
-    func newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: ObvTypes.ObvReturnReceiptToSend) async {
-        do {
-            try await obvEngine.postReturnReceiptsWithElements(returnReceiptsToSend: [returnReceiptToSend])
-        } catch {
-            assertionFailure()
-        }
-    }
-    
-}
-
-
 // MARK: - PersistedMessageReceivedDelegate
 
 extension PersistedDiscussionsUpdatesCoordinator: PersistedMessageReceivedObserver {
-    
+
     func persistedMessageReceivedWasInserted(receivedMessage: PersistedMessageReceivedStructure) async {}
-    
+
     func persistedMessageReceivedWasRead(ownedCryptoId: ObvCryptoId, messageIdFromServer: UID) async {}
-    
-    func newReturnReceiptsToSendForPersistedMessageReceived(returnReceiptsToSend: [ObvReturnReceiptToSend]) async {
-        do {
-            try await obvEngine.postReturnReceiptsWithElements(returnReceiptsToSend: returnReceiptsToSend)
-        } catch {
-            assertionFailure()
-        }
-    }
 
 }
 
@@ -1127,7 +1135,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         let result = await processReceivedObvMessage(obvMessage, source: .userNotification, queuePriority: queuePriority)
         
         switch result {
-        case .done(attachmentsProcessingRequest: _):
+        case .done(attachmentsProcessingRequest: _), .doneWithReactionOrPollVote:
             return .success
         case .definitiveFailure:
             return .notificationMustBeRemoved
@@ -1163,7 +1171,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
                         let postOp = PostDiscussionReadJSONEngineOperation(op: op2, obvEngine: obvEngine)
                         await queueForOperationsMakingEngineCalls.addAndAwaitOperation(postOp)
                     }
-                    
+
+                    // Post the read receipt to the sender, when the producer surfaced one.
+                    if let readReceiptToSend = op2.readReceiptToSend {
+                        await self.postReturnReceipts([readReceiptToSend])
+                    }
+
                     return continuation.resume()
                 }
             }
@@ -1199,7 +1212,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
             await queueForOperationsMakingEngineCalls.addAndAwaitOperation(postOp)
         }
-        
+
+        if let readReceiptToSend = op1.readReceiptToSend {
+            await postReturnReceipts([readReceiptToSend])
+        }
+
     }
     
     
@@ -1511,6 +1528,78 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
+    /// Deletes several messages of one discussion at once, and returns when they are gone.
+    ///
+    /// **This is `processUserRequestedDeletionOfPersistedMessageNotification` with the singleton taken out**, and the set passed through to operations that all
+    /// took a collection already: `SendGlobalDeleteMessagesJSONOperation` takes an array and guards that every message belongs to one discussion — a check that is
+    /// meaningless for a single message — `DetermineEngineIdentifiersOfMessagesToCancelOperation` takes `.messages(persistedMessageObjectIDs:)`, and
+    /// `DeletePersistedMessagesOperation` takes a `Set`. The machinery was written for this and had no screen to ask for it.
+    ///
+    /// **One request, and therefore one message to the recipients.** `DeleteMessagesJSON` carries a reference per message, so a deletion for everyone travels as a
+    /// single `PersistedItemJSON`. Looping the singular path would have queued this whole chain once per message and sent as many protocol messages.
+    ///
+    /// **It is awaited, which is why it exists rather than a notification.** The screen shows a bar it must not dismiss, and a mode it must not leave, until the
+    /// messages have actually gone; and it must be able to say so when they have not. The notification could offer neither.
+    ///
+    /// The owned identity is read from the messages rather than passed in: the caller is a screen showing one discussion, and asking it to also carry the identity
+    /// would be asking it to know something it has no reason to.
+    func processUserWantsToDeleteMessages(persistedMessageObjectIDs: Set<NSManagedObjectID>, deletionType: DeletionType) async throws {
+
+        guard !persistedMessageObjectIDs.isEmpty else { return }
+
+        guard let ownedCryptoId = try await ownedCryptoIdOfMessages(persistedMessageObjectIDs) else {
+            throw ObvError.couldNotDeleteMessages
+        }
+
+        // The engine call goes first, as it does in the notification's path: what is deleted locally can no longer be described to anybody else.
+        do {
+            let op = SendGlobalDeleteMessagesJSONOperation(persistedMessageObjectIDs: Array(persistedMessageObjectIDs), deletionType: deletionType, obvEngine: obvEngine)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            await queueForOperationsMakingEngineCalls.addAndAwaitOperation(op)
+        }
+
+        do {
+            let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(input: .messages(persistedMessageObjectIDs: Array(persistedMessageObjectIDs)), obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            await coordinatorsQueue.addAndAwaitOperation(composedOp)
+            let op2 = CancelUploadOrDownloadOfPersistedMessagesOperation(op: op1, obvEngine: obvEngine)
+            await queueForOperationsMakingEngineCalls.addAndAwaitOperation(op2)
+        }
+
+        do {
+            let op1 = DeletePersistedMessagesOperation(persistedMessageObjectIDs: persistedMessageObjectIDs, ownedCryptoId: ownedCryptoId, deletionType: deletionType)
+            let op2 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
+            let op3 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
+            let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+            await coordinatorsQueue.addAndAwaitOperation(composedOp)
+            // **Only this one is checked**, and deliberately: it is the operation that actually removes the messages, and it is the only one whose failure means
+            // the reader was told something untrue. The engine calls above are best-effort in the notification's path too.
+            guard composedOp.isFinished && !composedOp.isCancelled else {
+                throw ObvError.couldNotDeleteMessages
+            }
+        }
+
+        ObvMessengerInternalNotification.trashShouldBeEmptied
+            .postOnDispatchQueue()
+
+    }
+
+
+    /// Who owns the discussion these messages are in, read on the view context as the screen that asked has just done.
+    ///
+    /// Returns nil when they cannot be read at all, which is a deletion that cannot be described rather than one that failed halfway.
+    @MainActor
+    private func ownedCryptoIdOfMessages(_ persistedMessageObjectIDs: Set<NSManagedObjectID>) async throws -> ObvCryptoId? {
+        for objectID in persistedMessageObjectIDs {
+            guard let message = try? PersistedMessage.get(with: objectID, within: ObvStack.shared.viewContext) else { continue }
+            if let ownedCryptoId = message.discussion?.ownedIdentity?.cryptoId {
+                return ownedCryptoId
+            }
+        }
+        return nil
+    }
+
+
     private func processUserRequestedDeletionOfPersistedDiscussion(ownedCryptoId: ObvCryptoId, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, deletionType: DeletionType, completionHandler: @escaping (Bool) -> Void) {
         
         var operationsToQueue = [OperationKind]()
@@ -1632,11 +1721,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func processPersistedContactWasDeletedNotification() {
+    private func processPersistedContactWasDeletedNotification() async {
         os_log("☎️ We received an PersistedContactWasDeleted notification", log: Self.log, type: .info)
         let op = CleanCallLogContactsOperation()
-        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
-        coordinatorsQueue.addOperation(op)
+        await coordinatorsQueue.addAndAwaitOperation(op)
     }
     
 
@@ -1841,25 +1929,30 @@ extension PersistedDiscussionsUpdatesCoordinator {
         if let result = op1.result {
             switch result {
             case .processed(let receivedMessagesForReadReceipts):
-                sendReadReceipts(receivedMessagesForReadReceipts: receivedMessagesForReadReceipts)
+                await sendReadReceipts(receivedMessagesForReadReceipts: receivedMessagesForReadReceipts)
             case .couldNotFindActiveDiscussionInDatabase:
                 return
             }
         }
 
     }
-    
-    
-    /// This method is typically called after (locally) marking a complete discussion as read or when sending a draft (which also mark the discussion as read).
-    /// In that case, we might have to send one read receipt per read messages (if
-    /// appropriate given the current discussion or global configuration). If we receive a non-empty list here, it means that we *must* send these read receipts.
-    /// Note that this method returns immediately.
-    private func sendReadReceipts(receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>]) {
-        ObvStack.shared.performBackgroundTask { context in
-            PersistedMessageReceived.sendObvReturnReceiptForMessageReceived(objectIDs: receivedMessagesForReadReceipts, within: context)
-            // We do **not** save the context. It is only used to fetch data, which is also the reason why the method is not
-            // performed on any particular queue.
+
+
+    /// Called after a batch "mark discussion as read" updates a set of `PersistedMessageReceived`
+    /// objects to `.read`. The batch update doesn't fire `didSave`, so we explicitly invoke the
+    /// receipt producer on each message via ``CollectReadReceiptsToSendForReceivedMessagesOperation``
+    /// (queued on the coordinator queue so the producer's flag flips are persisted by the composed
+    /// operation's save), and then post the collected receipts via the engine.
+    private func sendReadReceipts(receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>]) async {
+        guard !receivedMessagesForReadReceipts.isEmpty else { return }
+        let op = CollectReadReceiptsToSendForReceivedMessagesOperation(receivedMessageObjectIDs: receivedMessagesForReadReceipts)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+        guard composedOp.isFinished, !composedOp.isCancelled else {
+            assertionFailure()
+            return
         }
+        await postReturnReceipts(op.readReceiptsToSend)
     }
     
     
@@ -1885,8 +1978,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
 extension PersistedDiscussionsUpdatesCoordinator: PersistedObvContactIdentityObserver {
     
-    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
-        // We do nothing
+    func aPersistedObvContactIdentityWasDeleted(contactIdentifier: ObvContactIdentifier) async {
+        await processPersistedContactWasDeletedNotification()
     }
     
     /// When a user becomes "reachable" (either because a secure channel was created with one of their device, or thanks to a device's prekey), we are notified here.
@@ -1943,8 +2036,22 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 let datesIntervalToReplayPastEvents = try await getDatesIntervalToReplayPastEvents(groupId: groupIdentifier, memberCryptoId: memberCryptoId)
                 switch datesIntervalToReplayPastEvents {
                 case .replayOfPastEventsBetween(dateInterval: let dateInterval):
-                    try await replaySentReactions(groupIdentifier: groupIdentifier, memberCryptoId: memberCryptoId, dateInterval: dateInterval)
-                    try await replaySentPollVotes(groupIdentifier: groupIdentifier, memberCryptoId: memberCryptoId, dateInterval: dateInterval)
+                    // We attempt the replay of poll votes even if the replay of reactions fails. A failure only prevents
+                    // the reset of the member's NeedsReplayOfPastEvents flag below, so that the replay is retried later.
+                    var replayError: Error?
+                    do {
+                        try await replaySentReactions(groupIdentifier: groupIdentifier, memberCryptoId: memberCryptoId, dateInterval: dateInterval)
+                    } catch {
+                        replayError = error
+                    }
+                    do {
+                        try await replaySentPollVotes(groupIdentifier: groupIdentifier, memberCryptoId: memberCryptoId, dateInterval: dateInterval)
+                    } catch {
+                        replayError = replayError ?? error
+                    }
+                    if let replayError {
+                        throw replayError
+                    }
                 case .noNeedToReplayPastEvents:
                     break
                 }
@@ -2041,16 +2148,29 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
         }
         
+        var atLeastOneSendCancelled = false
+
         for sentReactionToReplay in sentReactionsToReplay {
             let op = SendReactionJSONOperation(messageObjectID: sentReactionToReplay.messageObjectID,
                                                obvEngine: obvEngine,
                                                emoji: sentReactionToReplay.emoji,
-                                               originalServerTimestamp: sentReactionToReplay.originalServerTimestamp)
+                                               originalServerTimestamp: sentReactionToReplay.originalServerTimestamp,
+                                               restrictToContactCryptoId: memberCryptoId)
             let composedOp = createCompositionOfOneContextualOperation(op1: op)
             await coordinatorsQueue.addAndAwaitOperation(composedOp)
-            assert(composedOp.isFinished && !composedOp.isCancelled)
+            if !composedOp.isFinished || composedOp.isCancelled {
+                // We still try to send the other reactions: the throw below only prevents the reset of the member's
+                // NeedsReplayOfPastEvents flag, so that the replay is retried later. This is fine, as re-sent events
+                // are targeted at the member and deduplicated on reception.
+                assertionFailure()
+                atLeastOneSendCancelled = true
+            }
         }
-        
+
+        guard !atLeastOneSendCancelled else {
+            throw ObvError.sendReactionJSONOperationCancelledDuringReplayOfPastEvents
+        }
+
     }
     
     
@@ -2069,18 +2189,31 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
         }
         
+        var atLeastOneSendCancelled = false
+
         for sentVoteToReplay in sentVotesToReplay {
             let op = SendPollVoteJSONOperation(messageObjectID: sentVoteToReplay.messageObjectID,
                                                obvEngine: obvEngine,
                                                pollVoteCandidateUuid: sentVoteToReplay.pollVoteCandidateUuid,
                                                voted: true, // The votes returned restrict to those where 'voted' is true.
                                                version: sentVoteToReplay.version,
-                                               originalServerTimestamp: sentVoteToReplay.originalServerTimestamp)
+                                               originalServerTimestamp: sentVoteToReplay.originalServerTimestamp,
+                                               restrictToContactCryptoId: memberCryptoId)
             let composedOp = createCompositionOfOneContextualOperation(op1: op)
             await coordinatorsQueue.addAndAwaitOperation(composedOp)
-            assert(composedOp.isFinished && !composedOp.isCancelled)
+            if !composedOp.isFinished || composedOp.isCancelled {
+                // We still try to send the other poll votes: the throw below only prevents the reset of the member's
+                // NeedsReplayOfPastEvents flag, so that the replay is retried later. This is fine, as re-sent events
+                // are targeted at the member and deduplicated on reception.
+                assertionFailure()
+                atLeastOneSendCancelled = true
+            }
         }
-        
+
+        guard !atLeastOneSendCancelled else {
+            throw ObvError.sendPollVoteJSONOperationCancelledDuringReplayOfPastEvents
+        }
+
     }
     
     
@@ -2264,6 +2397,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case deleteAllDraftFyleJoinOfDraftOperationCancelled
         case couldNotForwardMessage
         case delegateIsNil
+        case sendReactionJSONOperationCancelledDuringReplayOfPastEvents
+        case sendPollVoteJSONOperationCancelledDuringReplayOfPastEvents
+        /// Several messages were to be deleted at once and were not. Thrown so that the screen keeps the selection and says so, rather than leaving the
+        /// reader to notice that the messages are still there.
+        case couldNotDeleteMessages
     }
     
 }
@@ -2426,7 +2564,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     func processUserWantsToUpdateReaction(ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws {
         let op1 = ProcessSetOrUpdateReactionOnMessageLocalRequestOperation(ownedCryptoId: ownedCryptoId, messageObjectID: messageObjectID, newEmoji: newEmoji)
-        let op2 = SendReactionJSONOperation(messageObjectID: messageObjectID, obvEngine: obvEngine, emoji: newEmoji, originalServerTimestamp: nil)
+        let op2 = SendReactionJSONOperation(messageObjectID: messageObjectID, obvEngine: obvEngine, emoji: newEmoji, originalServerTimestamp: nil, restrictToContactCryptoId: nil)
         let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
         composedOp.queuePriority = .veryHigh // As this was requested by the user
         await coordinatorsQueue.addAndAwaitOperation(composedOp)
@@ -2440,7 +2578,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     func processUserWantsToUpdatePollVote(ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, pollVoteCandidateUuid: UUID, voted: Bool, version: Int) async throws {
         
         let op1 = ProcessSetOrUpdatePollVoteOnMessageLocalRequestOperation(ownedCryptoId: ownedCryptoId, messageObjectID: messageObjectID, pollVoteCandidateUuid: pollVoteCandidateUuid, voted: voted, version: version)
-        let op2 = SendPollVoteJSONOperation(messageObjectID: messageObjectID, obvEngine: obvEngine, pollVoteCandidateUuid: pollVoteCandidateUuid, voted: voted, version: version, originalServerTimestamp: nil)
+        let op2 = SendPollVoteJSONOperation(messageObjectID: messageObjectID, obvEngine: obvEngine, pollVoteCandidateUuid: pollVoteCandidateUuid, voted: voted, version: version, originalServerTimestamp: nil, restrictToContactCryptoId: nil)
         
         let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
         
@@ -2466,12 +2604,14 @@ extension PersistedDiscussionsUpdatesCoordinator {
             assertionFailure()
             return
         }
-        
+
         // Notify other owned devices about messages that turned not new
         if op1.ownedIdentityHasAnotherReachableDevice {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
             queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
+
+        await postReturnReceipts(op1.readReceiptsToSend)
 
     }
 
@@ -2659,38 +2799,86 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     /// Called by the `RootViewController` when the user wants to delete only one attachment of a draft.
     func userWantsToDeleteDraftAttachment(draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async {
-        
+
+        // Which draft this attachment belongs to, asked *before* it is deleted — afterwards there is nothing left to ask.
+        let removed = await draftHolding(draftFyleJoinObjectID)
+
         let op1 = DeleteDraftFyleJoinOfDraftOperation(draftFyleJoinObjectID: draftFyleJoinObjectID)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         composedOp.queuePriority = .veryHigh // As the user requested this
         await coordinatorsQueue.addAndAwaitOperation(composedOp)
-        
+
         guard composedOp.isFinished && !composedOp.isCancelled else {
             assertionFailure()
             return
         }
-        
+
+        // The removed attachment may be a photograph whose sizes were still being written, and that work is now entirely wasted. Stopped
+        // and started again rather than left alone: the pass re-reads what is missing, so the photos that remain get their sizes and the
+        // one that has gone does not. What the restarted pass repeats is at most the one encode that was in flight.
+        if let removed {
+            await draftPhotoVariantsMaker.cancelWork(forDraft: removed.draftObjectID)
+            await draftPhotoVariantsMaker.ensureVariantsExist(draftObjectID: removed.draftObjectID)
+            // For videos only when a video was removed: what a restart abandons is an export of tens of seconds, and anything else removed
+            // leaves the running pass with nothing to change.
+            if removed.isAVideo {
+                await draftVideoVariantsMaker.cancelWork(forDraft: removed.draftObjectID)
+                await draftVideoVariantsMaker.ensureVariantsExist(draftObjectID: removed.draftObjectID)
+            }
+        }
+
         Task {
             let operations = getOperationsForDeletingOrphanedDatabaseItems()
             await coordinatorsQueue.addAndAwaitOperations(operations)
         }
 
     }
-    
+
+
+    /// The draft an attachment belongs to, or nil if either has gone.
+    /// The draft holding this attachment, and whether the attachment is one of the videos the draft's size choice applies to.
+    private func draftHolding(_ draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async -> (draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, isAVideo: Bool)? {
+        let context = ObvStack.shared.newBackgroundContext()
+        return await context.perform {
+            guard let join = PersistedDraftFyleJoin.get(objectID: draftFyleJoinObjectID, within: context),
+                  let draftObjectID = join.draft?.typedObjectID else { return nil }
+            return (draftObjectID, join.isVideoEligibleForAFormatChoice)
+        }
+    }
+
+
+    /// Says, once per attachment, that a photograph or a video is about to be sent at a size other than the one the reader chose.
+    ///
+    /// Reached only when the writing of that size failed — the send has already waited for everything still in flight. Worth a line of
+    /// its own because the outcome is *correct*: the attachment is sent at the nearest larger size that has a file, or as attached when it
+    /// has none, and the message goes. A silent fallback here would be indistinguishable from the chosen size having been used.
+    private func warnAboutMediaSentAtASizeOtherThanTheOneChosen(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async {
+        let context = ObvStack.shared.newBackgroundContext()
+        await context.perform {
+            guard let draft = try? PersistedDraft.get(objectID: draftObjectID, within: context) else { return }
+            let chosen = draft.selectedMediaFormat
+            for (icon, joins) in [("📷", draft.photoJoins), ("🎬", draft.videoJoins)] {
+                for join in joins where join.variant(for: chosen) == nil {
+                    let sentAt = join.variantSent(whenSelectedFormatIs: chosen)?.format?.rawValue ?? "the size it was attached at"
+                    Self.logger.error("\(icon, privacy: .public) An attachment of this draft has no \(chosen.rawValue, privacy: .public) file, so it is being sent at \(sentAt, privacy: .public)")
+                }
+            }
+        }
+    }
+
 
     /// Called by the `RootViewController` when the user wants to send a draft.
     func processUserWantsToSendDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws {
 
-        let op1 = SaveBodyTextAndMentionsOfPersistedDraftOperation(draftObjectID: draftObjectID, bodyText: textBody)
-        let op2 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(draftObjectID: draftObjectID)
-        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
-        composedOp.queuePriority = .veryHigh
-        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+        // Wait for the sizes still being written, so that an attachment is not sent at whatever size happened to be ready. A size still
+        // missing after this failed to be written: the attachment goes at the nearest larger size with a file, and the warning below
+        // says so. For a photo the wait is nearly always instant; for a clip it is what is left of its export, while the bar shows its progress.
+        await draftPhotoVariantsMaker.finishPendingWork(forDraft: draftObjectID)
+        await draftVideoVariantsMaker.finishPendingWork(forDraft: draftObjectID)
+        await warnAboutMediaSentAtASizeOtherThanTheOneChosen(draftObjectID: draftObjectID)
 
-        guard composedOp.isFinished && !composedOp.isCancelled else {
-            throw Self.makeError(message: "Could not process draft")
-        }
-        
+        let op2 = try await createsTheMessageFromTheDraft(draftObjectID: draftObjectID, textBody: textBody)
+
         // If we reach this point, the sent message is created in database, in the unprocess state.
         // We free the current task we want to unfreeze the UI.
         // We still need to request the sending of the message.
@@ -2747,7 +2935,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 case .couldNotFindActiveDiscussionInDatabase:
                     break
                 case .processed(let receivedMessagesForReadReceipts):
-                    sendReadReceipts(receivedMessagesForReadReceipts: receivedMessagesForReadReceipts)
+                    await sendReadReceipts(receivedMessagesForReadReceipts: receivedMessagesForReadReceipts)
                 }
             }
 
@@ -2755,7 +2943,88 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
     }
 
-    
+
+    /// How many times ``createsTheMessageFromTheDraft(draftObjectID:textBody:)`` builds the message before giving up.
+    ///
+    /// Three, because the writer it loses to is a one-shot action in another process — see that method — so a *second* conflict on the same send is
+    /// most unlikely. Enough to make the fault disappear, and few enough that two pieces of code genuinely fighting over one object still exhausts
+    /// the attempts, still throws, and is still reported rather than being ground out silently.
+    private static let attemptsAtCreatingTheMessageFromTheDraft = 3
+
+
+    /// Writes the body to the draft and creates the `PersistedMessageSent` from it, building both again if the save was lost to a merge
+    /// conflict — added 2026-08-27, after a send failed with an `assertionFailure` and a reader lost what they had typed.
+    ///
+    /// ## Why a retry rather than a merge policy
+    ///
+    /// The app inherits `NSErrorMergePolicy`, so **any** conflict fails the whole save, including one on an object this save never touched — which
+    /// is what happened. Two app-side writers cannot collide (`AppCoordinatorsQueue` is serial and every composition takes a fresh context), so the
+    /// other writer is **another process** on the same store: Siri's `INSetMessageAttributeIntent`, whose only supported attribute is `.read`, runs
+    /// `MarkReceivedMessageAsReadFromCurrentDeviceOperation` against `ObvStack.shared` from the intents extension. Announce Notifications reaches
+    /// that without Siri being addressed at all, which is why it arrives while somebody is typing.
+    ///
+    /// Re-running is the better answer here because it **re-derives from current state**, where a property-level merge policy invents a row neither
+    /// writer intended, applies to every save in the app rather than to this one, and would have *hidden* this fault instead of reporting it. The
+    /// policy stays as it is, and so does ``NSManagedObjectContext/save(logOnFailure:)``'s diagnosis.
+    ///
+    /// ## Why it is safe to re-run, which is not general
+    ///
+    /// Both operations are pure Core Data on the context they are given: no files, no engine calls. The one external effect —
+    /// `draftToSendWasReset` — is posted from a `addContextDidSaveCompletionHandler` under `guard error == nil`, so a lost save posts nothing and a
+    /// second attempt cannot double-notify. And the save is atomic, so an attempt that fails leaves the store exactly as it found it: no partial
+    /// state, and no chance of two messages.
+    ///
+    /// **That reasoning is about these two operations and does not transfer.** `CreateFyleFromINFileOperation`, on Siri's own send path, writes
+    /// files; re-running it would leave orphans. Hence a deliberate retry at one call site rather than a wrapper over every composition.
+    ///
+    /// ## Two smaller decisions
+    ///
+    /// There is **no wait between attempts**: by the time Core Data tells us the version moved, the other write has already landed, so there is
+    /// nothing to wait for and a delay would only widen the window for a fresh conflict. (Reasoning, not measurement.)
+    ///
+    /// And every attempt is **reported**, at `.error` rather than `.info`, because `Logger.info` is not persisted on macOS and a round trip was
+    /// once lost to reading such a probe with `log show`. A retry that quietly works would otherwise hide how often this happens, which is the
+    /// whole reason it went unnoticed until it threw.
+    ///
+    /// - Returns: the operation that *succeeded*, which the caller needs: it is the provider for `ComputeExtendedPayloadOperation` and
+    /// `SendUnprocessedPersistedMessageSentOperation`, so handing back an earlier, failed instance would carry the fault downstream.
+    private func createsTheMessageFromTheDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: AttributedString) async throws -> CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation {
+
+        for attempt in 1...Self.attemptsAtCreatingTheMessageFromTheDraft {
+
+            // Fresh operations and a fresh context on each attempt, and that is the whole reason this loop is *here*: an `Operation` runs once, and
+            // the composition takes its context when it runs. Retrying the *save* would meet the same stale snapshots and fail identically.
+            let op1 = SaveBodyTextAndMentionsOfPersistedDraftOperation(draftObjectID: draftObjectID, bodyText: textBody)
+            let op2 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(draftObjectID: draftObjectID)
+            let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+            composedOp.queuePriority = .veryHigh
+            await coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+            if composedOp.isFinished && !composedOp.isCancelled {
+                if attempt > 1 {
+                    Self.logger.error("The draft was sent on attempt \(attempt) of \(Self.attemptsAtCreatingTheMessageFromTheDraft), an earlier attempt having lost a save conflict.")
+                }
+                return op2
+            }
+
+            // Only a save lost to somebody else's edit is worth asking again. A draft that has gone, a draft that is empty, a validation failure —
+            // none of those is mended by a second attempt, and retrying them would merely make a real fault fail later.
+            guard let reason = composedOp.reasonForCancel,
+                  case .coreDataError(let error) = reason,
+                  error.isASaveConflict else {
+                throw Self.makeError(message: "Could not process draft")
+            }
+
+            Self.logger.error("Attempt \(attempt) of \(Self.attemptsAtCreatingTheMessageFromTheDraft) at sending the draft lost a save conflict. Building the message again.")
+
+        }
+
+        Self.logger.fault("All \(Self.attemptsAtCreatingTheMessageFromTheDraft) attempts at sending the draft lost a save conflict. The message was not created.")
+        throw Self.makeError(message: "Could not process draft")
+
+    }
+
+
     /// Called from the `RootViewController` when the user wants to add attachments to a draft.
     func processUserWantsToAddAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws {
         
@@ -2772,15 +3041,46 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     /// Called from the `RootViewController` when the user wants to add attachments to a draft.
     func processUserWantsToAddAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], source: LoadItemProviderHelper.ItemProviderProviderSource) async throws -> [LoadedItemProviderToPaste] {
-        
-        // Load all the item providers
-        
-        let loadedItemProviders = try await self.loadItemProviderHelper.load(itemProviders, source: source, progressProvider: nil)
-        
+
+        // **The composition bar is shut to editing for the whole of this**, which is what the reader sees over the text field. The two
+        // halves are timed separately and unconditionally, and what they measured settles where the progress has to come from: on a
+        // 160 MB clip, loading took 59,401 ms, our own copy of the loaded file took **0 ms** — APFS clones rather than copies — and
+        // making the draft took 108 ms. Ninety-nine point eight per cent of the wait is inside somebody else's code, so the only
+        // honest progress is the `Progress` that code hands back.
+        let started = Date.now
+
+        // Load all the item providers, saying how far that has got roughly five times a second.
+        //
+        // Polled rather than observed: `Progress` is KVO-observable in principle, and this app has been bitten enough times by an
+        // observation that never fires that a loop which cannot be silent is worth the four lines. It reports unconditionally, so a
+        // progress that stays at zero is distinguishable from one that never started.
+        let progresses = AttachmentsBeingLoaded(expectedCount: itemProviders.count)
+        let poller = Task {
+            while !Task.isCancelled {
+                ObvMessengerInternalNotification.draftAttachmentsLoadingProgressDidChange(draftObjectID: draftObjectID, fractionCompleted: progresses.fractionCompleted)
+                    .postOnDispatchQueue()
+                try? await Task.sleep(seconds: 0.2)
+            }
+            // **The end is said from inside the poller, after its loop, and not from the `defer` below.** `cancel()` is not synchronous:
+            // a poller sitting between reading the fraction and its sleep goes on to post that fraction, so an end posted from the
+            // `defer` could be overtaken by a report of the load that has just finished — and what reads this would be left drawing a
+            // bar at 90% over a composition bar with nothing loading. Said whatever happened, finished or failed or thrown out of,
+            // because what reads it draws something until it is told to stop.
+            ObvMessengerInternalNotification.draftAttachmentsLoadingProgressDidChange(draftObjectID: draftObjectID, fractionCompleted: nil)
+                .postOnDispatchQueue()
+        }
+        defer { poller.cancel() }
+
+        let loadedItemProviders = try await self.loadItemProviderHelper.load(itemProviders, source: source, progressProvider: { progresses.add($0) })
+
+        let loaded = Date.now
+
         // Update the draft with the loaded item providers to attach
         
         try await updateDraft(draftObjectID: draftObjectID, loadedItemProvidersToAttach: loadedItemProviders.toAttach)
-        
+
+        Self.logger.notice("📎 \(itemProviders.count, privacy: .public) item(s) added to a draft: loading took \(Int(loaded.timeIntervalSince(started) * 1000), privacy: .public) ms, making the draft took \(Int(Date().timeIntervalSince(loaded) * 1000), privacy: .public) ms, total \(Int(Date().timeIntervalSince(started) * 1000), privacy: .public) ms")
+
         // Return the item providers to paste
         
         return loadedItemProviders.toPaste
@@ -2804,8 +3104,141 @@ extension PersistedDiscussionsUpdatesCoordinator {
             throw Self.makeError(message: "NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation operation cancelled: \(String(describing: op1.reasonForCancel))")
         }
 
+        // Whatever was just attached may be a photograph, and a photograph gets written at the four sizes it may be sent at. Started
+        // here and not awaited: it is the one genuinely slow thing on this path, and the attachment must appear in the composition bar
+        // now rather than when its sizes are ready.
+        //
+        // **This is the only place in the app where a `PersistedDraftFyleJoin` is created** — the sole caller of the sole caller of
+        // `createPersistedDraftFyleJoinIfRequired(...)` — which is what makes one hook enough.
+        await draftPhotoVariantsMaker.ensureVariantsExist(draftObjectID: draftObjectID)
+
+        // And a video is exported here rather than when the message is sent, which is the whole reason sending a clip is usually
+        // immediate: the export overlaps with the time the reader spends typing, and that is very often all of it.
+        await draftVideoVariantsMaker.ensureVariantsExist(draftObjectID: draftObjectID)
+
     }
- 
+
+
+    /// Writes whatever sizes the photographs and videos of existing drafts are missing.
+    ///
+    /// Called once, on the first appearance of the app. It catches up drafts from builds before sizes existed, and drafts whose writing
+    /// was interrupted by the app being killed. Until it runs, such a draft sends its attachments as it did before this feature.
+    ///
+    /// For videos this costs an export of tens of seconds each, once, on the launch after updating. Waiting until the discussion is opened
+    /// instead would leave a draft whose clip would be sent at a size other than the one the bar shows.
+    ///
+    /// The count is logged even when it is zero, to tell "nothing to catch up" from "this never ran".
+    private func writeTheSizesMissingFromTheMediaOfEveryDraft() async {
+
+        let context = ObvStack.shared.newBackgroundContext()
+
+        let draftObjectIDs: [TypeSafeManagedObjectID<PersistedDraft>]
+        do {
+            draftObjectIDs = try await context.perform {
+                try PersistedDraft.getObjectIDsOfDraftsWithAMediaMissingASize(within: context)
+            }
+        } catch {
+            Self.logger.fault("📷 Could not look for drafts whose attachments are missing a size: \(error.localizedDescription, privacy: .public)")
+            assertionFailure()
+            return
+        }
+
+        Self.logger.info("📷 \(draftObjectIDs.count, privacy: .public) draft(s) hold an attachment that has not been written at every size it needs")
+
+        for draftObjectID in draftObjectIDs {
+            await draftPhotoVariantsMaker.ensureVariantsExist(draftObjectID: draftObjectID)
+            await draftVideoVariantsMaker.ensureVariantsExist(draftObjectID: draftObjectID)
+        }
+
+    }
+
+
+    /// Called by the `RootViewController` when the user picks the size this draft's photos and videos are to be sent at.
+    func processUserWantsToChangeMediaFormatOfDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, format: ObvMediaFormat) async throws {
+
+        // Unconditional, and at the very top: the first thing to establish when the bar appears to do nothing is whether the tap reached
+        // the app at all. Everything downstream of this has its own line; this is the one that says the chain from the menu is intact.
+        Self.logger.notice("🎬 The reader chose \(format.rawValue, privacy: .public) for a draft")
+
+        let op1 = SetSelectedMediaFormatOfDraftOperation(draftObjectID: draftObjectID, format: format)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.queuePriority = .veryHigh // As the user requested this
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+        guard !composedOp.isCancelled else {
+            assertionFailure()
+            throw Self.makeError(message: "SetSelectedMediaFormatOfDraftOperation cancelled:\(String(describing: op1.reasonForCancel))")
+        }
+
+        // The next draft the reader composes opens on the size they last chose. A deliberate widening of a per-draft choice: somebody
+        // who sends at Low once is usually on a connection where they will want Low again, and asking them to say so in every discussion
+        // would be the wrong default.
+        //
+        // **Written here and not inside the operation**, and only once its save has succeeded. A draft that has never been asked reads
+        // its size *through* this default, so writing it from inside a save that then failed would silently change the size of every
+        // such draft on the device on the strength of a choice that was not recorded.
+        ObvMessengerSettings.Discussions.defaultMediaFormat = format
+
+        // The reader is allowed to choose a size before it has been written — the menu never makes them wait — so the choice may name a
+        // file that does not exist yet. Asking again is what closes that: the writing pass applies the draft's current choice as each
+        // size lands.
+        await draftPhotoVariantsMaker.ensureVariantsExist(draftObjectID: draftObjectID)
+
+        // **For videos this is where most of the work of the feature happens**, a clip having only ever been exported at the size that
+        // was chosen before now. The export in flight is stopped first: it is producing the size the reader has just moved away from, so
+        // letting it finish would spend tens of seconds of the encoder on a file that will not be sent. What it has already done is not
+        // lost — a size exported earlier keeps its row and its file, so coming back to it is instantaneous.
+        await draftVideoVariantsMaker.cancelWork(forDraft: draftObjectID)
+        await draftVideoVariantsMaker.ensureVariantsExist(draftObjectID: draftObjectID)
+
+    }
+
+}
+
+
+// MARK: - DraftPhotoVariantsMakerDelegate
+
+extension PersistedDiscussionsUpdatesCoordinator: DraftPhotoVariantsMakerDelegate {
+
+    func draftPhotoVariantsMaker(_ maker: DraftPhotoVariantsMaker, wantsToSave variantsToCreate: [CreateDraftFyleJoinVariantsOperation.VariantToCreate], forDraft draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async {
+
+        let op1 = CreateDraftFyleJoinVariantsOperation(draftObjectID: draftObjectID, variantsToCreate: variantsToCreate)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            // The operation trashes the files it was handed and did not use, including on this path, so there is nothing to clean up here.
+            Self.logger.fault("📷 Could not record the sizes just written for a draft's photos: \(String(describing: op1.reasonForCancel))")
+            assertionFailure()
+            return
+        }
+
+    }
+
+}
+
+
+// MARK: - DraftVideoVariantsMakerDelegate
+
+extension PersistedDiscussionsUpdatesCoordinator: DraftVideoVariantsMakerDelegate {
+
+    func draftVideoVariantsMaker(_ maker: DraftVideoVariantsMaker, wantsToSave variantsToCreate: [CreateDraftFyleJoinVariantsOperation.VariantToCreate], forDraft draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async {
+
+        // The very same operation the photographs go through. There is nothing medium-specific left by this point: a file, a size, and a
+        // join to hang it on.
+        let op1 = CreateDraftFyleJoinVariantsOperation(draftObjectID: draftObjectID, variantsToCreate: variantsToCreate)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            // The operation trashes the files it was handed and did not use, including on this path, so there is nothing to clean up here.
+            Self.logger.fault("🎬 Could not record the size just exported for a draft's video: \(String(describing: op1.reasonForCancel))")
+            assertionFailure()
+            return
+        }
+
+    }
+
 }
 
 
@@ -2831,41 +3264,51 @@ extension PersistedDiscussionsUpdatesCoordinator: PersistedGroupV2MemberObserver
 
 extension PersistedDiscussionsUpdatesCoordinator {
     
-    func processNewMessagesReceivedNotification(messages: [ObvMessageOrObvOwnedMessage]) async {
+    /// Returns the messages carrying a reaction or a poll vote that visibly changed a message, which are the only ones of their kind to notify.
+    func processNewMessagesReceivedNotification(messages: [ObvMessageOrObvOwnedMessage]) async -> Set<ObvMessageIdentifier> {
         ObvDisplayableLogs.shared.log("[🚩] PersistedDiscussionsUpdatesCoordinator.processNewMessagesReceivedNotification(messages:) for \(messages.count) messages")
+        Self.logger.info("[🚩✉️] Starting PersistedDiscussionsUpdatesCoordinator.processNewMessagesReceivedNotification(messages:) for \(messages.count) messages")
+        defer { Self.logger.info("[🚩✉️] Ending of PersistedDiscussionsUpdatesCoordinator.processNewMessagesReceivedNotification(messages:) for \(messages.count) messages") }
+        var reactionsAndPollVotesThatVisiblyChanged = Set<ObvMessageIdentifier>()
         for message in messages {
-            // We dispatch the processing of this message because we don't want to block the processing of the following one.
-            // Before 2024-12-27, we used not to perfom this dispatch. This was a mistake. In case the processing of first message of a batch takes a long time,
-            // we might end up processing the messages of another batch before processing the second message of the first batch.
-            // Although the following code is better in terms processing order, it is not perfect though, as it does not guarantee the order within a batch.
-            Task {
-                switch message {
-                case .obvMessage(let obvMessage):
-                    await processNewMessageReceivedNotification(obvMessage: obvMessage)
-                case .obvOwnedMessage(let obvOwnedMessage):
-                    await processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage)
+            switch message {
+            case .obvMessage(let obvMessage):
+                if await processNewMessageReceivedNotification(obvMessage: obvMessage) {
+                    reactionsAndPollVotesThatVisiblyChanged.insert(obvMessage.messageId)
                 }
+            case .obvOwnedMessage(let obvOwnedMessage):
+                await processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage)
             }
         }
+        return reactionsAndPollVotesThatVisiblyChanged
     }
-    
-    private func processNewMessageReceivedNotification(obvMessage: ObvMessage) async {
-        Self.logger.debug("🧦🗺️ We received a NewMessageReceived notification with messageUploadTimestampFromServer \(obvMessage.messageUploadTimestampFromServer)")
+
+    /// Returns `true` for a reaction or a poll vote that visibly changed a message. Deciding later whether to notify it needs this, the
+    /// saved database no longer being able to tell.
+    private func processNewMessageReceivedNotification(obvMessage: ObvMessage) async -> Bool {
+
+        Self.logger.debug("🧦🗺️✉️ Beginning of the processing of a new message")
+        defer { Self.logger.debug("🧦🗺️✉️ End of the processing of a new message") }
         
         // The queuePriority is veryHigh as processing a new message is more important than processing a
         // return receipt (the priorirty of which is .high)
         let result = await processReceivedObvMessage(obvMessage, source: .engine, queuePriority: .veryHigh)
         
         let notifyEngine: EngineNotificationOnMessageProcessing
+        var reactionOrPollVoteVisiblyChanged = false
 
         switch result {
-            
+
         case .done(attachmentsProcessingRequest: let attachmentsProcessingRequest):
             notifyEngine = .notify(attachmentsProcessingRequest: attachmentsProcessingRequest)
 
+        case .doneWithReactionOrPollVote(visiblyChanged: let visiblyChanged):
+            notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
+            reactionOrPollVoteVisiblyChanged = visiblyChanged
+
         case .definitiveFailure:
             notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
-                        
+
         case .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived:
             assertionFailure("This is unexpected as the message was not received from the notification extension but from the engine. This should be investigated.")
             notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
@@ -2918,18 +3361,18 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 try await obvEngine.messageWasProcessed(messageId: obvMessage.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
             } catch {
                 assertionFailure(error.localizedDescription)
-                return
             }
         case .putOnHold:
             do {
                 try await obvEngine.putMessageOnHold(messageId: obvMessage.messageId)
             } catch {
                 assertionFailure(error.localizedDescription)
-                return
             }
         case .doNotNotify:
-            return
+            break
         }
+
+        return reactionOrPollVoteVisiblyChanged
 
     }
     
@@ -2947,7 +3390,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     
     private func processNewOwnedMessageReceivedNotification(obvOwnedMessage: ObvOwnedMessage) async {
-        os_log("🧦 We received a NewOwnedMessageReceived notification", log: Self.log, type: .debug)
+
+        Self.logger.debug("🧦🗺️✉️ Beginning of the processing of a new owned message")
+        defer { Self.logger.debug("🧦🗺️✉️ End of the processing of a new owned message") }
 
         let result = await processReceivedObvOwnedMessage(obvOwnedMessage)
         
@@ -3031,20 +3476,20 @@ extension PersistedDiscussionsUpdatesCoordinator {
         var operationsToQueue = [Operation]()
         let composedOp: CompositionOfOneContextualOperation<UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation.ReasonForCancel>
         do {
-            let op1 = UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation(obvAttachment: obvAttachment, obvEngine: obvEngine)
+            let op1 = UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation(obvAttachment: obvAttachment)
             composedOp = createCompositionOfOneContextualOperation(op1: op1)
             operationsToQueue.append(composedOp)
         }
-        let downloadOp = DetermineAttachmentsProcessingRequestForMessageReceivedOperation(kind: .specificAttachment(attachmentId: obvAttachment.attachmentId))
+        let downloadOp = DetermineAttachmentsProcessingRequestOperation(kind: .specificAttachment(attachmentId: obvAttachment.attachmentId))
         do {
             let composedOpForDownload = createCompositionOfOneContextualOperation(op1: downloadOp)
             operationsToQueue.append(composedOpForDownload)
         }
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
         await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
-        if let attachmentsProcessingRequest = downloadOp.attachmentsProcessingRequest {
+        for (messageId, attachmentsProcessingRequest) in downloadOp.attachmentsProcessingRequests {
             do {
-                try await obvEngine.messageWasProcessed(messageId: obvAttachment.attachmentId.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+                try await obvEngine.messageWasProcessed(messageId: messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
             } catch {
                 assertionFailure()
             }
@@ -3067,20 +3512,22 @@ extension PersistedDiscussionsUpdatesCoordinator {
         var operationsToQueue = [Operation]()
         let composedOp: CompositionOfOneContextualOperation<UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation.ReasonForCancel>
         do {
-            let op1 = UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation(obvOwnedAttachment: obvOwnedAttachment, obvEngine: obvEngine)
+            let op1 = UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation(obvOwnedAttachment: obvOwnedAttachment)
             composedOp = createCompositionOfOneContextualOperation(op1: op1)
             operationsToQueue.append(composedOp)
         }
-        let downloadOp = DetermineAttachmentsProcessingRequestForMessageSentOperation(kind: .specificAttachment(attachmentId: obvOwnedAttachment.attachmentId))
+        let downloadOp = DetermineAttachmentsProcessingRequestOperation(kind: .specificAttachment(attachmentId: obvOwnedAttachment.attachmentId))
         do {
             let composedOpForDownload = createCompositionOfOneContextualOperation(op1: downloadOp)
             operationsToQueue.append(composedOpForDownload)
         }
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
         await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
-        if let attachmentsProcessingRequest = downloadOp.attachmentsProcessingRequest {
+        // One entry per message concerned. Downloading an attachment can also settle other messages that
+        // reference the same content, which would otherwise stay in the engine's inbox forever.
+        for (messageId, attachmentsProcessingRequest) in downloadOp.attachmentsProcessingRequests {
             do {
-                try await obvEngine.messageWasProcessed(messageId: obvOwnedAttachment.attachmentId.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+                try await obvEngine.messageWasProcessed(messageId: messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
             } catch {
                 assertionFailure()
             }
@@ -3091,22 +3538,25 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processAttachmentDownloadedNotification(obvAttachment: ObvAttachment) async {
         let obvEngine = self.obvEngine
         var operationsToQueue = [Operation]()
-        let composedOp: CompositionOfOneContextualOperation<UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation.ReasonForCancel>
-        do {
-            let op1 = UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation(obvAttachment: obvAttachment, obvEngine: obvEngine)
-            composedOp = createCompositionOfOneContextualOperation(op1: op1)
-            operationsToQueue.append(composedOp)
-        }
-        let downloadOp = DetermineAttachmentsProcessingRequestForMessageReceivedOperation(kind: .specificAttachment(attachmentId: obvAttachment.attachmentId))
-        do {
-            let composedOpForDownload = createCompositionOfOneContextualOperation(op1: downloadOp)
-            operationsToQueue.append(composedOpForDownload)
-        }
+        let op1 = UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation(obvAttachment: obvAttachment)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        operationsToQueue.append(composedOp)
+        let downloadOp = DetermineAttachmentsProcessingRequestOperation(kind: .specificAttachment(attachmentId: obvAttachment.attachmentId))
+        let composedOpForDownload = createCompositionOfOneContextualOperation(op1: downloadOp)
+        operationsToQueue.append(composedOpForDownload)
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
         await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
-        if let attachmentsProcessingRequest = downloadOp.attachmentsProcessingRequest {
+        if let whatWasWrong = op1.whatWasWrongWithTheFile {
+            await repairAttachmentWhoseFileCannotBeUsed(.obvAttachment(obvAttachment), whatWasWrong: whatWasWrong)
+        }
+        if let receipt = op1.deliveredReceiptToSend {
+            await postReturnReceipts([receipt])
+        }
+        // One entry per message concerned. Downloading an attachment can also settle other messages that
+        // reference the same content, which would otherwise stay in the engine's inbox forever.
+        for (messageId, attachmentsProcessingRequest) in downloadOp.attachmentsProcessingRequests {
             do {
-                try await obvEngine.messageWasProcessed(messageId: obvAttachment.attachmentId.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+                try await obvEngine.messageWasProcessed(messageId: messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
             } catch {
                 assertionFailure()
             }
@@ -3117,25 +3567,121 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processOwnedAttachmentDownloadedNotification(obvOwnedAttachment: ObvOwnedAttachment) async {
         let obvEngine = self.obvEngine
         var operationsToQueue = [Operation]()
-        do {
-            let op1 = UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation(obvOwnedAttachment: obvOwnedAttachment, obvEngine: obvEngine)
-            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-            operationsToQueue.append(composedOp)
-        }
-        let op1 = DetermineAttachmentsProcessingRequestForMessageSentOperation(kind: .specificAttachment(attachmentId: obvOwnedAttachment.attachmentId))
-        do {
-            let composedOpForDownload = createCompositionOfOneContextualOperation(op1: op1)
-            operationsToQueue.append(composedOpForDownload)
-        }
+        let op1 = UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation(obvOwnedAttachment: obvOwnedAttachment)
+        operationsToQueue.append(createCompositionOfOneContextualOperation(op1: op1))
+        let downloadOp = DetermineAttachmentsProcessingRequestOperation(kind: .specificAttachment(attachmentId: obvOwnedAttachment.attachmentId))
+        operationsToQueue.append(createCompositionOfOneContextualOperation(op1: downloadOp))
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
         await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
-        if let attachmentsProcessingRequest = op1.attachmentsProcessingRequest {
+        if let whatWasWrong = op1.whatWasWrongWithTheFile {
+            await repairAttachmentWhoseFileCannotBeUsed(.obvOwnedAttachment(obvOwnedAttachment), whatWasWrong: whatWasWrong)
+        }
+        for (messageId, attachmentsProcessingRequest) in downloadOp.attachmentsProcessingRequests {
             do {
-                try await obvEngine.messageWasProcessed(messageId: obvOwnedAttachment.attachmentId.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+                try await obvEngine.messageWasProcessed(messageId: messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
             } catch {
                 assertionFailure()
             }
         }
+    }
+
+    
+    /// Called when the engine reports an attachment as complete and the file it points at cannot be used — either there is no file at all, or its bytes do not
+    /// hash as the sender said they would.
+    ///
+    /// **One repair for both**, because the fault is the same shape whichever it is: the engine believes the attachment is complete and the app cannot accept
+    /// it, so the join never reaches `complete`, is never re-requested (`fyleMessageJoinWithStatusesToDownload` filters `downloadable`) and is never released
+    /// from the engine's inbox (`…ToDeleteFromServer` filters `cancelledByServer || complete`). The reader is left with a hundred per cent and a pause button
+    /// for ever. Only the engine call that undoes that belief differs, and `whatWasWrong` chooses it.
+    ///
+    /// Two things then happen, and they are separate on purpose.
+    ///
+    /// The engine is **always** told to forget the file: to discard it and put every chunk back to be fetched. Keeping a file that is known to be unusable
+    /// serves nobody, and it is what the reader is looking at.
+    ///
+    /// The join is then **always** put back to `downloadable`, which is both what the reader should see and the only thing a view can notice — see the comment
+    /// at that line, which is the whole of why the arc used to stay full.
+    ///
+    /// The download is resumed **only the first time** this process sees this attachment fail. A file that arrives unusable twice is unlikely to arrive right
+    /// the third time, and at a gigabyte a loop is not cheap. **The missing-file case had no bound at all before this**, having been repaired inline since long
+    /// before anyone asked how often it might fire. When we stand down, the reader is left with the ordinary download control at nought per cent — the engine
+    /// having just discarded the file — rather than a finished download that will never finish. A tap tries again, which is the reader's decision to make
+    /// rather than ours.
+    ///
+    /// **Both kinds of attachment reach this, and the difference between them is one operation.** An attachment of a message sent from another of the reader's
+    /// own devices is *downloaded* by this device exactly as a received one is — same inbox, same chunk machinery, same `resumeDownloadOfAttachment` — and it
+    /// fails the same two ways. It is only *recorded* differently, as a `SentFyleMessageJoinWithStatus`, whose `downloadable` and `downloading` cases exist for
+    /// this case and no other. So the only thing that varies below is which join is put back to `downloadable`.
+    private func repairAttachmentWhoseFileCannotBeUsed(_ attachment: ObvAttachmentOrOwnedAttachment, whatWasWrong: WhatWasWrongWithADownloadedFile) async {
+
+        let ownedCryptoId = attachment.ownedCryptoId
+        let attachmentNumber = attachment.number
+        let messageIdentifierFromEngine = attachment.messageIdentifier
+
+        // Both calls undo the engine's belief that the attachment is complete, and both leave it `paused` with every chunk to be fetched and an empty file to
+        // write them into. They are two because the one that has always existed opens by returning when the file **is** there, which after a hash mismatch it
+        // always is — so it cannot serve that case, and saying which fault we met beats pretending we met the other.
+        do {
+            switch whatWasWrong {
+            case .thereIsNoFileAtAll:
+                try await obvEngine.appCouldNotFindFileOfDownloadedAttachment(
+                    attachmentNumber,
+                    ofMessageWithIdentifier: messageIdentifierFromEngine,
+                    ownedCryptoId: ownedCryptoId)
+            case .theFileDoesNotHashAsExpected:
+                try await obvEngine.appFoundACorruptFileForDownloadedAttachment(
+                    attachmentNumber,
+                    ofMessageWithIdentifier: messageIdentifierFromEngine,
+                    ownedCryptoId: ownedCryptoId)
+            }
+        } catch {
+            Self.logger.fault("Could not ask the engine to discard the unusable file of an attachment: \(error.localizedDescription, privacy: .public)")
+            assertionFailure(error.localizedDescription)
+            return
+        }
+
+        // The join goes back to `downloadable` **whichever branch follows**, and after the engine has discarded the file rather than before.
+        //
+        // Not merely so that a reader we have given up on is offered the control. The join was `downloading` and stays `downloading` all the way through a
+        // retry, so without this nothing about this attachment changes that a view can see — and the arc a view is drawing is fed by a stream the engine
+        // **closed when the download completed** (`attachmentDownloadIsComplete` finishes every stream for the attachment before announcing it). A view whose
+        // stream has ended and whose state never changes goes on drawing the last fraction it was told, which is 1.0: the reader is left with a full ring
+        // through the whole of the re-download and a full ring behind the download glyph afterwards. This change of status is what `FollowedAttachment` waits
+        // for to follow the download again — see `theProgressStreamEndedOnItsOwn` there.
+        //
+        // After the discard, because the new stream reports what the chunks on disk amount to, and they are only nought once the engine has reset them.
+        switch attachment {
+        case .obvAttachment:
+            let op1 = MarkReceivedJoinAsResumedOrPausedOperation(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, resumeOrPause: .pause)
+            await coordinatorsQueue.addAndAwaitOperation(createCompositionOfOneContextualOperation(op1: op1))
+        case .obvOwnedAttachment:
+            let op1 = MarkReceivedSentJoinAsResumedOrPausedOperation(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, resumeOrPause: .pause)
+            await coordinatorsQueue.addAndAwaitOperation(createCompositionOfOneContextualOperation(op1: op1))
+        }
+
+        // One budget for both faults, keyed on the attachment. What it bounds is how often *we* fetch an attachment again without being asked, and an
+        // attachment that arrives missing once and wrong the next time has still had its two goes.
+        let thisIsTheFirstTimeInThisProcess = attachmentsAlreadyFetchedAgainAfterAnUnusableDownload.withLock { attachmentIds in
+            attachmentIds.insert(attachment.attachmentId).inserted
+        }
+
+        guard thisIsTheFirstTimeInThisProcess else {
+            Self.logger.error("The file of attachment \(attachmentNumber) was unusable a second time (\(String(describing: whatWasWrong), privacy: .public)). Leaving it for the reader to ask again.")
+            return
+        }
+
+        Self.logger.error("The file of attachment \(attachmentNumber) was unusable (\(String(describing: whatWasWrong), privacy: .public)). Downloading it again.")
+
+        do {
+            try await obvEngine.resumeDownloadOfAttachment(
+                attachmentNumber,
+                ofMessageWithIdentifier: messageIdentifierFromEngine,
+                ownedCryptoId: ownedCryptoId)
+        } catch {
+            Self.logger.fault("Could not resume the download of an attachment whose file was unusable: \(error.localizedDescription, privacy: .public)")
+            assertionFailure(error.localizedDescription)
+        }
+
     }
 
     
@@ -3281,26 +3827,41 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
 
-    /// Called by the `RootViewController` when the user requests a message forward to one or more discussions
-    func processUserWantsToForwardMessage(identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
-        for discussionIdentifier in identifiersOfDiscussionsWhereMessageShouldBeForwarded {
-            let op1 = CreateUnprocessedForwardPersistedMessageSentFromMessageOperation(identifierOfMessageToForwad: identifierOfMessageToForwad, identifiersOfDiscussionWhereMessageShouldBeForwarded: discussionIdentifier)
-            let op2 = ComputeExtendedPayloadOperation(provider: op1)
-            let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, alsoPostToOtherOwnedDevices: true, extendedPayloadProvider: op2, obvEngine: obvEngine)
-            let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
-            await coordinatorsQueue.addAndAwaitOperation(composedOp)
-            guard composedOp.isFinished && !composedOp.isCancelled else {
-                assertionFailure()
-                throw ObvError.couldNotForwardMessage
+    /// Forwards one or more messages into one or more discussions, at the request of the `RootViewController`.
+    ///
+    /// **The messages are an ordered array and not a set**, which is the whole of what this has to be careful about: each becomes a real message of its own, so
+    /// a recipient reads them in the order they are created here, and a set would give an order that changes with the hashing.
+    ///
+    /// **Discussions outer, messages inner.** Both nestings send the same messages; this one gives each discussion the whole run together and in order, where the
+    /// other would interleave the destinations. It also means a failure part way through leaves whole discussions done and whole discussions untouched, rather
+    /// than every one of them half done.
+    ///
+    /// Each triple is awaited before the next is queued, which is what makes `sortIndex` follow this loop — `createPersistedMessageSentWhenForwardingAMessage`
+    /// reads the largest one in the destination and adds to it, so the previous message must already be committed.
+    func processUserWantsToForwardMessages(identifiersOfMessagesToForward: [ObvMessageAppIdentifier], identifiersOfDiscussionsWhereMessagesShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
+        for discussionIdentifier in identifiersOfDiscussionsWhereMessagesShouldBeForwarded {
+            for identifierOfMessageToForwad in identifiersOfMessagesToForward {
+                let op1 = CreateUnprocessedForwardPersistedMessageSentFromMessageOperation(identifierOfMessageToForwad: identifierOfMessageToForwad, identifiersOfDiscussionWhereMessageShouldBeForwarded: discussionIdentifier)
+                let op2 = ComputeExtendedPayloadOperation(provider: op1)
+                let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, alsoPostToOtherOwnedDevices: true, extendedPayloadProvider: op2, obvEngine: obvEngine)
+                let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+                await coordinatorsQueue.addAndAwaitOperation(composedOp)
+                guard composedOp.isFinished && !composedOp.isCancelled else {
+                    assertionFailure()
+                    throw ObvError.couldNotForwardMessage
+                }
             }
         }
     }
     
 
-    private func processUserHasOpenedAReceivedAttachment(receivedFyleJoinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
+    private func processUserHasOpenedAReceivedAttachment(receivedFyleJoinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async {
         let op1 = MarkAsOpenedOperation(receivedFyleMessageJoinWithStatusID: receivedFyleJoinID)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+        if let receipt = op1.readReceiptToSend {
+            await postReturnReceipts([receipt])
+        }
     }
 
     private func processTooManyWrongPasscodeAttemptsCausedLockOut() {
@@ -3430,8 +3991,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         assert(OperationQueue.current != coordinatorsQueue)
 
-        os_log("Call to processReceivedObvOwnedMessage", log: Self.log, type: .debug)
-        
+        let messageDebugDescription = obvOwnedMessage.messageId.debugDescription
+
+        Self.logger.debug("[✉️][\(messageDebugDescription)] Beginning of the owned message processing")
+        defer { Self.logger.debug("[✉️][\(messageDebugDescription)] End of the owned message processing") }
+
         let persistedItemJSON: PersistedItemJSON
         do {
             persistedItemJSON = try PersistedItemJSON.jsonDecode(obvOwnedMessage.messagePayload)
@@ -3444,7 +4008,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         // Case #1: The ObvOwnedMessage contains a WebRTC signaling message
         
         if let webrtcMessage = persistedItemJSON.webrtcMessage {
-            os_log("☎️ The owned message is a WebRTC signaling message", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️☎️][\(messageDebugDescription)] The owned message is a webRTC message")
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] webrtcMessage")
             await self.processReceivedWebRTCMessageJSON(webrtcMessage, obvOwnedMessage: obvOwnedMessage)
             return .done(attachmentsProcessingRequest: .deleteAll)
@@ -3454,7 +4018,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let messageJSON = persistedItemJSON.message {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] messageJSON")
-            os_log("The message is an ObvOwnedMessage", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a messageJSON")
             let returnReceiptJSON = persistedItemJSON.returnReceipt
             let result = await self.createPersistedMessageSentFromReceivedObvOwnedMessage(
                 obvOwnedMessage,
@@ -3479,7 +4043,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let discussionSharedConfiguration = persistedItemJSON.discussionSharedConfiguration {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] discussionSharedConfiguration")
-            os_log("The message is shared discussion configuration", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a discussion shared configuration")
             let result = await updateSharedConfigurationOfPersistedDiscussion(
                 using: discussionSharedConfiguration,
                 fromOtherDeviceOfOwnedId: obvOwnedMessage.ownedCryptoId,
@@ -3490,10 +4054,14 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 return .done(attachmentsProcessingRequest: .deleteAll)
             case .failed:
                 return .definitiveFailure
-            case .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
-                return .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
-            case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
-                return .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+            case .senderIsNotAllowedToChangeSharedSettings:
+                // See the comment in the twin case of processReceivedObvMessage(_:source:queuePriority:). Unreachable here,
+                // an owned message being merged through PersistedObvOwnedIdentity, which never refuses on those grounds.
+                Self.logger.info("[✉️][\(messageDebugDescription)] The sender is not allowed to change these shared settings. Discarding the message.")
+                return .done(attachmentsProcessingRequest: .deleteAll)
+            case .discussionDoesNotExist:
+                Self.logger.info("[✉️][\(messageDebugDescription)] There is no such discussion on this device. Discarding the message.")
+                return .done(attachmentsProcessingRequest: .deleteAll)
             }
         }
 
@@ -3501,7 +4069,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let deleteMessagesJSON = persistedItemJSON.deleteMessagesJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] deleteMessagesJSON")
-            os_log("The owned message is a delete message JSON", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a DeleteMessagesJSON")
             let op1 = ProcessRemoteWipeMessagesRequestOperation(deleteMessagesJSON: deleteMessagesJSON,
                                                                 requester: .ownedIdentity(ownedCryptoId: obvOwnedMessage.ownedCryptoId),
                                                                 messageUploadTimestampFromServer: obvOwnedMessage.messageUploadTimestampFromServer)
@@ -3528,8 +4096,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         if let deleteDiscussionJSON = persistedItemJSON.deleteDiscussionJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] deleteDiscussionJSON")
-            os_log("The owned message is a delete discussion JSON", log: Self.log, type: .debug)
-            
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a DeleteDiscussionJSON")
+
             var operationsToQueue = [OperationKind]()
 
             // Assuming that we are sharing the current physical device location in the discussion we are about to delete, we want to send END_SHARING location
@@ -3600,7 +4168,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         if let updateMessageJSON = persistedItemJSON.updateMessageJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] updateMessageJSON")
-            os_log("The owned message is an update message JSON", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a UpdateMessageJSON")
             let op1 = EditTextBodyOfReceivedMessageOperation(
                 updateMessageJSON: updateMessageJSON,
                 requester: .ownedIdentity(ownedCryptoId: obvOwnedMessage.ownedCryptoId),
@@ -3626,7 +4194,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         if let reactionJSON = persistedItemJSON.reactionJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] reactionJSON")
-            os_log("The owned message is a reaction", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a ReactionJSON")
             let op1 = ProcessSetOrUpdateReactionOnMessageOperation(
                 reactionJSON: reactionJSON,
                 requester: .ownedIdentity(ownedCryptoId: obvOwnedMessage.ownedCryptoId),
@@ -3654,7 +4222,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let querySharedSettingsJSON = persistedItemJSON.querySharedSettingsJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] querySharedSettingsJSON")
-            os_log("The owned message contains a request for a group v2 discussion share settings", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a QuerySharedSettingsJSON")
             let op1 = RespondToQuerySharedSettingsOperation(
                 querySharedSettingsJSON: querySharedSettingsJSON,
                 requester: .ownedIdentity(ownedCryptoId: obvOwnedMessage.ownedCryptoId))
@@ -3667,7 +4235,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let screenCaptureDetectionJSON = persistedItemJSON.screenCaptureDetectionJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] screenCaptureDetectionJSON")
-            os_log("The owned message indicates that a contact or a owned identity did take a screen capture of sensitive content", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a ScreenCaptureDetectionJSON")
             let op1 = ProcessDetectionThatSensitiveMessagesWereCapturedOperation(
                 screenCaptureDetectionJSON: screenCaptureDetectionJSON,
                 requester: .ownedIdentity(ownedCryptoId: obvOwnedMessage.ownedCryptoId),
@@ -3693,7 +4261,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let limitedVisibilityMessageOpenedJSON = persistedItemJSON.limitedVisibilityMessageOpenedJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] limitedVisibilityMessageOpenedJSON")
-            os_log("The owned message indicates that a received message with limited visibility was read on another owned device", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a LimitedVisibilityMessageOpenedJSON")
             guard let discussionId = try? limitedVisibilityMessageOpenedJSON.getObvDiscussionId(ownedCryptoId: obvOwnedMessage.ownedCryptoId) else {
                 assertionFailure()
                 return .done(attachmentsProcessingRequest: .deleteAll)
@@ -3738,7 +4306,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let discussionRead = persistedItemJSON.discussionRead {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] discussionRead")
-            os_log("The owned message indicates that certain messages must be marked as not new within a discussion as they were read on another device", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message indicates that certain messages must be marked as not new within a discussion as they were read on another device")
             let op1 = MarkAllMessagesAsNotNewWithinDiscussionOperation(input: .discussionReadJSON(ownedCryptoId: obvOwnedMessage.ownedCryptoId, discussionRead: discussionRead))
             let composedOp = createCompositionOfOneContextualOperation(op1: op1)
             await coordinatorsQueue.addAndAwaitOperation(composedOp)
@@ -3760,7 +4328,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         if let pollVoteJSON = persistedItemJSON.pollVoteJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] pollVoteJSON")
-            Self.logger.debug("The owned message is a poll vote")
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a poll vote")
             let op1 = ProcessSetOrUpdatePollVoteOnMessageOperation(
                 pollVoteJSON: pollVoteJSON,
                 requester: .ownedIdentity(ownedCryptoId: obvOwnedMessage.ownedCryptoId),
@@ -3788,6 +4356,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let webrtcHistoryTransferMessageJSON = persistedItemJSON.webrtcHistoryTransferMessageJSON {
             
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a WebRTCHistoryTransferMessageJSON")
+            
             do {
                 guard let delegate else {
                     assertionFailure()
@@ -3810,6 +4380,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let webRTCHistoryTransferControlJSON = persistedItemJSON.webRTCHistoryTransferControlJSON {
             
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The owned message is a WebRTCHistoryTransferControlJSON")
+
             let transferId = webRTCHistoryTransferControlJSON.transferId
             
             switch webRTCHistoryTransferControlJSON.kind {
@@ -3952,6 +4524,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     enum ProcessReceivedObvMessageResult {
         case done(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
+        /// Like `.done(attachmentsProcessingRequest: .deleteAll)`, for a reaction or a poll vote from a contact. `visiblyChanged` is what
+        /// the notification step needs: once saved, the database can no longer tell.
+        case doneWithReactionOrPollVote(visiblyChanged: Bool)
         case definitiveFailure
         case couldNotFindActiveDiscussionInDatabase(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier)
         case couldNotFindMessageInDatabase(messageIdentifier: ObvMessageAppIdentifier)
@@ -3964,8 +4539,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processReceivedObvMessage(_ obvMessage: ObvMessage, source: ObvMessageSource, queuePriority: Operation.QueuePriority) async -> ProcessReceivedObvMessageResult {
 
         assert(OperationQueue.current != coordinatorsQueue)
+        
+        let messageDebugDescription = obvMessage.messageId.debugDescription
 
-        os_log("✉️ [%{public}@] Call to processReceivedObvMessage", log: Self.log, type: .debug, obvMessage.messageId.debugDescription)
+        Self.logger.debug("[✉️][\(messageDebugDescription)] Beginning of the message processing")
+        defer { Self.logger.debug("[✉️][\(messageDebugDescription)] End of the message processing") }
         
         let persistedItemJSON: PersistedItemJSON
         do {
@@ -3980,7 +4558,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let webrtcMessage = persistedItemJSON.webrtcMessage {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] webrtcMessage")
-            os_log("☎️ The message is a WebRTC signaling message", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)][☎️] The message is a WebRTC signaling message")
             await self.processReceivedWebRTCMessageJSON(webrtcMessage, obvMessage: obvMessage)
             return .done(attachmentsProcessingRequest: .deleteAll)
         }
@@ -3989,7 +4567,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let messageJSON = persistedItemJSON.message {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] messageJSON")
-            os_log("The message is an ObvMessage", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is a MessageJSON")
             let returnReceiptJSON = persistedItemJSON.returnReceipt
             let result = await self.createPersistedMessageReceivedFromReceivedObvMessage(
                 obvMessage,
@@ -4019,20 +4597,33 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let discussionSharedConfiguration = persistedItemJSON.discussionSharedConfiguration {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] discussionSharedConfiguration")
-            os_log("The message is shared discussion configuration", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is shared discussion configuration")
             let result = await updateSharedConfigurationOfPersistedDiscussion(
                 using: discussionSharedConfiguration,
                 fromContact: obvMessage.fromContactIdentity,
                 messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
-                messageLocalDownloadTimestamp: obvMessage.localDownloadTimestamp)
+                messageLocalDownloadTimestamp: obvMessage.localDownloadTimestamp,
+                messageDebugDescription: messageDebugDescription)
             switch result {
             case .done:
+                Self.logger.debug("[✉️][\(messageDebugDescription)] We are done with the discussion configuration")
                 return .done(attachmentsProcessingRequest: .deleteAll)
-            case .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
-                return .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
-            case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
-                return .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+            case .senderIsNotAllowedToChangeSharedSettings:
+                // We discard the message instead of putting it on hold: there is nothing to wait for. Should the sender
+                // later gain the permission to change these settings, CreateOrUpdatePersistedGroupV2Operation queries her
+                // for them, and she answers with her current settings rather than the ones we are dropping here.
+                Self.logger.info("[✉️][\(messageDebugDescription)] The sender is not allowed to change these shared settings. Discarding the message.")
+                return .done(attachmentsProcessingRequest: .deleteAll)
+            case .discussionDoesNotExist:
+                // Discarded rather than put on hold, which is what this did until 2026-09-14. The change is deliberate, and it
+                // does drop working behaviour: the bootstrap replay that used to bring such a message back really does fire.
+                // What it buys is that a shared-settings message can no longer be held by any path at all. The permission case
+                // went the same way in an earlier commit, and these were the only two. That is what makes the backlog a closed
+                // set rather than one that keeps refilling.
+                Self.logger.info("[✉️][\(messageDebugDescription)] There is no such discussion on this device. Discarding the message.")
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case .failed:
+                Self.logger.error("[✉️][\(messageDebugDescription)] Failure, could not process discussion configuration")
                 return .definitiveFailure
             }
         }
@@ -4041,7 +4632,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let deleteMessagesJSON = persistedItemJSON.deleteMessagesJSON {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] deleteMessagesJSON")
-            os_log("The message is a delete message JSON", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is a delete message JSON")
             let op1 = ProcessRemoteWipeMessagesRequestOperation(deleteMessagesJSON: deleteMessagesJSON,
                                                                 requester: .contact(contactIdentifier: obvMessage.fromContactIdentity),
                                                                 messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
@@ -4067,7 +4658,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         // Case #5: The ObvMessage contains a JSON message indicating that a discussion should be globally deleted
         if let deleteDiscussionJSON = persistedItemJSON.deleteDiscussionJSON {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] deleteDiscussionJSON")
-            os_log("The message is a delete discussion JSON", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is a delete discussion JSON")
                                     
             var operationsToQueue = [Operation]()
             
@@ -4135,46 +4726,34 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         if let updateMessageJSON = persistedItemJSON.updateMessageJSON {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] updateMessageJSON")
-            os_log("The message is an update message JSON", log: Self.log, type: .debug)
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is an update message JSON")
 
-            // In case the update concerns a continuous location sharing, we apply rate limiter. This is useful when receiving a burst of location updates,
-            // which can typically occur after a cold boot. This limiter ensures we only process the most recent location updates, and discard the obsolete ones.
-            
-            let action: ReceivedContinuousLocationRateLimiter.Action
-            if updateMessageJSON.locationJSON?.type == .SHARING, let deviceIdentifier = obvMessage.contactDeviceIdentifier {
-                // The update message concerns a continuous location sharing: we apply the rate limiter.
-                action = await receivedContinuousLocationRateLimiter.limitRateOfContinuousLocationOfContactDevice(
-                    with: deviceIdentifier,
-                    uploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
-                    downloadTimestampFromServer: obvMessage.downloadTimestampFromServer)
-            } else {
-                // The update message does not concer a continuous location sharing: we process the message immediately.
-                action = .process
+            // Discard stale continuous-location updates to limit unnecessary Core Data write work
+            // (e.g. processing a large burst of outdated positions after a long offline period).
+            if updateMessageJSON.locationJSON?.type == .SHARING && obvMessage.timeSpentOnServer > Self.maximumContinuousLocationServerAge {
+                return .done(attachmentsProcessingRequest: .deleteAll)
             }
             
-            switch action {
-            case .process: // we can update the message
-                let op1 = EditTextBodyOfReceivedMessageOperation(
-                    updateMessageJSON: updateMessageJSON,
-                    requester: .contact(contactIdentifier: obvMessage.fromContactIdentity),
-                    messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
-                let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-                await coordinatorsQueue.addAndAwaitOperation(composedOp)
-                assert(op1.isFinished)
+            // If we reach this point, we process the message
+            
+            let op1 = EditTextBodyOfReceivedMessageOperation(
+                updateMessageJSON: updateMessageJSON,
+                requester: .contact(contactIdentifier: obvMessage.fromContactIdentity),
+                messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            await coordinatorsQueue.addAndAwaitOperation(composedOp)
+            assert(op1.isFinished)
 
-                switch op1.result {
-                case .processed:
-                    return .done(attachmentsProcessingRequest: .deleteAll)
-                case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
-                    return .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
-                case .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
-                    return .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
-                case nil:
-                    assertionFailure()
-                    return .definitiveFailure
-                }
-            case .cancelled: // The message does not need to be updated.
+            switch op1.result {
+            case .processed:
                 return .done(attachmentsProcessingRequest: .deleteAll)
+            case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
+                return .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
+            case .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
+                return .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+            case nil:
+                assertionFailure()
+                return .definitiveFailure
             }
             
         }
@@ -4183,6 +4762,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         if let reactionJSON = persistedItemJSON.reactionJSON {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] reactionJSON")
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is a reaction")
             let overrideExistingReaction: Bool
             switch source {
             case .userNotification:
@@ -4203,7 +4783,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
             switch op1.result {
             case .processed:
-                return .done(attachmentsProcessingRequest: .deleteAll)
+                // A cancelled composition did not save, so nothing changed
+                return .doneWithReactionOrPollVote(visiblyChanged: !composedOp.isCancelled && op1.visiblyChanged == true)
             case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
                 return .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
             case .couldNotFindMessageInDatabase(messageIdentifier: let messageIdentifier):
@@ -4215,11 +4796,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 return .definitiveFailure
             }
         }
-        
+
         // Case #8: The ObvMessage contains a JSON message containing a request for a group v2 discussion shared settings
         
         if let querySharedSettingsJSON = persistedItemJSON.querySharedSettingsJSON {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] querySharedSettingsJSON")
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is a query shared settings")
             let op1 = RespondToQuerySharedSettingsOperation(
                 querySharedSettingsJSON: querySharedSettingsJSON,
                 requester: .contact(contactIdentifier: obvMessage.fromContactIdentity))
@@ -4232,6 +4814,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let screenCaptureDetectionJSON = persistedItemJSON.screenCaptureDetectionJSON {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] screenCaptureDetectionJSON")
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is a screen capture detection")
             let op1 = ProcessDetectionThatSensitiveMessagesWereCapturedOperation(
                 screenCaptureDetectionJSON: screenCaptureDetectionJSON,
                 requester: .contact(contactIdentifier: obvMessage.fromContactIdentity),
@@ -4257,6 +4840,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         if let pollVoteJSON = persistedItemJSON.pollVoteJSON {
             ObvDisplayableLogs.shared.log("[✉️][C][\(obvMessage.messageId.uid.debugDescription)] pollVoteJSON")
+            Self.logger.debug("[✉️][\(messageDebugDescription)] The message is a pollVoteJSON")
             let op1 = ProcessSetOrUpdatePollVoteOnMessageOperation(pollVoteJSON: pollVoteJSON, requester: .contact(contactIdentifier: obvMessage.fromContactIdentity), messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
             let composedOp = createCompositionOfOneContextualOperation(op1: op1)
             await coordinatorsQueue.addAndAwaitOperation(composedOp)
@@ -4264,7 +4848,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
             switch op1.result {
             case .processed:
-                return .done(attachmentsProcessingRequest: .deleteAll)
+                // A cancelled composition did not save, so nothing changed
+                return .doneWithReactionOrPollVote(visiblyChanged: !composedOp.isCancelled && op1.visiblyChanged == true)
             case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
                 return .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
             case .couldNotFindMessageInDatabase(messageIdentifier: let messageIdentifier):
@@ -4287,19 +4872,52 @@ extension PersistedDiscussionsUpdatesCoordinator {
     enum UpdateSharedConfigurationOfPersistedDiscussionReceivedFromContactResult {
         case done
         case failed
-        case couldNotFindActiveDiscussionInDatabase(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier)
-        case contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: ObvGroupIdentifier, contactCryptoId: ObvCryptoId)
+        /// The sender may not change the shared settings of this discussion: she is not a member of the group, is a member
+        /// without the `changeSettings` permission, or is not a contact of ours at all. We discard the configuration rather
+        /// than putting the message on hold: there is nothing to wait for. Should she later gain the permission,
+        /// `CreateOrUpdatePersistedGroupV2Operation` sends her a `QuerySharedSettingsJSON` and she answers with her *current*
+        /// settings, which is what we want here, a held message being stale by then.
+        case senderIsNotAllowedToChangeSharedSettings
+        /// The discussion this configuration is for does not exist on this device. We discard the configuration rather than
+        /// putting the message on hold, whatever the kind of discussion. The reason is the same as for the case above: a held
+        /// message carries the configuration as it stood when it was sent, which is out of date by the time the discussion
+        /// appears.
+        ///
+        /// For a group v2, `CreateOrUpdatePersistedGroupV2Operation` queries every member allowed to change the settings as
+        /// soon as the group is created, because `permissionChangeSettingsIsUpdated` is true on insertion. So the current
+        /// settings arrive on their own. A one-to-one discussion and a group v1 have no such query yet, and adding one is
+        /// still to be done. Applying the same rule to all three kinds is nonetheless deliberate: a rule that differs per kind
+        /// is what this area has most often got wrong.
+        case discussionDoesNotExist
     }
     
     /// This method is called when receiving a message from the engine that contains a shared configuration for a persisted discussion (typically, either one2one, or a group discussion owned by the sender of this message).
     /// We use this new configuration to update ours.
-    private func updateSharedConfigurationOfPersistedDiscussion(using discussionSharedConfiguration: DiscussionSharedConfigurationJSON, fromContact: ObvContactIdentifier, messageUploadTimestampFromServer: Date, messageLocalDownloadTimestamp: Date) async -> UpdateSharedConfigurationOfPersistedDiscussionReceivedFromContactResult {
+    private func updateSharedConfigurationOfPersistedDiscussion(
+        using discussionSharedConfiguration: DiscussionSharedConfigurationJSON,
+        fromContact: ObvContactIdentifier, messageUploadTimestampFromServer: Date,
+        messageLocalDownloadTimestamp: Date,
+        messageDebugDescription: String,
+    ) async -> UpdateSharedConfigurationOfPersistedDiscussionReceivedFromContactResult {
         
         // Before actually executing/saving the MergeDiscussionSharedExpirationConfigurationOperation, we make sure it is required.
-        guard await isMergeDiscussionSharedExpirationConfigurationOperationRequired(using: discussionSharedConfiguration, fromContact: fromContact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, messageLocalDownloadTimestamp: messageLocalDownloadTimestamp) else {
+        // Simulating the merge also tells us when the sender may not change these settings at all, in which case we discard
+        // the configuration here, without ever reaching the (serial) coordinators queue.
+        switch await mergeRequirementForDiscussionSharedConfiguration(using: discussionSharedConfiguration, fromContact: fromContact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, messageLocalDownloadTimestamp: messageLocalDownloadTimestamp) {
+        case .nothingToDo:
+            Self.logger.debug("[✉️][\(messageDebugDescription)] Nothing needs to be done with the DiscussionSharedConfigurationJSON.")
             return .done
+        case .senderIsNotAllowedToChangeSharedSettings:
+            return .senderIsNotAllowedToChangeSharedSettings
+        case .discussionDoesNotExist:
+            Self.logger.debug("[✉️][\(messageDebugDescription)] There is no such discussion on this device. Discarding the DiscussionSharedConfigurationJSON.")
+            return .discussionDoesNotExist
+        case .required:
+            break
         }
         
+        Self.logger.debug("[✉️][\(messageDebugDescription)] We need to update the database with the received DiscussionSharedConfigurationJSON.")
+
         let op1 = MergeDiscussionSharedExpirationConfigurationOperation(
             discussionSharedConfiguration: discussionSharedConfiguration,
             origin: .fromContact(contactIdentifier: fromContact),
@@ -4312,10 +4930,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
         switch op1.result {
         case .merged:
             return .done
-        case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
-            return .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
-        case .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
-            return .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+        case .couldNotFindActiveDiscussionInDatabase:
+            // Still reachable although the dry run answers this on its own: the discussion can be deleted between the two.
+            return .discussionDoesNotExist
+        case .contactIsNotPartOfGroupOrRequiresPermissions:
+            return .senderIsNotAllowedToChangeSharedSettings
         case nil:
             assert(op1.isCancelled)
             assertionFailure()
@@ -4325,10 +4944,29 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    /// Helper method for `updateSharedConfigurationOfPersistedDiscussion(using:fromContact:messageUploadTimestampFromServer:messageLocalDownloadTimestamp:)`
-    private func isMergeDiscussionSharedExpirationConfigurationOperationRequired(using discussionSharedConfiguration: DiscussionSharedConfigurationJSON, fromContact: ObvContactIdentifier, messageUploadTimestampFromServer: Date, messageLocalDownloadTimestamp: Date) async -> Bool {
+    /// The verdict of the dry run performed by `mergeRequirementForDiscussionSharedConfiguration(using:fromContact:messageUploadTimestampFromServer:messageLocalDownloadTimestamp:)`.
+    private enum MergeRequirement {
+        /// The merge would change the database, so the operation must be queued for real.
+        case required
+        /// The merge would leave the database as it is. Nothing to queue.
+        case nothingToDo
+        /// The sender may not change these shared settings. Nothing to queue, and nothing to hold either.
+        case senderIsNotAllowedToChangeSharedSettings
+        /// There is no such discussion on this device. Nothing to queue, and nothing to hold either — see
+        /// ``UpdateSharedConfigurationOfPersistedDiscussionReceivedFromContactResult/discussionDoesNotExist``.
+        case discussionDoesNotExist
+    }
+    
+    
+    /// Helper method for `updateSharedConfigurationOfPersistedDiscussion(using:fromContact:messageUploadTimestampFromServer:messageLocalDownloadTimestamp:)`.
+    ///
+    /// Simulates the merge on a throwaway context (which is never saved) so that we only queue the real operation when it
+    /// would actually change something, and so that a configuration sent by somebody who may not change it costs us nothing
+    /// at all. The Windows client sends these settings regularly from every member of a group, whatever their permissions,
+    /// so this is the common case rather than an exotic one.
+    private func mergeRequirementForDiscussionSharedConfiguration(using discussionSharedConfiguration: DiscussionSharedConfigurationJSON, fromContact: ObvContactIdentifier, messageUploadTimestampFromServer: Date, messageLocalDownloadTimestamp: Date) async -> MergeRequirement {
         do {
-            return try await withCheckedThrowingContextualContinuation { (continuation: CheckedContinuation<Bool, any Error>, context: NSManagedObjectContext) in
+            return try await withCheckedThrowingContextualContinuation { (continuation: CheckedContinuation<MergeRequirement, any Error>, context: NSManagedObjectContext) in
                 let op1 = MergeDiscussionSharedExpirationConfigurationOperation(
                     discussionSharedConfiguration: discussionSharedConfiguration,
                     origin: .fromContact(contactIdentifier: fromContact),
@@ -4339,14 +4977,21 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 op1.main(obvContext: obvContext, viewContext: viewContext)
                 switch op1.result {
                 case .merged:
-                    return continuation.resume(returning: context.hasChanges)
-                default:
-                    return continuation.resume(returning: true)
+                    return continuation.resume(returning: context.hasChanges ? .required : .nothingToDo)
+                case .contactIsNotPartOfGroupOrRequiresPermissions:
+                    return continuation.resume(returning: .senderIsNotAllowedToChangeSharedSettings)
+                case .couldNotFindActiveDiscussionInDatabase:
+                    // Answered here rather than by queueing the real operation to be told the same thing: the message is
+                    // going to be discarded either way, and this is the second of the two verdicts that spare the serial
+                    // coordinators queue entirely.
+                    return continuation.resume(returning: .discussionDoesNotExist)
+                case nil:
+                    return continuation.resume(returning: .required)
                 }
             }
         } catch {
             assertionFailure()
-            return true
+            return .required
         }
         
     }
@@ -4355,8 +5000,23 @@ extension PersistedDiscussionsUpdatesCoordinator {
     enum UpdateSharedConfigurationOfPersistedDiscussionReceivedFromOtherOwnedDevice {
         case done
         case failed
-        case couldNotFindActiveDiscussionInDatabase(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier)
-        case contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: ObvGroupIdentifier, contactCryptoId: ObvCryptoId)
+        /// The sender may not change the shared settings of this discussion: she is not a member of the group, is a member
+        /// without the `changeSettings` permission, or is not a contact of ours at all. We discard the configuration rather
+        /// than putting the message on hold: there is nothing to wait for. Should she later gain the permission,
+        /// `CreateOrUpdatePersistedGroupV2Operation` sends her a `QuerySharedSettingsJSON` and she answers with her *current*
+        /// settings, which is what we want here, a held message being stale by then.
+        case senderIsNotAllowedToChangeSharedSettings
+        /// The discussion this configuration is for does not exist on this device. We discard the configuration rather than
+        /// putting the message on hold, whatever the kind of discussion. The reason is the same as for the case above: a held
+        /// message carries the configuration as it stood when it was sent, which is out of date by the time the discussion
+        /// appears.
+        ///
+        /// For a group v2, `CreateOrUpdatePersistedGroupV2Operation` queries every member allowed to change the settings as
+        /// soon as the group is created, because `permissionChangeSettingsIsUpdated` is true on insertion. So the current
+        /// settings arrive on their own. A one-to-one discussion and a group v1 have no such query yet, and adding one is
+        /// still to be done. Applying the same rule to all three kinds is nonetheless deliberate: a rule that differs per kind
+        /// is what this area has most often got wrong.
+        case discussionDoesNotExist
     }
 
     
@@ -4374,10 +5034,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
         assert(op1.isFinished)
         
         switch op1.result {
-        case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
-            return .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
-        case .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
-            return .contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+        case .couldNotFindActiveDiscussionInDatabase:
+            // Still reachable although the dry run answers this on its own: the discussion can be deleted between the two.
+            return .discussionDoesNotExist
+        case .contactIsNotPartOfGroupOrRequiresPermissions:
+            return .senderIsNotAllowedToChangeSharedSettings
         case .merged:
             return .done
         case nil:
@@ -4415,6 +5076,37 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case cannotCreateReceivedMessageThatAlreadyExpired
     }
 
+    /// Returns `true` when a `PersistedUserNotification` row created by the Notification Service
+    /// Extension exists for this message, indicating that the NSE already posted the `.delivered`
+    /// return receipt at decrypt time and the engine re-fetch must not post a duplicate.
+    private func nseHasPostedDeliveredReceipt(for obvMessage: ObvMessage) async -> Bool {
+        guard ObvUserNotificationsStack.isInitialized else { return false }
+        return (try? await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
+            ObvUserNotificationsStack.shared.performBackgroundTask { context in
+                do {
+                    let result = try PersistedUserNotification.nseHasPostedDeliveredReceipt(
+                        ownedCryptoId: obvMessage.fromContactIdentity.ownedCryptoId,
+                        messageIdFromServer: obvMessage.messageId.uid,
+                        within: context)
+                    continuation.resume(returning: result)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }) ?? false
+    }
+
+
+    /// How many times a message handed over by the engine is inserted before giving up — both
+    /// ``createPersistedMessageReceivedFromReceivedObvMessage(_:messageJSON:source:returnReceiptJSON:queuePriority:)`` and its owned-message
+    /// twin ``createPersistedMessageSentFromReceivedObvOwnedMessage(_:messageJSON:returnReceiptJSON:)``.
+    ///
+    /// Three, for the same reason as ``attemptsAtCreatingTheMessageFromTheDraft``: the writer we lose to is in another process and is not
+    /// doing this continuously, so a *second* conflict on the same insertion is most unlikely. Enough to make the failure disappear, and few
+    /// enough that two pieces of code genuinely fighting over one object still exhausts the attempts and is still reported.
+    private static let attemptsAtInsertingAMessageFromTheEngine = 3
+
+
     /// This method *must* be called from `processReceivedObvMessage(...)`.
     /// This method is called when a new (received) ObvMessage is available. This message can come from one of the two followings places:
     /// - Either it was serialized within the notification extension, and deserialized here,
@@ -4432,20 +5124,138 @@ extension PersistedDiscussionsUpdatesCoordinator {
     ///
     /// When no specific priority is required, we should set the value to `.normal`.
     ///
-    private func createPersistedMessageReceivedFromReceivedObvMessage(_ obvMessage: ObvMessage, messageJSON: MessageJSON, source: ObvMessageSource, returnReceiptJSON: ReturnReceiptJSON?, queuePriority: Operation.QueuePriority) async -> CreatePersistedMessageReceivedFromReceivedObvMessageResult {
+    private func createPersistedMessageReceivedFromReceivedObvMessage(
+        _ obvMessage: ObvMessage,
+        messageJSON: MessageJSON,
+        source: ObvMessageSource,
+        returnReceiptJSON: ReturnReceiptJSON?,
+        queuePriority: Operation.QueuePriority
+    ) async -> CreatePersistedMessageReceivedFromReceivedObvMessageResult {
 
-        os_log("Call to createPersistedMessageReceivedFromReceivedObvMessage for obvMessage %{public}@", log: Self.log, type: .debug, obvMessage.messageIdentifierFromEngine.debugDescription)
+        Self.logger.debug("Call to createPersistedMessageReceivedFromReceivedObvMessage for obvMessage \(obvMessage.messageIdentifierFromEngine.debugDescription, privacy: .public)")
 
-        // Create a persisted message received
-        
-        let op1 = CreatePersistedMessageReceivedFromReceivedObvMessageOperation(obvMessage: obvMessage,
-                                                                                messageJSON: messageJSON,
-                                                                                source: source,
-                                                                                returnReceiptJSON: returnReceiptJSON)
-        let op2 = TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperation(input: .operationProvidingDiscussionPermanentID(op: op1))
-        let composedOp1 = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
-        composedOp1.queuePriority = queuePriority
-        await coordinatorsQueue.addAndAwaitOperation(composedOp1)
+        // Consult the SiriReadIntentStore: if the user marked this message as read via Siri before
+        // it reached the app database, surface the recorded mark date to the operation so the
+        // inserted row is created in `.read` with `dateWhenMessageWasRead` set to the actual
+        // Siri-mark moment (not this later insert moment). The Intents extension owns the read
+        // receipt for these rows (posted at mark time when allowed and the NSE row was present;
+        // skipped on opt-out; possibly missed in the rare race where the NSE row was gone at
+        // mark time — see `PersistedDiscussion.createOrOverridePersistedMessageReceived` for
+        // the full discussion), so the model unconditionally suppresses re-emission here. We
+        // resolve the identifier in the async coordinator because the store API is
+        // actor-isolated; the synchronous Core Data path inside the operation cannot await it.
+        let receivedMessageAppIdentifier: ObvMessageAppIdentifier?
+        if let discussionIdentifier = messageJSON.getDiscussionIdentifier(ownedCryptoId: obvMessage.fromContactIdentity.ownedCryptoId) {
+            receivedMessageAppIdentifier = .received(
+                discussionIdentifier: discussionIdentifier,
+                senderIdentifier: obvMessage.fromContactIdentity.contactCryptoId.getIdentity(),
+                senderThreadIdentifier: messageJSON.senderThreadIdentifier,
+                senderSequenceNumber: messageJSON.senderSequenceNumber)
+        } else {
+            receivedMessageAppIdentifier = nil
+        }
+        let pendingSiriReadIntentDate: Date?
+        if let receivedMessageAppIdentifier {
+            pendingSiriReadIntentDate = await SiriReadIntentStore.shared.dateMarkedAsReadBySiri(receivedMessageAppIdentifier)
+        } else {
+            pendingSiriReadIntentDate = nil
+        }
+
+        let nseAlreadyPostedDeliveredReceipt = await nseHasPostedDeliveredReceipt(for: obvMessage)
+
+        // Create a persisted message received, inserting it again if the save was lost to a merge conflict.
+        //
+        // ## Why this is retried at all
+        //
+        // The app inherits `NSErrorMergePolicy`, so **any** conflict fails the whole save, including one on an object this save never touched.
+        // Two app-side writers cannot collide (`AppCoordinatorsQueue` is serial and every composition takes a fresh context), so the other
+        // writer is another process on the same store — the same shape as the send path, where this was met for real; see
+        // ``createsTheMessageFromTheDraft(draftObjectID:textBody:)``.
+        //
+        // **What a lost save costs here is not the message but its attachments.** The caller answers a failure with
+        // `.definitiveFailure`, and the coordinator answers *that* with `.deleteAll`, which has the engine mark the message **and every
+        // attachment** for deletion and delete them from the server. Where the notification extension has already inserted a row for this
+        // message — its joins at `notYetDownloadableAsReceivedByUserNotification` — that row survives, and the reader is left looking at a
+        // placeholder for bytes that no longer exist anywhere. Re-deriving from current state is what keeps that from happening for a fault
+        // that a second attempt would have cleared.
+        //
+        // ## Why it is safe to re-run
+        //
+        // Neither operation touches files or the engine directly, and every external effect of both is posted from an
+        // `addContextDidSaveCompletionHandler` under `guard error == nil` — so a lost save notifies nothing and a second attempt cannot
+        // double-notify. The return receipts below are posted only after a successful composition, and their flags live in the saved
+        // context, so a lost save re-produces them rather than sending twice. The save is atomic, so a failed attempt leaves the store
+        // exactly as it found it: no partial state, and no chance of two messages.
+        //
+        // The one effect that *is* outside Core Data is in the model rather than in these operations: `Fyle.updateFyle` moves a downloaded
+        // attachment out of the engine's inbox. That is self-correcting here, because `Fyle` is content-addressed — a later attempt's fresh
+        // `Fyle` finds `getFileSize() != nil`, skips the move, and completes the join, which is the same property the deduplication fix
+        // relies on.
+        //
+        // ## Two smaller decisions
+        //
+        // Only a save lost to somebody else's edit is asked again. A missing owned identity, an undeterminable discussion, an
+        // `ObvUICoreDataError` reaching the operation's `default:` branch — none of those is mended by a second attempt, and retrying them
+        // would merely make a real fault fail later. There is **no wait between attempts**: by the time Core Data says the version moved,
+        // the other write has landed, so there is nothing to wait for and a delay would only widen the window for a fresh conflict.
+        //
+        // And every attempt is reported at `.error` rather than `.info`, because a retry that quietly works would otherwise hide how often
+        // this happens — which is exactly how the send path's twin went unnoticed until it threw.
+
+        var opCreatingTheMessage: CreatePersistedMessageReceivedFromReceivedObvMessageOperation?
+        var opAutoReadingMessages: TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperation?
+        var theCompositionWasCancelled = true
+
+        for attempt in 1...Self.attemptsAtInsertingAMessageFromTheEngine {
+
+            // Fresh operations and a fresh context on each attempt, which is the whole reason this loop is *here*: an `Operation` runs once,
+            // and the composition takes its context when it runs. Retrying the *save* would meet the same stale snapshots and fail identically.
+            let op1 = CreatePersistedMessageReceivedFromReceivedObvMessageOperation(
+                obvMessage: obvMessage,
+                messageJSON: messageJSON,
+                source: source,
+                returnReceiptJSON: returnReceiptJSON,
+                pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+                nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt
+            )
+            let op2 = TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperation(input: .operationProvidingDiscussionPermanentID(op: op1))
+            let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+            composedOp.queuePriority = queuePriority
+            await coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+            opCreatingTheMessage = op1
+            opAutoReadingMessages = op2
+            theCompositionWasCancelled = !(composedOp.isFinished && !composedOp.isCancelled)
+
+            if !theCompositionWasCancelled {
+                if attempt > 1 {
+                    Self.logger.error("[✉️] The received message was inserted on attempt \(attempt) of \(Self.attemptsAtInsertingAMessageFromTheEngine), an earlier attempt having lost a save conflict.")
+                }
+                break
+            }
+
+            guard let reason = composedOp.reasonForCancel,
+                  case .coreDataError(let error) = reason,
+                  error.isASaveConflict else {
+                break
+            }
+
+            if attempt < Self.attemptsAtInsertingAMessageFromTheEngine {
+                Self.logger.error("[✉️] Attempt \(attempt) of \(Self.attemptsAtInsertingAMessageFromTheEngine) at inserting the received message lost a save conflict. Inserting it again.")
+            } else {
+                // Said out loud because of what follows from it: the caller will answer `.definitiveFailure`, the coordinator will answer
+                // `.deleteAll`, and this message's attachments will be deleted from the server. If a notification-created row exists, the
+                // reader keeps its placeholder with nothing left to fetch. Rare, deliberately not disguised as anything else, and this is
+                // the only line that will say it happened.
+                Self.logger.fault("[✉️] All \(Self.attemptsAtInsertingAMessageFromTheEngine) attempts at inserting the received message lost a save conflict. The message was not created, and its attachments will be deleted from the server.")
+            }
+
+        }
+
+        guard let op1 = opCreatingTheMessage, let op2 = opAutoReadingMessages else {
+            assertionFailure("The loop above runs at least once, so both operations are always set")
+            return .receivedMessageCreationFailure
+        }
 
         switch op1.result {
         case .couldNotFindActiveDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
@@ -4464,9 +5274,39 @@ extension PersistedDiscussionsUpdatesCoordinator {
             break
         }
 
-        guard composedOp1.isFinished && !composedOp1.isCancelled else {
+        guard !theCompositionWasCancelled else {
             assertionFailure()
             return .receivedMessageCreationFailure
+        }
+
+        // Post the `.delivered` and `.read` return receipts produced by the insertion, if any.
+        // The producers already flipped the corresponding flags inside the saved context, so we
+        // never re-emit on subsequent insertions for the same row. A `nil` delivered receipt
+        // means an existing-row update or an NSE-sourced row whose delivered receipt was already
+        // posted by the NSE. A `nil` read receipt is the common case: the message stayed `.new`
+        // at insert, the discussion was opted out of read receipts, or the read-receipt
+        // responsibility was pre-delegated to another actor at insert time (the other owned
+        // device for cross-device "discussion read" syncs, or the Intents extension for Siri
+        // marks).
+        var receiptsToPost: [ObvReturnReceiptToSend] = []
+        if let deliveredReceiptToSend = op1.deliveredReceiptToSend {
+            receiptsToPost.append(deliveredReceiptToSend)
+        }
+        if let readReceiptToSend = op1.readReceiptToSend {
+            receiptsToPost.append(readReceiptToSend)
+        }
+        receiptsToPost.append(contentsOf: op1.attachmentDeliveredReceiptsToSend)
+        await postReturnReceipts(receiptsToPost)
+
+        // Consume the SiriReadIntentStore entry now that this createOrOverride call has run.
+        // The model's Siri-mark branch only fires on `isInserted`, so the first call that
+        // actually inserts the row creates it in `.read` with the recorded date and we drop the
+        // entry here. Subsequent calls for the same identifier — engine updates of an existing
+        // row, or drain early-returns when an earlier engine fetch already inserted it —
+        // observe an empty store (this consume already cleared it) and the consume becomes a
+        // no-op for them.
+        if pendingSiriReadIntentDate != nil, let receivedMessageAppIdentifier {
+            await SiriReadIntentStore.shared.consume(receivedMessageAppIdentifier)
         }
 
         // If we reach this point, the received message was properly created and some messages may have been auto-read
@@ -4481,12 +5321,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
         assert(op1.isFinished)
         
         // Determine the attachments that should be downloaded now
-        let downloadOp = DetermineAttachmentsProcessingRequestForMessageReceivedOperation(kind: .allAttachmentsOfMessage(op: op1))
+        let downloadOp = DetermineAttachmentsProcessingRequestOperation(kind: .allAttachmentsOfMessageReceived(op: op1))
         await queueAndAwaitCompositionOfOneContextualOperation(op1: downloadOp, queuePriority: queuePriority)
         
         assert(downloadOp.isFinished && !downloadOp.isCancelled)
         
-        return .receivedMessageCreated(attachmentsProcessingRequest: downloadOp.attachmentsProcessingRequest ?? .doNothing)
+        return .receivedMessageCreated(attachmentsProcessingRequest: downloadOp.attachmentsProcessingRequests.first?.attachmentsProcessingRequest ?? .doNothing)
 
     }
 
@@ -4510,14 +5350,66 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         os_log("Call to createPersistedMessageSentFromReceivedObvOwnedMessage for obvOwnedMessage %{public}@", log: Self.log, type: .debug, obvOwnedMessage.messageIdentifierFromEngine.debugDescription)
                 
-        // Create a persisted message sent
-        
-        let op1 = CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation(obvOwnedMessage: obvOwnedMessage,
-                                                                                 messageJSON: messageJSON,
-                                                                                 returnReceiptJSON: returnReceiptJSON)
-        await queueAndAwaitCompositionOfOneContextualOperation(op1: op1)
-        
-        guard op1.isFinished && !op1.isCancelled else {
+        // Create a persisted message sent, inserting it again if the save was lost to a merge conflict.
+        //
+        // The twin of the retry in ``createPersistedMessageReceivedFromReceivedObvMessage(_:messageJSON:source:returnReceiptJSON:queuePriority:)``,
+        // and everything written there about why a conflict happens at all, why re-running is safe, and why only a save conflict is asked
+        // again applies here. This operation is easier still: it is pure Core Data, with no files, no engine calls and no completion
+        // handlers, so an attempt that loses its save leaves nothing whatever behind.
+        //
+        // **What a lost save costs here is the reader's own message.** These are messages sent from another of the reader's devices, whose
+        // attachments this device downloads exactly as it downloads a received one — that is what `SentFyleMessageJoinWithStatus`'s
+        // `downloadable` and `downloading` cases are for. So the photograph that goes missing was taken by the reader, and they will see it
+        // on the device they sent it from and not on this one.
+        //
+        // **The composition is built here rather than through `queueAndAwaitCompositionOfOneContextualOperation`** because that helper
+        // discards the composed operation, and the composed operation is the only thing that knows the save was refused. Which is also why
+        // the guard below changed: it used to ask whether `op1` was cancelled, and a lost save does not cancel `op1` — it finishes happily
+        // with its result while the context it wrote into is thrown away. In Release that guard passed, `downloadOp` then failed to find a
+        // message that had never been saved, and this method returned `.sentMessageCreated` for a message that does not exist: the engine
+        // was told to mark it processed, and it was lost with no line in any log to say so.
+
+        var opCreatingTheMessage: CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation?
+        var theCompositionWasCancelled = true
+
+        for attempt in 1...Self.attemptsAtInsertingAMessageFromTheEngine {
+
+            let op1 = CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation(obvOwnedMessage: obvOwnedMessage,
+                                                                                     messageJSON: messageJSON,
+                                                                                     returnReceiptJSON: returnReceiptJSON)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            await coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+            opCreatingTheMessage = op1
+            theCompositionWasCancelled = !(composedOp.isFinished && !composedOp.isCancelled)
+
+            if !theCompositionWasCancelled {
+                if attempt > 1 {
+                    Self.logger.error("[✉️][O] The owned message was inserted on attempt \(attempt) of \(Self.attemptsAtInsertingAMessageFromTheEngine), an earlier attempt having lost a save conflict.")
+                }
+                break
+            }
+
+            guard let reason = composedOp.reasonForCancel,
+                  case .coreDataError(let error) = reason,
+                  error.isASaveConflict else {
+                break
+            }
+
+            if attempt < Self.attemptsAtInsertingAMessageFromTheEngine {
+                Self.logger.error("[✉️][O] Attempt \(attempt) of \(Self.attemptsAtInsertingAMessageFromTheEngine) at inserting the owned message lost a save conflict. Inserting it again.")
+            } else {
+                Self.logger.fault("[✉️][O] All \(Self.attemptsAtInsertingAMessageFromTheEngine) attempts at inserting the owned message lost a save conflict. The message was not created, and its attachments will be deleted from the server.")
+            }
+
+        }
+
+        guard let op1 = opCreatingTheMessage else {
+            assertionFailure("The loop above runs at least once, so this operation is always set")
+            return .sentMessageCreationFailure
+        }
+
+        guard op1.isFinished && !op1.isCancelled && !theCompositionWasCancelled else {
             assertionFailure()
             return .sentMessageCreationFailure
         }
@@ -4540,7 +5432,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         // If we reach this point, the message was properly created. We can determine the attachments to download now.
 
-        let downloadOp = DetermineAttachmentsProcessingRequestForMessageSentOperation(kind: .allAttachmentsOfMessage(messageSentPermanentId: messageSentPermanentId))
+        let downloadOp = DetermineAttachmentsProcessingRequestOperation(kind: .allAttachmentsOfMessageSent(messageSentPermanentId: messageSentPermanentId))
         await queueAndAwaitCompositionOfOneContextualOperation(op1: downloadOp)
 
         assert(downloadOp.isFinished && !downloadOp.isCancelled)
@@ -4555,7 +5447,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
         }
 
-        return .sentMessageCreated(attachmentsProcessingRequest: downloadOp.attachmentsProcessingRequest ?? .doNothing)
+        return .sentMessageCreated(attachmentsProcessingRequest: downloadOp.attachmentsProcessingRequests.first?.attachmentsProcessingRequest ?? .doNothing)
 
     }
     
@@ -4567,6 +5459,24 @@ extension PersistedDiscussionsUpdatesCoordinator {
         }
     }
 
+}
+
+
+extension PersistedDiscussionsUpdatesCoordinator.ProcessReceivedObvOwnedMessageResult: CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .done(let attachmentsProcessingRequest):
+            return "done(attachmentsProcessingRequest: \(attachmentsProcessingRequest))"
+        case .couldNotFindActiveDiscussionInDatabase(let discussionIdentifier):
+            return "couldNotFindActiveDiscussionInDatabase(discussionIdentifier: \(discussionIdentifier))"
+        case .couldNotFindMessageInDatabase(let messageIdentifier):
+            return "couldNotFindMessageInDatabase(messageIdentifier: \(messageIdentifier))"
+        case .contactIsNotPartOfGroupOrRequiresPermissions(let groupIdentifier, let contactCryptoId):
+            return "contactIsNotPartOfGroupOrRequiresPermissions(groupIdentifier: \(groupIdentifier), contactCryptoId: \(contactCryptoId))"
+        case .definitiveFailure:
+            return "definitiveFailure"
+        }
+    }
 }
 
 
@@ -4703,73 +5613,6 @@ extension UserDefaults {
         objectsModifiedByShareExtensionURLAndEntityName.forEach { (objectURI, entityName) in
             viewContext.deepRefresh(objectURI: objectURI, entityName: entityName)
         }
-    }
-    
-}
-
-
-// MARK: - ReceivedContinuousLocationRateLimiter
-
-
-/// The RateLimiter actor functions to limit the rate at which shared continuous locations are processed when received.
-///
-/// This feature is especially beneficial after a long period of offline app usage, during which time contacts may have potentially sent numerous geolocations. In such situations, we aim to avoid processing multiple outdated location messages.
-/// The RateLimiter fulfills this objective by temporarily pausing the handling of "older" location messages until a newer message arrives. Upon arrival of a more recent message, any older location messages are discarded.
-fileprivate actor ReceivedContinuousLocationRateLimiter {
-    
-    enum Action {
-        case process
-        case cancelled
-    }
-    
-    private static let thresholdForImmediateProcessing = TimeInterval(minutes: 1)
-    
-    private var mostRecentUploadTimestampForDevice = [ObvContactDeviceIdentifier: (uploadTimestampFromServer: Date, sleepTask: Task<Void, Error>)]()
-    
-    func limitRateOfContinuousLocationOfContactDevice(with contactDeviceIdentifier: ObvContactDeviceIdentifier, uploadTimestampFromServer: Date, downloadTimestampFromServer: Date) async -> Action {
-        
-        // A recent location should always be processed immediately (and cancel any earlier waiting task)
-        
-        if downloadTimestampFromServer.timeIntervalSince(uploadTimestampFromServer) < Self.thresholdForImmediateProcessing {
-            if let (previousMostRecentUploadTimestamp, previousSleepTask) = mostRecentUploadTimestampForDevice[contactDeviceIdentifier], previousMostRecentUploadTimestamp < uploadTimestampFromServer {
-                _ = mostRecentUploadTimestampForDevice.removeValue(forKey: contactDeviceIdentifier)
-                previousSleepTask.cancel()
-            }
-            return .process
-        }
-        
-        
-        // Upon reception of an "older" location, immediate processing is withheld.
-        // In cases where another location has already been placed on hold, two scenarios may unfold:
-        // - The previously received position holds a more recent timestamp than the current one -> we discard the currently held message.
-        // - Conversely, if the previous position's timestamp predates that of the newly arrived message -> we dismiss the older message and place the latest location on hold, waiting for any potentially fresher positions to surface.
-        
-        if let (previousMostRecentUploadTimestamp, previousSleepTask) = mostRecentUploadTimestampForDevice[contactDeviceIdentifier] {
-            if previousMostRecentUploadTimestamp > uploadTimestampFromServer {
-                return .cancelled
-            } else {
-                previousSleepTask.cancel()
-            }
-        }
-        
-        let sleepTask = Task { try await Task.sleep(seconds: 10) } // Note that if this task is cancelled, the sleep method immediately throws a CancellationError
-
-        mostRecentUploadTimestampForDevice[contactDeviceIdentifier] = (uploadTimestampFromServer, sleepTask)
-        
-        do {
-            try await sleepTask.value
-        } catch {
-            // This event occurs when a fresher location surfaces while another previously received position was on hold.
-            // Consequently, the task associated with the aged location is cancelled, leading us to this point.
-            // In such circumstances, we refrain from processing the obsolete position and return `.cancelled`.
-            assert(error is CancellationError)
-            return .cancelled
-        }
-        
-        // If we reach this point, no recent location was received while we were on hold. We waited long enough: we can now process this location.
-        
-        return .process
-        
     }
     
 }
@@ -4941,4 +5784,50 @@ private actor HistoryTransferConfirmationRequestHelper {
         case cancelled
     }
     
+}
+
+
+/// The `Progress` objects of the attachments a draft is loading, read from a thread other than the one that made them.
+///
+/// `Progress` is not `Sendable`, hence the unchecked conformance, confined to the two accesses below, both under the lock.
+///
+/// The fraction is divided by the number of attachments asked for, not by the number that have handed over a `Progress`, which each
+/// does only once its load starts. Otherwise the bar could reach 100% and fall back.
+private final class AttachmentsBeingLoaded: @unchecked Sendable {
+
+    private let lock = OSAllocatedUnfairLock<[Progress]>(initialState: [])
+    private let expectedCount: Int
+
+    init(expectedCount: Int) {
+        self.expectedCount = max(expectedCount, 1)
+    }
+
+    func add(_ progress: Progress) {
+        lock.withLock { $0.append(progress) }
+    }
+
+    /// Nil until the first `Progress` has been handed over, which is how "nothing has begun" is told from "nothing has happened yet".
+    var fractionCompleted: Double? {
+        let progresses = lock.withLock { $0 }
+        guard !progresses.isEmpty else { return nil }
+        let total = progresses.reduce(0.0) { $0 + $1.fractionCompleted }
+        return min(max(total / Double(expectedCount), 0), 1)
+    }
+
+}
+
+
+// MARK: - Posting return receipts
+
+extension PersistedDiscussionsUpdatesCoordinator {
+
+    /// The one place this coordinator hands return receipts to the engine. It cannot fail, and the empty case is the
+    /// caller's convenience rather than a rule: posting nothing is a no-op in the engine too.
+    private func postReturnReceipts(_ returnReceiptsToSend: [ObvReturnReceiptToSend]) async {
+        guard !returnReceiptsToSend.isEmpty else { return }
+        // The app is not about to finish, and it is the one process that sweeps: a receipt written down here is sent
+        // by this process or by its next sweep, so nothing waits for the network on the path of a received message.
+        await obvEngine.postReturnReceiptsWithElements(returnReceiptsToSend: returnReceiptsToSend, waitUntilSent: false)
+    }
+
 }

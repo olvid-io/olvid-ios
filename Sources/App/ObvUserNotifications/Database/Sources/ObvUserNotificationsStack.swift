@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,11 +20,21 @@
 import Foundation
 import ObvCoreDataStack
 import OlvidUtils
+import ObvAppCoreConstants
 
 
 public actor ObvUserNotificationsStack {
 
     nonisolated(unsafe) private static var _shared: CoreDataStack<ObvUserNotificationsPersistentContainer>!
+
+    /// Shared store tracking how far each process (main app, Intents extension, …) has consumed this
+    /// database's persistent history, used to drive multi-consumer-safe pruning. Uses a storeKey
+    /// distinct from ``ObvStack``'s app-DB store so a single author (e.g. `intentExtension`) keeps
+    /// independent cursors for the two databases. One instance per process; see
+    /// ``ObvPersistentHistoryConsumerTokenStore``.
+    public static let historyConsumerTokenStore = ObvPersistentHistoryConsumerTokenStore(
+        defaults: UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier)!,
+        storeKey: "io.olvid.ObvPersistentHistoryConsumerTokenStore.cursors.userNotifications")
     
     public static func initSharedInstance(transactionAuthor: String, runningLog: RunningLogError, enableMigrations: Bool, deleteStoreOnFailure: Bool) throws {
         guard _shared == nil else { return }
@@ -51,5 +61,12 @@ public actor ObvUserNotificationsStack {
         }
         return _shared!
     }()
-    
+
+    /// Whether ``initSharedInstance(transactionAuthor:runningLog:enableMigrations:deleteStoreOnFailure:)``
+    /// completed successfully. Allows opportunistic consumers (e.g. the Intents extension reading from a
+    /// store it does not own) to skip access without crashing when the stack failed to initialize.
+    public static var isInitialized: Bool {
+        return _shared != nil
+    }
+
 }

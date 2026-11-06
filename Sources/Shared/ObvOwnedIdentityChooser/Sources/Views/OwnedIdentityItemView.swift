@@ -34,9 +34,14 @@ struct OwnedIdentityItemView: View {
     let configuration: OwnedIdentityChooserInnerViewConfiguration
     @Binding var ownedCryptoIdTappedByUser: ObvCryptoId?
 
+    /// `false` for a profile that is on a different server than the one of an active server restriction.
+    /// Such a profile is shown greyed out and cannot be selected. Tapping it calls `onTapWhenIncompatible`.
+    let isCompatibleWithServerRestriction: Bool
+    let onTapWhenIncompatible: (() -> Void)?
+
     private static let kCircleToTextAreaPadding = CGFloat(8.0)
     private static let animationDurationWhenSwitchingIdentity: Double = 0.3 // In secconds
-    
+
     private var showCheckmark: Bool {
         if let ownedCryptoIdTappedByUser {
             return viewModel.ownedCryptoId == ownedCryptoIdTappedByUser
@@ -44,9 +49,15 @@ struct OwnedIdentityItemView: View {
             return viewModel.ownedCryptoId == self.currentOwnedCryptoId
         }
     }
-    
-    
+
+
     private func onTap() {
+        guard isCompatibleWithServerRestriction else {
+            // This profile is on a different server than the one of the active server restriction.
+            // We do not let the user select it, we only explain why it cannot be chosen.
+            onTapWhenIncompatible?()
+            return
+        }
         switch configuration.mode {
         case .changeCurrentProfile:
             guard ownedCryptoIdTappedByUser == nil else { return } // Prevents double tapping
@@ -100,11 +111,19 @@ struct OwnedIdentityItemView: View {
                         ObvBadgeNumberOfNewMessages(numberOfNewReceivedMessages: viewModel.totalBadgeCount)
                     }
                 case .selectProfile:
-                    ObvRadioButtonView(value: self.viewModel.ownedCryptoId, selectedValue: $ownedCryptoIdTappedByUser)
-                        .padding(.trailing, 8)
+                    if isCompatibleWithServerRestriction {
+                        ObvRadioButtonView(value: self.viewModel.ownedCryptoId, selectedValue: $ownedCryptoIdTappedByUser)
+                            .padding(.trailing, 8)
+                    } else {
+                        Image(systemIcon: .infoCircle)
+                            .imageScale(.large)
+                            .foregroundColor(.secondary)
+                            .padding(.trailing, 8)
+                    }
                 }
             }
             .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
+            .opacity(isCompatibleWithServerRestriction ? 1.0 : 0.5)
         }
         .onTapGesture(perform: onTap) // We used to have a button, but it suffered interferences with the drag gesture
     }

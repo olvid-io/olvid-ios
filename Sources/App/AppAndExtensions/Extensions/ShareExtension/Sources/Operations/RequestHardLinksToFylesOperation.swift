@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,9 +22,6 @@ import Foundation
 import ObvUICoreData
 
 
-protocol FyleJoinsProvider: Operation {
-    var fyleJoins: [FyleJoin]? { get }
-}
 
 final class RequestHardLinksToFylesOperation: Operation, @unchecked Sendable {
 
@@ -32,6 +29,12 @@ final class RequestHardLinksToFylesOperation: Operation, @unchecked Sendable {
     let fyleJoinsProvider: FyleJoinsProvider
 
     private(set) var hardlinks: [HardLinkToFyle?]?
+
+    /// Same hardlinks as `hardlinks`, but each paired with the `index` of the `FyleJoin` it originates from.
+    /// Required because mapping `fyleJoins` to their `genericFyleElement` drops any join with a nil element,
+    /// which would otherwise make a positional re-enumeration diverge from `FyleJoin.index` — the value used
+    /// later for selection and transcoding.
+    private(set) var indexedHardlinks: [(index: Int, hardlink: HardLinkToFyle?)]?
 
     init(hardLinksToFylesManager: HardLinksToFylesManager, fyleJoinsProvider: FyleJoinsProvider) {
         self.hardLinksToFylesManager = hardLinksToFylesManager
@@ -52,12 +55,19 @@ final class RequestHardLinksToFylesOperation: Operation, @unchecked Sendable {
             _isFinished = true
             return
         }
-        let fyleElements: [FyleElement] = fyleJoins.compactMap {
-            $0.genericFyleElement
+        // Keep track of the originating FyleJoin index for each FyleElement, so the resulting hardlinks can
+        // be matched back to the correct FyleJoin even though joins with a nil genericFyleElement are dropped.
+        let indexedFyleElements: [(index: Int, fyleElement: FyleElement)] = fyleJoins.compactMap { fyleJoin in
+            guard let fyleElement = fyleJoin.genericFyleElement else { return nil }
+            return (fyleJoin.index, fyleElement)
         }
+        let fyleElements: [FyleElement] = indexedFyleElements.map { $0.fyleElement }
         hardLinksToFylesManager.requestAllHardLinksToFyles(fyleElements: fyleElements) { [weak self] hardlinks in
             guard let _self = self else { return }
             _self.hardlinks = hardlinks
+            // `requestAllHardLinksToFyles` returns hardlinks positionally aligned with `fyleElements`, so we
+            // can zip them back with the originating FyleJoin indices captured above.
+            _self.indexedHardlinks = zip(indexedFyleElements, hardlinks).map { (index: $0.0.index, hardlink: $0.1) }
             _self._isFinished = true
         }
     }

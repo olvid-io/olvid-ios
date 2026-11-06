@@ -268,13 +268,12 @@ final class KeycloakServer: NSManagedObject {
     /// This method verifies the signature and checks that the payload contained in the signature contains the elements that we expect.
     func verifyKeycloakSignature(keycloakTransferProof: ObvKeycloakTransferProof, keycloakTransferProofElements: ObvKeycloakTransferProofElements) throws(ObvIdentityManagerError) {
         
-        guard let serverSignatureVerificationKey = serverSignatureVerificationKey else {
-            throw .keycloakServerSignatureVerificationKeyIsNil
-        }
-
         let payload: Data
         do {
-            (payload, _) = try JWSUtil.verifySignature(signatureVerificationKey: serverSignatureVerificationKey, signature: keycloakTransferProof.signature)
+            (payload, _) = try JWSUtil.verifySignature(
+                jwks: try self.toObvKeycloakState.signatureVerificationKeyOrJWKS,
+                signature: keycloakTransferProof.signature
+            )
         } catch {
             Self.logger.fault("The keycloak transfer proof signature verification failed: \(error.localizedDescription)")
             throw .signatureVerificationFailed
@@ -317,10 +316,11 @@ final class KeycloakServer: NSManagedObject {
     /// Called from `OwnedIdentity`. Returns a set of compromised contacts that are not forcefully trusted by the user.
     func verifyAndAddRevocationList(signedRevocations: [String], revocationListTimetamp: Date) throws -> Set<ObvCryptoIdentity> {
 
-        guard let serverSignatureVerificationKey = serverSignatureVerificationKey else {
-            throw makeError(message: "Could not verify nor add signed revocations since we did not store the server signature verification key")
-        }
-        
+        // The sync pins the signature key before it processes the revocation list,
+        // so the pinned key is expected here, not the JWKS.
+        assert(serverSignatureVerificationKey != nil, "The sync pins the signature key before processing the revocation list")
+        let signatureVerificationKeyOrJWKS = try self.toObvKeycloakState.signatureVerificationKeyOrJWKS
+
         guard let context = self.managedObjectContext else {
             Self.logger.fault("The context is nil, we cannot process the revocation list")
             throw makeError(message: "The context is nil, we cannot process the revocation list")
@@ -332,7 +332,10 @@ final class KeycloakServer: NSManagedObject {
 
             let signedRevocationPayload: Data
             do {
-                (signedRevocationPayload, _) = try JWSUtil.verifySignature(signatureVerificationKey: serverSignatureVerificationKey, signature: signedRevocation)
+                (signedRevocationPayload, _) = try JWSUtil.verifySignature(
+                    jwks: signatureVerificationKeyOrJWKS,
+                    signature: signedRevocation
+                )
             } catch {
                 Self.logger.error("The signature verification of one of the signed revocation failed. We ignore this revocation: \(error.localizedDescription, privacy: .public)")
                 return
@@ -408,6 +411,44 @@ final class KeycloakServer: NSManagedObject {
         guard let latestRevocationListTimetamp = self.latestRevocationListTimetamp else { return }
         let revocationPruneTime = latestRevocationListTimetamp.addingTimeInterval(-ObvConstants.keycloakSignatureValidity)
         try KeycloakRevokedIdentity.batchDeleteEntriesWithRevocationTimestampBeforeDate(revocationPruneTime, for: self)
+    }
+    
+    
+    func hasRevokedAsCompromised(_ identity: ObvCryptoIdentity) throws -> Bool {
+        let revocations = try KeycloakRevokedIdentity.get(keycloakServer: self, identity: identity)
+        return revocations.contains { (try? $0.revocationType) == .compromised }
+    }
+    
+    
+    func areDetailsRevokedOrExpired(_ signedDetails: SignedObvKeycloakUserDetails, of identity: ObvCryptoIdentity) throws -> Bool {
+        
+        let revocations = try KeycloakRevokedIdentity.get(keycloakServer: self, identity: identity)
+        let dateOfSignedDetails = signedDetails.timestamp
+        
+        let hasRevocationsLeftCompany: Bool = revocations.contains {
+            guard (try? $0.revocationType) == .leftCompany else { return false }
+            if let dateOfSignedDetails {
+                return $0.revocationTimestamp > dateOfSignedDetails
+            } else {
+                return true
+            }
+        }
+        
+        if hasRevocationsLeftCompany {
+            // Revoked case
+            return true
+        }
+        
+        if let dateOfSignedDetails,
+           let latestRevocationListTimetamp,
+           dateOfSignedDetails < latestRevocationListTimetamp.addingTimeInterval(-ObvConstants.keycloakSignatureValidity) {
+            // The details are too old: they should have been renewed since. Their age is measured from the latest revocation
+            // list, as the pruning is, so that no revocation is pruned while details signed before it are still accepted.
+            return true
+        }
+        
+        return false
+
     }
     
     
@@ -502,26 +543,24 @@ final class KeycloakServer: NSManagedObject {
     // MARK: - Keycloak pushed groups
     
     /// Processes the group informations received from the keycloak server.
-    func processSignedKeycloakGroups(signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, within context: NSManagedObjectContext) throws -> [KeycloakGroupV2UpdateOutput] {
+    func processSignedKeycloakGroups(
+        signedGroupBlobs: Set<String>,
+        signedGroupDeletions: Set<String>,
+        signedGroupKicks: Set<String>,
+        keycloakCurrentTimestamp: Date,
+        within context: NSManagedObjectContext
+    ) throws -> [KeycloakGroupV2UpdateOutput] {
         
-        // Determine the appropriate key to validate the signatures.
-        // If we have a serverSignatureVerificationKey, this is the one to use.
-        // If not, we use the jwks.
-        // At this point, since we should already have called to /me entry point, we expect the serverSignatureVerificationKey to be available.
-        
-        let jwks: ObvJWKSet
-        if let serverSignatureVerificationKey {
-            jwks = ObvJWKSet(fromSingleObvJWK: serverSignatureVerificationKey)
-        } else {
-            assertionFailure("We expect the serverSignatureVerificationKey to be available at this point. In production, continue anyway.")
-            jwks = try self.jwks
-        }
+        // The sync pins the signature key before it downloads the groups,
+        // so the pinned key is expected here, not the JWKS.
+        assert(serverSignatureVerificationKey != nil, "The sync pins the signature key before downloading the groups")
+        let signatureVerificationKeyOrJWKS = try self.toObvKeycloakState.signatureVerificationKeyOrJWKS
         
         // Process the signed group informations
 
-        try processSignedGroupDeletions(signedGroupDeletions, validatingSignaturesWith: jwks)
-        try processSignedGroupKicks(signedGroupKicks, validatingSignaturesWith: jwks)
-        let keycloakGroupV2UpdateOutputs = try processSignedGroupBlobs(signedGroupBlobs, validatingSignaturesWith: jwks, keycloakCurrentTimestamp: keycloakCurrentTimestamp, within: context)
+        try processSignedGroupDeletions(signedGroupDeletions, validatingSignaturesWith: signatureVerificationKeyOrJWKS)
+        try processSignedGroupKicks(signedGroupKicks, validatingSignaturesWith: signatureVerificationKeyOrJWKS)
+        let keycloakGroupV2UpdateOutputs = try processSignedGroupBlobs(signedGroupBlobs, validatingSignaturesWith: signatureVerificationKeyOrJWKS, keycloakCurrentTimestamp: keycloakCurrentTimestamp, within: context)
         
         // Save the keycloak timestamp
         

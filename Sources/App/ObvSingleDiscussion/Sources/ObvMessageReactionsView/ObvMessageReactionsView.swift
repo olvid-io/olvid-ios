@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,7 +34,9 @@ public struct ObvMessageReactionsViewModel: Equatable, Sendable {
         self.reactionsIdentifiers = reactionsIdentifiers
     }
     
-    public enum MessageIdentifier: Equatable {
+    /// `Sendable` like the ``ReactionIdentifier`` beside it — needed since step 20a, where it is carried by a cell model that crosses actors. An `NSManagedObjectID`
+    /// is safe to send; what it must not do is be persisted or cross a process boundary.
+    public enum MessageIdentifier: Equatable, Sendable {
         case objectID(_ objectID: NSManagedObjectID) // NSManagedObjectID of a PersistedMessage (enforced by the datasource)
         case forPreview(_ uuid: UUID)
     }
@@ -200,7 +202,9 @@ private struct ObvMessageReactionsContentView: View {
 // MARK - Previews
 
 @MainActor
-private final class ObvMessageReactionsViewDataSourceForPreviews: ObvMessageReactionsViewDataSource, ObvAvatarViewDataSource {
+/// Internal rather than private, so that the previews of the discussion screen can hand it to `SingleDiscussionView.DataSources`: that screen carries this data
+/// source in order to build the sheet a reactions chip opens, and a preview has to carry something.
+final class ObvMessageReactionsViewDataSourceForPreviews: ObvMessageReactionsViewDataSource, ObvAvatarViewDataSource {
     
     func getAsyncStreamOfObvMessageReactionsViewModel(messageIdentifier: ObvMessageReactionsViewModel.MessageIdentifier) throws -> (streamUUID: UUID, stream: AsyncStream<ObvMessageReactionsViewModel>) {
         let stream = AsyncStream<ObvMessageReactionsViewModel> { (continuation: AsyncStream<ObvMessageReactionsViewModel>.Continuation) in
@@ -279,7 +283,7 @@ private final class ActionsForPreviews: ObvMessageReactionsViewActionsProtocol {
 }
 
 
-private let dataSourceForPreviews = ObvMessageReactionsViewDataSourceForPreviews()
+let messageReactionsDataSourceForPreviews = ObvMessageReactionsViewDataSourceForPreviews()
 private let actionsForPreviews = ActionsForPreviews()
 
 private struct PreviewView: View {
@@ -290,7 +294,7 @@ private struct PreviewView: View {
     @State private var showSheet = false
     
     var body: some View {
-        //        ObvMessageReactionsView(messageIdentifier: messageIdentifier, dataSource: dataSourceForPreviews)
+        //        ObvMessageReactionsView(messageIdentifier: messageIdentifier, dataSource: messageReactionsDataSourceForPreviews)
         Button {
             showSheet.toggle()
         } label: {
@@ -298,7 +302,7 @@ private struct PreviewView: View {
         }
         .sheet(isPresented: $showSheet) {
             NavigationView {
-                ObvMessageReactionsView(messageIdentifier: messageIdentifier, dataSource: dataSourceForPreviews, avatarViewDataSource: dataSourceForPreviews, actions: actionsForPreviews)
+                ObvMessageReactionsView(messageIdentifier: messageIdentifier, dataSource: messageReactionsDataSourceForPreviews, avatarViewDataSource: messageReactionsDataSourceForPreviews, actions: actionsForPreviews)
             }
         }
     }
@@ -307,7 +311,7 @@ private struct PreviewView: View {
 
 
 #Preview {
-    PreviewView(messageIdentifier: ObvMessageReactionsViewModel.MessageIdentifier.forPreview(UUID()), dataSource: dataSourceForPreviews)
+    PreviewView(messageIdentifier: ObvMessageReactionsViewModel.MessageIdentifier.forPreview(UUID()), dataSource: messageReactionsDataSourceForPreviews)
 }
 
 

@@ -541,7 +541,7 @@ final class RemoteRequestSavedForLater: NSManagedObject {
     static func deleteRemoteRequestsSavedForLaterEarlierThan(_ deletionDate: Date, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<RemoteRequestSavedForLater> = RemoteRequestSavedForLater.fetchRequest()
         request.predicate = Predicate.withServerTimestamp(earlierThan: deletionDate)
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let items = try context.fetch(request)
         items.forEach {
             do {

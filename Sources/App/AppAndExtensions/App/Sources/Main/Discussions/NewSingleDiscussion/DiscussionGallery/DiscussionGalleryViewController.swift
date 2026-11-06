@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,7 +58,7 @@ protocol DiscussionGalleryViewControllerDelegate: AnyObject {
 
 /// This view controller is a container view controller. It displays a `UISegmentedControl` allowing to switch between two galleries: one for the medias (images, movies,...) , one for the links and one for the other types of files.
 /// The three children view controllers are instances of the `JoinGalleryViewController` defined bellow.
-final class DiscussionGalleryViewController: KeyboardViewController, DiscussionGalleryViewControllerDelegate {
+final class DiscussionGalleryViewController: UIViewController, DiscussionGalleryViewControllerDelegate {
 
     private let segmentedControl = UISegmentedControl(items: JoinKind.allCases.map({ $0.title }))
     private let toolbarLabel = UILabel()
@@ -74,6 +74,9 @@ final class DiscussionGalleryViewController: KeyboardViewController, DiscussionG
     }
     
     private var selectBarButtonItem: UIBarButtonItem?
+
+    /// Kept so that it can be taken off the bar while the reader is choosing — see ``updateUserInterface()``.
+    private var closeBarButtonItem: UIBarButtonItem?
     
     private func childViewControllerOfKind(_ kind: JoinKind) -> JoinGalleryViewController {
         switch kind {
@@ -101,6 +104,7 @@ final class DiscussionGalleryViewController: KeyboardViewController, DiscussionG
     private func configureBarButtonItems() {
         let closeBarButtonItem = UIBarButtonItem(barButtonSystemItem: .close, target: self, action: #selector(closeButtonTapped))
         navigationItem.leftBarButtonItem = closeBarButtonItem
+        self.closeBarButtonItem = closeBarButtonItem
         let selectBarButtonItem = UIBarButtonItem(title: CommonString.Word.Select, style: .plain, target: self, action: #selector(rightBarButtonItemButtonItemTapped))
         navigationItem.rightBarButtonItem = selectBarButtonItem
         self.selectBarButtonItem = selectBarButtonItem
@@ -108,6 +112,20 @@ final class DiscussionGalleryViewController: KeyboardViewController, DiscussionG
 
     @objc func closeButtonTapped() {
         dismiss(animated: true)
+    }
+
+    /// Esc leaves select mode first, and otherwise closes the gallery as the close button does. Its buttons are UIKit bar buttons, so no SwiftUI shortcut
+    /// can carry the key. The selector is named after this class, UIKit sending a key command's action to the first responder in the chain that implements it.
+    override var keyCommands: [UIKeyCommand]? {
+        (super.keyCommands ?? []) + [UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(discussionGalleryAnswersTheEscapeKey))]
+    }
+
+    @objc private func discussionGalleryAnswersTheEscapeKey() {
+        if isEditing {
+            setEditing(false, animated: true)
+        } else {
+            closeButtonTapped()
+        }
     }
 
     @objc func rightBarButtonItemButtonItemTapped() {
@@ -153,10 +171,22 @@ final class DiscussionGalleryViewController: KeyboardViewController, DiscussionG
     }
 
     
+    /// **The way out of choosing is an xmark**, as it is in Photos' own select mode, and as it now is on the discussions list and the single discussion screen —
+    /// 2026-09-07. The word is kept as the accessibility label so that VoiceOver reads a verb rather than a glyph name; it is *Cancel* here where the other two
+    /// say *Done*, that being the word this screen already had and already ships in every language.
+    ///
+    /// **The close button goes while the reader is choosing**, which is the one thing this screen needs that the other two did not. Its leading item is a
+    /// `.close` — an xmark that dismisses the whole gallery — and a second xmark at the other end of the same bar, meaning something else entirely, is the one
+    /// arrangement worse than the word it replaced. Photos does not meet this because its library is a root screen with nothing to close. Taking it away also
+    /// says what both other screens say for themselves: while messages are being chosen, nothing else is offered, and leaving by another door would discard
+    /// what was ticked without the reader asking.
     private func updateUserInterface() {
         if let button = navigationItem.rightBarButtonItem {
-            button.title = isEditing ? CommonString.Word.Cancel : CommonString.Word.Select
+            button.title = isEditing ? nil : CommonString.Word.Select
+            button.image = isEditing ? UIImage(systemIcon: .xmark) : nil
+            button.accessibilityLabel = isEditing ? CommonString.Word.Cancel : nil
         }
+        navigationItem.leftBarButtonItem = isEditing ? nil : closeBarButtonItem
         navigationController?.setToolbarHidden(!isEditing, animated: true)
     }
 
@@ -244,7 +274,7 @@ extension DiscussionGalleryViewController {
 
 // MARK: - JoinGalleryViewController
 
-final class JoinGalleryViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDataSourcePrefetching, UICollectionViewDelegate, ObvErrorMaker, CustomQLPreviewControllerDelegate {
+final class JoinGalleryViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDataSourcePrefetching, UICollectionViewDelegate, ObvErrorMaker, FilesViewerPreviewDelegate {
 
     let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
     fileprivate let kind: JoinKind
@@ -737,7 +767,7 @@ extension JoinGalleryViewController {
 }
 
 
-// MARK: - CustomQLPreviewControllerDelegate
+// MARK: - FilesViewerPreviewDelegate
 
 extension JoinGalleryViewController {
     
@@ -805,9 +835,9 @@ extension JoinGalleryViewController {
 
             if join.shareActionCanBeMadeAvailable {
                 
-                let action = UIAction(title: CommonString.Word.Share) { (_) in
+                let action = UIAction(title: CommonString.Word.Share) { [weak self] (_) in
                     guard let fyleElement = join.fyleElement else { assertionFailure(); return }
-                    Task { [weak self] in
+                    Task {
                         do {
                             let hardlink = try await Self.requestHardLinkToFyleForFyleElement(fyleElement)
                             guard let itemProvider = hardlink.activityItemProvider else { throw Self.makeError(message: "Could not get activity item provider") }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -229,11 +229,7 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
                 sheet.preferredCornerRadius = 16.0
             }
             assert(profilePictureBarButtonItem != nil)
-            if #available(iOS 16, *) {
-                popover.sourceItem = profilePictureBarButtonItem
-            } else {
-                popover.barButtonItem = profilePictureBarButtonItem
-            }
+            popover.sourceItem = profilePictureBarButtonItem
         }
         
         present(ownedIdentityChooserVC, animated: true)

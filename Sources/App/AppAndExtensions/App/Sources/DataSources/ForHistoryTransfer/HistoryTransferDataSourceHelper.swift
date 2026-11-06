@@ -83,9 +83,9 @@ struct HistoryTransferDataSourceHelper {
     }
 
     
-    func getAllDiscussionIdentifiers(ownedCryptoId: ObvCryptoId) async throws -> [ObvAppTypes.ObvDiscussionIdentifier] {
+    func getAllDiscussionIdentifiers(ownedCryptoId: ObvCryptoId) async throws -> Set<ObvAppTypes.ObvDiscussionIdentifier> {
         let backgroundContext = self.backgroundContext
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvAppTypes.ObvDiscussionIdentifier], any Error>) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<ObvAppTypes.ObvDiscussionIdentifier>, any Error>) in
             backgroundContext.perform {
                 do {
                     let discussionIdentifiers = try PersistedDiscussion.getIdentifiersOfActiveAndLockedDiscussions(ownedCryptoId: ownedCryptoId, within: backgroundContext)

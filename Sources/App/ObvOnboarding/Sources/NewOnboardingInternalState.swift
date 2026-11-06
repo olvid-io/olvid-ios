@@ -66,6 +66,8 @@ enum NewOnboardingState {
     case userWantsToDisplaySasOnThisTargetDevice(currentDeviceName: String, protocolInstanceUID: UID, sas: ObvOwnedIdentityTransferSas)
     case userWantsToEnterTransferCode(currentDeviceName: String)
     case successfulTransferWasPerfomed(transferredOwnedCryptoId: ObvCryptoId, postTransferError: Error?)
+    /// State reached on the target device when the profile to transfer turns out to already exist on this device. This is not a failure: there is simply nothing to transfer.
+    case profileAlreadyExistsOnTargetDevice(ownedCryptoId: ObvCryptoId)
     case showOwnedIdentityTransferFailed(error: Error)
     case userWantsToProceedWithAddingDevice(ownedCryptoId: ObvCryptoId, ownedDetails: CNContact)
 
@@ -95,6 +97,7 @@ enum NewOnboardingState {
                 .shouldRequestPermission,
                 .userWantsToEnterTransferCode,
                 .successfulTransferWasPerfomed,
+                .profileAlreadyExistsOnTargetDevice,
                 .userWantsToManuallyConfigureTheIdentityProvider,
                 .showOwnedIdentityTransferFailed,
                 .finalize,
@@ -158,6 +161,8 @@ enum NewOnboardingState {
             return ownedCryptoId
         case .successfulTransferWasPerfomed(transferredOwnedCryptoId: let transferredOwnedCryptoId, postTransferError: _):
             return transferredOwnedCryptoId
+        case .profileAlreadyExistsOnTargetDevice(ownedCryptoId: let ownedCryptoId):
+            return ownedCryptoId
         case .shouldRequestPermission(let profileKind, _):
             return profileKind.ownedCryptoId
         case .setupNewBackups(profileKind: let profileKind):
@@ -194,6 +199,7 @@ enum NewOnboardingState {
                 .userWantsToDisplaySasOnThisTargetDevice,
                 .userWantsToEnterTransferCode,
                 .successfulTransferWasPerfomed,
+                .profileAlreadyExistsOnTargetDevice,
                 .showOwnedIdentityTransferFailed,
                 .keycloakDistributionServerMismatch,
                 .userWantsToProceedWithAddingDevice:

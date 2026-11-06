@@ -67,7 +67,7 @@ struct BodyEditView: View {
         self.messageIdentifier = messageIdentifier
         let body = currentBody ?? AttributedString()
         self._text = State(initialValue: body)
-        self._selection = State(initialValue: AttributedTextSelection(insertionPoint: body.endIndex))
+        self._selection = State(initialValue: AttributedTextSelection(insertionPoint: body.startIndex))
     }
     
     private func dismissButtonTapped() {
@@ -139,6 +139,7 @@ struct BodyEditView: View {
                         OlvidButtonNew(action: dismissButtonTapped, style: .glassOrBordered) {
                             Label { Text("Cancel") } icon: { Image(systemIcon: .xmarkCircleFill) }
                         }
+                        .keyboardShortcut(.cancelAction)
                         OlvidButtonNew(action: sendButtonTapped) {
                             Label { Text("Send") } icon: { Image(systemIcon: .paperplaneFill) }
                         }

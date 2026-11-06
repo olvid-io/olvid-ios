@@ -72,6 +72,12 @@ enum ObvMessengerConstants {
     }
 
     static let defaultEmoji = "👍"
+
+    /// What a double tap on a message received reacts with, when the reader has set nothing.
+    ///
+    /// The same glyph as ``defaultEmoji``, and a separate constant: the double tap and the quick-emoji button have
+    /// their own settings at both levels, global and per discussion, so changing one does not change the other.
+    static let defaultDoubleTapEmoji = "👍"
     static let forwardIcon: SystemIcon = .arrowshapeTurnUpForward
 
     static let downsizedImageSize = CGSize(width: 40, height: 40) // In pixels
@@ -116,9 +122,31 @@ enum ObvMessengerConstants {
         static let cachedURLMetadata: TimeInterval = .init(days: 2)
     }
         
-    static let localIOSVersion = Double(UIDevice.current.systemVersion) ?? floor(NSFoundationVersionNumber)
-    static let supportedIOSVersion = 15.5
-    static let recommendedMinimumIOSVersion = 18.0
+    /// An iOS version reduced to its major and minor components, compared component by component: 18.10 is later
+    /// than 18.9, which a `major.minor` written as a `Double` gets wrong.
+    struct IOSVersion: Comparable, Sendable {
+        let major: Int
+        let minor: Int
+        static func < (lhs: IOSVersion, rhs: IOSVersion) -> Bool {
+            (lhs.major, lhs.minor) < (rhs.major, rhs.minor)
+        }
+    }
+
+    /// The running iOS version, compared against the two thresholds below.
+    ///
+    /// Read from `UIDevice`, never from `ProcessInfo`: under Mac Catalyst, `ProcessInfo` reports the macOS version
+    /// (15.6) where `UIDevice.systemVersion` reports the iOS it corresponds to (18.6), and the thresholds are iOS
+    /// versions. `UIDevice.current` is main-actor isolated, hence the `@MainActor`. A version that cannot be parsed
+    /// counts as recent, an upgrade tip shown by mistake being worse than one missed.
+    @MainActor
+    static let localIOSVersion: IOSVersion = {
+        let components = UIDevice.current.systemVersion.split(separator: ".").map { Int($0) }
+        guard components.count >= 1, let major = components[0] else { return recommendedMinimumIOSVersion }
+        let minor = components.count >= 2 ? (components[1] ?? 0) : 0
+        return IOSVersion(major: major, minor: minor)
+    }()
+    static let supportedIOSVersion = IOSVersion(major: 15, minor: 5)
+    static let recommendedMinimumIOSVersion = IOSVersion(major: 18, minor: 0)
     
     // Notifications
     
@@ -174,11 +202,18 @@ enum ObvMessengerConstants {
     enum UserDefaultsKeys: String {
         case dateOfLastDatabaseSync = "io.olvid.background.processing.database.sync.date"
         case dateOfLastAppInboxSyncMessageIdsKeptForLater = "io.olvid.background.processing.app.inbox.message.ids.sync.date"
+        /// A JSON-encoded `ObvInboxDrainReport`. A background run happens while nobody is watching, so what it writes here is the only evidence it ran.
+        ///
+        /// **The drain's *date* is not a key of its own**, unlike the two sync tasks above: it is `startedAt` inside this report, which is what the schedule
+        /// reads. There was such a key, written on every run and read by nothing.
+        case lastEngineInboxDrainReport = "io.olvid.background.processing.drain.inbox.report"
         case dateOfCreationOfFirstProfile = "io.olvid.date.of.creation.of.first.profile"
         case dateOfLastOlvidPlusTipDisplay = "io.olvid.date.of.last.olvid.plus.tip.display"
         case olvidPlusSubscriptionConfirmationTipToDisplay = "io.olvid.plus.subscription.confirmation.tip.to.display" // Stores the raw value of a ObvOwnershipType
         case dateOfLastOSUpgradeTipDisplay = "io.olvid.snackBarCoordinator.lastDisplayDate.upgradeIOS"
         case dateOfLastOwnedDeviceExpiringTipDisplay = "io.olvid.date.of.last.owned.device.expiring.tip.display"
+        case dateOfLastNewerAppVersionAvailableTipDisplay = "io.olvid.snackBarCoordinator.lastDisplayDate.newerAppVersionAvailable"
+        case dateOfLastGrantRecordPermissionTipDisplay = "io.olvid.snackBarCoordinator.lastDisplayDate.grantPermissionToRecord"
     }
 
 }

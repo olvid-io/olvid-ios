@@ -21,6 +21,7 @@ import Foundation
 import UserNotifications
 import Intents
 import ObvAppTypes
+import ObvSettings
 import OlvidUtils
 
 
@@ -30,27 +31,17 @@ public final class ObvCommunicationInteractor {
     public static func suggest(communicationType: ObvCommunicationType) async throws -> INInteraction {
         // Create an INInteraction.
         let interaction = try ObvCommunicationMapper.interaction(communicationType: communicationType)
-        // Donate INInteraction to the system if appropriate
-        switch communicationType {
-        case .incomingMessage:
-            try await interaction.donate()
-        case .incomingReaction:
-            try await interaction.donate()
-        case .incomingPollVote:
-            try await interaction.donate()
-        case .outgoingMessage(sentMessage: let sentMessage):
-            let discussionKind = sentMessage.discussionKind
-            if discussionKind.localConfiguration.performInteractionDonation && !discussionKind.ownedIdentity.isHidden {
-                try await interaction.donate()
-            }
-        case .callLog(callLog: let callLog):
-            let discussionKind = callLog.discussionKind
-            if discussionKind.localConfiguration.performInteractionDonation && !discussionKind.ownedIdentity.isHidden {
-                try await interaction.donate()
-            }
-        }
-        // Return the interaction
+        try await donateIfAllowed(interaction, for: communicationType)
         return interaction
+    }
+
+
+    /// A donation shows the people and groups involved outside Olvid (share sheet, Spotlight), so it only happens when the discussion allows it,
+    /// and never for a hidden profile. This holds for incoming communications too, which are the bulk of donations.
+    private static func donateIfAllowed(_ interaction: INInteraction, for communicationType: ObvCommunicationType) async throws {
+        let discussionKind = communicationType.discussionKind
+        guard discussionKind.localConfiguration.performInteractionDonation && !discussionKind.ownedIdentity.isHidden else { return }
+        try await interaction.donate()
     }
     
     
@@ -65,7 +56,17 @@ public final class ObvCommunicationInteractor {
     /// - Check if sender is allowed to break through.
     /// - Update notification title (sender's name) and subtitle (group information).
     public static func update(notificationContent: UNNotificationContent, communicationType: ObvCommunicationType) async throws -> UNNotificationContent {
-        let interaction = try await suggest(communicationType: communicationType)
+        // What this adds cannot be removed afterwards, so it must never happen to a notification whose content the user hides
+        guard ObvMessengerSettings.Privacy.hideNotificationContent == .no else {
+            return notificationContent
+        }
+        let interaction = try ObvCommunicationMapper.interaction(communicationType: communicationType)
+        // A failed donation must not cost the notification its sender and avatar
+        do {
+            try await donateIfAllowed(interaction, for: communicationType)
+        } catch {
+            ObvDisplayableLogs.shared.log("[CommunicationInteractor] Could not donate the interaction: \(error.localizedDescription)")
+        }
         guard let notificationContentProvider = interaction.intent as? UNNotificationContentProviding else {
             assertionFailure()
             throw ObvError.unexpectedIntentType

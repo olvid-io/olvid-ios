@@ -80,6 +80,8 @@ public enum ObvChannelNotification {
 		let name = Name.forInternalNotification(self)
 		let label = "Queue for posting \(name.rawValue) notification"
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		backgroundQueue.async {
 			notificationDelegate.post(name: name, userInfo: userInfo)
 		}
@@ -87,6 +89,8 @@ public enum ObvChannelNotification {
 
 	public static func observeNewConfirmedObliviousChannel(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (UID, ObvCryptoIdentity, UID) -> Void) -> NSObjectProtocol {
 		let name = Name.newConfirmedObliviousChannel.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let currentDeviceUid = notification.userInfo!["currentDeviceUid"] as! UID
 			let remoteCryptoIdentity = notification.userInfo!["remoteCryptoIdentity"] as! ObvCryptoIdentity
@@ -97,6 +101,8 @@ public enum ObvChannelNotification {
 
 	public static func observeDeletedConfirmedObliviousChannel(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (UID, ObvCryptoIdentity, UID) -> Void) -> NSObjectProtocol {
 		let name = Name.deletedConfirmedObliviousChannel.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let currentDeviceUid = notification.userInfo!["currentDeviceUid"] as! UID
 			let remoteCryptoIdentity = notification.userInfo!["remoteCryptoIdentity"] as! ObvCryptoIdentity

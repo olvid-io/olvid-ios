@@ -60,12 +60,17 @@ final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpec
             if initiator == .createdOrUpdatedBySomeoneElse && group.otherMembers.contains(where: { $0.permissionChangeSettingsIsUpdated && $0.isAllowedToChangeSettings }) {
                 
                 // We want to send the QuerySharedSettingsJSON to all the group members that just gained to permission to change settings
+                //
+                // This is the only place that sends one. A one-to-one discussion and a group v1 have no equivalent. That matters
+                // now that we no longer hold a shared-settings message whose discussion does not exist yet: for those two kinds,
+                // nothing asks for the settings again afterwards. Adding such a query is still to be done, and the condition above
+                // cannot simply be copied, because a group v1 has no `permissionChangeSettings`.
 
                 let cryptoIdsOfMembersWhoGainedPermissionToChangeSettings = Set(group.otherMembers.filter({ $0.permissionChangeSettingsIsUpdated && $0.isAllowedToChangeSettings })).compactMap({ $0.cryptoId })
 
                 do {
                                                             
-                    let cryptoIdsOfContactsAmongNonPendingOtherMembers = Set(group.contactsAmongNonPendingOtherMembers.map({ $0.cryptoId }))
+                    let cryptoIdsOfContactsAmongNonPendingOtherMembers = Set(group.contactsAmongNonPendingOtherMembers.compactMap({ try? $0.cryptoId }))
                     let toContactIdentitiesWithCryptoId = cryptoIdsOfContactsAmongNonPendingOtherMembers.intersection(cryptoIdsOfMembersWhoGainedPermissionToChangeSettings)
                     
                     if !toContactIdentitiesWithCryptoId.isEmpty {

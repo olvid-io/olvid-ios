@@ -33,13 +33,16 @@ final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForC
     private let messageObjectID: TypeSafeManagedObjectID<PersistedMessage>
     private let emoji: String?
     private let originalServerTimestamp: Date?
+    private let restrictToContactCryptoId: ObvCryptoId?
 
-    /// The `originalServerTimestamp` is set only when re-sending a reaction to a group member who switched from the pending to the non-pending state.
-    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, obvEngine: ObvEngine, emoji: String?, originalServerTimestamp: Date?) {
+    /// The `originalServerTimestamp` and `restrictToContactCryptoId` are set only when re-sending a reaction to a group member who switched from the pending
+    /// to the non-pending state. In that case, the reaction is sent to that member only, instead of to all the active participants of the discussion.
+    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, obvEngine: ObvEngine, emoji: String?, originalServerTimestamp: Date?, restrictToContactCryptoId: ObvCryptoId?) {
         self.messageObjectID = messageObjectID
         self.obvEngine = obvEngine
         self.emoji = emoji
         self.originalServerTimestamp = originalServerTimestamp
+        self.restrictToContactCryptoId = restrictToContactCryptoId
         super.init()
     }
 
@@ -71,22 +74,35 @@ final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForC
         let contactCryptoIds: Set<ObvCryptoId>
         let ownCryptoId: ObvCryptoId
         do {
-            (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
+            let (own, allActiveParticipants) = try discussion.getAllActiveParticipants()
+            ownCryptoId = own
+            if let restrictToContactCryptoId {
+                contactCryptoIds = allActiveParticipants.intersection([restrictToContactCryptoId])
+            } else {
+                contactCryptoIds = allActiveParticipants
+            }
         } catch {
             return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
         }
-        
+
+        guard !contactCryptoIds.isEmpty else {
+            // Happens when the only allowed recipient is not an active participant of the discussion anymore: there is nothing to send.
+            return
+        }
+
         // Create a payload of the PersistedItemJSON we just created and send it.
         // We do not keep track of the message identifiers from engine.
-        
+
         let payload: Data
         do {
             payload = try itemJSON.jsonEncode()
         } catch {
             return cancel(withReason: .failedToEncodePersistedItemJSON)
         }
-        
+
         do {
+            // When the reaction is re-sent to a specific group member, there is no need to post it to our other owned
+            // devices: they received the original reaction and perform their own replay.
             _ = try obvEngine.post(messagePayload: payload,
                                    extendedPayload: nil,
                                    withUserContent: true,
@@ -94,7 +110,7 @@ final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForC
                                    attachmentsToSend: [],
                                    toContactIdentitiesWithCryptoId: contactCryptoIds,
                                    ofOwnedIdentityWithCryptoId: ownCryptoId,
-                                   alsoPostToOtherOwnedDevices: true)
+                                   alsoPostToOtherOwnedDevices: restrictToContactCryptoId == nil)
         } catch {
             return cancel(withReason: .couldNotPostMessageWithinEngine)
         }

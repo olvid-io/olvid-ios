@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -102,9 +102,13 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         case version64 = "ObvEngineModel-v64"
         case version65 = "ObvEngineModel-v65"
         case version66 = "ObvEngineModel-v66"
+        case version67 = "ObvEngineModel-v67"
+        case version68 = "ObvEngineModel-v68"
+        case version69 = "ObvEngineModel-v69"
+        case version70 = "ObvEngineModel-v70"
 
         static var latest: ObvEngineModelVersion {
-            return .version66
+            return .version70
         }
         
         var identifier: String {
@@ -232,7 +236,11 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         case .version63: migrationType = .lightweight; destinationVersion = .version64
         case .version64: migrationType = .lightweight; destinationVersion = .version65
         case .version65: migrationType = .lightweight; destinationVersion = .version66
-        case .version66: migrationType = .heavyweight; destinationVersion = .version66
+        case .version66: migrationType = .lightweight; destinationVersion = .version67
+        case .version67: migrationType = .lightweight; destinationVersion = .version68
+        case .version68: migrationType = .lightweight; destinationVersion = .version69
+        case .version69: migrationType = .lightweight; destinationVersion = .version70
+        case .version70: migrationType = .heavyweight; destinationVersion = .version70
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

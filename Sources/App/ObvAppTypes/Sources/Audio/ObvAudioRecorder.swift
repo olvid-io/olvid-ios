@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import Foundation
 import AVFoundation
 import os.log
 import ObvAppCoreConstants
+import OlvidUtils
 
 public protocol ObvAudioRecorderDelegate: AnyObject {
 
@@ -47,7 +48,7 @@ public final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate, Observab
                 }
             } else {
                 DispatchQueue.main.async { [weak self] in
-                    self?.disableIdleTimerRequestIdentifier = IdleTimerManager.shared.disableIdleTimer()
+                    self?.disableIdleTimerRequestIdentifier = IdleTimerManager.shared.disableIdleTimer(reason: .currentUserActivity)
                 }
             }
         }
@@ -110,6 +111,7 @@ public final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate, Observab
         do {
             try recordingSession.setCategory(.record, mode: .default)
             try recordingSession.setActive(true)
+            logToTheInAppLogs("voice message recorder activated the audio session")
             liveWaveformSamples.removeAll()
             
             recordingSession.requestRecordPermission() { [weak self] granted in
@@ -139,7 +141,7 @@ public final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate, Observab
                 self.recordDurationDispatchTimer = timer
 
                 timer.setEventHandler { [weak self] in
-                    guard let self = self else { return }
+                    guard let self else { return }
                     assert(Thread.isMainThread)
                     guard self.isRecording else {
                         self.recordDurationDispatchTimer?.cancel()
@@ -177,6 +179,7 @@ public final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate, Observab
         let url = audioRecorder.url
         audioRecorder.stop()
         self.audioRecorder = nil
+        logToTheInAppLogs("voice message recorder stopped")
 
         // Invalidate timers
         self.recordDurationDispatchTimer?.cancel()
@@ -195,6 +198,7 @@ public final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate, Observab
             audioRecorder.deleteRecording()
         }
         self.audioRecorder = nil
+        logToTheInAppLogs("voice message recorder cancelled")
 
         // Invalidate timers
         self.recordDurationDispatchTimer?.cancel()
@@ -215,6 +219,16 @@ public final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate, Observab
         // Invalidate timers on failure
         self.recordDurationDispatchTimer?.cancel()
         self.recordDurationDispatchTimer = nil
+    }
+
+
+    /// Written with the prefix of the app's call lines, as the in-app log of a call without audio needs to know who last used the shared audio session.
+    /// With the `record` category, a route with an input means that the session is active.
+    private func logToTheInAppLogs(_ message: String) {
+        let session = recordingSession
+        let inputs = session.currentRoute.inputs.map({ $0.portType.rawValue }).joined(separator: "+")
+        let outputs = session.currentRoute.outputs.map({ $0.portType.rawValue }).joined(separator: "+")
+        ObvDisplayableLogs.shared.log("☎️ [-] \(message); audio session: category=\(session.category.rawValue) mode=\(session.mode.rawValue) options=\(session.categoryOptions.rawValue) route=\(inputs.isEmpty ? "none" : inputs)->\(outputs.isEmpty ? "none" : outputs)")
     }
 
 

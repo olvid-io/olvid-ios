@@ -248,7 +248,7 @@ extension GenericDataSourceForPreviews: TransferServiceDelegate {
 
 extension GenericDataSourceForPreviews: SourceTransferStepsDataSource {
         
-    func historyTransferRequiresAllDiscussionIdentifiers(_ actor: SourceTransferSteps, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> [ObvAppTypes.ObvDiscussionIdentifier] {
+    func historyTransferRequiresAllDiscussionIdentifiers(_ actor: SourceTransferSteps, ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> Set<ObvAppTypes.ObvDiscussionIdentifier> {
         return []
     }
     
@@ -286,6 +286,11 @@ extension GenericDataSourceForPreviews: DestinationTransferStepsDataSource {
     
     func filterKnownMessages(_ actor: DestinationTransferSteps, discussionIdentifier: ObvDiscussionIdentifier, messagesAvailableOnSource: [ObvMessageAppIdentifier]) async throws -> [ObvMessageAppIdentifier] {
         return []
+    }
+
+    func filterFylesStillAwaitedByThisDestination(_ actor: DestinationTransferSteps, sha256s: Set<Data>) async throws -> Set<Data> {
+        // In previews, consider every expected attachment as still awaited (i.e., request everything).
+        return sha256s
     }
 
 }

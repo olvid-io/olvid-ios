@@ -30,25 +30,16 @@ protocol AddProfileViewControllerDelegate: AnyObject {
 }
 
 
-final class AddProfileViewController: KeyboardHostingController<AddProfileView> {
-        
+final class AddProfileViewController: UIHostingController<AddProfileView> {
+
     private weak var delegate: AddProfileViewControllerDelegate?
     
-    private let showCloseButton: Bool
-
     init(showCloseButton: Bool, delegate: AddProfileViewControllerDelegate) {
-        self.showCloseButton = showCloseButton
         let actions = AddProfileViewActions()
-        let view = AddProfileView(actions: actions)
+        let view = AddProfileView(actions: actions, showCloseButton: showCloseButton)
         super.init(rootView: view)
         self.delegate = delegate
         actions.delegate = self
-    }
-    
-    public override func escapeKeyPressed() {
-        if self.showCloseButton {
-            super.escapeKeyPressed()
-        }
     }
     
     @MainActor required dynamic init?(coder aDecoder: NSCoder) {
@@ -71,19 +62,6 @@ final class AddProfileViewController: KeyboardHostingController<AddProfileView> 
     private func configureNavigation(animated: Bool) {
         navigationItem.largeTitleDisplayMode = .never
         navigationController?.setNavigationBarHidden(false, animated: animated)
-        if showCloseButton {
-            let handler: UIActionHandler = { [weak self] _ in self?.closeAction() }
-            let closeButton = UIBarButtonItem(systemItem: .close, primaryAction: .init(handler: handler))
-            navigationItem.rightBarButtonItem = closeButton
-        }
-    }
-    
-    
-    private func closeAction() {
-        Task { [weak self] in
-            guard let self else { return }
-            await delegate?.userWantsToCloseOnboarding(controller: self)
-        }
     }
     
 }
@@ -108,6 +86,11 @@ extension AddProfileViewController: AddProfileViewActionsProtocol {
         await delegate?.userWantsToRestoreBackup(controller: self)
     }
     
+    
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding(controller: self)
+    }
+    
 }
 
 
@@ -128,6 +111,10 @@ private final class AddProfileViewActions: AddProfileViewActionsProtocol {
     
     func userWantsToRestoreBackup() async {
         await delegate?.userWantsToRestoreBackup()
+    }
+    
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding()
     }
     
 }

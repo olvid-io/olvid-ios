@@ -25,6 +25,7 @@ import WiFiAware
 import Network
 import ObvTypes
 import ObvAppCoreConstants
+import ObvCrypto
 
 
 @available(iOS 26.0, *)
@@ -228,6 +229,7 @@ extension WifiAwareTransferTransportDelegate: TransferTransportDelegate {
     }
     
     func send(attachmentAtURL url: URL, sha256: Data, progressUpdater: any FyleProgressUpdater) async throws {
+        Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Starting to send attachment over the Wi-Fi Aware connection")
         let fh = try FileHandle(forReadingFrom: url)
         defer { try? fh.close() }
         var totalNumberOfFyleBytesSent: UInt64 = 0
@@ -239,6 +241,7 @@ extension WifiAwareTransferTransportDelegate: TransferTransportDelegate {
             totalNumberOfFyleBytesSent += UInt64(dataReadFromFile.count)
             await progressUpdater.updateFyleProgress(sha256: sha256, totalNumberOfFyleBytesSent: totalNumberOfFyleBytesSent)
         }
+        Self.logger.info("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Did send all \(totalNumberOfFyleBytesSent) bytes of the attachment over the Wi-Fi Aware connection")
     }
     
     func send(srcTransferDone: SrcTransferDone, progressUpdater: any DoneProgressUpdater) async throws {
@@ -288,6 +291,7 @@ extension WifiAwareTransferTransportDelegate: TransferTransportDelegate {
             }
         }
         try Task.checkCancellation()
+        Self.logger.error("📰 [\(dstRequestSha256.sha256.hexString().prefix(8), privacy: .public)] The reception stream finished without delivering the attachment file")
         assertionFailure("Unexpected. The stream should not finish without returning a URL or throwing (unless the task is cancelled).")
         throw ObvError.attachmentReceptionFailed
     }

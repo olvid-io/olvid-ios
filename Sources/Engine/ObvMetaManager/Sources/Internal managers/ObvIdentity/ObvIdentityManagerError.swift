@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -45,7 +45,6 @@ public enum ObvIdentityManagerError: Error {
     case wrongSyncAtomRecipient
     case couldNotDecodeGroupIdentifier
     case contextCreatorIsNil
-    case keycloakServerSignatureVerificationKeyIsNil
     case signatureVerificationFailed
     case parsingFailed
     case signaturePayloadVerificationFailed

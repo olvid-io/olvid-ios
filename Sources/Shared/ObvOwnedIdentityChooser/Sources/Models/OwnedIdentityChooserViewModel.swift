@@ -31,10 +31,10 @@ public struct OwnedIdentityChooserViewModel: Sendable, Equatable {
     }
     
     public struct OwnedIdentity: Sendable, Identifiable, Equatable {
-        let ownedCryptoId: ObvCryptoId
-        let avatarViewModel: ObvAvatarViewModel
-        let title: String
-        let subtitle: String
+        public let ownedCryptoId: ObvCryptoId
+        public let avatarViewModel: ObvAvatarViewModel
+        public let title: String
+        public let subtitle: String
         let totalBadgeCount: Int
         let showGreenShield: Bool
         let showRedShield: Bool

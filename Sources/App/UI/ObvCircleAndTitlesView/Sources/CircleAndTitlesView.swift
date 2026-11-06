@@ -20,7 +20,7 @@
 
 import SwiftUI
 import ObvSystemIcon
-import ObvAccessibility
+import ObvDesignSystem
 
 public enum CircleAndTitlesDisplayMode {
     case normal
@@ -61,13 +61,16 @@ public struct CircleAndTitlesView: View {
         let alignment: VerticalAlignment
         let displayMode: CircleAndTitlesDisplayMode
         let editionMode: CircleAndTitlesEditionMode
+        /// In the `.header` display mode, what tapping the circle shows large. Nil when there is nothing to show.
+        let loadPictureShownLarge: (@MainActor () async -> CGImage?)?
 
-        public init(content: Content, colors: InitialCircleView.Model.Colors, alignment: VerticalAlignment = .center, displayMode: CircleAndTitlesDisplayMode, editionMode: CircleAndTitlesEditionMode) {
+        public init(content: Content, colors: InitialCircleView.Model.Colors, alignment: VerticalAlignment = .center, displayMode: CircleAndTitlesDisplayMode, editionMode: CircleAndTitlesEditionMode, loadPictureShownLarge: (@MainActor () async -> CGImage?)? = nil) {
             self.content = content
             self.colors = colors
             self.alignment = alignment
             self.displayMode = displayMode
             self.editionMode = editionMode
+            self.loadPictureShownLarge = loadPictureShownLarge
         }
         
         var circleDiameter: CGFloat {
@@ -103,8 +106,6 @@ public struct CircleAndTitlesView: View {
     
     let model: Model
 
-    @State private var profilePictureFullScreenIsPresented = false
-
     public init(model: Model) {
         self.model = model
     }
@@ -122,19 +123,8 @@ public struct CircleAndTitlesView: View {
         ZStack {
             if case .header = model.displayMode {
                 ProfilePictureView(model: model.profilePictureViewModel)
-                    .onTapGesture {
-                        guard model.imageAvailable else {
-                            profilePictureFullScreenIsPresented = false
-                            return
-                        }
-                        profilePictureFullScreenIsPresented.toggle()
-                    }
-                    .fullScreenCover(isPresented: $profilePictureFullScreenIsPresented) {
-                        FullScreenProfilePictureView(photo: model.content.profilePictureViewModelContent.profilePicture)
-                            .background(BackgroundBlurView()
-                                .edgesIgnoringSafeArea(.all))
-                    }
-                    .obvAccessibilityHint("TAP_TO_SHOW_IMAGE", isEnabled: model.imageAvailable)
+                    .showsProfilePictureLargeWhenTapped(circleDiameter: model.circleDiameter,
+                                                        loadPicture: model.loadPictureShownLarge)
             } else {
                 ProfilePictureView(model: model.profilePictureViewModel)
             }
@@ -180,40 +170,4 @@ public struct CircleAndTitlesView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(model.accessibilityLabel)
     }
-}
-
-fileprivate struct FullScreenProfilePictureView: View {
-    @Environment(\.presentationMode) var presentationMode
-    let photo: UIImage?
-
-    var body: some View {
-        ZStack {
-            Color.black
-                .opacity(0.1)
-                .edgesIgnoringSafeArea(.all)
-            if let photo = photo {
-                Image(uiImage: photo)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .onTapGesture {
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-
-}
-
-struct BackgroundBlurView: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let effect = UIBlurEffect(style: .regular)
-        let view = UIVisualEffectView(effect: effect)
-        DispatchQueue.main.async {
-            view.superview?.superview?.backgroundColor = .clear
-        }
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {}
 }

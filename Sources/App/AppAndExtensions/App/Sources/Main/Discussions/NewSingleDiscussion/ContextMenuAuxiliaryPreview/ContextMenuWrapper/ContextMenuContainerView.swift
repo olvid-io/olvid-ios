@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,7 +36,6 @@ final class ContextMenuContainerViewWrapper: PrivateObjectWrapper<UIView, Contex
     }
     
     
-    @available(iOS 16, *)
     var contextMenuPlatterTransitionViewWrapper: ContextMenuPlatterTransitionViewWrapper? {
         guard let view = self.wrappedObject else { return nil }
         return view.subviews.reduce(nil) { $0 ?? .init(objectToWrap: $1) }

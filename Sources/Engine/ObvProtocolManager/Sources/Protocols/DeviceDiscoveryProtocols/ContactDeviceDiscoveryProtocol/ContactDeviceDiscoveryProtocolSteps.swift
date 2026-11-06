@@ -91,8 +91,7 @@ extension ContactDeviceDiscoveryProtocol {
             }
             guard let _ = LinkBetweenProtocolInstances(parentProtocolInstance: thisProtocolInstance,
                                                        childProtocolInstanceUid: childProtocolInstanceUid,
-                                                       expectedChildStateRawId: DeviceDiscoveryForRemoteIdentityProtocol.StateId.deviceUidsReceived.rawValue,
-                                                       messageToSendRawId: MessageId.childProtocolReachedExpectedState.rawValue)
+                                                       messageToSendRawId: MessageId.childProtocolReachedFinalState.rawValue)
                 else {
                     os_log("Could not create a link between protocol instances", log: log, type: .fault)
                     return CancelledState()
@@ -120,9 +119,9 @@ extension ContactDeviceDiscoveryProtocol {
     final class ProcessChildProtocolStateStep: ProtocolStep, TypedConcreteProtocolStep {
 
         let startState: WaitingForChildProtocolState
-        let receivedMessage: ChildProtocolReachedExpectedStateMessage
+        let receivedMessage: ChildProtocolReachedFinalStateMessage
 
-        init?(startState: WaitingForChildProtocolState, receivedMessage: ChildProtocolReachedExpectedStateMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+        init?(startState: WaitingForChildProtocolState, receivedMessage: ChildProtocolReachedFinalStateMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
 
             self.startState = startState
             self.receivedMessage = receivedMessage
@@ -134,29 +133,43 @@ extension ContactDeviceDiscoveryProtocol {
 
         }
 
-        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState {
 
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactDeviceDiscoveryProtocol.logCategory)
-
-            let contactIdentity: ObvCryptoIdentity
-            do {
-                let expectedContactIdentity = startState.contactIdentity
-                let receivedContactIdentity = receivedMessage.deviceUidsSentState.remoteIdentity
-                
-                guard expectedContactIdentity == receivedContactIdentity else {
-                    os_log("We received the device uids of an unexpected identity", log: log, type: .fault)
-                    return CancelledState()
-                }
-                contactIdentity = expectedContactIdentity
-            }
-
-            let contactDeviceDiscoveryResult = receivedMessage.deviceUidsSentState.result
-
-            try identityDelegate.processContactDeviceDiscoveryResult(contactDeviceDiscoveryResult, forContactCryptoId: contactIdentity, ofOwnedCryptoId: ownedIdentity, within: obvContext)
-                        
-            // Return the new state
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: ContactDeviceDiscoveryProtocol.logCategory)
             
-            return ChildProtocolStateProcessedState()
+            let childFinalState = receivedMessage.childFinalState
+            
+            switch childFinalState {
+                
+            case .deviceUidsReceived(let deviceUidsReceivedState):
+                
+                let contactIdentity: ObvCryptoIdentity
+                do {
+                    let expectedContactIdentity = startState.contactIdentity
+                    let receivedContactIdentity = deviceUidsReceivedState.remoteIdentity
+                    
+                    guard expectedContactIdentity == receivedContactIdentity else {
+                        logger.fault("We received the device uids of an unexpected identity")
+                        assertionFailure()
+                        return CancelledState()
+                    }
+                    contactIdentity = expectedContactIdentity
+                }
+
+                let contactDeviceDiscoveryResult = deviceUidsReceivedState.result
+
+                try identityDelegate.processContactDeviceDiscoveryResult(contactDeviceDiscoveryResult, forContactCryptoId: contactIdentity, ofOwnedCryptoId: ownedIdentity, within: obvContext)
+                            
+                // Return the new state
+                
+                return ChildProtocolStateProcessedState()
+
+            case .serverQueryFailed(_), .cancelled:
+                let errorDescription = startState.contactIdentity.debugDescription
+                logger.error("The device discovery of contact \(errorDescription, privacy: .public) failed")
+                return ChildProtocolFailedState()
+
+            }
             
         }
     }

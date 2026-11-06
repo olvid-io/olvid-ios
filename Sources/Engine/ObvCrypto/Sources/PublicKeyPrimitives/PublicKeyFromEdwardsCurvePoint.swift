@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,7 +29,17 @@ protocol PublicKeyFromEdwardsCurvePoint: CryptographicKey, Equatable {
     var curve: EdwardsCurve { get }
     
     init?(point: PointOnCurve)
+    
+    /// Creates a key from its y-coordinate, as decoded from a compact key or from a dictionary without an x-coordinate.
+    ///
+    /// A y-coordinate that is not below p is refused, so that each key has a single encoding. The y-coordinate is not
+    /// checked to belong to a point on the curve, as decoding is frequent and the check costs about four times the
+    /// decoding of a compact key. A y that belongs to no point on the curve belongs to a point on its quadratic twist,
+    /// and such a key is harmless: a signature never verifies with it, because
+    /// ``EdwardsCurve/mulAdd(a:point1:b:yCoordinateOfPoint2:)`` finds no point, and ``KEM_ECIES256KEM512`` refuses to
+    /// encrypt to it.
     init?(yCoordinate y: BigInt, curveByteId: EdwardsCurveByteId)
+
     init?(obvDictionaryOfInternalElements obvDic: ObvDictionary, curveByteId: EdwardsCurveByteId)
     
     /// Check whether a given point is an acceptable point for a public key
@@ -85,13 +95,14 @@ extension PublicKeyFromEdwardsCurvePoint {
     }
     
     init?(obvDictionaryOfInternalElements obvDic: ObvDictionary, curveByteId: EdwardsCurveByteId) {
-        if let point = PointOnCurve.init(obvDic, onCurveWithByteId: curveByteId) {
+        if obvDic[PointOnCurve.ObvDictionaryKey.forXCoordinate.data] != nil {
+            guard let point = PointOnCurve(obvDic, onCurveWithByteId: curveByteId) else { return nil }
             self.init(point: point)
         } else {
             guard let encodedYCoordinate = obvDic[PointOnCurve.ObvDictionaryKey.forYCoordinate.data] else { return nil }
-            guard let yCoordinate = BigInt.init(encodedYCoordinate) else { return nil }
+            guard let yCoordinate = BigInt(encodedYCoordinate) else { return nil }
             self.init(yCoordinate: yCoordinate, curveByteId: curveByteId)
-        }
+        }        
     }
 
 }

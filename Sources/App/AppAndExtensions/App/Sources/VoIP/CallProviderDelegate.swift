@@ -30,6 +30,7 @@ import ObvSettings
 import ObvUICoreData
 import ObvAppCoreConstants
 import ObvAppTypes
+import OlvidUtils
 
 
 /// Main class of Olvid's VoIP implementation.
@@ -53,7 +54,11 @@ final class CallProviderDelegate: NSObject {
     private let obvEngine: ObvEngine
     private let rtcPeerConnectionQueue = OperationQueue.createSerialQueue(name: "CallProviderDelegate serial queue common to all OlvidCallParticipantPeerConnectionHolder")
     private let callAudioPlayer = OlvidCallAudioPlayer()
-    
+    /// Forwards WebRTC's audio lines to the in-app logs between the first call added and the last call removed.
+    private let webRTCLogForwarder = OlvidCallWebRTCLogForwarder()
+    /// Observes for the life of the process, so that an interruption received while no call exists is on record when the next call starts.
+    private let audioSessionEventsObserver = OlvidCallAudioSessionEventsObserver()
+
     weak var signalingDelegate: CallProviderDelegateSignalingDelegate?
 
     private var notificationTokens = [NSObjectProtocol]()
@@ -87,8 +92,8 @@ final class CallProviderDelegate: NSObject {
         // Internal notifications
 
         notificationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeNewWebRTCMessageWasReceived { (webrtcMessage, fromOlvidUser, messageIdentifierFromEngine) in
-                Task { [weak self] in
+            ObvMessengerInternalNotification.observeNewWebRTCMessageWasReceived { [weak self] (webrtcMessage, fromOlvidUser, messageIdentifierFromEngine) in
+                Task {
                     await self?.processReceivedWebRTCMessage(
                         messageType: webrtcMessage.messageType,
                         serializedMessagePayload: webrtcMessage.serializedMessagePayload,
@@ -97,8 +102,8 @@ final class CallProviderDelegate: NSObject {
                         messageIdentifierFromEngine: messageIdentifierFromEngine)
                 }
             },
-            ObvMessengerInternalNotification.observeUserWantsToCallOrUpdateCallCapabilityAndIsAllowedTo { ownedCryptoId, contactCryptoIds, ownedIdentityForRequestingTurnCredentials, groupId, startCallIntent in
-                Task { [weak self] in await self?.processUserWantsToCallNotification(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, groupId: groupId, startCallIntent: startCallIntent) }
+            ObvMessengerInternalNotification.observeUserWantsToCallOrUpdateCallCapabilityAndIsAllowedTo { [weak self] ownedCryptoId, contactCryptoIds, ownedIdentityForRequestingTurnCredentials, groupId, startCallIntent in
+                Task { await self?.processUserWantsToCallNotification(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, groupId: groupId, startCallIntent: startCallIntent) }
             },
         ])
         
@@ -259,6 +264,7 @@ extension CallProviderDelegate: PKPushRegistryDelegate {
     private func reportFakeNewIncomingCall() {
         let fakeUUIDForCallKit = UUID()
         let fakeUpdate = CXCallUpdate.createForIncomingCallUntilStartCallMessageIsAvailable(callIdentifierForCallKit: fakeUUIDForCallKit)
+        OlvidCallInAppLog.log(call: fakeUUIDForCallKit, "the PushKit payload could not be read, reporting a fake incoming call to CallKit")
         callProviderHolder.provider.reportNewIncomingCall(with: fakeUUIDForCallKit, update: fakeUpdate) { _ in assertionFailure() }
     }
     
@@ -782,19 +788,23 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
     /// Called by the system when the user starts an outgoing call.
     func provider(_ provider: CallProviderHolder, perform action: CXStartCallAction) async {
         os_log("☎️ Call to provider(CXStartCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .info, action.callUUID.debugDescription)
+        let actionReceivedAt = Date.now
+        OlvidCallInAppLog.log(call: action.callUUID, "CXStartCallAction received, \(OlvidCallInAppLog.seconds(action.timeoutDate.timeIntervalSinceNow)) before the system fails it; \(OlvidCallInAppLog.audioSessionSnapshot())")
         do {
-            
+
             // Configure the audio session but do not start call audio here.
             // When using CallKit, call audio should not be started until the audio session is activated by the system,
             // after having its priority elevated.
-            await configureAudioSession()
+            await configureAudioSession(for: action.callUUID)
 
             // Trigger the call to be started via the underlying network service.
             let upToDateCXCallUpdate = try await callManager.localUserWantsToPerform(action)
-            
+
             // Signal to the system that the action was successfully performed.
             os_log("☎️ Fulfills call to provider(CXStartCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .info, action.callUUID.debugDescription)
+            OlvidCallInAppLog.log(call: action.callUUID, "CXStartCallAction fulfilled \(OlvidCallInAppLog.seconds(Date.now.timeIntervalSince(actionReceivedAt))) after it was received, \(OlvidCallInAppLog.seconds(action.timeoutDate.timeIntervalSinceNow)) before the system fails it")
             action.fulfill()
+            logIfCallKitDoesNotActivateTheAudioSession(afterFulfilling: action)
 
             // If we stop here, the name displayed within iOS call log is incorrect (it shows the call UUID). Updating the call right now does the trick.
             os_log("☎️ Using the created incoming call to update the CXCallProvider", log: Self.log, type: .info)
@@ -802,6 +812,7 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
 
         } catch {
             os_log("☎️ Fails call to provider(CXStartCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .error, action.callUUID.debugDescription)
+            OlvidCallInAppLog.log(call: action.callUUID, "CXStartCallAction failed: \(error.localizedDescription)")
             assertionFailure()
             action.fail()
         }
@@ -812,6 +823,8 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
     /// In that last case, we created a `CXAnswerCallAction` ourselves at the OlvidCallManager level.
     func provider(_ provider: CallProviderHolder, perform action: CXAnswerCallAction) async {
         os_log("☎️ [CXAnswerCallAction] Call to provider(CXAnswerCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .info, action.callUUID.debugDescription)
+        let actionReceivedAt = Date.now
+        OlvidCallInAppLog.log(call: action.callUUID, "CXAnswerCallAction received, \(OlvidCallInAppLog.seconds(action.timeoutDate.timeIntervalSinceNow)) before the system fails it; \(OlvidCallInAppLog.audioSessionSnapshot())")
         do {
             
             // Make sure the user gave access to the microphone
@@ -832,14 +845,16 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
             // Configure the audio session but do not start call audio here.
             // When using CallKit, call audio should not be started until the audio session is activated by the system,
             // after having its priority elevated.
-            await configureAudioSession()
+            await configureAudioSession(for: action.callUUID)
 
             // Trigger the call to be answered via the underlying network service.
             let (incomingCall, callerInfo, answeredOnOtherDeviceMessageJSON) = try await callManager.localUserWantsToPerform(action)
-            
+
             // Signal to the system that the action was successfully performed.
             os_log("☎️ [CXAnswerCallAction] Fulfills call to provider(CXAnswerCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .info, action.callUUID.debugDescription)
+            OlvidCallInAppLog.log(call: action.callUUID, "CXAnswerCallAction fulfilled \(OlvidCallInAppLog.seconds(Date.now.timeIntervalSince(actionReceivedAt))) after it was received, \(OlvidCallInAppLog.seconds(action.timeoutDate.timeIntervalSinceNow)) before the system fails it")
             action.fulfill()
+            logIfCallKitDoesNotActivateTheAudioSession(afterFulfilling: action)
             
             Self.report(call: incomingCall, report: .acceptedIncomingCall(caller: callerInfo))
             
@@ -862,6 +877,7 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
     /// Note that this is *not* called when the call is ended by the contact.
     func provider(_ provider: CallProviderHolder, perform action: CXEndCallAction) async {
         os_log("☎️ Call to provider(CXEndCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .info, action.callUUID.debugDescription)
+        OlvidCallInAppLog.log(call: action.callUUID, "CXEndCallAction received")
         do {
             
             // Let the OlvidCallManager end the call.
@@ -878,6 +894,7 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
 
             // Signal to the system that the action was successfully performed.
             os_log("☎️ Fulfills call to provider(CXEndCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .info, action.callUUID.debugDescription)
+            OlvidCallInAppLog.log(call: action.callUUID, "CXEndCallAction fulfilled")
             action.fulfill()
             
             // If answeredOnOtherDeviceMessageJSON != nil, it means we have to notify other owned devices that the call was rejected on this device
@@ -889,6 +906,7 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
 
         } catch {
             os_log("☎️ Fails call to provider(CXEndCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .error, action.callUUID.debugDescription)
+            OlvidCallInAppLog.log(call: action.callUUID, "CXEndCallAction failed: \(error.localizedDescription)")
             assertionFailure()
             action.fail()
         }
@@ -911,26 +929,39 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
     }
     
     
+    /// Called by the system when an action was not fulfilled or failed before its `timeoutDate`. The system has already failed the action.
+    /// For a `CXStartCallAction`, this means the audio session will never be activated by CallKit, and the call will connect without audio.
+    func provider(_ provider: CallProviderHolder, timedOutPerforming action: CXAction) async {
+        os_log("☎️ The system timed out an action: %{public}@", log: Self.log, type: .fault, action.debugDescription)
+        let callUUID = (action as? CXCallAction)?.callUUID
+        OlvidCallInAppLog.log(call: callUUID, "the system timed out and failed a \(String(describing: type(of: action))); \(OlvidCallInAppLog.audioSessionSnapshot())")
+    }
+
+
     /// This delegate method is called *only* when using CallKit.
     func provider(_ provider: CallProviderHolder, didActivate audioSession: AVAudioSession) async {
         // See https://stackoverflow.com/a/55781328
         os_log("☎️🎵 Provider did activate audioSession %{public}@", log: Self.log, type: .info, audioSession.description)
+        OlvidCallInAppLog.log(call: nil, "CallKit activated the audio session; before: \(OlvidCallInAppLog.audioSessionSnapshot())")
         RTCAudioSession.sharedInstance().audioSessionDidActivate(audioSession)
         if RTCAudioSession.sharedInstance().useManualAudio {
             // true when using CallKit
             RTCAudioSession.sharedInstance().isAudioEnabled = true
         }
+        OlvidCallInAppLog.log(call: nil, "WebRTC told of the activation; after: \(OlvidCallInAppLog.audioSessionSnapshot())")
     }
 
 
     /// This delegate method is called *only* when using CallKit.
     func provider(_ provider: CallProviderHolder, didDeactivate audioSession: AVAudioSession) async {
         os_log("☎️🎵 Provider did deactivate audioSession %{public}@", log: Self.log, type: .info, audioSession.description)
+        OlvidCallInAppLog.log(call: nil, "CallKit deactivated the audio session; before: \(OlvidCallInAppLog.audioSessionSnapshot())")
         RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
         if RTCAudioSession.sharedInstance().useManualAudio {
             // true when using CallKit
             RTCAudioSession.sharedInstance().isAudioEnabled = false
         }
+        OlvidCallInAppLog.log(call: nil, "WebRTC told of the deactivation; after: \(OlvidCallInAppLog.audioSessionSnapshot())")
     }
 
 }
@@ -940,9 +971,9 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
 
 extension CallProviderDelegate {
     
-    private func configureAudioSession() async {
+    private func configureAudioSession(for uuidForCallKit: UUID) async {
         os_log("☎️🎵 Configure audio session", log: Self.log, type: .info)
-        let op = ConfigureAudioSessionOperation()
+        let op = ConfigureAudioSessionOperation(uuidForCallKit: uuidForCallKit)
         os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
         await rtcPeerConnectionQueue.addAndAwaitOperation(op)
         if op.isCancelled {
@@ -953,6 +984,24 @@ extension CallProviderDelegate {
     }
 
     
+    /// Writes a line to the in-app logs when CallKit has not activated the audio session 2 s after the action was fulfilled. In a working call, the activation
+    /// comes well under a second after the fulfilment. The line changes nothing.
+    private func logIfCallKitDoesNotActivateTheAudioSession(afterFulfilling action: CXCallAction) {
+        guard ObvUICoreDataConstants.useCallKit else { return }
+        let activationsAtFulfilment = callProviderHolder.numberOfCallKitAudioSessionActivations
+        let callUUID = action.callUUID
+        let actionName = String(describing: type(of: action))
+        let delay: Double = 2
+        Task { [weak self] in
+            try? await Task.sleep(seconds: delay)
+            guard let self else { return }
+            guard callProviderHolder.numberOfCallKitAudioSessionActivations == activationsAtFulfilment else { return }
+            let callKitCalls = await OlvidCallInAppLog.callKitCalls()
+            OlvidCallInAppLog.log(call: callUUID, "CallKit has not activated the audio session \(OlvidCallInAppLog.seconds(delay)) after the \(actionName) was fulfilled; \(callKitCalls); \(OlvidCallInAppLog.audioSessionSnapshot())")
+        }
+    }
+
+
     /// This is called when ending a call (both incoming and ougoing). In the CallKit case, this does nothing, as the same work is done at the appropriate time in ``provider(_:didDeactivate:)``.
     /// In the non-CallKit case, we stop the WebRTC audio.
     func stopAudioWhenNotUsingCallKit() {
@@ -978,6 +1027,10 @@ extension CallProviderDelegate {
 extension CallProviderDelegate: OlvidCallManagerDelegate {
     
     func callWasAdded(callManager: OlvidCallManager, call: OlvidCall) async {
+        webRTCLogForwarder.start()
+        let callKitCalls = await OlvidCallInAppLog.callKitCalls()
+        OlvidCallInAppLog.log(call: call.uuidForCallKit, "call added, direction: \(call.direction == .outgoing ? "outgoing" : "incoming"), useCallKit=\(ObvUICoreDataConstants.useCallKit); \(callKitCalls); \(OlvidCallInAppLog.audioSessionSnapshot())")
+        await call.reevaluateKeepingTheScreenAwake()
         let model = OlvidCallViewController.Model(call: call, manager: callManager)
         if call.direction == .incoming && ObvUICoreDataConstants.useCallKit {
             // In the CallKit case, we don't want to show the in-house UI together with the CallKit UI for an incoming call.
@@ -992,12 +1045,14 @@ extension CallProviderDelegate: OlvidCallManagerDelegate {
     func callWasRemoved(callManager: OlvidCallManager, removedCall: OlvidCall, callStillInProgress: OlvidCall?) async {
         
         os_log("☎️🔚 Call to callWasRemoved(callManager: OlvidCallManager, removedCall: OlvidCall, callStillInProgress: OlvidCall?)", log: Self.log, type: .info)
-        
+        OlvidCallInAppLog.log(call: removedCall.uuidForCallKit, "call removed; \(OlvidCallInAppLog.audioSessionSnapshot())")
+
         if let callStillInProgress {
             let model = OlvidCallViewController.Model(call: callStillInProgress, manager: callManager)
             VoIPNotification.newCallToShow(model: model)
                 .post()
         } else {
+            webRTCLogForwarder.stop()
             VoIPNotification.noMoreCallInProgress
                 .postOnDispatchQueue()
         }

@@ -145,6 +145,16 @@ public class PersistedDiscussion: NSManagedObject {
         }
     }
     
+    public var isOneToOne: Bool {
+        guard let kind = try? kind else { return false }
+        switch kind {
+        case .oneToOne:
+            return true
+        default:
+            return false
+        }
+    }
+    
     
     public func getLimitedVisibilityMessageOpenedJSON(for message: PersistedMessage) throws -> LimitedVisibilityMessageOpenedJSON {
         guard self == message.discussion else {
@@ -861,12 +871,6 @@ public class PersistedDiscussion: NSManagedObject {
 
         self.removeAllMessages(messageUploadTimestampFromServer: nil)
 
-//        do {
-//            try self.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: true, messageTimestamp: Date())
-//        } catch {
-//            assertionFailure(error.localizedDescription)
-//        }
-//
         switch self.status {
         case .active, .preDiscussion:
             break
@@ -879,7 +883,16 @@ public class PersistedDiscussion: NSManagedObject {
     
     // MARK: - Receiving messages and attachments from a contact or another owned device
 
-    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, source: ObvMessageSource, receivedLocation: ReceivedLocation?) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?) {
+    func createOrOverridePersistedMessageReceived(
+        from contact: PersistedObvContactIdentity,
+        obvMessage: ObvMessage,
+        messageJSON: MessageJSON,
+        returnReceiptJSON: ReturnReceiptJSON?,
+        source: ObvMessageSource,
+        receivedLocation: ReceivedLocation?,
+        pendingSiriReadIntentDate: Date?,
+        nseAlreadyPostedDeliveredReceipt: Bool
+    ) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?, deliveredReceiptToSend: ObvReturnReceiptToSend?, readReceiptToSend: ObvReturnReceiptToSend?, attachmentDeliveredReceiptsToSend: [ObvReturnReceiptToSend]) {
         
         // If the message has a limited existence, make sure it is not already obsolete
         
@@ -917,14 +930,15 @@ public class PersistedDiscussion: NSManagedObject {
         // Note that processing attachments requires overridePreviousPersistedMessage to be true
 
         let createdOrUpdatedMessage: PersistedMessageReceived
-        
+        let attachmentDeliveredReceiptsToSend: [ObvReturnReceiptToSend]
+
         switch source {
-            
+
         case .engine:
-            
+
             Self.logger.debug("Creating or updating a persisted message (source: \(source.debugDescription))")
 
-            createdOrUpdatedMessage = try PersistedMessageReceived.createOrUpdatePersistedMessageReceived(
+            (createdOrUpdatedMessage, attachmentDeliveredReceiptsToSend) = try PersistedMessageReceived.createOrUpdatePersistedMessageReceived(
                 obvMessage: obvMessage,
                 messageJSON: messageJSON,
                 source: source,
@@ -934,12 +948,12 @@ public class PersistedDiscussion: NSManagedObject {
                 in: self)
 
         case .userNotification:
-            
+
             // Make sure the message does not already exists in DB. If it does, we simply return it.
             // If a location was passed and has no associated message, delete it
 
             if let messageReceived = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: contact) {
-                
+
                 if let receivedLocation {
                     switch receivedLocation {
                     case .oneShot(let location):
@@ -948,15 +962,18 @@ public class PersistedDiscussion: NSManagedObject {
                         try location.deleteIfReceivedMessagesIsEmpty()
                     }
                 }
-                
-                return (self.discussionPermanentID, try? messageReceived.objectPermanentID)
+
+                // The row already exists, so the receipt obligations for it have already been
+                // resolved at first insert — do not produce another receipt here.
+                return (self.discussionPermanentID, try? messageReceived.objectPermanentID, nil, nil, [])
+
             }
-            
+
             // Create the PersistedMessageReceived
 
             Self.logger.debug("Creating or updating a persisted message (source: \(source.debugDescription))")
 
-            createdOrUpdatedMessage = try PersistedMessageReceived.createPersistedMessageReceived(
+            (createdOrUpdatedMessage, attachmentDeliveredReceiptsToSend) = try PersistedMessageReceived.createPersistedMessageReceived(
                 obvMessage: obvMessage,
                 messageJSON: messageJSON,
                 source: source,
@@ -964,9 +981,9 @@ public class PersistedDiscussion: NSManagedObject {
                 receivedLocation: receivedLocation,
                 from: contact,
                 in: self)
-            
+
         case .historyTransfer:
-            
+
             assertionFailure()
             throw ObvUICoreDataError.unexpectedObvMessageSource
 
@@ -985,15 +1002,86 @@ public class PersistedDiscussion: NSManagedObject {
         
         if obvMessage.messageUploadTimestampFromServer <= self.serverTimestampWhenDiscussionReadOnAnotherOwnedDevice {
             do {
+                // The "read" event came from another owned device — that device is responsible
+                // for the read receipt (it posts or skips per its own opt-in). Suppress emission
+                // here so the producer below returns nil; without this pre-mark the producer
+                // would send a receipt of our own, either duplicating the other device's (if it
+                // posted) or overriding its decision to skip (if it opted out).
+                createdOrUpdatedMessage.markReadReceiptAsNotToBeSent()
                 _ = try createdOrUpdatedMessage.markAsNotNew(dateWhenMessageTurnedNotNew: self.serverTimestampWhenDiscussionReadOnAnotherOwnedDevice, requestedOnAnotherOwnedDevice: true)
             } catch {
                 assertionFailure(error.localizedDescription) // In production, continue anyway
             }
         }
 
+        // Siri-marked-as-read consultation. `pendingSiriReadIntentDate` is non-nil here only when
+        // the message was in the NSE database at Siri search time (the only way Siri could
+        // observe it) and was missing from the app database at Siri mark time (the precondition
+        // for the Intents extension's fallback path that writes the store). In the common case
+        // the `PersistedUserNotification` row also still existed at mark time and the Intents
+        // extension posted the read receipt right there (or skipped it on opt-out); a rare race
+        // where the row was removed between Siri search and mark means the receipt wasn't
+        // posted, but suppressing emission here is a deliberate trade-off — we'd rather miss a
+        // receipt in that rare race than risk a duplicate. This branch can be reached on both
+        // NSE-drain inserts (`source == .userNotification`) and engine-fetch inserts where the
+        // engine fetches a message the NSE previously decrypted (`source == .engine` — only
+        // engine-side decryption destroys the per-message decryption key, so the NSE's earlier
+        // decryption does not prevent the engine from decrypting again later). Either way,
+        // suppress emission unconditionally and transition to `.read`, using the date recorded
+        // by the store so the persisted `dateWhenMessageWasRead` reflects the actual Siri-mark
+        // moment rather than this insert moment.
+        if let pendingSiriReadIntentDate, createdOrUpdatedMessage.isInserted {
+            do {
+                createdOrUpdatedMessage.markReadReceiptAsNotToBeSent()
+                _ = try createdOrUpdatedMessage.markAsNotNew(dateWhenMessageTurnedNotNew: pendingSiriReadIntentDate, requestedOnAnotherOwnedDevice: false)
+            } catch {
+                assertionFailure(error.localizedDescription) // In production, continue anyway
+            }
+        }
+
+        // Resolve the receipt obligations *for new inserts only* — updates to existing rows leave
+        // the flags from the original insert alone. The flags default to false (a new message owes
+        // both receipts unless told otherwise); we pre-mark them when:
+        //   - source == .userNotification: the NSE already posted the delivered receipt.
+        //   - the discussion-level opt-in resolves to "do not send read receipts": the read
+        //     obligation is permanently waived for this message regardless of later setting changes.
+        // Then we produce the delivered receipt — for .userNotification rows the producer returns
+        // nil; for .engine rows it returns the receipt the caller will post via the engine.
+        // The read receipt producer is called only when the message ended up in `.read` at insert.
+        // In every current "ended up in .read" branch above (another-device-read, Siri-marked) we
+        // already called `markReadReceiptAsNotToBeSent()`, so the producer returns nil in practice.
+        // The call is kept so any future "mark as read at insert" path that legitimately needs the
+        // app to emit would be picked up automatically. For a still-new message the read flag is
+        // left false so the producer can fire later when the user actually reads it.
+        let deliveredReceiptToSend: ObvReturnReceiptToSend?
+        let readReceiptToSend: ObvReturnReceiptToSend?
+        if createdOrUpdatedMessage.isInserted {
+            switch source {
+            case .userNotification:
+                createdOrUpdatedMessage.markDeliveredReceiptAsAlreadySent()
+            case .engine, .historyTransfer:
+                if nseAlreadyPostedDeliveredReceipt {
+                    createdOrUpdatedMessage.markDeliveredReceiptAsAlreadySent()
+                }
+            }
+            let optedInForReadReceipts = self.localConfiguration.doSendReadReceipt ?? ObvMessengerSettings.Discussions.doSendReadReceipt
+            if !optedInForReadReceipts {
+                createdOrUpdatedMessage.markReadReceiptAsNotToBeSent()
+            }
+            deliveredReceiptToSend = createdOrUpdatedMessage.produceDeliveredReceiptToSendIfAppropriate()
+            if createdOrUpdatedMessage.status == .read {
+                readReceiptToSend = createdOrUpdatedMessage.produceReadReceiptToSendIfAppropriate()
+            } else {
+                readReceiptToSend = nil
+            }
+        } else {
+            deliveredReceiptToSend = nil
+            readReceiptToSend = nil
+        }
+
         let messageReceivedPermanentId = try? createdOrUpdatedMessage.objectPermanentID // Can be nil if the message was deleted, e.g., because of a remote delete request saved for later
-        
-        return (self.discussionPermanentID, messageReceivedPermanentId)
+
+        return (self.discussionPermanentID, messageReceivedPermanentId, deliveredReceiptToSend, readReceiptToSend, attachmentDeliveredReceiptsToSend)
 
     }
     
@@ -1069,7 +1157,7 @@ public class PersistedDiscussion: NSManagedObject {
                                                               contactIdentity: messageToEdit.senderIdentifier,
                                                               discussion: self) {
                 
-                guard message.contactIdentity?.cryptoId == contactCryptoId else {
+                guard try message.contactIdentity?.cryptoId == contactCryptoId else {
                     throw ObvUICoreDataError.aContactRequestedUpdateOnMessageFromSomeoneElse
                 }
                 
@@ -1215,16 +1303,16 @@ public class PersistedDiscussion: NSManagedObject {
     }
 
     
-    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage {
-        
+    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> (updatedMessage: PersistedMessage, reactionUpdateOutcome: ReactionUpdateOutcome) {
+
         switch self.status {
-            
+
         case .locked:
-                
+
             throw ObvUICoreDataError.aMessageCannotBeUpdatedInLockedDiscussion
 
         case .preDiscussion:
-            
+
             throw ObvUICoreDataError.aMessageCannotBeUpdatedInPrediscussion
 
         case .active:
@@ -1235,32 +1323,32 @@ public class PersistedDiscussion: NSManagedObject {
                                                               senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
                                                               contactIdentity: messageToEdit.senderIdentifier,
                                                               discussion: self) {
-                
-                try message.setReactionFromContact(contact,
-                                                   withEmoji: reactionJSON.emoji,
-                                                   reactionTimestamp: reactionJSON.originalServerTimestamp ?? messageUploadTimestampFromServer,
-                                                   overrideExistingReaction: overrideExistingReaction)
-                
-                return message
-                
+
+                let reactionUpdateOutcome = try message.setReactionFromContact(contact,
+                                                                               withEmoji: reactionJSON.emoji,
+                                                                               reactionTimestamp: reactionJSON.originalServerTimestamp ?? messageUploadTimestampFromServer,
+                                                                               overrideExistingReaction: overrideExistingReaction)
+
+                return (message, reactionUpdateOutcome)
+
             } else if let message = try PersistedMessageSent.get(senderSequenceNumber: messageToEdit.senderSequenceNumber,
                                                                  senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
                                                                  ownedIdentity: messageToEdit.senderIdentifier,
                                                                  discussion: self) {
-                
-                try message.setReactionFromContact(contact,
-                                                   withEmoji: reactionJSON.emoji,
-                                                   reactionTimestamp: reactionJSON.originalServerTimestamp ?? messageUploadTimestampFromServer,
-                                                   overrideExistingReaction: overrideExistingReaction)
-                
-                return message
+
+                let reactionUpdateOutcome = try message.setReactionFromContact(contact,
+                                                                               withEmoji: reactionJSON.emoji,
+                                                                               reactionTimestamp: reactionJSON.originalServerTimestamp ?? messageUploadTimestampFromServer,
+                                                                               overrideExistingReaction: overrideExistingReaction)
+
+                return (message, reactionUpdateOutcome)
 
             } else {
-                
+
                 throw ObvUICoreDataError.couldNotFindPersistedMessage
-                
+
             }
-                        
+
         }
 
     }
@@ -1349,52 +1437,52 @@ public class PersistedDiscussion: NSManagedObject {
     }
 
     
-    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage {
-        
+    func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> (updatedMessage: PersistedMessage, votesVisiblyChanged: Bool) {
+
         switch self.status {
-            
+
         case .locked:
-            
+
             throw ObvUICoreDataError.aMessageCannotBeUpdatedInLockedDiscussion
-            
+
         case .preDiscussion:
-            
+
             throw ObvUICoreDataError.aMessageCannotBeUpdatedInPrediscussion
-            
+
         case .active:
-            
+
             let messageToEdit = pollVoteJSON.messageReference
-            
+
             if let message = try PersistedMessageReceived.get(senderSequenceNumber: messageToEdit.senderSequenceNumber,
                                                               senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
                                                               contactIdentity: messageToEdit.senderIdentifier,
                                                               discussion: self) {
-                
-                try message.setPollVoteFromContact(contact,
-                                                   for: pollVoteJSON.pollCandidateUuid,
-                                                   voted: pollVoteJSON.voted,
-                                                   version: pollVoteJSON.version,
-                                                   messageUploadTimestampFromServer: pollVoteJSON.originalServerTimestamp ?? messageUploadTimestampFromServer)
-                
-                return message
-                
+
+                let votesVisiblyChanged = try message.setPollVoteFromContact(contact,
+                                                                             for: pollVoteJSON.pollCandidateUuid,
+                                                                             voted: pollVoteJSON.voted,
+                                                                             version: pollVoteJSON.version,
+                                                                             messageUploadTimestampFromServer: pollVoteJSON.originalServerTimestamp ?? messageUploadTimestampFromServer)
+
+                return (message, votesVisiblyChanged)
+
             } else if let message = try PersistedMessageSent.get(senderSequenceNumber: messageToEdit.senderSequenceNumber,
                                                                  senderThreadIdentifier: messageToEdit.senderThreadIdentifier,
                                                                  ownedIdentity: messageToEdit.senderIdentifier,
                                                                  discussion: self) {
-                
-                try message.setPollVoteFromContact(contact,
-                                                   for: pollVoteJSON.pollCandidateUuid,
-                                                   voted: pollVoteJSON.voted,
-                                                   version: pollVoteJSON.version,
-                                                   messageUploadTimestampFromServer: pollVoteJSON.originalServerTimestamp ?? messageUploadTimestampFromServer)
-                
-                return message
-                
+
+                let votesVisiblyChanged = try message.setPollVoteFromContact(contact,
+                                                                             for: pollVoteJSON.pollCandidateUuid,
+                                                                             voted: pollVoteJSON.voted,
+                                                                             version: pollVoteJSON.version,
+                                                                             messageUploadTimestampFromServer: pollVoteJSON.originalServerTimestamp ?? messageUploadTimestampFromServer)
+
+                return (message, votesVisiblyChanged)
+
             } else {
-                
+
                 throw ObvUICoreDataError.couldNotFindPersistedMessage
-                                
+
             }
         }
     }
@@ -1924,7 +2012,7 @@ extension PersistedDiscussion {
                 assertionFailure()
                 throw ObvUICoreDataError.unexpectedDiscussionKind
             }
-            contactCryptoIds = contactIdentity.isActive ? Set([contactIdentity.cryptoId]) : Set([])
+            contactCryptoIds = contactIdentity.isActive ? Set([try contactIdentity.cryptoId]) : Set([])
             guard let _ownCryptoId = oneToOneDiscussion.ownedIdentity?.cryptoId else {
                 throw ObvUICoreDataError.ownedIdentityIsNil
             }
@@ -1941,13 +2029,13 @@ extension PersistedDiscussion {
             ownCryptoId = _ownCryptoId
             switch contactGroup.category {
             case .owned:
-                contactCryptoIds = Set(contactGroup.contactIdentities.filter({ $0.isActive }).map({ $0.cryptoId }))
+                contactCryptoIds = Set(contactGroup.contactIdentities.filter({ $0.isActive }).compactMap({ try? $0.cryptoId }))
             case .joined:
                 guard let groupOwner = try? ObvCryptoId(identity: contactGroup.ownerIdentity) else {
                     throw ObvUICoreDataError.couldNotDetermineGroupOwner
                 }
                 assert(groupOwner != ownCryptoId)
-                var cryptoIds = Set(contactGroup.contactIdentities.filter({ $0.isActive }).compactMap({ $0.cryptoId == ownCryptoId ? nil : $0.cryptoId }))
+                var cryptoIds = Set(contactGroup.contactIdentities.filter({ $0.isActive }).compactMap({ try? $0.cryptoId }).filter({ $0 != ownCryptoId }))
                 assert((contactGroup as? PersistedContactGroupJoined)?.owner != nil)
                 if (contactGroup as? PersistedContactGroupJoined)?.owner?.isActive == true {
                     cryptoIds.insert(groupOwner)
@@ -1962,7 +2050,7 @@ extension PersistedDiscussion {
             }
             
             ownCryptoId = try group.ownCryptoId
-            contactCryptoIds = Set(group.contactsAmongNonPendingOtherMembers.filter({ $0.isActive }).map({ $0.cryptoId }))
+            contactCryptoIds = Set(group.contactsAmongNonPendingOtherMembers.filter({ $0.isActive }).compactMap({ try? $0.cryptoId }))
 
         }
         
@@ -1998,6 +2086,45 @@ extension PersistedDiscussion {
         }
     }
     
+    /// Whether the owned identity may write in this discussion at all — which is what decides whether a screen showing it offers a composition bar.
+    ///
+    /// **The conditions are the legacy screen's**, taken from `NewSingleDiscussionViewController.accessoryViewKindToShow` and gathered here so that they are
+    /// stated once: a discussion that is not `.active` refuses, a one-to-one whose contact is no longer active refuses, and a group v1 with no remote contact
+    /// device refuses — there being nobody for a message to reach.
+    ///
+    /// **A group v2 is the deliberate exception**, and legacy says so in as many words: *"we allow the owned identity to write in a group v2 even if there is
+    /// noone to write to"*. What it asks instead is whether the group's permissions allow it, which is a thing a group v2 can withdraw and restore while the
+    /// reader is looking at the discussion. So this answer changes under a screen and must be followed rather than read once.
+    ///
+    /// Note how this differs from ``isCallAvailable``, which it otherwise resembles: a call needs *somebody at the other end* in both kinds of group, where
+    /// writing needs somebody only in a group v1.
+    public var ownedIdentityIsAllowedToSendMessages: Bool {
+        switch self.status {
+        case .preDiscussion, .locked:
+            return false
+        case .active:
+            switch try? self.kind {
+            case .oneToOne(withContactIdentity: let contactIdentity):
+                return contactIdentity?.isActive == true
+            case .groupV1(withContactGroup: let contactGroup):
+                if let contactGroup {
+                    return contactGroup.hasAtLeastOneRemoteContactDevice()
+                } else {
+                    return false
+                }
+            case .groupV2(withGroup: let group):
+                if let group {
+                    return group.ownedIdentityIsAllowedToSendMessage
+                } else {
+                    return false
+                }
+            case .none:
+                assertionFailure()
+                return false
+            }
+        }
+    }
+
     public var subtitle: String {
         if let oneToOne = self as? PersistedOneToOneDiscussion {
             return oneToOne.contactIdentity?.identityCoreDetails?.positionAtCompany() ?? ""
@@ -2279,9 +2406,10 @@ extension PersistedDiscussion {
         
         switch try kind {
         case .oneToOne(withContactIdentity: let contactIdentity):
-            guard let contactCryptoId = contactIdentity?.cryptoId else {
+            guard let contactIdentity else {
                 throw ObvUICoreDataError.contactIdentityIsNil
             }
+            let contactCryptoId = try contactIdentity.cryptoId
             return .init(messageReference: messageReference,
                          oneToOneIdentifier: .init(
                             ownedCryptoId: ownedCryptoId,
@@ -2378,12 +2506,13 @@ extension PersistedDiscussion {
     }
     
     
-    func markAllMessagesAsNotNew(messageIds: [MessageIdentifier], dateWhenMessageTurnedNotNew: Date, requestedOnAnotherOwnedDevice: Bool) throws -> Date? {
-        
-        guard !messageIds.isEmpty else { return nil }
-        
+    func markAllMessagesAsNotNew(messageIds: [MessageIdentifier], dateWhenMessageTurnedNotNew: Date, requestedOnAnotherOwnedDevice: Bool) throws -> (lastReadMessageServerTimestamp: Date?, readReceiptsToSend: [ObvReturnReceiptToSend]) {
+
+        guard !messageIds.isEmpty else { return (nil, []) }
+
         var lastReadMessageServerTimestamp = Date.distantPast
-        
+        var readReceiptsToSend: [ObvReturnReceiptToSend] = []
+
         for messageId in messageIds {
             guard let message = try PersistedMessage.getPersistedMessage(discussion: self, messageId: messageId) else {
                 // This can happen when dealing with ephemeral messages
@@ -2392,7 +2521,13 @@ extension PersistedDiscussion {
             switch message.kind {
             case .received:
                 assert(message is PersistedMessageReceived)
-                _ = try (message as? PersistedMessageReceived)?.markAsNotNew(dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew, requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
+                if let receivedMessage = message as? PersistedMessageReceived {
+                    _ = try receivedMessage.markAsNotNew(dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew, requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
+                    if !requestedOnAnotherOwnedDevice, receivedMessage.status == .read,
+                       let receipt = receivedMessage.produceReadReceiptToSendIfAppropriate() {
+                        readReceiptsToSend.append(receipt)
+                    }
+                }
                 lastReadMessageServerTimestamp = max(lastReadMessageServerTimestamp, message.timestamp)
             case .system:
                 (message as? PersistedMessageSystem)?.markAsRead()
@@ -2402,9 +2537,9 @@ extension PersistedDiscussion {
                 throw ObvUICoreDataError.unexpectedMessageKind
             }
         }
-        
-        return lastReadMessageServerTimestamp
-        
+
+        return (lastReadMessageServerTimestamp, readReceiptsToSend)
+
     }
 
 
@@ -2440,6 +2575,29 @@ extension PersistedDiscussion {
 
 // MARK: - Convenience DB getters
 
+
+// MARK: - Reading the local configuration safely
+
+extension PersistedDiscussion {
+
+    /// The local configuration of this discussion, or nil when the relationship is not set.
+    ///
+    /// **Use this rather than ``localConfiguration`` whenever the value is merely *read*.** That property is declared as
+    /// non-optional, so when the relationship is empty Swift hands back a nil pointer typed as a real object. Reading a field of it
+    /// then returns whatever lies at that offset, and the program crashes later, somewhere else, while retaining the result. That is
+    /// exactly what happened when a double tap on a message read `discussion.localConfiguration.defaultEmoji`: the crash landed in
+    /// `swift_retain` at address 0x100, three frames away from the read, with `EXC_BAD_ACCESS`.
+    ///
+    /// Going through the key makes the nil visible, so a caller can fall back to whatever the global setting says instead of
+    /// crashing. `ComposeViewAppDataSource` avoids the same trap in a different way, by *fetching* the configuration rather than
+    /// following the relationship.
+    public var localConfigurationIfAny: PersistedDiscussionLocalConfiguration? {
+        value(forKey: Predicate.Key.localConfiguration.rawValue) as? PersistedDiscussionLocalConfiguration
+    }
+
+}
+
+
 extension PersistedDiscussion {
 
     struct Predicate {
@@ -2469,6 +2627,17 @@ extension PersistedDiscussion {
             
             static let ownedIdentityIdentity = [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
             static let muteNotificationsEndDate = [Predicate.Key.localConfiguration.rawValue, PersistedDiscussionLocalConfiguration.Predicate.Key.muteNotificationsEndDate.rawValue].joined(separator: ".")
+        }
+        static var withNonHiddenOwnedIdentity: NSPredicate {
+            let hiddenProfileHash: String = [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.hiddenProfileHash.rawValue].joined(separator: ".")
+            let hiddenProfileSalt: String = [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.hiddenProfileSalt.rawValue].joined(separator: ".")
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.ownedIdentity),
+                NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    NSPredicate(withNilValueForRawKey: hiddenProfileHash),
+                    NSPredicate(withNilValueForRawKey: hiddenProfileSalt),
+                ]),
+            ])
         }
         static func whereIsPinnedIs(_ isPinned: Bool) -> NSPredicate {
             if isPinned {
@@ -2583,7 +2752,13 @@ extension PersistedDiscussion {
     }
 
     
-    public static func getIdentifiersOfActiveAndLockedDiscussions(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [ObvDiscussionIdentifier] {
+    /// Returns the identifiers of the active and locked discussions of the given owned identity.
+    ///
+    /// An `ObvDiscussionIdentifier` identifies a single logical discussion, so the result is naturally a set of
+    /// unique identifiers. We make this explicit in the return type so that callers can rely on it: in particular,
+    /// the history transfer must process each discussion at most once, otherwise it would request and insert every
+    /// message of that discussion more than once, causing messages to appear several times on the destination device.
+    public static func getIdentifiersOfActiveAndLockedDiscussions(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Set<ObvDiscussionIdentifier> {
         let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnCryptoId(ownedCryptoId),
@@ -2594,9 +2769,8 @@ extension PersistedDiscussion {
         ])
         request.fetchBatchSize = 100
         let items = try context.fetch(request)
-        let discussionIdentifiers = items.compactMap({ try? $0.discussionIdentifier})
-        assert(items.count == discussionIdentifiers.count)
-        return discussionIdentifiers
+        let discussionIdentifiers = items.compactMap({ try? $0.discussionIdentifier })
+        return Set(discussionIdentifiers)
     }
     
     
@@ -2681,6 +2855,18 @@ extension PersistedDiscussion {
         request.fetchBatchSize = 1_000
         request.predicate = Predicate.withOwnedIdentity(ownedIdentity)
         request.propertiesToFetch = [Predicate.Key.numberOfNewMessages.rawValue]
+        return try context.fetch(request)
+    }
+    
+    public static func getAllActiveDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [PersistedDiscussion] {
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.fetchBatchSize = 1_000
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+            Predicate.withStatus(.active)
+        ])
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)]
+        
         return try context.fetch(request)
     }
     
@@ -2871,6 +3057,44 @@ extension PersistedDiscussion {
         return try context.fetch(request)
     }
     
+
+    public enum DiscussionKindFilter {
+        case any
+        case oneToOne
+        case group
+    }
+
+    public static func searchDiscussions(searchTerm: String?, kind: DiscussionKindFilter = .any, with context: NSManagedObjectContext) throws -> [PersistedDiscussion] {
+
+        let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+
+        var subPredicates: [NSPredicate] = [
+            Predicate.withNonHiddenOwnedIdentity,
+            Predicate.withStatus(.active),
+            self.getSearchPredicate(searchTerm),
+        ]
+
+        switch kind {
+        case .any:
+            break
+        case .oneToOne:
+            subPredicates.append(NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.isGroupDiscussion))
+        case .group:
+            subPredicates.append(Predicate.isGroupDiscussion)
+        }
+
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subPredicates)
+
+        fetchRequest.sortDescriptors = [
+            NSSortDescriptor(key: Predicate.Key.pinnedSectionKeyPath.rawValue, ascending: false),
+            NSSortDescriptor(key: Predicate.Key.rawPinnedIndex.rawValue, ascending: true),
+            NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)
+        ]
+
+        return try context.fetch(fetchRequest)
+
+    }
+    
     
     static func getObjectIDsOfAllPinnedDiscussions(ownedCryptoId: ObvCryptoId, with context: NSManagedObjectContext) throws -> [NSManagedObjectID] {
         let request = NSFetchRequest<NSManagedObjectID>(entityName: PersistedDiscussion.entityName)
@@ -2911,6 +3135,14 @@ extension PersistedDiscussion {
         return predicate
     }
     
+    /// Returns a predicate matching the active discussions (see `PersistedDiscussion.Status.active`) of the given owned identity.
+    public static func getPredicateForActiveDiscussionsForOwnedIdentity(ownedCryptoId: ObvCryptoId) -> NSPredicate {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+            Predicate.withStatus(.active)
+        ])
+        return predicate
+    }
     
     /// This is used by the datasource of the view showing a list of recent, not deleted, archived, discussions.
     public static func getPredicateForArchivedNotDeletedDiscussionsForOwnedIdentity(ownedCryptoId: ObvCryptoId) -> NSPredicate {
@@ -3044,6 +3276,21 @@ extension PersistedDiscussion {
     }
     
 
+    /// Returns a `NSFetchRequest` whose predicate (`NSPredicate(value: false)`) matches no discussion at all.
+    /// Used to back a fetched results controller with a deliberately empty result set (e.g. when no owned identity is selected).
+    public static func getFetchRequestForNoDiscussions() -> FetchRequestControllerModel<PersistedDiscussion> {
+
+        let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+
+        fetchRequest.predicate = NSPredicate(value: false)
+
+        // Even though the predicate matches nothing, an NSFetchedResultsController requires at least one
+        // sort descriptor (performFetch() throws otherwise). We provide one to keep the FRC valid.
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDate.rawValue, ascending: false)]
+
+        return FetchRequestControllerModel(fetchRequest: fetchRequest, sectionNameKeyPath: nil)
+    }
+    
     /// Returns a `NSFetchRequest` for the non-empty and active discussions of the owned identity, sorted by the timestamp of the last message of each discussion.
     public static func getFetchRequestForAllActiveRecentDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> FetchRequestControllerModel<PersistedDiscussion> {
 

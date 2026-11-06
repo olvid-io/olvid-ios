@@ -45,6 +45,12 @@
             "value": "이 그룹을 복제합니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sklonuj tę grupę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "Клонировать эту группу"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubu klonla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Клонувати цю групу"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép nhóm này"
           }
         },
         "zh-Hans": {
@@ -121,6 +139,12 @@
             "value": "이 그룹 복제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sklonuj tę grupę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -139,10 +163,22 @@
             "value": "Клонировать эту группу"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubu klonla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Клонувати цю групу"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép nhóm này"
           }
         },
         "zh-Hans": {
@@ -197,6 +233,12 @@
             "value": "이 그룹 해체"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozwiąż tę grupę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -215,10 +257,22 @@
             "value": "Распустить эту группу"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubu dağıt"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Розформувати цю групу"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giải tán nhóm này"
           }
         },
         "zh-Hans": {
@@ -273,6 +327,12 @@
             "value": "사용자 지정 이름과 사진을 변경하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj własną nazwę i zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -291,10 +351,22 @@
             "value": "Изменить имя и фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel adı ve fotoğrafı düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Редагувати власне ім'я та фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa tên và ảnh đại diện tùy chỉnh"
           }
         },
         "zh-Hans": {
@@ -349,6 +421,12 @@
             "value": "개인 메모 수정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj notatkę osobistą"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -367,10 +445,22 @@
             "value": "Редактировать личную заметку"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişisel notu düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Редагувати особисту нотатку"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa ghi chú cá nhân"
           }
         },
         "zh-Hans": {
@@ -425,6 +515,12 @@
             "value": "이 그룹은 여러 관리자를 지원하지 않습니다. 하지만 이 그룹을 복제하여 새로운 그룹을 만들 수 있습니다!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta grupa nie obsługuje więcej niż jednego administratora. Możesz jednak sklonować ją do nowej grupy, która to umożliwia 🚀!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -443,10 +539,22 @@
             "value": "В этой группе не поддерживается более одного администратора. Но вы можете клонировать эту группу в новую, в которой 🚀!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grup birden fazla yöneticiyi desteklemiyor. Ancak bu grubu, bunu destekleyen yeni bir gruba klonlayabilirsiniz 🚀!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ця група не підтримує більше одного адміністратора. Але ви можете клонувати цю групу в нову, де ви зможете призначити більше адміністраторів! 🚀"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm này không hỗ trợ nhiều hơn một quản trị viên. Nhưng bạn có thể sao chép nhóm này sang một nhóm mới!"
           }
         },
         "zh-Hans": {
@@ -501,6 +609,12 @@
             "value": "그룹 관리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrowanie grupą"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -519,10 +633,22 @@
             "value": "Администрирование группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup yönetimi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Адміністрування групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản lý nhóm"
           }
         },
         "zh-Hans": {
@@ -577,6 +703,12 @@
             "value": "귀하가 이 그룹에서 제거되었습니다. 만약 이것이 실수라고 생각하시면 그룹 관리자 중 한 명에게 문의하여 도움을 요청하십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usunięto cię z tej grupy. Jeśli uważasz, że to pomyłka, poproś o pomoc jednego z administratorów grupy."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -595,10 +727,22 @@
             "value": "Вас удалили из этой группы. Если вы считаете, что это ошибка, обратитесь к одному из администраторов группы за помощью."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu gruptan çıkarıldınız. Bunun bir hata olduğunu düşünüyorsanız yardım için lütfen grup yöneticilerinden biriyle iletişime geçin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вас було видалено з цієї групи. Якщо ви вважаєте, що це помилка, зверніться до одного з адміністраторів групи за допомогою."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn đã bị xóa khỏi nhóm này. Nếu bạn cho rằng đây là một sai sót, vui lòng liên hệ với một trong những quản trị viên của nhóm để được hỗ trợ."
           }
         },
         "zh-Hans": {
@@ -653,6 +797,12 @@
             "value": "그룹을 사용할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupa nie jest już dostępna"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -671,10 +821,22 @@
             "value": "Группа больше недоступна"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup artık kullanılamıyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групу більше не існує"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm không còn khả dụng"
           }
         },
         "zh-Hans": {
@@ -729,6 +891,12 @@
             "value": "이 그룹에서 나가기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opuść tę grupę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -747,10 +915,22 @@
             "value": "Покинуть группу"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu gruptan ayrıl"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Покинути цю групу"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rời khỏi nhóm này"
           }
         },
         "zh-Hans": {
@@ -805,6 +985,12 @@
             "value": "그룹 이름 및 사진"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nazwa i zdjęcie grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -823,10 +1009,22 @@
             "value": "Название и фото группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adı ve resmi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Назва та фото групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên và ảnh của nhóm"
           }
         },
         "zh-Hans": {
@@ -881,6 +1079,12 @@
             "value": "구성원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Członkowie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -899,10 +1103,22 @@
             "value": "Участники"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Учасники"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thành viên"
           }
         },
         "zh-Hans": {
@@ -957,6 +1173,12 @@
             "value": "이 작업은 되돌릴 수 없다는 점에 유의하십시오. 확인하시면 이 그룹이 모든 구성원에게 삭제됩니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pamiętaj, że tej czynności nie można cofnąć. Jeśli potwierdzisz, grupa zostanie usunięta u wszystkich członków."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -975,10 +1197,22 @@
             "value": "Пожалуйста, обратите внимание, что это действие необратимо. Если вы подтвердите, эта группа будет удалена для всех участников."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu işlemin geri alınamayacağını lütfen unutmayın. Onaylarsanız bu grup tüm üyeler için silinecek."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Будь ласка, зверніть увагу, що цю дію неможливо скасувати. Якщо ви підтвердите, ця група буде видалена для всіх учасників."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xin lưu ý rằng hành động này không thể đảo ngược. Nếu bạn xác nhận, nhóm này sẽ bị xóa vĩnh viễn cho tất cả các thành viên."
           }
         },
         "zh-Hans": {
@@ -1033,6 +1267,12 @@
             "value": "주의! 정말로 이 그룹을 해체하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uwaga! Czy na pewno chcesz rozwiązać tę grupę?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1051,10 +1291,22 @@
             "value": "Внимание! Вы действительно хотите распустить эту группу?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dikkat! Bu grubu gerçekten dağıtmak istiyor musunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Увага! Ви справді хочете розформувати цю групу?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cảnh báo! Bạn có thực sự muốn giải tán nhóm này không?"
           }
         },
         "zh-Hans": {
@@ -1109,6 +1361,12 @@
             "value": "이 작업은 되돌릴 수 없다는 점에 유의하십시오(나중에 그룹 관리자가 다시 초대하기로 결정하지 않는 한)."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pamiętaj, że tej czynności nie można cofnąć (chyba że administrator grupy później ponownie cię zaprosi)."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1127,10 +1385,22 @@
             "value": "Пожалуйста, обратите внимание, что это действие необратимо (если только администратор группы не решит пригласить вас снова позже)."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu işlemin geri alınamayacağını lütfen unutmayın (bir grup yöneticisi sizi daha sonra yeniden davet etmedikçe)."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Будь ласка, зверніть увагу, що ця дія незворотна (якщо тільки адміністратор групи не вирішить запросити вас знову пізніше)."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xin lưu ý rằng hành động này không thể đảo ngược (trừ khi quản trị viên nhóm quyết định mời bạn tham gia lại sau này)."
           }
         },
         "zh-Hans": {
@@ -1185,6 +1455,12 @@
             "value": "정말로 이 그룹을 나가시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czy na pewno chcesz opuścić tę grupę?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1203,10 +1479,22 @@
             "value": "Вы действительно хотите покинуть эту группу?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu gruptan gerçekten ayrılmak istiyor musunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви справді бажаєте покинути цю групу?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có thực sự muốn rời khỏi nhóm này không?"
           }
         },
         "zh-Hans": {
@@ -1261,6 +1549,12 @@
             "value": "멤버 관리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zarządzaj członkami"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1279,10 +1573,22 @@
             "value": "Управление участниками"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeleri yönet"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Керувати учасниками"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản lý thành viên"
           }
         },
         "zh-Hans": {

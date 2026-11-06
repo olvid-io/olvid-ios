@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,18 +26,24 @@ protocol AddProfileViewActionsProtocol: AnyObject {
     func userWantsToCreateNewProfile() async
     func userWantsToImportProfileFromAnotherDevice() async
     func userWantsToRestoreBackup() async
+    func userWantsToCloseOnboarding() async
 }
 
 
 struct AddProfileView: View {
     
     let actions: AddProfileViewActionsProtocol
+    let showCloseButton: Bool
     
     @State private var isBadgeVisible = false
 
+    private func userWantsToCloseOnboarding() {
+        Task { await actions.userWantsToCloseOnboarding() }
+    }
+
     private func onAppear() {
         Task {
-            try await Task.sleep(seconds: 0.2)
+            try? await Task.sleep(seconds: 0.2)
             withAnimation {
                 isBadgeVisible = true
             }
@@ -87,7 +93,15 @@ struct AddProfileView: View {
             
             Spacer()
 
-        }.padding(.horizontal)
+        }
+        .padding(.horizontal)
+        .toolbar {
+            if showCloseButton {
+                ToolbarItem(placement: .cancellationAction) {
+                    ObvButtonWithCancelRole(action: userWantsToCloseOnboarding)
+                }
+            }
+        }
     }
     
 }

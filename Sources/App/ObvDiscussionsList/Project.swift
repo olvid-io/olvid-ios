@@ -22,6 +22,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.App.UI.obvCircleAndTitlesView,
         .Olvid.App.UI.obvPhotoButton,
         .Olvid.Shared.obvTypes,
+        .Olvid.Shared.olvidUtils,
         .Olvid.Shared.obvOwnedIdentityChooser,
     ],
     enableSwift6: true)

@@ -1,6 +1,6 @@
 //
 //  Olvid for iOS
-//  Copyright © 2019-2024 Olvid SAS
+//  Copyright © 2019-2026 Olvid SAS
 //
 //  This file is part of Olvid for iOS.
 //
@@ -1463,7 +1463,7 @@ class ObvCryptoTests: XCTestCase {
         let testVectors = try! decoder.decode([TestVectorsBackupKeysFromBackupSeedString].self, from: jsonData)
         for testVector in testVectors {
             guard let backupSeed = BackupSeed(testVector.backupSeedString) else { XCTFail(); return }
-            let derivedKeys = backupSeed.deriveKeysForBackup()
+            let derivedKeys = backupSeed.deriveKeysForLegacyBackup()
             XCTAssertEqual(derivedKeys.macKey.data, testVector.macKey.data)
             XCTAssertEqual(derivedKeys.publicKeyForEncryption.getCompactKey(), testVector.publicKeyForEncryption.getCompactKey())
             XCTAssertEqual(derivedKeys.backupKeyUid, testVector.uid)

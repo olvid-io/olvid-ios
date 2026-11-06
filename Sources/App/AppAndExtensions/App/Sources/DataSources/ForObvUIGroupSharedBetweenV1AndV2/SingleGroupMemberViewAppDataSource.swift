@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -206,9 +206,8 @@ extension SingleGroupMemberViewAppDataSource {
                 throw ObvError.couldNotFindGroupMember
             }
             
-            let ownedCryptoId = try groupMember.persistedGroup.ownCryptoId
-            let remoteCryptoId = groupMember.cryptoId
-            let frc2 = PersistedInvitationOneToOneInvitationSent.getFetchedResultsController(ownedCryptoId: ownedCryptoId, remoteCryptoId: remoteCryptoId, within: viewContext)
+            let contactIdentifier = try groupMember.userIdentifier
+            let frc2 = PersistedInvitationOneToOneInvitationSent.getFetchedResultsController(ownedCryptoId: contactIdentifier.ownedCryptoId, remoteCryptoId: contactIdentifier.contactCryptoId, within: viewContext)
 
             super.init(frc1: frc1, frc2: frc2)
         }
@@ -266,7 +265,7 @@ extension SingleGroupMemberView.Model {
             
         } else {
             
-            let contactIdentifier = ObvContactIdentifier(contactCryptoId: persistedMember.cryptoId, ownedCryptoId: try persistedMember.persistedGroup.ownCryptoId)
+            let contactIdentifier = try persistedMember.userIdentifier
             self.init(contactIdentifier: contactIdentifier,
                       isGroupAdmin: persistedMember.permissions.contains(.groupAdmin),
                       isKeycloakManaged: persistedMember.isKeycloakManaged,
@@ -325,7 +324,7 @@ extension SingleGroupMemberView.Model {
             
             let isGroupAdmin: Bool
             if let joinedGroup = groupV1 as? PersistedContactGroupJoined {
-                if joinedGroup.ownerIdentity == persistedContact.cryptoId.getIdentity() {
+                if joinedGroup.ownerIdentity == persistedContact.identity {
                     isGroupAdmin = true
                 } else {
                     isGroupAdmin = false
@@ -334,7 +333,8 @@ extension SingleGroupMemberView.Model {
                 isGroupAdmin = false
             }
             
-            let isPending: Bool = groupV1.pendingMembers.map({ $0.cryptoId }).contains(where: { $0 == persistedContact.cryptoId })
+            let contactCryptoId = try persistedContact.cryptoId
+            let isPending: Bool = groupV1.pendingMembers.compactMap({ try? $0.cryptoId }).contains(where: { $0 == contactCryptoId })
             
             self.init(contactIdentifier: try persistedContact.obvContactIdentifier,
                       isGroupAdmin: isGroupAdmin,
@@ -358,7 +358,7 @@ extension SingleGroupMemberView.Model {
     /// Called when displaying a group v1, but only if the pending member is not already a `PersistedObvContactIdentity`
     init(pendingGroupMember: PersistedPendingGroupMember) throws {
         
-        let contactIdentifier = ObvContactIdentifier(contactCryptoId: pendingGroupMember.cryptoId, ownedCryptoId: try pendingGroupMember.ownedCryptoId)
+        let contactIdentifier = ObvContactIdentifier(contactCryptoId: try pendingGroupMember.cryptoId, ownedCryptoId: try pendingGroupMember.ownedCryptoId)
         
         self.init(contactIdentifier: contactIdentifier,
                   isGroupAdmin: false, // A pending member cannot be an admin
@@ -366,7 +366,7 @@ extension SingleGroupMemberView.Model {
                   profilePictureInitial: pendingGroupMember.circledInitialsConfiguration.initials?.text,
                   circleColors: .init(background: pendingGroupMember.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared),
                                       foreground: pendingGroupMember.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared)),
-                  identityDetails: pendingGroupMember.identityDetails,
+                  identityDetails: try pendingGroupMember.identityDetails,
                   isOneToOneContact: .no(canSendOneToOneInvitation: false),
                   isRevokedAsCompromised: false,
                   isPending: true,

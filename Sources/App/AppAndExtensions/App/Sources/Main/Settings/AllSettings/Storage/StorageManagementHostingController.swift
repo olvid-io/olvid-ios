@@ -24,45 +24,14 @@ import ObvAppTypes
 import ObvTypes
 
 @available(iOS 17.0, *)
-final class StorageManagementHostingController: KeyboardHostingController<StorageManagerRouterView> {
-    
-    private var isRegisteredToNotifications = false
-    private var observationTokens = [NSObjectProtocol]()
-    override var canBecomeFirstResponder: Bool { true }
-    
+final class StorageManagementHostingController: UIHostingController<StorageManagerRouterView> {
+
     init(currentOwnedCryptoId: ObvCryptoId) {
         let routerView = StorageManagerRouterView(currentOwnedCryptoId: currentOwnedCryptoId)
         super.init(rootView: routerView)
     }
-    
+
     @MainActor @preconcurrency required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        registerForNotification()
-    }
-    
-    deinit {
-        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
-    }
-}
-
-@available(iOS 17.0, *)
-extension StorageManagementHostingController {
-
-    private func registerForNotification() {
-        guard !isRegisteredToNotifications else { return }
-        isRegisteredToNotifications = true
-        
-        observationTokens.append(contentsOf: [
-            KeyboardNotification.observeKeyboardDidInputEscapeKeyNotification { [weak self] in
-                OperationQueue.main.addOperation { [weak self] in
-                    guard let self else { return }
-                    self.dismiss(animated: true)
-                }
-            },
-        ])
     }
 }

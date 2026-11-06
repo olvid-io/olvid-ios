@@ -63,19 +63,17 @@ public struct CircledInitialsView: View {
     }
 
     let configuration: CircledInitialsConfiguration
-    let style: IdentityColorStyle
     let size: Size
     
-    public init(configuration: CircledInitialsConfiguration, size: Size, style: IdentityColorStyle) {
+    public init(configuration: CircledInitialsConfiguration, size: Size) {
         self.configuration = configuration
         self.size = size
-        self.style = style
     }
 
     public var body: some View {
-        RoundedClipView(configuration: configuration, style: style, size: size)
+        RoundedClipView(configuration: configuration, size: size)
             .frame(width: size.sideLength, height: size.sideLength)
-            .background(Color(configuration.backgroundColor(appTheme: AppTheme.shared, using: style)))
+            .background(Color(configuration.backgroundColor(appTheme: AppTheme.shared)))
             .clipShape(Circle())
     }
 }
@@ -85,11 +83,10 @@ public struct CircledInitialsView: View {
 fileprivate struct RoundedClipView: View {
 
     let configuration: CircledInitialsConfiguration
-    let style: IdentityColorStyle
     let size: CircledInitialsView.Size
 
     var body: some View {
-        switch configuration.contentType(using: style) {
+        switch configuration.contentType() {
         case .icon(let icon, let color): return AnyView(createIconView(using: icon, color: color))
         case .initial(let text, let color): return AnyView(createInitialView(using: text, color: color))
         case .picture(let image): return AnyView(createPictureView(using: image))

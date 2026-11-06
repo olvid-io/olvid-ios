@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -188,6 +188,16 @@ extension ObvNetworkSendManagerImplementation {
 
     public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
         return try await delegateManager.networkSendFlowDelegate.requestUploadAttachmentProgressesUpdatedSince(date: date)
+    }
+
+
+    public func getAsyncStreamOfUploadProgress(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentUploadProgress>) {
+        return try await delegateManager.networkSendFlowDelegate.getAsyncStreamOfUploadProgress(attachmentId: attachmentId, flowId: flowId)
+    }
+
+
+    public func finishAsyncStreamOfUploadProgress(streamUUID: UUID) async throws {
+        try await delegateManager.networkSendFlowDelegate.finishAsyncStreamOfUploadProgress(streamUUID: streamUUID)
     }
 
     public func replayTransactionsHistory(transactions: [NSPersistentHistoryTransaction], within obvContext: ObvContext) {

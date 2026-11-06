@@ -39,22 +39,30 @@ import ObvSyncSnapshotManager
 import OlvidUtils
 import ObvJWS
 import ObvBackupManagerNew
+import ObvReturnReceiptSendManager
 
 
 public final class ObvEngine: ObvManager {
-    
-    public static var mainContainerURL: URL? = nil
-    
+
     private let delegateManager: ObvMetaManager
     let engineCoordinator: EngineCoordinator
     let prng: PRNGService
     let appNotificationCenter: NotificationCenter
-    let returnReceiptSender: ReturnReceiptSender
+    let returnReceiptCrypto: ReturnReceiptCrypto
     private let transactionsHistoryReplayer: TransactionsHistoryReplayer
     private let protocolWaiter: ProtocolWaiter
     private let remoteNotificationByteIdentifierForServer: Data
     let obvBackupManagerNew: ObvBackupManagerNew? // Non-nil iff appType is .mainApp
+    /// Non-optional, and built in every process: unlike the backups, a receipt is owed by whichever process received
+    /// the message. It runs without a store rather than being nil when there is none.
+    let obvReturnReceiptSendManager: ObvReturnReceiptSendManager
     let appType: AppType
+
+    /// How long the sweep of the return receipts we owe may run when the app comes to the foreground.
+    ///
+    /// A backstop rather than the usual reason a sweep ends: it stops by itself on the first page a server does not
+    /// settle, and pages are consumed by being deleted, so the work is bounded by the number of rows.
+    private static let deadlineForTheForegroundSweepOfReturnReceipts: TimeInterval = 5 * 60
 
     static let defaultLogSubsystem = "io.olvid.engine"
     public var logSubsystem: String = ObvEngine.defaultLogSubsystem
@@ -75,22 +83,17 @@ public final class ObvEngine: ObvManager {
         return queue
     }()
 
-    // We define a special queue for posting newObvReturnReceiptToProcess notifications to fix a bug occurring when a lot of return receipts are received at once.
-    // In that case, creating one thread per receipt can lead to a complete hang of Olvid. Using one fixed thread (together with a fix made at the App level) should prevent the bug.
-    let queueForPostingNewObvReturnReceiptToProcessNotifications = DispatchQueue(label: "Queue for posting a newObvReturnReceiptToProcess notification")
-    
     let queueForPostingNotificationsToTheApp = DispatchQueue(label: "Queue for posting notifications to the app")
     
     private let queueForSynchronizingCallsToManagers = DispatchQueue(label: "Queue for synchronizing calls to managers")
     
     // MARK: - Public factory methods
     
-    /// This method returns a full engine, with an initialized Core Data Stack
-    public static func startFull(logPrefix: String, appNotificationCenter: NotificationCenter, backgroundTaskManager: ObvBackgroundTaskManager, sharedContainerIdentifier: String, supportBackgroundTasks: Bool, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws -> ObvEngine {
-        
-        // The main container URL is shared between all the apps within the app group (i.e., between the main app, the share extension, and the notification extension).
-        guard let mainContainerURL = ObvEngine.mainContainerURL else { throw makeError(message: "The main container URL is not set") }
-        
+    /// This method returns a full engine, with an initialized Core Data Stack.
+    ///
+    /// The `mainContainerURL` is shared between all the apps within the app group (i.e., between the main app, the share extension, and the notification extension).
+    public static func startFull(logPrefix: String, appNotificationCenter: NotificationCenter, backgroundTaskManager: ObvBackgroundTaskManager, sharedContainerIdentifier: String, mainContainerURL: URL, supportBackgroundTasks: Bool, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws -> ObvEngine {
+
         let prng = ObvCryptoSuite.sharedInstance.prngService()
         
         guard let inbox = ObvEngine.createAndConfigureBox("inbox", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure inbox") }
@@ -99,7 +102,14 @@ public final class ObvEngine: ObvManager {
         guard let identityPhotos = ObvEngine.createAndConfigureBox("identityPhotos", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the identityPhotos box") }
         guard let downloadedUserData = ObvEngine.createAndConfigureBox("downloadedUserData", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the downloadedUserData box") }
         guard let uploadingUserData = ObvEngine.createAndConfigureBox("uploadingUserData", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the uploadingUserData box") }
-                
+        // Box owned by the network fetch manager. It stores hardlinks (or copies when hardlinking is not possible)
+        // of files that callers — typically the protocol manager — have passed to the network manager for upload
+        // via `putUserData` server queries. The network manager adopts the source file into this box on receipt
+        // of the server query, which lets callers safely delete their own copy immediately afterwards. Files in
+        // this box are removed by the network manager after a successful upload or a permanent failure; orphans
+        // (e.g. after a crash mid-upload) are swept at bootstrap time.
+        guard let pendingUserDataUploads = ObvEngine.createAndConfigureBox("pendingUserDataUploads", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the pendingUserDataUploads box") }
+
         // We create all the internal managers
         var obvManagers = [ObvManager]()
         
@@ -120,6 +130,7 @@ public final class ObvEngine: ObvManager {
         // ObvNetworkFetchDelegate
         obvManagers.append(ObvNetworkFetchManagerImplementation(inbox: inbox,
                                                                 downloadedUserData: downloadedUserData,
+                                                                pendingUserDataUploads: pendingUserDataUploads,
                                                                 prng: prng,
                                                                 sharedContainerIdentifier: sharedContainerIdentifier,
                                                                 supportBackgroundDownloadTasks: supportBackgroundTasks,
@@ -150,6 +161,7 @@ public final class ObvEngine: ObvManager {
         
         let fullEngine = try await self.init(logPrefix: logPrefix,
                                        sharedContainerIdentifier: sharedContainerIdentifier,
+                                       mainContainerURL: mainContainerURL,
                                        obvManagers: obvManagers,
                                        appNotificationCenter: appNotificationCenter,
                                        remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer,
@@ -167,12 +179,15 @@ public final class ObvEngine: ObvManager {
     }
     
     
-    public static func startLimitedToSending(logPrefix: String, sharedContainerIdentifier: String, supportBackgroundTasks: Bool, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws -> ObvEngine {
-
-        guard let mainContainerURL = ObvEngine.mainContainerURL else {
-            debugPrint("ObvEngine ERROR: the mainContainerURL is not set")
-            throw makeError(message: "The mainContainerURL is not set")
-        }
+    public static func startLimitedToSending(
+        logPrefix: String,
+        sharedContainerIdentifier: String,
+        mainContainerURL: URL,
+        supportBackgroundTasks: Bool,
+        remoteNotificationByteIdentifierForServer: Data,
+        appType: AppType,
+        runningLog: RunningLogError
+    ) async throws -> ObvEngine {
 
         let prng = ObvCryptoSuite.sharedInstance.prngService()
 
@@ -217,6 +232,7 @@ public final class ObvEngine: ObvManager {
 
         let engine = try await self.init(logPrefix: logPrefix,
                                          sharedContainerIdentifier: sharedContainerIdentifier,
+                                         mainContainerURL: mainContainerURL,
                                          obvManagers: obvManagers,
                                          appNotificationCenter: dummyNotificationCenter,
                                          remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer,
@@ -231,13 +247,15 @@ public final class ObvEngine: ObvManager {
     }
     
     
-    public static func startLimitedToDecrypting(sharedContainerIdentifier: String, logPrefix: String, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws -> ObvEngine {
-        
-        guard let mainContainerURL = ObvEngine.mainContainerURL else {
-            debugPrint("ObvEngine ERROR: the mainContainerURL is not set")
-            throw makeError(message: "The mainContainerURL is not set")
-        }
-        
+    public static func startLimitedToDecrypting(
+        sharedContainerIdentifier: String,
+        mainContainerURL: URL,
+        logPrefix: String,
+        remoteNotificationByteIdentifierForServer: Data,
+        appType: AppType,
+        runningLog: RunningLogError
+    ) async throws -> ObvEngine {
+
         let prng = ObvCryptoSuite.sharedInstance.prngService()
         
         guard let database = ObvEngine.createAndConfigureBox("database", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the database box") }
@@ -277,6 +295,7 @@ public final class ObvEngine: ObvManager {
         
         let engine = try await self.init(logPrefix: logPrefix,
                                          sharedContainerIdentifier: sharedContainerIdentifier,
+                                         mainContainerURL: mainContainerURL,
                                          obvManagers: obvManagers,
                                          appNotificationCenter: dummyNotificationCenter,
                                          remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer,
@@ -292,24 +311,36 @@ public final class ObvEngine: ObvManager {
     
     // MARK: - Initializer
     
-    private init(logPrefix: String, sharedContainerIdentifier: String, obvManagers: [ObvManager], appNotificationCenter: NotificationCenter, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws {
+    private init(logPrefix: String,
+                 sharedContainerIdentifier: String,
+                 mainContainerURL: URL,
+                 obvManagers: [ObvManager],
+                 appNotificationCenter: NotificationCenter,
+                 remoteNotificationByteIdentifierForServer: Data,
+                 appType: AppType,
+                 runningLog: RunningLogError
+    ) async throws {
         
         self.appType = appType
         self.prng = ObvCryptoSuite.sharedInstance.prngService()
         self.appNotificationCenter = appNotificationCenter
-        self.returnReceiptSender = ReturnReceiptSender(prng: prng)
+        self.returnReceiptCrypto = ReturnReceiptCrypto(prng: prng)
         self.transactionsHistoryReplayer = TransactionsHistoryReplayer(sharedContainerIdentifier: sharedContainerIdentifier, appType: appType)
         self.engineCoordinator = EngineCoordinator(logSubsystem: logSubsystem, prng: self.prng, queueForComposedOperations: queueForComposedOperations, appNotificationCenter: appNotificationCenter)
         delegateManager = ObvMetaManager()
         self.protocolWaiter = ProtocolWaiter(delegateManager: delegateManager, prng: prng)
         self.remoteNotificationByteIdentifierForServer = remoteNotificationByteIdentifierForServer
 
+        // The box of the return receipts we owe. Nothing throws here, and that is deliberate: a box that cannot be
+        // made leaves the manager without a store, which sends each receipt as it is produced — what this app did
+        // before that store existed. A return receipt is never worth a failed launch.
+        let databaseForReturnReceiptsToSend = ObvEngine.createAndConfigureBox("databaseForReturnReceiptsToSend", mainContainerURL: mainContainerURL)
+        self.obvReturnReceiptSendManager = ObvReturnReceiptSendManager(appType: appType,
+                                                                      containerURL: databaseForReturnReceiptsToSend,
+                                                                      runningLog: runningLog)
+
         switch appType {
         case .mainApp:
-            guard let mainContainerURL = ObvEngine.mainContainerURL else {
-                assertionFailure()
-                throw Self.makeError(message: "The main container URL is not set")
-            }
             guard let databaseForBackups = ObvEngine.createAndConfigureBox("databaseForBackups", mainContainerURL: mainContainerURL) else {
                 assertionFailure()
                 throw Self.makeError(message: "Could not create and configure the database for backup box")
@@ -322,7 +353,7 @@ public final class ObvEngine: ObvManager {
                                                                appGroupIdentifier: sharedContainerIdentifier,
                                                                physicalDeviceName: physicalDeviceName,
                                                                runningLog: runningLog)
-        case .shareExtension, .notificationExtension:
+        case .shareExtension, .notificationExtension, .intentExtension:
             self.obvBackupManagerNew = nil
         }
         
@@ -332,13 +363,12 @@ public final class ObvEngine: ObvManager {
             $0.prependLogSubsystem(with: logPrefix)
             try delegateManager.register($0)
         }
-        self.returnReceiptSender.prependLogSubsystem(with: logPrefix)
-        self.returnReceiptSender.identityDelegate = self.identityDelegate
         //setValueTransformers()
         let flowId = FlowIdentifier()
         os_log("Flow for finalizing the engine initialization: %{public}@", log: log, type: .debug, flowId.debugDescription)
         try delegateManager.initializationFinalized(flowId: flowId, runningLog: runningLog)
         try await obvBackupManagerNew?.finalizeInitialization(delegate: self)
+        try await obvReturnReceiptSendManager.finalizeInitialization(delegate: self)
         try registerToInternalNotifications()
         self.transactionsHistoryReplayer.createContextDelegate = self.createContextDelegate
         self.transactionsHistoryReplayer.networkPostDelegate = self.networkPostDelegate
@@ -3451,25 +3481,35 @@ extension ObvEngine {
     /// Called during bootstrap to ensure we regularly perform a contact device discovery for all the contacts of all the active owned identities.
     private func performContactDeviceDiscoveryForAppropriateContactsOfAllOwnedIdentites(flowId: FlowIdentifier) async throws {
                 
-        let contacts = try await getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(flowId: flowId)
+        guard let identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
+        guard let protocolDelegate else { assertionFailure(); throw ObvError.protocolDelegateIsNil }
+        guard let channelDelegate else { assertionFailure(); throw ObvError.channelDelegateIsNil }
 
-        await withTaskGroup(of: Void.self) { taskGroup in
-            for contact in contacts {
-                taskGroup.addTask { [weak self] in
-                    guard let self else { return }
-                    do {
-                        try await performContactDeviceDiscovery(contactIdentifier: contact)
-                    } catch {
-                        logger.fault("Could not perform contact discovery for a contact that requires one: \(error.localizedDescription, privacy: .public)")
-                        assertionFailure() // In production, do not fail
-                    }
-                }
+        let contacts = try await getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(flowId: flowId)
+        
+        for contactIdentifier in contacts {
+            let op1 = BootstrapContactDeviceDiscoveryProtocolOperation(
+                contactIdentifier: contactIdentifier,
+                prng: self.prng,
+                identityDelegate: identityDelegate,
+                protocolDelegate: protocolDelegate,
+                channelDelegate: channelDelegate
+            )
+            let composedOp = try createCompositionOfOneContextualOperation(op1: op1, flowId: flowId)
+            do {
+                try await protocolDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+                logger.debug("Did bootstrap contact device discovery for contact \(contactIdentifier)")
+            } catch {
+                logger.fault("Failed to bootstrap contact device discovery for contact \(contactIdentifier)")
             }
         }
         
     }
     
-    
+
+    /// Returns the contacts of all active owned identities that the bootstrap sweep should start a device discovery for: no
+    /// discovery has succeeded for them within ``ObvConstants/contactDeviceDiscoveryTimeInterval``, and no bootstrap path
+    /// has started one within that time either.
     private func getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(flowId: FlowIdentifier) async throws -> Set<ObvContactIdentifier> {
         guard let identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
         guard let createContextDelegate else { assertionFailure(); throw ObvError.createContextDelegateIsNil }
@@ -4096,20 +4136,38 @@ extension ObvEngine {
     /// This method returns a 16 bytes nonce and a serialized encryption key. This is called when sending a message, in order to make it
     /// possible to have a return receipt back.
     public func generateReturnReceiptElements() -> ObvReturnReceiptElements {
-        return returnReceiptSender.generateReturnReceiptElements()
+        return returnReceiptCrypto.generateReturnReceiptElements()
     }
     
     
-    public func postReturnReceiptsWithElements(returnReceiptsToSend: [ObvReturnReceiptToSend]) async throws {
-        //self.logger.info("🧾 Call to postReturnReceiptWithElements with nonce \(returnReceiptToSend.elements.nonce.hexString()) and attachmentNumber: \(String(describing: returnReceiptToSend.attachmentNumber))")
+    /// Takes on these receipts. It cannot fail: a receipt that could not be written down is sent anyway, and the
+    /// engine reports that itself.
+    ///
+    /// - Parameter waitUntilSent: true to return only once the send has finished, successfully or not. For a caller
+    ///   that is about to finish — the notification and intents extensions — and would otherwise leave its receipts
+    ///   for a sweep it will not be there for. False returns once they are written down, which is what a process that
+    ///   will still be running wants: the app sweeps, and a row outlives the process that made it.
+    public func postReturnReceiptsWithElements(returnReceiptsToSend: [ObvReturnReceiptToSend], waitUntilSent: Bool) async {
         self.logger.info("🧾 Call to postReturnReceiptsWithElements for \(returnReceiptsToSend.count) return receipts")
         let flowId = FlowIdentifier()
-        try await returnReceiptSender.postReturnReceiptsWithElements(returnReceiptsToSend: returnReceiptsToSend, flowId: flowId)
+        await obvReturnReceiptSendManager.post(returnReceiptsToSend, flowId: flowId, waitUntilSent: waitUntilSent)
     }
     
     
+    /// Sends every return receipt still owed, including those an interrupted process left behind.
+    ///
+    /// For a caller that owns a window and would otherwise close it with receipts still unsent. It returns when the
+    /// sweep has finished or when the deadline has passed, and a second caller waits for a sweep already in flight
+    /// rather than starting one of its own. The app also asks for a sweep at each launch and each return from the
+    /// background, with ``deadlineForTheForegroundSweepOfReturnReceipts`` as a backstop rather than as the usual reason
+    /// a sweep ends: it stops by itself on the first page a server does not settle, and pages are consumed by being deleted.
+    public func drainReturnReceiptsToSend(until deadline: Date) async {
+        await obvReturnReceiptSendManager.drain(until: deadline)
+    }
+
+
     public func decryptPayloadOfObvReturnReceipt(_ obvReturnReceipt: ObvEncryptedReceivedReturnReceipt, decryptionKeyCandidates: Set<Data>) throws -> ObvDecryptedReceivedReturnReceipt? {
-        return try returnReceiptSender.decryptPayloadOfObvReturnReceipt(obvReturnReceipt, decryptionKeyCandidates: decryptionKeyCandidates)
+        return try returnReceiptCrypto.decryptPayloadOfObvReturnReceipt(obvReturnReceipt, decryptionKeyCandidates: decryptionKeyCandidates)
     }
 
     
@@ -4352,9 +4410,21 @@ extension ObvEngine {
         /// Before notifying the app, we created a background activity for posting a return receipt. We stop it now, since we started another background activity
         //try? flowDelegate.stopBackgroundActivityForPostingReturnReceipt(messageId: messageId, attachmentNumber: nil)
         
-        try await networkFetchDelegate.markApplicationMessageForDeletionAndProcessAttachments(messageId: messageId, attachmentsProcessingRequest: attachmentsProcessingRequest, flowId: flowId)
-        flowCompletionHandler()
+        // The task cancels the downloads of the attachments being deleted, then resumes the ones the app asked for. It is still running
+        // when the call above returns, so the background activity ends with the task and not with this method.
+        let taskCancellingAndResumingTheDownloads: Task<Void, Never>
+        do {
+            taskCancellingAndResumingTheDownloads = try await networkFetchDelegate.markApplicationMessageForDeletionAndProcessAttachments(messageId: messageId, attachmentsProcessingRequest: attachmentsProcessingRequest, flowId: flowId)
+        } catch {
+            flowCompletionHandler()
+            throw error
+        }
         
+        Task {
+            await taskCancellingAndResumingTheDownloads.value
+            flowCompletionHandler()
+        }
+
     }
     
     
@@ -4370,7 +4440,124 @@ extension ObvEngine {
         let flowId = FlowIdentifier()
         return try await networkFetchDelegate.fetchOnHoldMessage(messageId: messageId, flowId: flowId)
     }
+
     
+    /// The payloads of a page of messages the app previously put on hold, keyed by identifier. Only the app can decode a payload, so
+    /// the engine hands over the bytes.
+    ///
+    /// A message that is no longer on hold is absent from the answer, so the result may name fewer messages than were asked about.
+    public func getPayloadsOfMessagesOnHold(messageIds: [ObvMessageIdentifier]) async throws -> [ObvMessageIdentifier: Data] {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        let flowId = FlowIdentifier()
+        return try await networkFetchDelegate.getPayloadsOfMessagesOnHold(messageIds: messageIds, flowId: flowId)
+    }
+    
+    
+    /// Requests the deletion of these received messages and every one of their attachments: the app has processed them and is done with them.
+    ///
+    /// This is the bulk form of ``messageWasProcessed(messageId:attachmentsProcessingRequest:)`` with `.deleteAll`, which costs a
+    /// background activity, a flow identifier, a context, a save and a sweep kick for every single message. It takes no
+    /// ``ObvAttachmentsProcessingRequest`` of its own, because `.process` names attachments by index within one message and so has no
+    /// meaning across a page.
+    ///
+    /// The rows do not disappear at once. Each is marked, then deleted from the server, then removed. So this is a request rather
+    /// than a deletion.
+    public func deleteMessagesAndAttachments(messageIds: [ObvMessageIdentifier]) async throws {
+        
+        guard !messageIds.isEmpty else { return }
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
+
+        // One background activity for the page; it is keyed on a message, so the page borrows the first one's.
+        let (flowId, flowCompletionHandler) = try flowDelegate.startBackgroundActivityForMarkingMessageForDeletionAndProcessingAttachments(messageId: messageIds[0])
+        defer { flowCompletionHandler() }
+
+        try await networkFetchDelegate.deleteApplicationMessagesAndAttachments(messageIds: messageIds, flowId: flowId)
+        
+    }
+
+
+    /// Figures describing the state of the engine, streamed as each is found and finishing when the last has been sent.
+    ///
+    /// For the diagnostics screen, which a reader can send to us: the only way we have of seeing a device we do not have.
+    ///
+    /// **Two managers contribute and this joins them**, strictly sequentially — that is the promise on ``ObvEngineDiagnostic``, that emission order is the
+    /// canonical order, so a screen and a report both built in arrival order agree without sorting. The protocol manager goes last, being the cheaper half
+    /// and the less often asked about; if it fails it costs one `.couldNotCompute` row and everything already sent stands.
+    ///
+    /// Vends a **fresh stream per call**: one may be iterated only once, and this screen can be left and returned to.
+    public func getAsyncStreamOfEngineDiagnostics() throws -> AsyncStream<ObvEngineDiagnostic> {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        // **Read here and not required**: a protocol manager that is not set costs its own rows and nothing else. Throwing would take the inbox figures with
+        // it, and those are what a reader most often writes to us about.
+        let protocolDelegate = self.protocolDelegate
+        let flowId = FlowIdentifier()
+        return AsyncStream { continuation in
+            let task = Task {
+                for await diagnostic in networkFetchDelegate.getAsyncStreamOfEngineDiagnostics(flowId: flowId) {
+                    continuation.yield(diagnostic)
+                }
+                // **The loop above ends the same way whether the figures ran out or the reader left**: an `AsyncStream`'s iterator returns nil on
+                // cancellation exactly as it does on a normal finish, so only this can tell the two apart. What follows is not cancellation-aware —
+                // ``ObvProtocolDelegate/getProtocolCounts(flowId:)`` is a checked continuation around a `performBackgroundTask` — so without this guard,
+                // closing the screen still runs two full-table `GROUP BY` scans to completion for nobody. A second `finish()` is a no-op.
+                guard !Task.isCancelled else {
+                    continuation.finish()
+                    return
+                }
+                do {
+                    guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
+                    let counts = try await protocolDelegate.getProtocolCounts(flowId: flowId)
+                    for diagnostic in ObvEngineDiagnostic.figures(for: counts) {
+                        continuation.yield(diagnostic)
+                    }
+                } catch {
+                    continuation.yield(.couldNotCompute(figure: "The protocol manager's counts", reason: error.localizedDescription))
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+
+    /// How much work the inbox still holds: everything it contains, what the app has still to process, what the app has finished with but is still here, and
+    /// — when asked for — how much of that last figure is a row nothing will ever move.
+    ///
+    /// A few SQL counts over one context, materialising nothing, so this can be asked repeatedly. It is what a caller draining the inbox uses to know whether
+    /// anything is still moving — the engine posts no aggregate signal saying a drain is finished, and the diagnostics stream is far too expensive to poll.
+    ///
+    /// - Parameter alsoCountingMessagesWaitingForAManualDownload: whether to pay for the fifth count. It needs a subquery over every message's attachments,
+    /// where the other four are plain flag counts, so a caller asking many times a second leaves it out. Nil comes back when it does.
+    /// - Parameter alsoCountingMessagesOfInactiveProfiles: whether to pay for the sixth. It is a negated membership test, so it scans the table, and the
+    /// answer cannot change under a drain — nothing lists, decrypts, marks or sweeps a message of an inactive profile. Nil comes back when it is not asked.
+    public func getInboxCounts(alsoCountingMessagesWaitingForAManualDownload: Bool, alsoCountingMessagesOfInactiveProfiles: Bool) async throws -> ObvInboxCounts {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        let flowId = FlowIdentifier()
+        return try await networkFetchDelegate.getInboxCounts(alsoCountingMessagesWaitingForAManualDownload: alsoCountingMessagesWaitingForAManualDownload,
+                                                            alsoCountingMessagesOfInactiveProfiles: alsoCountingMessagesOfInactiveProfiles,
+                                                            flowId: flowId)
+    }
+
+
+    /// How long the listing has been failing to reach the server, counting only what happened since `since`, or nil if it is reaching it.
+    ///
+    /// **It exists because ``downloadAllMessagesForOwnedIdentities(trigger:)`` never reports a failure.** That call returns when a listing comes back
+    /// untruncated and otherwise waits out an uncapped back-off and tries again, for ever, without returning and without throwing — so a caller watching a
+    /// drain sees the same silence for a large backlog and for a server that has gone. This is how it tells them apart.
+    ///
+    /// - Parameters:
+    ///   - since: the moment the caller started caring. Failures older than this are somebody else's episode — a device offline yesterday still holds those
+    ///   timings — and counting them would stop a run before its first attempt has even come back.
+    ///   - now: when the duration is measured to. Taken as a parameter so a test can ask about a moment of its choosing.
+    /// - Returns: nil when the last listing reached the server, and nil when nothing has been reported since `since`. Nil is *nothing known*, never *all is
+    /// well*: a caller must treat it as leave to carry on rather than as evidence.
+    public func howLongTheListingHasBeenUnableToReachTheServer(since: Date, now: Date = .now) async throws -> TimeInterval? {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        return await networkFetchDelegate.howLongTheListingHasBeenUnableToReachTheServer(since: since, now: now)
+    }
+
+
     
     public func deleteObvAttachment(attachmentNumber: Int, ofMessageWithIdentifier messageIdRaw: Data, ownedCryptoId: ObvCryptoId) async throws {
         
@@ -4382,28 +4569,47 @@ extension ObvEngine {
         let attachmentId = ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
 
         let (flowId, flowCompletionHandler) = try flowDelegate.startBackgroundActivityForMarkingAttachmentForDeletion(attachmentId: attachmentId)
-        try await networkFetchDelegate.markAttachmentForDeletion(attachmentId: attachmentId, flowId: flowId)
-        flowCompletionHandler()
+
+        // As above: the returned task cancels the download of the attachment, and the activity must last until it ends.
+        let taskCancellingTheDownload: Task<Void, Never>
+        do {
+            taskCancellingTheDownload = try await networkFetchDelegate.markAttachmentForDeletion(attachmentId: attachmentId, flowId: flowId)
+        } catch {
+            flowCompletionHandler()
+            throw error
+        }
+
+        Task {
+            await taskCancellingTheDownload.value
+            flowCompletionHandler()
+        }
         
     }
     
     
     /// Called, e.g., when the user performs a pull down to refresh in the list of recent discussion
-    public func downloadAllMessagesForOwnedIdentities() async throws {
-        
+    ///
+    /// - Parameter trigger: what provoked this listing, recorded with its timing so that the diagnostics can tell the listings a reader is waiting for from
+    /// the ones a background processing task asked for. Defaults to `theAppAskedForIt`, which is what every caller but the drain means.
+    ///
+    /// **This returns at the end of the *listing*, not at the end of the draining.** The processing of what was listed is enqueued and never awaited, and on
+    /// a failed round the fetch coordinator waits out its back-off and recurses with no attempt cap and no deadline. A caller working to a budget must impose
+    /// its own timeout; this will not.
+    public func downloadAllMessagesForOwnedIdentities(trigger: ObvServerRequestTiming.Trigger = .theAppAskedForIt) async throws {
+
         guard let networkFetchDelegate else { assertionFailure(); return }
         guard let flowDelegate else { assertionFailure(); return }
 
         let ownedIdentities = try await getOwnedIdentities(restrictToActive: true)
-        
+
         var anErrorOccurred: Error?
-        
+
         let flowId = FlowIdentifier()
-        
+
         for ownedIdentity in ownedIdentities {
             do {
                 let (_, completion) = try flowDelegate.startBackgroundActivityForDownloadingMessages(ownedIdentity: ownedIdentity)
-                await networkFetchDelegate.downloadMessages(for: ownedIdentity, flowId: flowId)
+                await networkFetchDelegate.downloadMessages(for: ownedIdentity, trigger: trigger, flowId: flowId)
                 completion()
             } catch {
                 anErrorOccurred = error
@@ -4417,15 +4623,33 @@ extension ObvEngine {
     }
     
     
+
+
     /// This method is called, e.g., when the user wants to delete a received message. This method marks the message and its attachments for deletion and returns before the message is actually deleted from the server, then from the inbox.
     public func cancelDownloadOfMessage(ownedCryptoId: ObvCryptoId, messageIdentifier: Data) async throws {
         
         guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
         
         guard let uid = UID(uid: messageIdentifier) else { throw ObvEngine.makeError(message: "Could not parse message id") }
         let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
 
-        try await networkFetchDelegate.deleteApplicationMessageAndAttachments(messageId: messageId, flowId: FlowIdentifier())
+        let (flowId, flowCompletionHandler) = try flowDelegate.startBackgroundActivityForMarkingMessageForDeletionAndProcessingAttachments(messageId: messageId)
+
+        // As in messageWasProcessed: the returned task cancels the downloads of the attachments being deleted, so the background activity
+        // ends with the task and not with this method.
+        let taskCancellingTheDownloads: Task<Void, Never>
+        do {
+            taskCancellingTheDownloads = try await networkFetchDelegate.deleteApplicationMessageAndAttachments(messageId: messageId, flowId: flowId)
+        } catch {
+            flowCompletionHandler()
+            throw error
+        }
+
+        Task {
+            await taskCancellingTheDownloads.value
+            flowCompletionHandler()
+        }
         
     }
     
@@ -4441,6 +4665,28 @@ extension ObvEngine {
         
         let randomFlowId = FlowIdentifier()
         try await networkFetchDelegate.appCouldNotFindFileOfDownloadedAttachment(attachmentId: attachmentId, flowId: randomFlowId)
+
+    }
+    
+    
+    /// Called by the app when the file of an attachment it was told was downloaded does not hash as the sender said it would.
+    ///
+    /// The engine forgets that the attachment is complete and puts every chunk back to be fetched, keeping no part of the file it had. It does **not** start the
+    /// download: the caller decides whether to ask again, and how often, since only the app knows how many times it has already hashed this attachment and
+    /// found the same answer.
+    ///
+    /// Distinct from ``appCouldNotFindFileOfDownloadedAttachment(_:ofMessageWithIdentifier:ownedCryptoId:)`` on purpose. That one is about a file that is not
+    /// there, and its reset declines when the file exists — which, after a hash mismatch, it always does.
+    public func appFoundACorruptFileForDownloadedAttachment(_ attachmentNumber: Int, ofMessageWithIdentifier messageIdRaw: Data, ownedCryptoId: ObvCryptoId) async throws {
+        
+        guard let networkFetchDelegate else { assertionFailure(); throw ObvError.networkFetchDelegateIsNil }
+
+        guard let uid = UID(uid: messageIdRaw) else { throw ObvEngine.makeError(message: "Could not parse message identifier") }
+        let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
+        let attachmentId = ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+        
+        let randomFlowId = FlowIdentifier()
+        try await networkFetchDelegate.appFoundACorruptFileForDownloadedAttachment(attachmentId: attachmentId, flowId: randomFlowId)
 
     }
     
@@ -4481,8 +4727,54 @@ extension ObvEngine {
         }
         return progressesToReturn
     }
+
+
+    /// Follows the download of one attachment, until it is finished with by ``finishAsyncStreamOfDownloadProgressOfAttachment(streamUUID:)``.
+    ///
+    /// The alternative is ``requestDownloadAttachmentProgressesUpdatedSince(date:)``, which the app polls on a timer for *every* attachment at once. This
+    /// answers about one, when it has something to say. Bytes are reported rather than a fraction: what a throughput or a time remaining is computed from is
+    /// these two numbers and the moment they arrived, and that is the app's business.
+    ///
+    /// The stream carries the progress so far as its first value, so an attachment paused half-way is reported as such rather than as one that has not begun.
+    /// It finishes when the download does.
+    ///
+    /// Downloads only. What a *sent* attachment does on its way up is the send manager's, and is not reported here.
+    public func getAsyncStreamOfDownloadProgressOfAttachment(attachmentId: ObvAttachmentIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentDownloadProgress>) {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        let flowId = FlowIdentifier()
+        return try await networkFetchDelegate.getAsyncStreamOfDownloadProgress(attachmentId: attachmentId, flowId: flowId)
+    }
+
+
+    /// Ends a stream obtained from ``getAsyncStreamOfDownloadProgressOfAttachment(attachmentId:)``.
+    ///
+    /// The caller must call this when it stops reading: the engine cannot see that the view following a download has gone away, and would otherwise hold the
+    /// continuation of every attachment ever shown.
+    public func finishAsyncStreamOfDownloadProgressOfAttachment(streamUUID: UUID) async throws {
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        try await networkFetchDelegate.finishAsyncStreamOfDownloadProgress(streamUUID: streamUUID)
+    }
     
     
+    /// Follows the upload of one attachment, for as long as the caller keeps the stream.
+    ///
+    /// The counterpart of ``getAsyncStreamOfDownloadProgressOfAttachment(attachmentId:)``, and it exists for the same reason: the number
+    /// is pushed the moment it changes, to whoever is showing that one attachment. It replaces polling
+    /// ``requestUploadAttachmentProgressesUpdatedSince(date:)`` every 0.3s to move a number the send manager already has.
+    public func getAsyncStreamOfUploadProgressOfAttachment(attachmentId: ObvAttachmentIdentifier) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvAttachmentUploadProgress>) {
+        guard let networkPostDelegate else { throw makeError(message: "The network post delegate is not set") }
+        let flowId = FlowIdentifier()
+        return try await networkPostDelegate.getAsyncStreamOfUploadProgress(attachmentId: attachmentId, flowId: flowId)
+    }
+
+
+    /// Ends a stream obtained from ``getAsyncStreamOfUploadProgressOfAttachment(attachmentId:)``. The caller must call this.
+    public func finishAsyncStreamOfUploadProgressOfAttachment(streamUUID: UUID) async throws {
+        guard let networkPostDelegate else { throw makeError(message: "The network post delegate is not set") }
+        try await networkPostDelegate.finishAsyncStreamOfUploadProgress(streamUUID: streamUUID)
+    }
+
+
     public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int, progress: Float)] {
         guard let networkPostDelegate = networkPostDelegate else { throw makeError(message: "The network post delegate is not set") }
         let progresses = try await networkPostDelegate.requestUploadAttachmentProgressesUpdatedSince(date: date)
@@ -4715,6 +5007,11 @@ extension ObvEngine {
             await manager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
         }
         await obvBackupManagerNew?.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
+        // Every time the app appears, not only the first: a sweep is the only thing that sends a receipt an
+        // interrupted process left behind, so a launch alone would leave one waiting until the next one. Not awaited,
+        // because everything below has nothing to do with it and a sweep of a backlog takes as long as the backlog
+        // does. It is not re-entrant, so an appearance during a sweep waits for that one rather than starting a second.
+        Task { await self.drainReturnReceiptsToSend(until: Date.now.addingTimeInterval(Self.deadlineForTheForegroundSweepOfReturnReceipts)) }
         replayTransactionsHistory() // 2022-02-24: Used to be called only if forTheFirstTime. We now want to empty the history as soon as possible.
         if forTheFirstTime {
             do {
@@ -4750,7 +5047,7 @@ extension ObvEngine {
         for ownedIdentity in ownedIdentities {
             do {
                 let (_, completion) = try flowDelegate.startBackgroundActivityForDownloadingMessages(ownedIdentity: ownedIdentity)
-                await networkFetchDelegate.downloadMessages(for: ownedIdentity, flowId: flowId)
+                await networkFetchDelegate.downloadMessages(for: ownedIdentity, trigger: .theAppAskedForIt, flowId: flowId)
                 completion()
             } catch {
                 anErrorOccured = error

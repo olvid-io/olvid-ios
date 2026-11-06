@@ -46,7 +46,7 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
     
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public enum Category: CustomDebugStringConvertible, ObvEncodable {
+    public enum Category: CustomDebugStringConvertible, ObvEncodable, Equatable {
                 
         case requestDeletion
         case markAsListed
@@ -71,7 +71,7 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
 
     }
     
-    public struct MessageUIDAndCategory {
+    public struct MessageUIDAndCategory: Equatable {
         
         public let messageUID: UID
         public let category: Category

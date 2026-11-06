@@ -37,8 +37,7 @@ final class LinkBetweenProtocolInstances: NSManagedObject {
     
     // Both the child and parent protocol instances share the same owned identity
     
-    @NSManaged private(set) var expectedChildStateRawId: Int
-    @NSManaged private(set) var messageToSendRawId: Int // When the child reaches the expected state, a message with this raw id will be sent to the parent protocol
+    @NSManaged private(set) var messageToSendRawId: Int // When the child reaches a final state, a message with this raw id will be sent to the parent protocol
     @NSManaged private var rawChildProtocolInstanceUid: Data? // Non-optional in the model
     
     // MARK: Relationships
@@ -64,14 +63,12 @@ final class LinkBetweenProtocolInstances: NSManagedObject {
     
     // MARK: - Initializer
     
-    /// 2025-08-27: ok
-    convenience init?(parentProtocolInstance: ProtocolInstance, childProtocolInstanceUid: UID, expectedChildStateRawId: Int, messageToSendRawId: Int) {
+    convenience init?(parentProtocolInstance: ProtocolInstance, childProtocolInstanceUid: UID, messageToSendRawId: Int) {
         
         guard let context = parentProtocolInstance.managedObjectContext else { return nil }
         let entityDescription = NSEntityDescription.entity(forEntityName: LinkBetweenProtocolInstances.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         
-        self.expectedChildStateRawId = expectedChildStateRawId
         self.messageToSendRawId = messageToSendRawId
         self.rawChildProtocolInstanceUid = childProtocolInstanceUid.raw
         
@@ -93,7 +90,6 @@ extension LinkBetweenProtocolInstances {
     private struct Predicate {
         enum Key: String {
             // Attributes
-            case expectedChildStateRawId = "expectedChildStateRawId"
             case messageToSendRawId = "messageToSendRawId"
             case rawChildProtocolInstanceUid = "rawChildProtocolInstanceUid"
             // Relationships
@@ -108,9 +104,6 @@ extension LinkBetweenProtocolInstances {
                 ProtocolInstance.Predicate.Key.rawOwnedCryptoIdentity.rawValue,
             ].joined(separator: ".")
             return NSPredicate(rawKey, EqualToData: ownedIdentity.getIdentity())
-        }
-        static func withExpectedChildState(_ expectedChildState: ConcreteProtocolState) -> NSPredicate {
-            NSPredicate(Key.expectedChildStateRawId, EqualToInt: expectedChildState.rawId)
         }
         static func withParentProtocolInstanceUid(_ parentProtocolInstanceUid: UID) -> NSPredicate {
             let rawKey: String = [
@@ -127,17 +120,31 @@ extension LinkBetweenProtocolInstances {
     }
     
     
-    static func getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid childUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, reachesState childState: ConcreteProtocolState, within context: NSManagedObjectContext) throws -> [GenericProtocolMessageToSend] {
+    static func getGenericProtocolMessageToSendWhenChildProtocolInstanceReachesFinalState(_ child: ConcreteCryptoProtocol) throws -> [GenericProtocolMessageToSend] {
+
+        guard child.reachedFinalState() else {
+            assertionFailure("Only a final state of the child is reported to its parent")
+            return []
+        }
+        
+        let context = child.obvContext.context
+        
         let request: NSFetchRequest<LinkBetweenProtocolInstances> = LinkBetweenProtocolInstances.fetchRequest()
+        
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withChildProtocolInstanceUid(childUid),
-            Predicate.withOwnedIdentity(childOwnedCryptoIdentity),
-            Predicate.withExpectedChildState(childState),
+            Predicate.withChildProtocolInstanceUid(child.instanceUid),
+            Predicate.withOwnedIdentity(child.ownedIdentity),
         ])
+        
         request.fetchBatchSize = 1_000
-        guard let links = try? context.fetch(request) else { return [GenericProtocolMessageToSend]() }
-        let encodedInputs = try ChildToParentProtocolMessageInputs(childProtocolInstanceUid: childUid,
-                                                                   childProtocolInstanceReachedState: childState).toListOfEncoded()
+        
+        let links = try context.fetch(request)
+        
+        let encodedInputs = try ChildToParentProtocolMessageInputs(
+            childProtocolInstanceUid: child.instanceUid,
+            childProtocolInstanceReachedState: child.currentState
+        ).toListOfEncoded()
+        
         let messages: [GenericProtocolMessageToSend] = links.compactMap { link in
             do {
                 guard let parentProtocolInstance = link.parentProtocolInstance else { return nil }
@@ -151,11 +158,15 @@ extension LinkBetweenProtocolInstances {
                 return nil
             }
         }
+
         return messages
+
     }
     
     
-    // Normaly, there should be only one parent protocol of a given protocol. But there might be multiple links, since the parent might require to be notified at various states of the child protocol.
+    /// Returns the links naming this instance as the child. In practice a child has one parent, so this returns one link; several
+    /// would mean several parents started the same child instance, which no protocol does. This is read when aborting a protocol
+    /// instance, so that aborting a child also aborts the parent waiting on it.
     static func getAllLinksForWhichTheChildProtocolHasUid(_ childUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> [LinkBetweenProtocolInstances] {
         let request: NSFetchRequest<LinkBetweenProtocolInstances> = LinkBetweenProtocolInstances.fetchRequest()
         request.fetchBatchSize = 1_000

@@ -166,7 +166,7 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvErrorMaker {
     
     static func createPendingMember(from member: GroupV2.KeycloakGroupMemberAndPermissions, in contactGroup: ContactGroupV2, validatingSignaturesWith jwks: ObvJWKSet) throws {
 
-        let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(member.signedUserDetails, with: jwks).signedUserDetails
+        let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(member.signedUserDetails, with: jwks, binding: .mustBeBound(to: ObvCryptoId(cryptoIdentity: member.identity))).signedUserDetails
         let obvIdentityCoreDetails = try signedObvKeycloakUserDetails.toObvIdentityCoreDetails() // These details contain the signedUserDetails
         let serializedIdentityCoreDetails = try obvIdentityCoreDetails.jsonEncode()
 
@@ -193,7 +193,8 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvErrorMaker {
     
     func updatePermissionsAndDetails(newRawPermissions: Set<String>, newsignedUserDetails: String, validatingSignaturesWith jwks: ObvJWKSet) throws {
         
-        let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(newsignedUserDetails, with: jwks).signedUserDetails
+        guard let cryptoIdentity else { assertionFailure(); throw ObvIdentityManagerError.parsingFailed }
+        let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(newsignedUserDetails, with: jwks, binding: .mustBeBound(to: ObvCryptoId(cryptoIdentity: cryptoIdentity))).signedUserDetails
         let obvIdentityCoreDetails = try signedObvKeycloakUserDetails.toObvIdentityCoreDetails() // These details contain the signedUserDetails
         let newSerializedIdentityCoreDetails = try obvIdentityCoreDetails.jsonEncode()
         

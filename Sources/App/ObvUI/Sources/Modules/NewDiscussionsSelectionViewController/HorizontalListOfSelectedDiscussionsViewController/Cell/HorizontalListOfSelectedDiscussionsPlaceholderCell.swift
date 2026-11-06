@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,6 @@ import ObvDesignSystem
 import ObvAppCoreConstants
 
 
-@available(iOS 16.0, *)
 extension HorizontalListOfSelectedDiscussionsViewController {
     
     final class PlaceholderCell: UICollectionViewCell {

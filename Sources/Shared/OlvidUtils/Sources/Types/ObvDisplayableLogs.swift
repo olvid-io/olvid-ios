@@ -24,59 +24,43 @@ public actor ObvDisplayableLogs {
 
     private var displayableLogsAreEnabled = false
     private var containerURLForDisplayableLogs: URL?
-    
-    public static let shared = ObvDisplayableLogs()
-    
-    private init() {}
-    
-    // MARK: - Public API
-    
-    nonisolated
-    public func doEnableRunningLogs(_ value: Bool) {
-        Task { [weak self] in
-            await self?.doEnableRunningLogsInternal(value)
+
+    /// The nonisolated API turns each call into an event, and a single task handles the events on the actor in the order of the calls.
+    private nonisolated let events: AsyncStream<Event>.Continuation
+
+    public static let shared: ObvDisplayableLogs = {
+        let (stream, continuation) = AsyncStream.makeStream(of: Event.self)
+        let logs = ObvDisplayableLogs(events: continuation)
+        Task {
+            for await event in stream {
+                await logs.handle(event)
+            }
         }
+        return logs
+    }()
+
+    private init(events: AsyncStream<Event>.Continuation) {
+        self.events = events
     }
 
-    
+    // MARK: - Public API
+
+    nonisolated
+    public func doEnableRunningLogs(_ value: Bool) {
+        events.yield(.enableRunningLogs(value))
+    }
+
+
     nonisolated
     public func setContainerURLForDisplayableLogs(to url: URL) {
-        Task { [weak self] in
-            await self?.setContainerURLForDisplayableLogsInternal(to: url)
-        }
+        events.yield(.setContainerURL(url))
     }
-    
-    
+
+
+    /// The line carries the time of this call, not the time at which it is written.
     nonisolated
     public func log(_ string: String) {
-        Task { [weak self] in
-            guard let self else { return }
-            guard let containerURLForDisplayableLogs = await containerURLForDisplayableLogs else {
-                throw ObvError.containerURLForDisplayableLogsIsNil
-            }
-            guard await displayableLogsAreEnabled else {
-                return
-            }
-            let now = Date()
-            let dateFormatterForLog = self.dateFormatterForLog
-            let dateFormatterForFilename = self.dateFormatterForFilename
-            let logName = "\(dateFormatterForFilename.string(from: Date()))-olvid.log"
-            let log = containerURLForDisplayableLogs.appendingPathComponent(logName, isDirectory: false)
-            guard let data = dateFormatterForLog.string(from: now).appending(" - ").appending(string).appending("\n").data(using: .utf8) else { return }
-            if let fh = try? FileHandle(forWritingTo: log) {
-                defer { try? fh.close() }
-                _ = try? fh.seekToEnd()
-                fh.write(data)
-            } else {
-                guard let firstline = dateFormatterForFilename.string(from: now).appending("\n").data(using: .utf8) else { return }
-                try? firstline.write(to: log)
-                if let fh = try? FileHandle(forWritingTo: log) {
-                    defer { try? fh.close() }
-                    _ = try? fh.seekToEnd()
-                    fh.write(data)
-                }
-            }
-        }
+        events.yield(.log(string, date: Date()))
     }
 
     
@@ -132,16 +116,42 @@ public actor ObvDisplayableLogs {
     }()
     
 
-    private func doEnableRunningLogsInternal(_ value: Bool) {
-        displayableLogsAreEnabled = value
+    private func handle(_ event: Event) {
+        switch event {
+        case .enableRunningLogs(let value):
+            displayableLogsAreEnabled = value
+        case .setContainerURL(let url):
+            assert(containerURLForDisplayableLogs == nil || containerURLForDisplayableLogs == url, "In practice, we expect to set this value exactly once")
+            containerURLForDisplayableLogs = url
+        case .log(let string, let date):
+            append(string, date: date)
+        }
     }
-    
-    
-    private func setContainerURLForDisplayableLogsInternal(to url: URL) {
-        assert(containerURLForDisplayableLogs == nil || containerURLForDisplayableLogs == url, "In practice, we expect to set this value exactly once")
-        containerURLForDisplayableLogs = url
+
+
+    /// The app and the notification service extension write to the same file. Each line is appended with a single `write` on a descriptor opened with
+    /// `O_APPEND`, so that two processes cannot write at the same offset.
+    private func append(_ string: String, date: Date) {
+        guard displayableLogsAreEnabled, let containerURLForDisplayableLogs else { return }
+        let day = dateFormatterForFilename.string(from: date)
+        let path = containerURLForDisplayableLogs.appendingPathComponent("\(day)-olvid.log", isDirectory: false).path
+        var text = dateFormatterForLog.string(from: date) + " - " + string + "\n"
+        // The process that creates the day's file starts it with the day.
+        var fileDescriptor = open(path, O_WRONLY | O_APPEND | O_CREAT | O_EXCL, 0o644)
+        if fileDescriptor >= 0 {
+            text = day + "\n" + text
+        } else {
+            guard errno == EEXIST else { return }
+            fileDescriptor = open(path, O_WRONLY | O_APPEND)
+            guard fileDescriptor >= 0 else { return }
+        }
+        defer { close(fileDescriptor) }
+        let data = Data(text.utf8)
+        _ = data.withUnsafeBytes { bytes in
+            Darwin.write(fileDescriptor, bytes.baseAddress, bytes.count)
+        }
     }
-    
+
 
     private func dateFromLog(_ log: NSURL) -> Date? {
         guard let dateAsString = log.lastPathComponent?.replacingOccurrences(of: "-olvid.log", with: "") else { assertionFailure(); return nil }
@@ -151,5 +161,12 @@ public actor ObvDisplayableLogs {
     
     enum ObvError: Error {
         case containerURLForDisplayableLogsIsNil
+    }
+
+
+    private enum Event: Sendable {
+        case enableRunningLogs(Bool)
+        case setContainerURL(URL)
+        case log(String, date: Date)
     }
 }

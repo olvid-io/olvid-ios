@@ -14,6 +14,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     ],
     dependencies: [
         .Olvid.App.obvAppCoreConstants,
+        .Olvid.App.obvAppTypes,
     ]
 )
 

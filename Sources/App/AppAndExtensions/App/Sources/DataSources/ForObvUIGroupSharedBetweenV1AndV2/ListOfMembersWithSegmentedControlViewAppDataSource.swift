@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -151,10 +151,11 @@ extension ListOfMembersWithSegmentedControlViewAppDataSource {
         }
      
         func updateWithSearchText(searchText: String?) {
-            frc.managedObjectContext.perform {
+            frc.managedObjectContext.perform { [weak self] in
+                guard let self else { return }
                 self.currentSearchText = searchText
-                Task { [weak self] in
-                    do { try await self?.getFetchedObjectsAndYieldModelIfNeeded() } catch { assertionFailure() }
+                Task {
+                    do { try await self.getFetchedObjectsAndYieldModelIfNeeded() } catch { assertionFailure() }
                 }
             }
         }

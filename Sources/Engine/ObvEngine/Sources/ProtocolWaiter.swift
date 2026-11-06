@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -65,8 +65,8 @@ actor ProtocolWaiter {
     private func observeProtocolReceivedMessageWasDeletedNotificationsIfRequired() throws {
         guard token == nil else { return }
         guard let notificationDelegate else { assertionFailure(); throw ObvError.notificationDelegateIsNil }
-        token = ObvProtocolNotification.observeProtocolReceivedMessageWasDeleted(within: notificationDelegate) {  messageId in
-            Task { [weak self] in await self?.processProtocolReceivedMessageWasDeleted(messageId: messageId) }
+        token = ObvProtocolNotification.observeProtocolReceivedMessageWasDeleted(within: notificationDelegate) { [weak self]  messageId in
+            Task { await self?.processProtocolReceivedMessageWasDeleted(messageId: messageId) }
         }
     }
     

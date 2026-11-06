@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -271,7 +271,7 @@ final class InternalStorageExplorerViewController: UIViewController, UICollectio
     
     
     private func makeActionProvider(_ collectionView: UICollectionView, cell: UICollectionViewCell, url: URL) -> (([UIMenuElement]) -> UIMenu?) {
-        return { (suggestedActions) in
+        return { [weak self] (suggestedActions) in
 
             var children = [UIMenuElement]()
 
@@ -279,7 +279,7 @@ final class InternalStorageExplorerViewController: UIViewController, UICollectio
 
             do {
                 
-                let action = UIAction(title: CommonString.Word.Share) { [weak self] (_) in
+                let action = UIAction(title: CommonString.Word.Share) { (_) in
                     let ativityController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
                     ativityController.popoverPresentationController?.sourceView = cell
                     self?.present(ativityController, animated: true)

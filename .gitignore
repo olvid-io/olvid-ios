@@ -22,11 +22,19 @@ graph.dot
 Derived/
 
 ### Tuist managed dependencies ###
-tuist/Dependencies/*
-!tuist/Dependencies/Lockfiles/
+Tuist/Dependencies/*
+!Tuist/Dependencies/Lockfiles/
 
 # ignore locally generated build files
-Engine/BigInt/gmp/*
+ExternalDependencies/DownloadedSources/GMP/gmp/*
 
-# Ignore DWARF files
-DWARF
+.package.resolved
+
+### Python ###
+__pycache__/
+*.py[cod]
+
+### Fastlane ###
+fastlane/report.xml
+fastlane/metadata
+Gemfile.lock

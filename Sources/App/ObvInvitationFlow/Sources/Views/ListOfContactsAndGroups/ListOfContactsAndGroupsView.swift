@@ -210,7 +210,7 @@ public struct ListOfContactsAndGroupsView: View {
                                            searchText: $searchText)
         .searchableOniOS17(text: $searchText, isPresented: $searchIsPresented, placement: .automatic, prompt: Text("SEARCH_CONTACT_OR_GROUP"))
         .background(Button(action: onCommandPlusFKeyPressed, label: { Text(verbatim: " ").opacity(0) }).keyboardShortcut("F", modifiers: .command).hidden()) // Trick to activate the search field With Cmd+F
-        .background(Button(action: onEscapeKeyPressed, label: { Text(verbatim: " ").opacity(0) }).keyboardShortcut(.cancelAction).hidden()) // Trick to deactivate the search field with escape, or to quit the flow
+        .escapeKeyPresses(onEscapeKeyPressed) // Leaves the search first, and quits the flow otherwise
         .navigationTitle(Text("CONTACT_VIEW_TITLE"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

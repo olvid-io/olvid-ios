@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -144,17 +144,6 @@ extension FyleMessageJoinWithStatus {
 // MARK: - Determining actions availability
 
 extension FyleMessageJoinWithStatus {
-    
-    var copyActionCanBeMadeAvailable: Bool {
-        if let receivedJoin = self as? ReceivedFyleMessageJoinWithStatus {
-            return receivedJoin.copyActionCanBeMadeAvailableForReceivedJoin
-        } else if let sentJoin = self as? SentFyleMessageJoinWithStatus {
-            return sentJoin.copyActionCanBeMadeAvailableForSentJoin
-        } else {
-            assertionFailure("Unexpected FyleMessageJoinWithStatus subclass")
-            return false
-        }
-    }
     
     public var shareActionCanBeMadeAvailable: Bool {
         if let receivedJoin = self as? ReceivedFyleMessageJoinWithStatus {

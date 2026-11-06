@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -159,6 +159,36 @@ open class ObvDataSourceStreamManager<ViewModel: Sendable & Equatable>: NSObject
         case inconsistentContexts
     }
     
+}
+
+
+extension ObvDataSourceStreamManager {
+
+    /// Returns a stream of view models. The stream keeps this manager alive.
+    ///
+    /// To stop the stream, cancel the task that iterates it. The stream then calls ``finishStream()`` and releases this manager. There is no need to
+    /// call ``finishStream()`` yourself.
+    ///
+    /// Call this method only once per manager: an `AsyncStream` can be iterated by only one task.
+    public func makeStream() -> AsyncStream<ViewModel> {
+        AsyncStream { continuation in
+            let task = Task {
+                do {
+                    let (_, stream) = try await self.startStream()
+                    for await model in stream {
+                        continuation.yield(model)
+                    }
+                } catch {
+                    self.logger.fault("Could not start the stream of \(String(describing: type(of: self))): \(error, privacy: .public)")
+                    assertionFailure()
+                }
+                self.finishStream()
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
 }
 
 

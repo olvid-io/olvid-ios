@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -399,7 +399,9 @@ extension ObvDialog {
             case .freezeGroupV2Invite(inviter: let inviter, group: let group):
                 encodedVars = [inviter.obvEncode(), try group.obvEncode()].obvEncode()
             case .syncRequestReceivedFromOtherOwnedDevice(otherOwnedDeviceIdentifier: let otherOwnedDeviceIdentifier, syncAtom: let syncAtom):
-                encodedVars = [otherOwnedDeviceIdentifier, syncAtom].obvEncode()
+                let encodedSyncAtom = try syncAtom.obvEncode()
+                let encodedOtherOwnedDeviceIdentifier = otherOwnedDeviceIdentifier.obvEncode()
+                encodedVars = [encodedOtherOwnedDeviceIdentifier, encodedSyncAtom].obvEncode()
             }
             let encodedObvDialog = [raw.obvEncode(), encodedVars].obvEncode()
             return encodedObvDialog

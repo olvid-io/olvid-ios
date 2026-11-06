@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -204,13 +204,20 @@ private struct SubscribeViaEmailOnOldOSVersion: View {
 extension SubscribeViaEmailOnOldOSVersion: ObvEmailComposerViewDelegate {
     
     func emailComposerViewDidFinish(_ view: ObvDesignSystem.ObvEmailComposerView, result: Result<MFMailComposeResult, any Error>) {
+        isEmailComposerViewPresented = false
+        let hudCategoryToShow: HUDView.Category
         switch result {
+        case .success(.cancelled):
+            return
         case .success:
-            hudCategory = .checkmark
+            hudCategoryToShow = .checkmark
         case .failure:
-            hudCategory = .xmark
+            hudCategoryToShow = .xmark
         }
         Task {
+            // Let the mail composer sheet finish its dismissal animation before showing the HUD
+            try? await Task.sleep(seconds: 0.5)
+            hudCategory = hudCategoryToShow
             try? await Task.sleep(seconds: 1)
             hudCategory = nil
         }
@@ -556,15 +563,7 @@ private struct MarketingCapsuleView: View {
         case .family: return .figureTwoAndChildHoldinghands
         }
     }
-    
-    @Environment(\.colorScheme) var colorScheme: ColorScheme
 
-    private var backgroundColor: Color {
-        colorScheme == .dark ? Color(UIColor.secondarySystemBackground) : Color(UIColor.systemBackground)
-    }
-    
-    private let cornerRadius: CGFloat = 26.0
-    
     // Any change made here should be reflected in `ObvDiscussionsList.TipCellView`
     private var iconBackgroundColor: Color {
         switch kind {
@@ -576,13 +575,7 @@ private struct MarketingCapsuleView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top) {
-            Image(systemIcon: systemIcon)
-                .foregroundStyle(.white)
-                .font(.system(size: 17))
-                .padding(12)
-                .background(iconBackgroundColor, in: Circle())
-                .padding(.trailing, 4)
+        ObvCapsuleCard(systemIcon: systemIcon, iconBackgroundColor: iconBackgroundColor) {
             VStack(alignment: .leading) {
                 Text(title)
                     .font(.system(.headline, design: .rounded, weight: .bold))
@@ -590,13 +583,8 @@ private struct MarketingCapsuleView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            Spacer(minLength: 0)
+            .multilineTextAlignment(.leading)
         }
-        .multilineTextAlignment(.leading)
-        .padding(.vertical)
-        .padding(.leading, 8)
-        .padding(.trailing)
-        .background(backgroundColor, in: RoundedRectangle(cornerSize: CGSize(width: cornerRadius, height: cornerRadius), style: .continuous))
     }
 }
 

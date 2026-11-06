@@ -19,9 +19,13 @@
 
 import UIKit
 import ObvTypes
+import ObvContactsSuggestions
 
 @MainActor
 protocol AllContactsViewControllerDelegate: AnyObject {
     func userDidSelectContact(_ vc: AllContactsViewController, withContactIdentifier contactIdentifier: ObvContactIdentifier, within navigationController: UINavigationController?)
     func userDidDeselectContact(_ vc: AllContactsViewController, withContactIdentifier contactIdentifier: ObvContactIdentifier)
+    func userWantsToSeeContactsSuggestions(_ vc: AllContactsViewController)
+    /// From the card above the other known users. `initialDeck` is the deck of all of them as that list last knew it.
+    func userWantsToSeeAllOtherKnownUsersSuggestions(_ vc: AllContactsViewController, initialDeck: ContactSuggestion.Deck)
 }

@@ -163,6 +163,8 @@ struct StorageManagementView<Model: StorageManagementViewModelProtocol>: View {
                 } label: {
                     CloseButton()
                 }
+                // Only while nothing is pushed over this screen: a pushed list answers Esc itself, and this button's shortcut would otherwise take it.
+                .keyboardShortcut((model.router?.path.isEmpty ?? true) ? .cancelAction : nil)
             }
         }
         .task {

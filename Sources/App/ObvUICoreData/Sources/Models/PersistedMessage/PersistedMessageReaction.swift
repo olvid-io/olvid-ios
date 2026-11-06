@@ -25,6 +25,17 @@ import ObvTypes
 import ObvAppTypes
 
 
+/// Outcome of processing a set/update reaction request, describing whether the request visibly changed the reactions displayed on the message.
+/// In particular, re-processing an identical or outdated reaction (e.g., one replayed by the device of a group member after another member switched
+/// back from the pending to the non-pending state) results in `.noChange`, allowing the notification layer to remain silent.
+public enum ReactionUpdateOutcome {
+    case created
+    case updated
+    case removed
+    case noChange
+}
+
+
 @objc(PersistedMessageReaction)
 public class PersistedMessageReaction: NSManagedObject {
 
@@ -59,17 +70,23 @@ public class PersistedMessageReaction: NSManagedObject {
     }
     
     
-    func updateEmoji(with newEmoji: String, at newTimestamp: Date) throws {
-        
-        guard self.timestamp < newTimestamp else { return }
-        
+    @discardableResult
+    func updateEmoji(with newEmoji: String, at newTimestamp: Date) throws -> ReactionUpdateOutcome {
+
+        guard self.timestamp < newTimestamp else { return .noChange }
+
         guard newEmoji.count == 1 else { assertionFailure(); throw ObvUICoreDataError.invalidEmoji }
+        let outcome: ReactionUpdateOutcome
         if self.rawEmoji != newEmoji {
+            outcome = (self.rawEmoji == nil) ? .created : .updated
             self.rawEmoji = newEmoji
+        } else {
+            outcome = .noChange
         }
         if self.timestamp != newTimestamp {
             self.timestamp = newTimestamp
         }
+        return outcome
     }
     
     
@@ -117,6 +134,7 @@ extension PersistedMessageReaction {
         enum Key: String {
             // Attributes
             case rawEmoji = "rawEmoji"
+            case timestamp = "timestamp"
             // Relationships
             case message = "message"
         }
@@ -136,24 +154,16 @@ extension PersistedMessageReaction {
             ].joined(separator: ".")
             return NSPredicate(key, equalToObjectWithObjectID: discussionObjectID.objectID)
         }
-        static func withMessageLaterThan(_ date: Date) -> NSPredicate {
-            let key: String = [
-                Key.message.rawValue,
-                PersistedMessage.Predicate.Key.timestamp.rawValue,
-            ].joined(separator: ".")
-            return NSPredicate(key, laterThan: date)
+        static func withTimestampLaterThan(_ date: Date) -> NSPredicate {
+            NSPredicate(Key.timestamp, laterThan: date)
         }
-        static func withMessageEarlierOrEqualTo(_ date: Date) -> NSPredicate {
-            let key: String = [
-                Key.message.rawValue,
-                PersistedMessage.Predicate.Key.timestamp.rawValue,
-            ].joined(separator: ".")
-            return NSPredicate(key, earlierOrEqualTo: date)
+        static func withTimestampEarlierOrEqualTo(_ date: Date) -> NSPredicate {
+            NSPredicate(Key.timestamp, earlierOrEqualTo: date)
         }
-        static func withMessageInTimeInterval(startDate: Date, endDate: Date) -> NSPredicate {
+        static func withTimestampInTimeInterval(startDate: Date, endDate: Date) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
-                withMessageLaterThan(startDate),
-                withMessageEarlierOrEqualTo(endDate),
+                withTimestampLaterThan(startDate),
+                withTimestampEarlierOrEqualTo(endDate),
             ])
         }
     }
@@ -260,8 +270,10 @@ extension PersistedMessageReactionSent {
                                           cacheName: nil)
     }
 
-    /// When a group member status changes from pending to non-pending, we need to send them the current users (sent) reactions on messages
-    /// sent or received in the group during the member's pending period. This method returns these reactions.
+    /// When a group member status changes from pending to non-pending, we need to send them the current user's (sent) reactions that were set or updated
+    /// in the group during the member's pending period: the member did not receive them, since pending members are excluded from the active participants.
+    /// This method returns these reactions. Note that the filter is on the *reaction's* timestamp, not the message's: a reaction made during the pending
+    /// period on an older message was missed by the member too.
     public static func getReactionsSentOnGroupMessages(groupIdentifier: ObvGroupV2Identifier,
                                                        dateInterval: PersistedGroupV2Member.DateInterval,
                                                        within context: NSManagedObjectContext) throws -> [(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, emoji: String, originalServerTimestamp: Date)] {
@@ -274,11 +286,11 @@ extension PersistedMessageReactionSent {
             assertionFailure()
             throw ObvUICoreDataError.couldNotFindDiscussion
         }
-        // Find all the sent reactions associated to a message sent/received in the date interval in the discussion.
+        // Find all the sent reactions of the discussion that were set or updated in the date interval.
         let request: NSFetchRequest<PersistedMessageReactionSent> = PersistedMessageReactionSent.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             PersistedMessageReaction.Predicate.withMessageInDiscussion(discussionObjectID: objectIDOfGroupDiscussion.downcast),
-            PersistedMessageReaction.Predicate.withMessageInTimeInterval(startDate: dateInterval.startDate, endDate: dateInterval.endDate),
+            PersistedMessageReaction.Predicate.withTimestampInTimeInterval(startDate: dateInterval.startDate, endDate: dateInterval.endDate),
             PersistedMessageReaction.Predicate.withNonNilEmoji,
         ])
         request.fetchBatchSize = 1_000

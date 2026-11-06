@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -104,8 +104,8 @@ final class ObvOwnedIdentityCoordinator: OlvidCoordinator, @unchecked Sendable {
         // Internal Notifications
         
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeAllPersistedInvitationCanBeMarkedAsOld { ownedCryptoId in
-                Task { [weak self] in await self?.processAllPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: ownedCryptoId) }
+            ObvMessengerInternalNotification.observeAllPersistedInvitationCanBeMarkedAsOld { [weak self] ownedCryptoId in
+                Task { await self?.processAllPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: ownedCryptoId) }
             },
         ])
         

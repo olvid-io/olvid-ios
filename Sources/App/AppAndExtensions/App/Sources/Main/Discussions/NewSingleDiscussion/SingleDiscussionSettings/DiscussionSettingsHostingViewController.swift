@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,7 +30,7 @@ import ObvAppCoreConstants
 import ObvUserNotificationsSounds
 import ObvAppTypes
 
-final class DiscussionSettingsHostingViewController: KeyboardHostingController<DiscussionExpirationSettingsWrapperView> {
+final class DiscussionSettingsHostingViewController: UIHostingController<DiscussionExpirationSettingsWrapperView> {
 
     fileprivate let model: DiscussionExpirationSettingsViewModel
 
@@ -97,6 +97,50 @@ final class DiscussionExpirationSettingsViewModel: ObservableObject {
         }
         self.ownedIdentityInViewContext = _ownedIdentity
         self.changed = false
+        redrawWhenWhatIsShownChangesElsewhere()
+    }
+
+
+    private var notificationTokens = [NSObjectProtocol]()
+    private var cancellables = Set<AnyCancellable>()
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
+
+    /// The two values this screen shows that somebody else may change while it is open: this discussion's own
+    /// configuration, and the global double tap emoji each row falls back to and shows in brackets. Both travel between a
+    /// user's own devices.
+    ///
+    /// `changed` is what the view already uses to redraw, so both sources toggle it rather than growing a second mechanism.
+    ///
+    /// **The view context's own change and not `discussionLocalConfigurationHasBeenUpdated`**: that notification and the
+    /// merge into the view context are two independent hops off the saving thread, and nothing orders them, so a redraw
+    /// driven by the notification can read the value that is already there. The rows read `localConfigurationInViewContext`,
+    /// which the merge is what updates.
+    private func redrawWhenWhatIsShownChangesElsewhere() {
+
+        if let viewContext = localConfigurationInViewContext.managedObjectContext {
+            let objectID = localConfigurationInViewContext.objectID
+            let token = NotificationCenter.default.addObserver(forName: .NSManagedObjectContextObjectsDidChange, object: viewContext, queue: .main) { [weak self] notification in
+                guard let self else { return }
+                let touched = (notification.userInfo?[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? [])
+                    .union(notification.userInfo?[NSRefreshedObjectsKey] as? Set<NSManagedObject> ?? [])
+                guard touched.contains(where: { $0.objectID == objectID }) else { return }
+                self.changed.toggle()
+            }
+            notificationTokens.append(token)
+        }
+
+        ObvMessengerSettingsObservableObject.shared.$defaultDoubleTapEmoji
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.changed.toggle()
+            }
+            .store(in: &cancellables)
+
     }
 
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "DiscussionExpirationSettingsViewModel")
@@ -318,6 +362,9 @@ struct DiscussionExpirationSettingsWrapperView: View {
             defaultEmoji: ValueWithBinding(
                 localConfiguration, \.defaultEmoji) {
                     PersistedDiscussionLocalConfigurationValue.defaultEmoji($0).sendUpdateRequestNotifications(with: $1) },
+            doubleTapEmoji: ValueWithBinding(
+                localConfiguration, \.doubleTapEmoji) {
+                    PersistedDiscussionLocalConfigurationValue.doubleTapEmoji($0).sendUpdateRequestNotifications(with: $1) },
             notificationSound: ValueWithBinding(
                 localConfiguration, \._notificationSound) {
                     PersistedDiscussionLocalConfigurationValue.notificationSound($0.value).sendUpdateRequestNotifications(with: $1) },
@@ -348,6 +395,9 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     let muteNotificationsEndDate: Date?
     let muteNotificationsDuration: ValueWithBinding<PersistedDiscussionLocalConfiguration, ObvMuteDurationOption?>
     let defaultEmoji: ValueWithBinding<PersistedDiscussionLocalConfiguration, String?>
+
+    /// What a double tap on a message of this discussion reacts with, and the twin of ``defaultEmoji`` above.
+    let doubleTapEmoji: ValueWithBinding<PersistedDiscussionLocalConfiguration, String?>
     let notificationSound: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalNotificationSound>
     let performInteractionDonation: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
 
@@ -434,7 +484,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                             }
                         }
                     }
-                    ChangeDefaultEmojiView(defaultEmoji: defaultEmoji.binding)
+                    ChangeDefaultEmojiView(defaultEmoji: defaultEmoji.binding, doubleTapEmoji: doubleTapEmoji.binding)
                     Section {
                         NotificationSoundPicker(selection: notificationSound.binding, showDefault: true) { sound -> Text in
                             switch sound {
@@ -632,6 +682,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                         .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
                 }
             })
+                                    .keyboardShortcut(.cancelAction)
             )
             .alert(isPresented: $showConfirmationMessageBeforeSavingSharedConfig) {
                 Alert(title: Text("MODIFIED_SHARED_SETTINGS_CONFIRMATION_TITLE"),
@@ -651,38 +702,82 @@ fileprivate struct DiscussionExpirationSettingsView: View {
 
 
 
+/// The two emojis this discussion may override: the one behind the composition bar's button, and the one a **double tap** sends.
+///
+/// **One section with two rows**, and the second is the new one. They are neighbours because they are the same kind of choice made twice, and because a reader who
+/// comes here to change one will want to see the other; the row below each says which global setting it falls back to when this discussion says nothing.
 struct ChangeDefaultEmojiView: View {
 
     @Binding var defaultEmoji: String?
-    @State private var showingEmojiPickerSheet = false
+
+    /// What a double tap on a message of this discussion reacts with, overriding `ObvMessengerSettings.Emoji.defaultDoubleTapEmoji`.
+    @Binding var doubleTapEmoji: String?
 
     var body: some View {
         Section {
-            Button(action: {
-                showingEmojiPickerSheet = true
-            }) {
-                HStack {
-                    Image(systemIcon: .handThumbsup)
-                        .foregroundColor(.blue)
-                    Text("DEFAULT_EMOJI")
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.label))
-                    Spacer()
-                    if let defaultEmoji = defaultEmoji {
-                        Text(defaultEmoji)
-                            .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                    } else {
-                        Text("\(CommonString.Word.Default) (\(ObvMessengerSettings.Emoji.defaultEmojiButton ?? ObvMessengerConstants.defaultEmoji))")
-                            .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                    }
+            OneEmojiThisDiscussionMayOverride(
+                emoji: $defaultEmoji,
+                title: "DEFAULT_EMOJI",
+                icon: .handThumbsup,
+                whatItFallsBackTo: ObvMessengerSettings.Emoji.defaultEmojiButton ?? ObvMessengerConstants.defaultEmoji)
+            // **Only while the reader is on the SwiftUI discussion**, and this conditional is deleted at the cutover.
+            //
+            // This screen is shared by both discussion screens, and the legacy one answers a double tap by showing the bar of favourite emojis, which Step 22a
+            // departed from deliberately. So on the production layout this row would be a setting a reader can change to no effect at all, with nothing saying
+            // why. A bare `if` rather than a container, this being inside a `Section` and not a row of a lazy container: a `Group` whose branch is empty
+            // contributes no subview, which is what is wanted here.
+            if ObvMessengerSettings.Interface.discussionLayoutType == .swiftUI {
+                OneEmojiThisDiscussionMayOverride(
+                    emoji: $doubleTapEmoji,
+                    title: "DOUBLE_TAP_EMOJI",
+                    icon: .handTap,
+                    whatItFallsBackTo: ObvMessengerSettings.Emoji.defaultDoubleTapEmoji ?? ObvMessengerConstants.defaultDoubleTapEmoji)
+            }
+        }
+    }
+}
+
+
+/// One row of ``ChangeDefaultEmojiView``: what this discussion has chosen, or the global value it is falling back to.
+///
+/// A view of its own so that the two rows cannot drift apart — the sheet, the wording of the fallback and the picker are written once. It was the whole of
+/// `ChangeDefaultEmojiView` until Step 56 gave it a sibling.
+private struct OneEmojiThisDiscussionMayOverride: View {
+
+    @Binding var emoji: String?
+    let title: LocalizedStringKey
+    let icon: SystemIcon
+
+    /// The global setting shown in brackets while this discussion has chosen nothing, already resolved past its own constant.
+    let whatItFallsBackTo: String
+
+    @State private var showingEmojiPickerSheet = false
+
+    var body: some View {
+        Button(action: {
+            showingEmojiPickerSheet = true
+        }) {
+            HStack {
+                Image(systemIcon: icon)
+                    .foregroundColor(.blue)
+                Text(title)
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                Spacer()
+                if let emoji {
+                    Text(emoji)
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                } else {
+                    Text("\(CommonString.Word.Default) (\(whatItFallsBackTo))")
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
                 }
             }
         }
         .sheet(isPresented: $showingEmojiPickerSheet) {
             NavigationStack {
-                EmojiPickerView(model: EmojiPickerViewModel(selectedEmoji: defaultEmoji) { emoji in
-                    self.defaultEmoji = emoji
+                EmojiPickerView(model: EmojiPickerViewModel(selectedEmoji: emoji) { chosen in
+                    self.emoji = chosen
                     self.showingEmojiPickerSheet = false
-                })
+                }, escapeKeyClosesIt: false) // The close button below carries Esc, and the picker's own would close nothing here.
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         ObvButtonWithCancelRole(action: { showingEmojiPickerSheet = false })
@@ -714,6 +809,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 muteNotificationsEndDate: nil,
                 muteNotificationsDuration: ValueWithBinding(constant: .indefinitely),
                 defaultEmoji: ValueWithBinding(constant: nil),
+                doubleTapEmoji: ValueWithBinding(constant: nil),
                 notificationSound: ValueWithBinding(constant: .none),
                 performInteractionDonation: ValueWithBinding(constant: .trueValue),
                 sharedConfigCanBeModified: true,
@@ -734,6 +830,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 muteNotificationsEndDate: Date.distantFuture,
                 muteNotificationsDuration: ValueWithBinding(constant: .indefinitely),
                 defaultEmoji: ValueWithBinding(constant: nil),
+                doubleTapEmoji: ValueWithBinding(constant: nil),
                 notificationSound: ValueWithBinding(constant: .some(.busy)),
                 performInteractionDonation: ValueWithBinding(constant: .falseValue),
                 sharedConfigCanBeModified: false,

@@ -322,8 +322,43 @@ extension PersistedLocation {
             NSPredicate(withNonNilValueForKey: Key.sharingExpiration)
         }
 
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            NSPredicate(withObjectID: objectID)
+        }
+
     }
+
+
+    /// The abstract entity, fetched as itself — which is what lets a caller holding an object ID fetch a location without knowing which of the four kinds it is.
+    ///
+    /// Named `typedFetchRequest` rather than `fetchRequest`, as the subclasses call theirs, because `NSManagedObject` already declares a `fetchRequest()` returning an
+    /// untyped request and a same-named override here would be the one Swift picks.
+    @nonobjc static func typedFetchRequest() -> NSFetchRequest<PersistedLocation> {
+        NSFetchRequest<PersistedLocation>(entityName: PersistedLocation.entityName)
+    }
+
+    private static let entityName = "PersistedLocation"
     
+    /// Watches one location, so that a screen showing it learns that it moved.
+    ///
+    /// It exists because **an update writes the location and nothing else**: `updateContentForContinuousLocation(with:count:)` rewrites the coordinate, the address
+    /// and the count on this object, and the messages showing it are not touched at all. A screen watching only its messages would therefore never learn that a
+    /// sender has moved.
+    ///
+    /// The fetch is on `PersistedLocation` itself rather than on one of its subclasses, so that a caller holding an object ID need not know whether it identifies a
+    /// location sent or received, continuous or one-shot. It yields no object once the location is deleted, which is what the end of sharing amounts to.
+    public static func getFetchedResultsController(objectID: NSManagedObjectID, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedLocation> {
+        let request: NSFetchRequest<PersistedLocation> = PersistedLocation.typedFetchRequest()
+        request.predicate = Predicate.withObjectID(objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
+
     /// Shall **only** be called from the sublcasses, after the necessary checks have been performed.
     /// In particular, we don't want to delete a continuous location shown in two distinct messages when one of the messages
     /// is deleted.

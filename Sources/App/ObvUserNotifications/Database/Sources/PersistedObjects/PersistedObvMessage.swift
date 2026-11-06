@@ -205,7 +205,7 @@ extension PersistedObvMessage {
         let request: NSFetchRequest<PersistedObvMessage> = Self.fetchRequest()
         request.predicate = Predicate.withNoAssociatedNotification
         request.fetchBatchSize = 100
-        request.propertiesToFetch = []
+        request.includesPropertyValues = false
         let items = try context.fetch(request)
         for item in items {
             try item.deletePersistedObvMessage()

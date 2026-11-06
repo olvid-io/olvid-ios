@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -101,7 +101,7 @@ final public class ObvEncoded: NSObject, Decodable {
     public convenience init?(withPaddedRawData data: Data) {
         guard let advertizedInnerLength = Self.advertizedInnerLengthOfRawData(data) else { return nil }
         guard ObvEncoded.lengthOverhead + advertizedInnerLength <= data.count else { return nil }
-        let unpaddedData = data[0..<ObvEncoded.lengthOverhead + advertizedInnerLength]
+        let unpaddedData = data[data.startIndex..<(data.startIndex + ObvEncoded.lengthOverhead + advertizedInnerLength)]
         self.init(withRawData: unpaddedData)
     }
 

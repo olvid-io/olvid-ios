@@ -21,7 +21,6 @@ import UIKit
 import UniformTypeIdentifiers
 
 
-@available(iOS 14.0, *)
 final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {
     
 

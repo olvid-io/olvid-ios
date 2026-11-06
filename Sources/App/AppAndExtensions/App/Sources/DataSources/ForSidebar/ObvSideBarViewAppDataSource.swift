@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,6 +32,7 @@ protocol ObvSideBarViewAppDataSourceDelegate: AnyObject {
 }
 
 
+@MainActor
 final class ObvSideBarViewAppDataSource {
  
     private let viewContext: NSManagedObjectContext
@@ -48,6 +49,26 @@ final class ObvSideBarViewAppDataSource {
     weak var delegate: ObvSideBarViewAppDataSourceDelegate?
     
     private var obvSideBarViewModelStreamManagerForStreamUUID = [UUID: ObvSideBarViewModelStreamManager]()
+
+    /// The badge of the contacts, which no entity stores: the contacts flow counts the suggestions of the current profile and passes the badge on.
+    private var badgeForContacts = BadgeForContacts.none
+
+    /// Called on the main thread by the contacts flow each time it recounts its suggestions, including with 0 when the profile changes.
+    func setBadgeForContacts(count: Int, hasANewCard: Bool) {
+        let badgeForContacts = BadgeForContacts(count: count, hasANewCard: hasANewCard)
+        guard self.badgeForContacts != badgeForContacts else { return }
+        self.badgeForContacts = badgeForContacts
+        for manager in obvSideBarViewModelStreamManagerForStreamUUID.values {
+            manager.setBadgeForContacts(badgeForContacts)
+        }
+    }
+
+    /// The count of the badge of the contacts, and its colour: red when a card of the suggestions is new, grey otherwise.
+    fileprivate struct BadgeForContacts: Equatable {
+        let count: Int
+        let hasANewCard: Bool
+        static let none = BadgeForContacts(count: 0, hasANewCard: false)
+    }
     
 }
 
@@ -56,7 +77,7 @@ final class ObvSideBarViewAppDataSource {
 extension ObvSideBarViewAppDataSource: ObvSideBarViewDataSource {
         
     func getAsyncStreamOfObvSideBarViewModel(_ view: ObvSidebar.ObvSideBarView) async throws -> (streamUUID: UUID, stream: AsyncStream<ObvSidebar.ObvSideBarViewModel>) {
-        let manager = try ObvSideBarViewModelStreamManager(context: backgroundContext)
+        let manager = try ObvSideBarViewModelStreamManager(context: backgroundContext, badgeForContacts: badgeForContacts)
         obvSideBarViewModelStreamManagerForStreamUUID[manager.streamUUID] = manager
         return try await manager.startStream()
     }
@@ -72,7 +93,7 @@ extension ObvSideBarViewAppDataSource: ObvSideBarViewDataSource {
         guard let currentOwnedCryptoId = delegate.getCurrentOwnedCryptoId(self) else { return nil }
         guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: currentOwnedCryptoId, within: viewContext) else { return nil }
         let flowToHighlight = OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow ?? .latestDiscussions
-        let model = ObvSidebar.ObvSideBarViewModel(ownedIdentity: ownedIdentity, flowToHighlight: flowToHighlight)
+        let model = ObvSidebar.ObvSideBarViewModel(ownedIdentity: ownedIdentity, badgeForContacts: badgeForContacts, flowToHighlight: flowToHighlight)
         return model
     }
     
@@ -95,11 +116,25 @@ extension ObvSideBarViewAppDataSource {
     private final class ObvSideBarViewModelStreamManager: ObvDataSourceStreamManagerWithOneFetchedResultsController<ObvSidebar.ObvSideBarViewModel, PersistedObvOwnedIdentity>, @unchecked Sendable {
                 
         private var cancellables: Set<AnyCancellable> = []
-        
-        init(context: NSManagedObjectContext) throws {
+        /// Only read and written on the queue of the context of `frc`, once the initializer returned.
+        private var badgeForContacts: BadgeForContacts
+
+        init(context: NSManagedObjectContext, badgeForContacts: BadgeForContacts) throws {
             let frc = PersistedObvOwnedIdentity.getFetchedResultsControllerForAllOwnedIdentities(within: context)
+            self.badgeForContacts = badgeForContacts
             super.init(frc: frc)
             continuouslyObserveCurrentOwnedCryptoIdAndCurrentFlow()
+        }
+
+        /// The blocks of a context run in the order they were submitted, so the last badge given is the one the model ends up with.
+        func setBadgeForContacts(_ badgeForContacts: BadgeForContacts) {
+            frc.managedObjectContext.perform { [weak self] in
+                guard let self else { return }
+                self.badgeForContacts = badgeForContacts
+                Task { [weak self] in
+                    try? await self?.getFetchedObjectsAndYieldModelIfNeeded()
+                }
+            }
         }
         
         deinit {
@@ -143,7 +178,7 @@ extension ObvSideBarViewAppDataSource {
             assert(OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow != nil)
             let flowToHighlight = OlvidUserActivitySingleton.shared.currentUserActivity?.currentFlow ?? .latestDiscussions
             
-            return .init(ownedIdentity: ownedIdentity, flowToHighlight: flowToHighlight)
+            return .init(ownedIdentity: ownedIdentity, badgeForContacts: badgeForContacts, flowToHighlight: flowToHighlight)
 
         }
         
@@ -161,8 +196,10 @@ extension ObvSideBarViewAppDataSource {
 
 extension ObvSidebar.ObvSideBarViewModel {
     
-    init(ownedIdentity: PersistedObvOwnedIdentity, flowToHighlight: ObvAppTypes.ObvFlow) {
+    fileprivate init(ownedIdentity: PersistedObvOwnedIdentity, badgeForContacts: ObvSideBarViewAppDataSource.BadgeForContacts, flowToHighlight: ObvAppTypes.ObvFlow) {
         self.init(badgeCountForLatestDiscussions: ownedIdentity.badgeCountForDiscussionsTab,
+                  badgeCountForContacts: badgeForContacts.count,
+                  badgeForContactsHasANewCard: badgeForContacts.hasANewCard,
                   badgeCountForInvitations: ownedIdentity.badgeCountForInvitationsTab,
                   flowToHighlight: flowToHighlight)
     }

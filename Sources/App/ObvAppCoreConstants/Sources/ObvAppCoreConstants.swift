@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,12 +18,21 @@
  */
 
 import Foundation
+import UserNotifications
 
 public struct ObvAppCoreConstants {
     
     public static let logSubsystem = "io.olvid.messenger"
     
-    public static let appGroupIdentifier = Bundle.main.infoDictionary!["OBV_APP_GROUP_IDENTIFIER"]! as! String
+    public static let appGroupIdentifier: String = {
+        if let value = Bundle.main.infoDictionary?["OBV_APP_GROUP_IDENTIFIER"] as? String {
+            return value
+        }
+        // `Bundle.main` does not carry the build-injected Info.plist keys when running in a bare `xctest` host (no host
+        // application). In that case only, we fall back to the production app group identifier. This never triggers in
+        // the app or its extensions, where the Info.plist key is always present, so production behavior is unchanged.
+        return "group.io.olvid.messenger"
+    }()
     
     public struct Host {
         public static let forInvitations = Bundle.main.infoDictionary!["OBV_HOST_FOR_INVITATIONS"]! as! String
@@ -153,5 +162,18 @@ public struct ObvAppCoreConstants {
             return global
         }
     }
+
+}
+
+
+// MARK: - Notification authorization
+
+extension UNAuthorizationOptions {
+
+    /// The options of every notification authorization request made by the app.
+    ///
+    /// Every request must use this list. If notifications are authorized without one of these options, the user does not
+    /// get the matching setting, and our authorization screens are not shown again to fix it.
+    public static let requestedByOlvid: UNAuthorizationOptions = [.alert, .sound, .badge, .carPlay]
 
 }

@@ -28,20 +28,30 @@ import OlvidUtils
 
 final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: ContextualOperationWithSpecificReasonForCancel<DetermineAttachmentsToDownloadAndCreateURLSessionsOperation.ReasonForCancel>, @unchecked Sendable {
     
+    private static let logger = Logger(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: "DetermineAttachmentsToDownloadAndCreateURLSessionsOperation")
+
     private let uuid = UUID()
     private let kind: InboxAttachmentDownloadKind
     private let log: OSLog
     private let logCategory = String(describing: DetermineAttachmentsToDownloadAndCreateURLSessionsOperation.self)
     private let tracker: AttachmentChunkDownloadProgressTracker
     private let delegateManager: ObvNetworkFetchDelegateManager
-    
-    private(set) var chunksToDownloadForAttachment = [ObvAttachmentIdentifier: (urlSession: URLSession, chunkNumbersAndSignedURLs: [(chunkNumber: Int, signedURL: URL)])]()
-    
-    init(kind: InboxAttachmentDownloadKind, tracker: AttachmentChunkDownloadProgressTracker, delegateManager: ObvNetworkFetchDelegateManager) {
+
+    /// The attachments for which the coordinator already holds a `URLSession` in memory, and for which this operation must therefore build none.
+    ///
+    /// See where it is consulted, which is where the reasoning is.
+    private let attachmentsTheCoordinatorIsAlreadyHandling: Set<ObvAttachmentIdentifier>
+
+    /// The chunks left to fetch for each attachment, and the session to fetch them in — `nil` for an attachment the coordinator is already handling, which
+    /// has a session of its own and needs none from here.
+    private(set) var chunksToDownloadForAttachment = [ObvAttachmentIdentifier: (urlSession: URLSession?, chunkNumbersAndSignedURLs: [(chunkNumber: Int, signedURL: URL)])]()
+
+    init(kind: InboxAttachmentDownloadKind, tracker: AttachmentChunkDownloadProgressTracker, delegateManager: ObvNetworkFetchDelegateManager, attachmentsTheCoordinatorIsAlreadyHandling: Set<ObvAttachmentIdentifier>) {
         self.kind = kind
         self.log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         self.tracker = tracker
         self.delegateManager = delegateManager
+        self.attachmentsTheCoordinatorIsAlreadyHandling = attachmentsTheCoordinatorIsAlreadyHandling
         super.init()
     }
 
@@ -104,6 +114,10 @@ final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: Context
                     assertionFailure()
                     return cancel(withReason: .cannotDetermineDecryptedAttachmentURL)
                 }
+
+                // Unconditionally, before a single byte is asked for. This is the only moment at which "the file was already gone before this download began"
+                // can be told from "something removed it while it was running", and the two have entirely different culprits.
+                Self.logger.info("📁 [\(attachmentId.debugDescription, privacy: .public)] About to hand a download to a URLSession writing into \(decryptedAttachmentURL.path, privacy: .public): \(attachment.reportOnWhatIsOnDiskForTheChunks(withinInbox: self.delegateManager.inbox), privacy: .public)")
                 
                 guard let decryptionKey = attachment.key else {
                     assertionFailure()
@@ -116,50 +130,85 @@ final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: Context
                     return cancel(withReason: .cannotDetermineCleartextChunkLengths)
                 }
 
-                let inboxAttachmentSession: InboxAttachmentSession
-                if let existingSession = attachment.session {
-                    inboxAttachmentSession = existingSession
-                } else {
-                    os_log("📄 No OutboxAttachmentSession exists for attachment %{public}@. We create one with a new session identifier.", log: log, type: .info, attachmentId.debugDescription)
-                    guard let newOutboxAttachmentSession = attachment.createSession() else {
-                        return cancel(withReason: .failedToCreateInboxAttachmentSession)
-                    }
-                    inboxAttachmentSession = newOutboxAttachmentSession
+                // **The last moment at which a download that cannot succeed can be stopped from being started.** Everything below hands this URL to a session
+                // delegate that keeps it for the whole transfer, so a missing file is discovered chunk by chunk, at the cost of the whole attachment, and the
+                // failure is permanent: the write is refused, the coordinator cancels, the attachment goes back to `paused`, and the reader's next tap does
+                // exactly the same again. See `makeTheFileForWritingChunksAgainIfItIsMissing(withinInbox:)` for what it costs and why every chunk is
+                // forgotten rather than only the missing ones. It changes nothing when the file is there, which is every ordinary download.
+                do {
+                    _ = try attachment.makeTheFileForWritingChunksAgainIfItIsMissing(withinInbox: self.delegateManager.inbox)
+                } catch {
+                    // Cancelled rather than carried on with: a download whose first write is already known to be impossible must not be started at all.
+                    Self.logger.fault("📁 [\(attachmentId.debugDescription, privacy: .public)] The file the chunks are written into is missing and could not be made again, so no download is started: \(error.localizedDescription, privacy: .public)")
+                    return cancel(withReason: .couldNotMakeTheFileTheChunksAreWrittenIntoAgain(error: error))
                 }
-                
-                guard let contextCreator = delegateManager.contextCreator else {
-                    assertionFailure()
-                    return cancel(withReason: .contextCreatorIsNil)
-                }
-                
-                let obvContextForDownloadAttachmentChunksSessionDelegate = contextCreator.newBackgroundContext(flowId: obvContext.flowId)
-                
-                let sessionDelegate = DownloadAttachmentChunksSessionDelegate(
-                    attachmentId: attachmentId,
-                    logSubsystem: delegateManager.logSubsystem,
-                    decryptedAttachmentURL: decryptedAttachmentURL,
-                    tracker: tracker,
-                    flowId: obvContext.flowId,
-                    cleartextChunkLengths: cleartextChunkLengths,
-                    decryptionKey: decryptionKey,
-                    queueForDecryptingChunks: delegateManager.queueForDecryptingChunks,
-                    queueForComposedOperations: delegateManager.queueForComposedOperations,
-                    queueSharedAmongCoordinators: delegateManager.queueSharedAmongCoordinators,
-                    obvContext: obvContextForDownloadAttachmentChunksSessionDelegate,
-                    viewContext: viewContext)
-                
-                let sessionConfiguration = URLSessionConfiguration.background(withIdentifier: inboxAttachmentSession.sessionIdentifier)
-                sessionConfiguration.waitsForConnectivity = true
-                sessionConfiguration.isDiscretionary = false
-                sessionConfiguration.allowsCellularAccess = true
-                sessionConfiguration.sessionSendsLaunchEvents = true
-                sessionConfiguration.shouldUseExtendedBackgroundIdleMode = true
-                sessionConfiguration.allowsConstrainedNetworkAccess = true
-                sessionConfiguration.allowsExpensiveNetworkAccess = true
 
-                let urlSession = URLSession(configuration: sessionConfiguration,
+                // **No session is built for an attachment the coordinator is already handling**, and until 2026-08-31 one was, for every attachment this
+                // operation was asked about.
+                //
+                // The coordinator holds the session of a download it has paused, and resumes *that* session's tasks — the one built here was never used
+                // for anything, and three faults followed from it. It was stored as the tracked session all the same, so the next pause suspended a
+                // session with no tasks in it while the transfer carried on and the app was told it had stopped. It was built with
+                // `URLSessionConfiguration.background(withIdentifier:)` on the identifier of the session that is still live, pausing not deleting the
+                // `InboxAttachmentSession` — and two background sessions may not share an identifier. And nothing ever invalidated it, so a pause and a
+                // resume leaked a session, its delegate, and that delegate's `ObvContext`.
+                //
+                // It has to be skipped rather than discarded afterwards: with no tasks in it, `finishTasksAndInvalidate()` invalidates at once, and the
+                // delegate callback that follows deletes the `InboxAttachmentSession` — the row belonging to the session that is actually downloading.
+                let urlSession: URLSession?
+
+                if attachmentsTheCoordinatorIsAlreadyHandling.contains(attachmentId) {
+
+                    urlSession = nil
+
+                } else {
+
+                    let inboxAttachmentSession: InboxAttachmentSession
+                    if let existingSession = attachment.session {
+                        inboxAttachmentSession = existingSession
+                    } else {
+                        os_log("📄 No InboxAttachmentSession exists for attachment %{public}@. We create one with a new session identifier.", log: log, type: .info, attachmentId.debugDescription)
+                        guard let newInboxAttachmentSession = attachment.createSession() else {
+                            return cancel(withReason: .failedToCreateInboxAttachmentSession)
+                        }
+                        inboxAttachmentSession = newInboxAttachmentSession
+                    }
+
+                    guard let contextCreator = delegateManager.contextCreator else {
+                        assertionFailure()
+                        return cancel(withReason: .contextCreatorIsNil)
+                    }
+
+                    let obvContextForDownloadAttachmentChunksSessionDelegate = contextCreator.newBackgroundContext(flowId: obvContext.flowId)
+
+                    let sessionDelegate = DownloadAttachmentChunksSessionDelegate(
+                        attachmentId: attachmentId,
+                        logSubsystem: delegateManager.logSubsystem,
+                        decryptedAttachmentURL: decryptedAttachmentURL,
+                        tracker: tracker,
+                        flowId: obvContext.flowId,
+                        cleartextChunkLengths: cleartextChunkLengths,
+                        decryptionKey: decryptionKey,
+                        queueForDecryptingChunks: delegateManager.queueForDecryptingChunks,
+                        queueForComposedOperations: delegateManager.queueForComposedOperations,
+                        queueSharedAmongCoordinators: delegateManager.queueSharedAmongCoordinators,
+                        obvContext: obvContextForDownloadAttachmentChunksSessionDelegate,
+                        viewContext: viewContext)
+
+                    let sessionConfiguration = URLSessionConfiguration.background(withIdentifier: inboxAttachmentSession.sessionIdentifier)
+                    sessionConfiguration.waitsForConnectivity = true
+                    sessionConfiguration.isDiscretionary = false
+                    sessionConfiguration.allowsCellularAccess = true
+                    sessionConfiguration.sessionSendsLaunchEvents = true
+                    sessionConfiguration.shouldUseExtendedBackgroundIdleMode = true
+                    sessionConfiguration.allowsConstrainedNetworkAccess = true
+                    sessionConfiguration.allowsExpensiveNetworkAccess = true
+
+                    urlSession = URLSession(configuration: sessionConfiguration,
                                             delegate: sessionDelegate,
                                             delegateQueue: nil)
+
+                }
 
                 // Now that we have an URLSession for downloading the attachment, we determine the chunks to download
                 
@@ -200,7 +249,8 @@ final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: Context
         case cannotDetermineCleartextChunkLengths
         case decryptionKeyIsNotAvailable
         case contextCreatorIsNil
-        
+        case couldNotMakeTheFileTheChunksAreWrittenIntoAgain(error: Error)
+
         public var logType: OSLogType {
             return .fault
         }
@@ -227,6 +277,8 @@ final class DetermineAttachmentsToDownloadAndCreateURLSessionsOperation: Context
                 return "The decryption key is not available"
             case .contextCreatorIsNil:
                 return "The context creator is nil"
+            case .couldNotMakeTheFileTheChunksAreWrittenIntoAgain(error: let error):
+                return "The file the chunks are written into was missing and could not be made again: \(error.localizedDescription)"
             }
         }
         

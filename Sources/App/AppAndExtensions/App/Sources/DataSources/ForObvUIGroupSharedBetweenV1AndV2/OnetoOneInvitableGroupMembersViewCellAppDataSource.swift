@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -121,9 +121,9 @@ extension OnetoOneInvitableGroupMembersViewCellAppDataSource {
             }
             let frcPersistedInvitationOneToOneInvitationSent = PersistedInvitationOneToOneInvitationSent.getFetchedResultsController(
                 ownedCryptoId: try pendingMember.ownedCryptoId,
-                remoteCryptoId: pendingMember.cryptoId,
+                remoteCryptoId: try pendingMember.cryptoId,
                 within: context)
-            let contactIdentifier = ObvContactIdentifier(contactCryptoId: pendingMember.cryptoId, ownedCryptoId: try pendingMember.ownedCryptoId)
+            let contactIdentifier = ObvContactIdentifier(contactCryptoId: try pendingMember.cryptoId, ownedCryptoId: try pendingMember.ownedCryptoId)
             let frc3 = PersistedObvContactIdentity.getFetchedResultsControllerForContactIdentifier(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: context)
             super.init(frc1: frc1, frc2: frcPersistedInvitationOneToOneInvitationSent, frc3: frc3)
         }
@@ -134,8 +134,8 @@ extension OnetoOneInvitableGroupMembersViewCellAppDataSource {
             assert(fetchedObjects2.count <= 1)
             assert(fetchedObjects3.count <= 1)
             guard let pendingMember = fetchedObjects1.first else { throw ObvError.couldNotFindPendingGroupMember }
-            
-            let contactIdentifier = ObvContactIdentifier(contactCryptoId: pendingMember.cryptoId, ownedCryptoId: try pendingMember.ownedCryptoId)
+
+            let contactIdentifier = ObvContactIdentifier(contactCryptoId: try pendingMember.cryptoId, ownedCryptoId: try pendingMember.ownedCryptoId)
 
             let kind: OnetoOneInvitableGroupMembersViewCellModel.Kind
             let detailedProfileCanBeShown: Bool
@@ -167,7 +167,7 @@ extension OnetoOneInvitableGroupMembersViewCellAppDataSource {
                 isKeycloakManaged = false
                 circleColors = .init(background: pendingMember.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared),
                                      foreground: pendingMember.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared))
-                identityDetails = pendingMember.identityDetails
+                identityDetails = try pendingMember.identityDetails
                 profilePictureInitial = pendingMember.circledInitialsConfiguration.initials?.text
                 customDisplayName = nil
                 customPhotoURL = nil
@@ -230,7 +230,7 @@ extension OnetoOneInvitableGroupMembersViewCellAppDataSource {
             assert(fetchedObjects.count == 1 || fetchedObjects.count == 0)
             guard let persistedMember = fetchedObjects.first else { throw ObvError.couldNotFindGroupMember }
             
-            let contactIdentifier = ObvContactIdentifier(contactCryptoId: persistedMember.cryptoId, ownedCryptoId: try persistedMember.persistedGroup.ownCryptoId)
+            let contactIdentifier = try persistedMember.userIdentifier
             
             let kind: OnetoOneInvitableGroupMembersViewCellModel.Kind
             if let persistedContact = persistedMember.contact {

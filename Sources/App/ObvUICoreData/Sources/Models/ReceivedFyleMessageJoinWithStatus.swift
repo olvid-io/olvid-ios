@@ -20,6 +20,7 @@
 import Foundation
 import CoreData
 import CoreServices
+import ObvCrypto
 import ObvTypes
 import OSLog
 import ObvSettings
@@ -44,6 +45,8 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
         
     // MARK: Properties
     
+    @NSManaged public private(set) var isDeliveredReceiptSent: Bool
+    @NSManaged public private(set) var isReadReceiptSentOrNotToBeSent: Bool
     @NSManaged public private(set) var wasOpened: Bool
 
     // MARK: Relationships
@@ -59,15 +62,27 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
     public var messageIdentifierFromEngine: Data {
         return receivedMessage.messageIdentifierFromEngine
     }
-    
+
+    /// How the engine knows this attachment: the message it belongs to, and its place among that message's attachments.
+    ///
+    /// The engine has no notion of a join. Anything asked of it about one attachment — its download progress, above all — has to be asked in these terms, so
+    /// the translation belongs here rather than in whichever data source happens to need it.
+    ///
+    /// Nil only when the owned identity cannot be reached from the message, which a received message that is still in the database cannot be.
+    public var obvAttachmentIdentifier: ObvAttachmentIdentifier? {
+        guard let ownedCryptoId = receivedMessage.discussion?.ownedIdentity?.cryptoId else { return nil } // happens when an attachment/message gets deleted
+        guard let uid = UID(uid: messageIdentifierFromEngine) else { assertionFailure(); return nil }
+        let messageId = ObvMessageIdentifier(ownedCryptoId: ownedCryptoId, uid: uid)
+        return ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: index)
+    }
+
+
     public override var message: PersistedMessage? { receivedMessage }
 
     public override var fullFileIsAvailable: Bool { status == .complete }
 
-    private var changedKeys = Set<String>()
-
     private var skipAllNotificationsOnDidSave = false
-    
+
     override func setSkipAllNotificationsOnDidSave(to newValue: Bool) {
         super.setSkipAllNotificationsOnDidSave(to: newValue)
         self.skipAllNotificationsOnDidSave = newValue
@@ -98,6 +113,9 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
                       index: obvAttachment.number,
                       forEntityName: ReceivedFyleMessageJoinWithStatus.entityName,
                       within: context)
+
+        self.isDeliveredReceiptSent = false
+        self.isReadReceiptSentOrNotToBeSent = false
 
         guard let fyle else {
             assertionFailure()
@@ -186,8 +204,11 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
     }
     
     
-    static func createOrUpdateReceivedFyleMessageJoinWithStatus(with obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws {
-        
+    /// Creates or updates a `ReceivedFyleMessageJoinWithStatus` for `obvAttachment`. Returns the join
+    /// so callers can decide whether to call `produceDeliveredReceiptToSendIfAppropriate()` on it.
+    @discardableResult
+    static func createOrUpdateReceivedFyleMessageJoinWithStatus(with obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus {
+
         let join: ReceivedFyleMessageJoinWithStatus
         if let previousJoin = try ReceivedFyleMessageJoinWithStatus.get(obvAttachment: obvAttachment, within: context) {
             join = previousJoin
@@ -202,9 +223,10 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
                 within: context)
             assert(join.fyle != nil, "The fyle should have been created by the init of the superclass")
         }
-        
+
         try join.updateReceivedFyleMessageJoinWithStatus(with: obvAttachment)
-            
+        return join
+
     }
 
     
@@ -225,7 +247,15 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
                 assertionFailure("Could not find fyle although this join should have been cascade deleted when the fyle was deleted")
                 throw ObvUICoreDataError.couldNotFindFyle
             }
-            try fyle.updateFyle(with: obvAttachment)
+            // Only move the downloaded file into place if we do not already hold this content. `Fyle` is
+            // content-addressed, so a fyle that already has a local file is by definition this same file.
+            // The initializer above makes the same check before calling `updateFyle`; this method is then
+            // called unconditionally by `createOrUpdateReceivedFyleMessageJoinWithStatus` — including
+            // immediately after that initializer ran — so without the check here, a first-time join on
+            // already-held content would still reach `updateFyle` with nothing to do.
+            if fyle.getFileSize() == nil {
+                try fyle.updateFyle(with: obvAttachment)
+            }
             self.setTotalByteCount(to: max(fyle.getFileSize() ?? 0, totalByteCount))
             let attachmentFullyReceived = (fyle.getFileSize() == totalByteCount)
             if attachmentFullyReceived {
@@ -263,14 +293,6 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus 
         return super.setDownsizedThumbnailIfRequired(data: data)
     }
     
-    // MARK: - Observers
-    
-    nonisolated(unsafe) private static var observersHolder = ReceivedFyleMessageJoinWithStatusObserversHolder()
-    
-    public static func addObvObserver(_ newObserver: ReceivedFyleMessageJoinWithStatusObserver) async {
-        await observersHolder.addObserver(newObserver)
-    }
-
 }
 
 
@@ -354,6 +376,21 @@ extension ReceivedFyleMessageJoinWithStatus {
         tryToSetStatusTo(.downloadable)
     }
 
+    /// Marks this join complete because the content it points at is now available locally — typically
+    /// because a *different* message referencing the same content finished downloading.
+    ///
+    /// `Fyle` is content-addressed, so once the bytes are on disk every join pointing at that fyle already
+    /// has its file and has nothing left to fetch. Called from ``Fyle/updateFyle(obvAttachmentStatus:)``.
+    ///
+    /// Unlike ``setStatusToDownloadedDuringHistoryTransfer(fileSize:)`` this deliberately does **not**
+    /// suppress save notifications: the discussion may well be on screen and has to refresh.
+    func setStatusToCompleteAsFyleContentIsAvailable(fileSize: Int64) {
+        guard self.status != .complete else { return }
+        setTotalByteCount(to: fileSize)
+        tryToSetStatusTo(.complete)
+        deleteDownsizedThumbnail()
+    }
+
     func setStatusToDownloadedDuringHistoryTransfer(fileSize: Int64) {
         if self.rawStatus != FyleStatus.complete.rawValue {
             self.rawStatus = FyleStatus.complete.rawValue
@@ -365,6 +402,45 @@ extension ReceivedFyleMessageJoinWithStatus {
     public func markAsOpened() {
         guard !self.wasOpened else { return }
         self.wasOpened = true
+    }
+
+
+    // MARK: - Return receipt producers
+
+    public func produceDeliveredReceiptToSendIfAppropriate() -> ObvReturnReceiptToSend? {
+        guard !isDeliveredReceiptSent else { return nil }
+        isDeliveredReceiptSent = true
+        return buildReturnReceiptToSend(status: .delivered)
+    }
+
+    public func produceReadReceiptToSendIfAppropriate() -> ObvReturnReceiptToSend? {
+        guard !isReadReceiptSentOrNotToBeSent else { return nil }
+        isReadReceiptSentOrNotToBeSent = true
+        guard receivedMessage.discussion?.localConfiguration.doSendReadReceipt ?? ObvMessengerSettings.Discussions.doSendReadReceipt else { return nil }
+        return buildReturnReceiptToSend(status: .read)
+    }
+
+    func markDeliveredReceiptAsAlreadySent() {
+        guard !isDeliveredReceiptSent else { return }
+        isDeliveredReceiptSent = true
+    }
+
+    func markReadReceiptAsNotToBeSent() {
+        guard !isReadReceiptSentOrNotToBeSent else { return }
+        isReadReceiptSentOrNotToBeSent = true
+    }
+
+    /// The contact's devices are not read here; the engine resolves them when the receipt is about to leave.
+    private func buildReturnReceiptToSend(status: ObvReturnReceiptStatus) -> ObvReturnReceiptToSend? {
+        guard let elements = receivedMessage.returnReceipt?.elements,
+              let contactIdentifier = try? receivedMessage.contactIdentity?.obvContactIdentifier else {
+            return nil
+        }
+        return ObvReturnReceiptToSend(
+            elements: elements,
+            status: status,
+            contactIdentifier: contactIdentifier,
+            attachmentNumber: index)
     }
 
     
@@ -401,10 +477,6 @@ extension ReceivedFyleMessageJoinWithStatus {
 // MARK: - Determining actions availability
 
 extension ReceivedFyleMessageJoinWithStatus {
-    
-    var copyActionCanBeMadeAvailableForReceivedJoin: Bool {
-        return shareActionCanBeMadeAvailableForReceivedJoin
-    }
     
     var shareActionCanBeMadeAvailableForReceivedJoin: Bool {
         guard status == .complete, !isPreviewType else { return false }
@@ -610,96 +682,22 @@ extension ReceivedFyleMessageJoinWithStatus {
     
     public override func willSave() {
         super.willSave()
-        
+
         assert(!Thread.isMainThread)
 
         if isDeleted {
             if let fyle = self.fyle, fyle.allFyleMessageJoinWithStatus.count == 1 && fyle.allFyleMessageJoinWithStatus.first == self {
                 managedObjectContext?.delete(fyle)
             }
-        } else if isUpdated {
-            changedKeys = Set<String>(self.changedValues().keys)
         }
 
     }
- 
-    
+
     public override func didSave() {
         super.didSave()
-        
-        defer {
-            self.changedKeys.removeAll()
-            self.setSkipAllNotificationsOnDidSave(to: false)
-        }
-        
-        guard !self.skipAllNotificationsOnDidSave else { return }
-        
-        // Request the sending of a "read" receipt, if appropriate
-
-        if !isDeleted, changedKeys.contains(Predicate.Key.wasOpened.rawValue), wasOpened {
-            if self.receivedMessage.discussion?.localConfiguration.doSendReadReceipt ?? ObvMessengerSettings.Discussions.doSendReadReceipt {
-                if let elements = self.receivedMessage.returnReceipt?.elements,
-                   let contactIdentifier = try? self.receivedMessage.contactIdentity?.obvContactIdentifier,
-                   let contactDeviceUIDs = self.receivedMessage.contactIdentity?.contactDeviceUIDs,
-                   !contactDeviceUIDs.isEmpty {
-                    let returnReceiptToSend = ObvReturnReceiptToSend(elements: elements,
-                                                                     status: .read,
-                                                                     contactIdentifier: contactIdentifier,
-                                                                     contactDeviceUIDs: contactDeviceUIDs,
-                                                                     attachmentNumber: index)
-                    Task { await ReceivedFyleMessageJoinWithStatus.observersHolder.newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: returnReceiptToSend) }
-                } else {
-                    assertionFailure()
-                }
-            }
-        }
-                
-        // Request the sending of a "delivered" receipt, if appropriate
-
-        let statusChanged = changedKeys.contains(FyleMessageJoinWithStatus.Predicate.Key.rawStatus.rawValue)
-
-        if !isDeleted && (statusChanged || isInserted), status == .complete {
-            if let elements = self.receivedMessage.returnReceipt?.elements,
-               let contactIdentifier = try? self.receivedMessage.contactIdentity?.obvContactIdentifier,
-               let contactDeviceUIDs = self.receivedMessage.contactIdentity?.contactDeviceUIDs,
-               !contactDeviceUIDs.isEmpty {
-                let returnReceiptToSend = ObvReturnReceiptToSend(elements: elements,
-                                                                 status: .delivered,
-                                                                 contactIdentifier: contactIdentifier,
-                                                                 contactDeviceUIDs: contactDeviceUIDs,
-                                                                 attachmentNumber: index)
-                Task { await ReceivedFyleMessageJoinWithStatus.observersHolder.newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: returnReceiptToSend) }
-            } else {
-                assertionFailure()
-            }
-        }
-        
+        self.setSkipAllNotificationsOnDidSave(to: false)
     }
     
 }
 
 
-// MARK: - ReceivedFyleMessageJoinWithStatus observers
-
-public protocol ReceivedFyleMessageJoinWithStatusObserver: Sendable {
-    func newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: ObvReturnReceiptToSend) async
-}
-
-
-private actor ReceivedFyleMessageJoinWithStatusObserversHolder: ReceivedFyleMessageJoinWithStatusObserver {
-    
-    private var observers = [ReceivedFyleMessageJoinWithStatusObserver]()
-    
-    func addObserver(_ newObserver: ReceivedFyleMessageJoinWithStatusObserver) {
-        self.observers.append(newObserver)
-    }
-
-    // Implementing ReceivedFyleMessageJoinWithStatusObserver
-    
-    func newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: ObvReturnReceiptToSend) async {
-        for observer in observers {
-            await observer.newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: returnReceiptToSend)
-        }
-    }
-    
-}

@@ -31,6 +31,7 @@ import ObvAppCoreConstants
 final class ResumeOrPauseOwnedAttachmentDownloadOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, @unchecked Sendable {
 
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ResumeOrPauseAttachmentDownloadOperation.self))
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: ResumeOrPauseOwnedAttachmentDownloadOperation.self))
 
     private let sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>
     private let resumeOrPause: ResumeOrPause
@@ -86,7 +87,9 @@ final class ResumeOrPauseOwnedAttachmentDownloadOperation: ContextualOperationWi
                     try await obvEngine.pauseDownloadOfAttachment(attachmentIndex, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId)
                 }
             } catch {
-                assertionFailure(error.localizedDescription)
+                // Logged rather than asserted, for the reason its twin in `ResumeOrPauseAttachmentDownloadOperation` gives: a pause the engine refuses is
+                // reachable by an ordinary tap, and it now throws instead of being swallowed and announced as a success.
+                Self.logger.error("Could not \(String(describing: self.resumeOrPause), privacy: .public) the download of an owned attachment: \(error.localizedDescription, privacy: .public)")
             }
         }
         

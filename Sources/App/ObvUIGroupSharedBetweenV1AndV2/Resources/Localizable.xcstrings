@@ -152,6 +152,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Jeden z członków grupy nie należy jeszcze do twoich kontaktów."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członka grupy nie należy jeszcze do twoich kontaktów."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członków grupy nie należy jeszcze do twoich kontaktów."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członków grupy nie należy jeszcze do twoich kontaktów."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -202,6 +232,36 @@
                   "state": "translated",
                   "value": "%lld участников группы пока не добавлены в ваши контакты."
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld участника группы пока не добавлены в ваши контакты."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld участников группы пока не добавлены в ваши контакты."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grubun bir üyesi henüz kişileriniz arasında değil."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grubun %lld üyesi henüz kişileriniz arasında değil."
+                }
               }
             }
           }
@@ -219,6 +279,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld учасників групи поки що не внесено у ваші контакти."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld учасники групи поки що не внесено у ваші контакти."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld учасників групи поки що не внесено у ваші контакти."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Một trong số các thành viên nhóm chưa có trong danh bạ của bạn."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld trong số các thành viên nhóm chưa có trong danh bạ của bạn."
                 }
               }
             }
@@ -372,6 +462,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Jeden z członków grupy nie należy do twoich kontaktów. Gdy zaakceptuje zaproszenie do grupy, możesz jednym stuknięciem zaprosić tę osobę do swoich kontaktów ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członka grupy nie należy do twoich kontaktów. Gdy zaakceptują zaproszenie do grupy, możesz jednym stuknięciem zaprosić ich do swoich kontaktów ☝️."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członków grupy nie należy do twoich kontaktów. Gdy zaakceptują zaproszenie do grupy, możesz jednym stuknięciem zaprosić ich do swoich kontaktów ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członków grupy nie należy do twoich kontaktów. Gdy zaakceptują zaproszenie do grupy, możesz jednym stuknięciem zaprosić ich do swoich kontaktów ☝️."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -422,6 +542,36 @@
                   "state": "translated",
                   "value": "%lld из участников группы отсутствуют в ваших контактах. Как только они примут приглашение в группу, вы сможете пригласить их добавить в контакты в один клик ☝️."
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld из участников группы отсутствуют в ваших контактах. Как только они примут приглашение в группу, вы сможете пригласить их добавить в контакты в один клик ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld из участников группы отсутствуют в ваших контактах. Как только они примут приглашение в группу, вы сможете пригласить их добавить в контакты в один клик ☝️."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grubun bir üyesi kişileriniz arasında değil. Grup davetini kabul ettiğinde onu tek dokunuşla kişilerinize davet edebileceksiniz ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grubun %lld üyesi kişileriniz arasında değil. Grup davetini kabul ettiklerinde onları tek dokunuşla kişilerinize davet edebileceksiniz ☝️."
+                }
               }
             }
           }
@@ -439,6 +589,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld учасників групи не вказані у ваших контактах. Після того, як вони приймуть запрошення в групу, ви зможете запропонувати їм додатись у ваші контакти в один дотик ☝️."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld учасники групи не вказані у ваших контактах. Після того, як вони приймуть запрошення в групу, ви зможете запропонувати їм додатись у ваші контакти в один дотик ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld учасників групи не вказані у ваших контактах. Після того, як вони приймуть запрошення в групу, ви зможете запропонувати їм додатись у ваші контакти в один дотик ☝️."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Một trong số các thành viên của nhóm không có trong danh bạ của bạn. Khi họ chấp nhận lời mời tham gia nhóm, bạn có thể mời họ thêm vào danh bạ của mình chỉ bằng một cú chạm ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld trong số các thành viên của nhóm không có trong danh bạ của bạn. Khi họ chấp nhận lời mời tham gia nhóm, bạn có thể mời họ thêm vào danh bạ của mình chỉ bằng một cú chạm ☝️."
                 }
               }
             }
@@ -592,6 +772,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Jeden z członków grupy nie należy jeszcze do twoich kontaktów, ale możesz zaprosić tę osobę jednym stuknięciem ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członka grupy nie należy jeszcze do twoich kontaktów, ale możesz ich zaprosić jednym stuknięciem ☝️."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członków grupy nie należy jeszcze do twoich kontaktów, ale możesz ich zaprosić jednym stuknięciem ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld członków grupy nie należy jeszcze do twoich kontaktów, ale możesz ich zaprosić jednym stuknięciem ☝️."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -658,6 +868,24 @@
             }
           }
         },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grubun bir üyesi henüz kişileriniz arasında değil, ancak onu tek dokunuşla davet edebilirsiniz ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Grubun %lld üyesi henüz kişileriniz arasında değil, ancak onları tek dokunuşla davet edebilirsiniz ☝️."
+                }
+              }
+            }
+          }
+        },
         "uk": {
           "variations": {
             "plural": {
@@ -671,6 +899,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld учасників групи ще не додані до ваших контактів, але ви можете запросити їх в один дотик 👆."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld учасники групи ще не додані до ваших контактів, але ви можете запросити їх в один дотик 👆."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld учасників групи ще не додані до ваших контактів, але ви можете запросити їх в один дотик 👆."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Một trong số các thành viên nhóm chưa có trong danh bạ của bạn, nhưng bạn có thể mời họ chỉ bằng một cú chạm ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld thành viên nhóm chưa có trong danh bạ của bạn, nhưng bạn có thể mời họ chỉ bằng một cú chạm ☝️."
                 }
               }
             }
@@ -740,6 +998,12 @@
             "value": "수락"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akceptuj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -758,10 +1022,22 @@
             "value": "Принять"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabul et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прийняти"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chấp nhận"
           }
         },
         "zh-Hans": {
@@ -942,6 +1218,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Utwórz grupę z tym użytkownikiem"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Utwórz grupę z %lld użytkownika"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Utwórz grupę z tymi %lld użytkownikami"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Utwórz grupę z tymi %lld użytkownikami"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Utwórz grupę bez innych członków"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -1010,6 +1322,42 @@
                   "state": "translated",
                   "value": "Создать группу без других участников"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Создать группу с этими %lld пользователями"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Создать группу с этими %lld пользователями"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu kullanıcıyla grup oluştur"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu %lld kullanıcıyla grup oluştur"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Başka üye olmadan grup oluştur"
+                }
               }
             }
           }
@@ -1033,6 +1381,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Створити групу без інших учасників"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Створити групу з цими %lld користувачами"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Створити групу з цими %lld користувачами"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tạo một nhóm với người dùng này"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tạo một nhóm với %lld người dùng"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tạo một nhóm không có thành viên nào khác"
                 }
               }
             }
@@ -1234,6 +1618,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Dodaj użytkownika do grupy"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Dodaj %lld użytkownika do grupy"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Dodaj %lld użytkowników do grupy"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Dodaj %lld użytkowników do grupy"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wybierz użytkownika, którego chcesz dodać do grupy"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -1302,6 +1722,42 @@
                   "state": "translated",
                   "value": "Пожалуйста, выберите пользователя для добавления в группу"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Добавить %lld пользователя в группу"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Добавить %lld пользователей в группу"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kullanıcıyı gruba ekle"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld kullanıcıyı gruba ekle"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Lütfen gruba eklenecek bir kullanıcı seçin"
+                }
               }
             }
           }
@@ -1325,6 +1781,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Будь ласка, виберіть користувача для додавання до групи"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Додати %lld користувачі до групи"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Додати %lld користувачів до групи"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Thêm người dùng vào nhóm"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Thêm %lld người dùng vào nhóm"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Vui lòng chọn người dùng để thêm vào nhóm"
                 }
               }
             }
@@ -1400,6 +1892,12 @@
             "value": "그룹 멤버를 연락처에 추가하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj członków grupy do swoich kontaktów"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1418,10 +1916,22 @@
             "value": "Добавьте участников группы в свои контакты"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup üyelerini kişilerinize ekleyin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додайте учасників групи до ваших контактів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm thành viên nhóm vào danh bạ của bạn"
           }
         },
         "zh-Hans": {
@@ -1476,6 +1986,12 @@
             "value": "멤버 추가"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj członków"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1494,10 +2010,22 @@
             "value": "Добавить участников"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üye ekle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додати учасників"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm thành viên"
           }
         },
         "zh-Hans": {
@@ -1552,6 +2080,12 @@
             "value": "관리자"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrator"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1570,10 +2104,22 @@
             "value": "Администратор"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetici"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Адмін"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản trị viên"
           }
         },
         "zh-Hans": {
@@ -1628,6 +2174,12 @@
             "value": "관리자"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administratorzy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1646,10 +2198,22 @@
             "value": "Администраторы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yöneticiler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Адміни"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản trị viên"
           }
         },
         "zh-Hans": {
@@ -1704,6 +2268,12 @@
             "value": "전체"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wszyscy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1722,10 +2292,22 @@
             "value": "Все"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümü"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Всі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tất cả"
           }
         },
         "zh-Hans": {
@@ -1780,6 +2362,12 @@
             "value": "이미 모든 그룹 구성원이 연락처에 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wszyscy członkowie grupy są już w twoich kontaktach."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1798,10 +2386,22 @@
             "value": "Все участники группы уже есть в ваших контактах."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grubun tüm üyeleri zaten kişileriniz arasında."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Усі учасники групи вже є у ваших контактах."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tất cả thành viên trong nhóm đã có trong danh bạ của bạn."
           }
         },
         "zh-Hans": {
@@ -1856,6 +2456,12 @@
             "value": "모든 연락처가 이미 이 그룹에 있습니다.☺️"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wszystkie twoje kontakty należą już do tej grupy ☺️."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1874,10 +2480,22 @@
             "value": "Все ваши контакты уже есть в этой группе ☺️."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm kişileriniz zaten bu grubun üyesi ☺️."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Всі ваші контакти вже є в цій групі ☺️."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tất cả danh bạ của bạn đã có trong nhóm này rồi. 🤝"
           }
         },
         "zh-Hans": {
@@ -1932,6 +2550,12 @@
             "value": "이 초대를 취소하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czy chcesz anulować to zaproszenie?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1950,10 +2574,22 @@
             "value": "Вы хотите отменить это приглашение?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu daveti iptal etmek istiyor musunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви хочете скасувати це запрошення?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có muốn hủy lời mời này không?"
           }
         },
         "zh-Hans": {
@@ -2092,6 +2728,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Czy na pewno chcesz usunąć tego członka z grupy?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Czy na pewno chcesz usunąć %lld członka z grupy?"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Czy na pewno chcesz usunąć tych %lld członków z grupy?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Czy na pewno chcesz usunąć tych %lld członków z grupy?"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -2142,6 +2808,36 @@
                   "state": "translated",
                   "value": "Вы уверены, что хотите удалить этих %lld участников из группы?"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы уверены, что хотите удалить этих %lld участника из группы?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы уверены, что хотите удалить этих %lld участников из группы?"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu üyeyi gruptan çıkarmak istediğinizden emin misiniz?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu %lld üyeyi gruptan çıkarmak istediğinizden emin misiniz?"
+                }
               }
             }
           }
@@ -2159,6 +2855,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Ви справді хочете видалити цих %lld учасників з групи?"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви справді хочете видалити цих %lld учасника з групи?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви справді хочете видалити цих %lld учасників з групи?"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn có chắc muốn xóa thành viên này khỏi nhóm không?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn có chắc muốn xóa %lld thành viên này khỏi nhóm không?"
                 }
               }
             }
@@ -2312,6 +3038,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Czy na pewno chcesz zaprosić tego użytkownika?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Czy na pewno chcesz zaprosić %lld użytkownika?"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Czy na pewno chcesz zaprosić tych %lld użytkowników?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Czy na pewno chcesz zaprosić tych %lld użytkowników?"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -2362,6 +3118,36 @@
                   "state": "translated",
                   "value": "Вы уверены, что хотите пригласить этих %lld пользователей?"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы уверены, что хотите пригласить этих %lld пользователя?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы уверены, что хотите пригласить этих %lld пользователей?"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu kullanıcıyı davet etmek istediğinizden emin misiniz?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu %lld kullanıcıyı davet etmek istediğinizden emin misiniz?"
+                }
               }
             }
           }
@@ -2379,6 +3165,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Ви впевнені, що хочете запросити цих %lld користувачів?"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви впевнені, що хочете запросити цих %lld користувача?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви впевнені, що хочете запросити цих %lld користувачів?"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn có chắc muốn mời người dùng này không?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn có chắc muốn mời %lld người dùng này không?"
                 }
               }
             }
@@ -2448,6 +3264,12 @@
             "value": "초대장이 발송되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysłano zaproszenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2466,10 +3288,22 @@
             "value": "Приглашение отправлено"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet gönderildi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запрошення надіслано"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã gửi lời mời"
           }
         },
         "zh-Hans": {
@@ -2524,6 +3358,12 @@
             "value": "초대"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaproś"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2542,10 +3382,22 @@
             "value": "Пригласить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запросити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mời"
           }
         },
         "zh-Hans": {
@@ -2600,6 +3452,12 @@
             "value": "초대 취소"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anuluj zaproszenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2618,10 +3476,22 @@
             "value": "Отменить приглашение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daveti iptal et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати запрошення"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy lời mời"
           }
         },
         "zh-Hans": {
@@ -2676,6 +3546,12 @@
             "value": "그룹 사진을 선택하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybierz zdjęcie grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2694,10 +3570,22 @@
             "value": "Выберите фото для группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup fotoğrafı seç"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оберіть фото для групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn ảnh đại diện nhóm"
           }
         },
         "zh-Hans": {
@@ -2752,6 +3640,12 @@
             "value": "그룹 정보 수정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj szczegóły grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2770,10 +3664,22 @@
             "value": "Редактировать детали группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup bilgilerini düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Редагувати деталі групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa thông tin nhóm"
           }
         },
         "zh-Hans": {
@@ -2828,6 +3734,12 @@
             "value": "새 이름 및 설명"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowa nazwa i opis"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2846,10 +3758,22 @@
             "value": "Новое имя и описание"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni ad ve açıklama"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Нове ім'я та опис"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên và mô tả mới"
           }
         },
         "zh-Hans": {
@@ -2904,6 +3828,12 @@
             "value": "그룹 설명"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opis grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2922,10 +3852,22 @@
             "value": "Описание группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup açıklaması"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Опис групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mô tả nhóm"
           }
         },
         "zh-Hans": {
@@ -2980,6 +3922,12 @@
             "value": "멤버 추가"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj członków"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2998,10 +3946,22 @@
             "value": "Добавить участников"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üye ekle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додати учасників"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm thành viên"
           }
         },
         "zh-Hans": {
@@ -3056,6 +4016,12 @@
             "value": "멤버 삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń członków"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3074,10 +4040,22 @@
             "value": "Удалить участников"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeleri çıkar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити учасників"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loại bỏ thành viên"
           }
         },
         "zh-Hans": {
@@ -3132,6 +4110,12 @@
             "value": "그룹 멤버 (%lld)"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Członkowie grupy (%lld)"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3150,10 +4134,22 @@
             "value": "Участники группы (%lld)"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup üyeleri (%lld)"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Члени групи (%lld)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các thành viên trong nhóm (%lld)"
           }
         },
         "zh-Hans": {
@@ -3208,6 +4204,12 @@
             "value": "이 그룹에는 당신 혼자만 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jesteś jedynym członkiem tej grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3226,10 +4228,22 @@
             "value": "Вы единственный участник в этой группе"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubun tek üyesi sizsiniz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви є єдиним учасником у цій групі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn là thành viên duy nhất trong nhóm này"
           }
         },
         "zh-Hans": {
@@ -3284,6 +4298,12 @@
             "value": "그룹 이름"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nazwa grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3302,10 +4322,22 @@
             "value": "Название группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Назва групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên nhóm"
           }
         },
         "zh-Hans": {
@@ -3360,6 +4392,12 @@
             "value": "이 그룹의 업데이트가 진행 중입니다. 다른 변경 사항을 적용하기 전에 업데이트가 완료될 때까지 기다려 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trwa aktualizacja tej grupy. Zaczekaj na jej zakończenie, zanim wprowadzisz kolejne zmiany."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3378,10 +4416,22 @@
             "value": "Обновление этой группы выполняется. Пожалуйста, дождитесь завершения, прежде чем вносить какие-либо изменения."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu grubun güncellemesi sürüyor. Başka değişiklikler yapmak için lütfen tamamlanmasını bekleyin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оновлення цієї групи в процесі. Будь ласка, зачекайте, поки воно не завершиться, перш ніж вносити подальші зміни."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện tại, nhóm đang được cập nhật. Vui lòng đợi cho đến khi quá trình này hoàn tất trước khi thực hiện bất kỳ thay đổi nào khác."
           }
         },
         "zh-Hans": {
@@ -3436,6 +4486,12 @@
             "value": "업데이트 진행 중"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trwa aktualizacja"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3454,10 +4510,22 @@
             "value": "Обновление в процессе"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güncelleme sürüyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оновлення в процесі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang cập nhật"
           }
         },
         "zh-Hans": {
@@ -3512,6 +4580,12 @@
             "value": "이미지"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obraz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3530,10 +4604,22 @@
             "value": "Изображение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görüntü"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зображення"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hình ảnh"
           }
         },
         "zh-Hans": {
@@ -3588,6 +4674,12 @@
             "value": "모두 초대"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaproś wszystkich"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3606,10 +4698,22 @@
             "value": "Пригласить всех"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hepsini davet et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запросіть їх усіх"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mời tất cả mọi người"
           }
         },
         "zh-Hans": {
@@ -3664,6 +4768,12 @@
             "value": "관리자"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrator"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3682,10 +4792,22 @@
             "value": "Администратор"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetici"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Адмін"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản trị viên"
           }
         },
         "zh-Hans": {
@@ -3740,6 +4862,12 @@
             "value": "관리자가 아님"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie jest administratorem"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3758,10 +4886,22 @@
             "value": "Не администратор"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetici değil"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не адміністратор"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không phải quản trị viên"
           }
         },
         "zh-Hans": {
@@ -3816,6 +4956,12 @@
             "value": "연락처를 찾을 수 없습니다. 😥"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie znaleziono kontaktów 🥲."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3834,10 +4980,22 @@
             "value": "Контакт не найден 😔."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi bulunamadı 🥲."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакт не знайдено 😔."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy liên hệ."
           }
         },
         "zh-Hans": {
@@ -3892,6 +5050,12 @@
             "value": "사진 앨범"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biblioteka zdjęć"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3910,10 +5074,22 @@
             "value": "Фототека"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf arşivi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Фототека"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thư viện ảnh"
           }
         },
         "zh-Hans": {
@@ -3968,6 +5144,12 @@
             "value": "파일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plik"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3986,10 +5168,22 @@
             "value": "Файл"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Файл"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp"
           }
         },
         "zh-Hans": {
@@ -4044,6 +5238,12 @@
             "value": "사진 삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4062,10 +5262,22 @@
             "value": "Удалить фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğrafı kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa ảnh"
           }
         },
         "zh-Hans": {
@@ -4120,6 +5332,12 @@
             "value": "공개된 사진 복원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróć opublikowane zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4138,10 +5356,22 @@
             "value": "Восстановить опубликованную фотографию"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yayınlanan fotoğrafı geri yükle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновити опубліковане фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục ảnh đã đăng"
           }
         },
         "zh-Hans": {
@@ -4196,6 +5426,12 @@
             "value": "사진 찍기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrób zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4214,10 +5450,22 @@
             "value": "Сделать фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf çek"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зробити фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp ảnh"
           }
         },
         "zh-Hans": {
@@ -4272,6 +5520,12 @@
             "value": "대기 중"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oczekuje"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4290,10 +5544,22 @@
             "value": "В обработке"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beklemede"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "В очікуванні"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang chờ xử lý"
           }
         },
         "zh-Hans": {
@@ -4348,6 +5614,12 @@
             "value": "변경 사항 게시"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opublikuj zmiany"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4366,10 +5638,22 @@
             "value": "Опубликовать изменения"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Değişiklikleri yayınla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Опублікувати зміни"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng các thay đổi"
           }
         },
         "zh-Hans": {
@@ -4424,6 +5708,12 @@
             "value": "그룹 게시"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opublikuj grupę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4442,10 +5732,22 @@
             "value": "Опубликовать группу"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grubu yayınla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Опублікувати групу"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng nhóm"
           }
         },
         "zh-Hans": {
@@ -4626,6 +5928,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń członka"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń %lld członka"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń %lld członków"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń %lld członków"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń wybranych członków"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -4694,6 +6032,42 @@
                   "state": "translated",
                   "value": "Удалить выбранных участников"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Удалить %lld участника"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Удалить %lld участников"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Üyeyi çıkar"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld üyeyi çıkar"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Seçili üyeleri çıkar"
+                }
               }
             }
           }
@@ -4717,6 +6091,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Видалити вибраних учасників"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Видалити %lld учасника"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Видалити %lld учасників"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Loại bỏ thành viên"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Loại bỏ %lld thành viên"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Loại bỏ các thành viên đã chọn"
                 }
               }
             }
@@ -4792,6 +6202,12 @@
             "value": "제거"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4810,10 +6226,22 @@
             "value": "Удалить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çıkar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loại bỏ"
           }
         },
         "zh-Hans": {
@@ -4868,6 +6296,12 @@
             "value": "그룹 사진 바꾸기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zastąp zdjęcie grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4886,10 +6320,22 @@
             "value": "Заменить фото группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup fotoğrafını değiştir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Замінити фото групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thay đổi ảnh nhóm"
           }
         },
         "zh-Hans": {
@@ -5028,6 +6474,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wyślij zaproszenie"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wyślij %lld zaproszenia"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wyślij %lld zaproszenia"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wyślij %lld zaproszeń"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -5078,6 +6554,36 @@
                   "state": "translated",
                   "value": "Отправить %lld приглашения"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Отправить %lld приглашения"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Отправить %lld приглашений"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Daveti gönder"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld daveti gönder"
+                }
               }
             }
           }
@@ -5095,6 +6601,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Надіслати %lld запрошення"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Надіслати %lld запрошення"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Надіслати %lld запрошень"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Gửi lời mời"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Gửi %lld lời mời"
                 }
               }
             }
@@ -5164,6 +6700,12 @@
             "value": "모두 보기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż wszystkich"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5182,10 +6724,22 @@
             "value": "Показать все"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümünü göster"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати все"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị tất cả"
           }
         },
         "zh-Hans": {
@@ -5240,6 +6794,12 @@
             "value": "모든 그룹 구성원을 표시하거나 관리자만 표시하도록 설정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż wszystkich członków grupy lub tylko administratorów"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5258,10 +6818,22 @@
             "value": "Показать всех участников группы или ограничить администраторами"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm grup üyelerini veya yalnızca yöneticileri göster"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати всіх учасників групи або обмежити адміністраторами"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị tất cả thành viên nhóm hoặc chỉ hiển thị quản trị viên"
           }
         },
         "zh-Hans": {
@@ -5316,6 +6888,12 @@
             "value": "보여줘"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5334,10 +6912,22 @@
             "value": "Покажи мне"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Göster"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Покажи мені"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị cho tôi"
           }
         },
         "zh-Hans": {
@@ -5392,6 +6982,12 @@
             "value": "검색"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Szukaj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5410,10 +7006,22 @@
             "value": "Поиск"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ara"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пошук"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tìm kiếm"
           }
         },
         "zh-Hans": {
@@ -5468,6 +7076,12 @@
             "value": "수락하려면 탭하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stuknij, aby zaakceptować"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5486,10 +7100,22 @@
             "value": "Нажмите, чтобы принять"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabul etmek için dokunun"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Торкніться, щоб підтвердити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhấn để chấp nhận"
           }
         },
         "zh-Hans": {
@@ -5628,6 +7254,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniższy członek grupy jest już w twoich kontaktach."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) są już w twoich kontaktach."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) są już w twoich kontaktach."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) są już w twoich kontaktach."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -5694,6 +7350,24 @@
             }
           }
         },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki grup üyesi zaten kişileriniz arasında."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki %lld grup üyesi zaten kişileriniz arasında."
+                }
+              }
+            }
+          }
+        },
         "uk": {
           "variations": {
             "plural": {
@@ -5707,6 +7381,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Наступні %lld учасники групи вже є у ваших контактах."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Наступні %lld учасники групи вже є у ваших контактах."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Наступні %lld учасників групи вже є у ваших контактах."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Thành viên nhóm sau đây đã có trong danh bạ của bạn."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld thành viên nhóm sau đây đã có trong danh bạ của bạn."
                 }
               }
             }
@@ -5860,6 +7564,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniższy członek grupy nie należy do twoich kontaktów. Gdy zaakceptuje zaproszenie do grupy, możesz jednym stuknięciem zaprosić tę osobę do swoich kontaktów ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) nie należą do twoich kontaktów. Gdy zaakceptują zaproszenie do grupy, możesz jednym stuknięciem zaprosić ich do swoich kontaktów ☝️."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) nie należą do twoich kontaktów. Gdy zaakceptują zaproszenie do grupy, możesz jednym stuknięciem zaprosić ich do swoich kontaktów ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) nie należą do twoich kontaktów. Gdy zaakceptują zaproszenie do grupy, możesz jednym stuknięciem zaprosić ich do swoich kontaktów ☝️."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -5910,6 +7644,36 @@
                   "state": "translated",
                   "value": "Следующие %lld участника группы отсутствуют в ваших контактах. После того, как они примут приглашение в группу, вы сможете пригласить их в свои контакты в один клик ☝️."
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Следующие %lld участника группы отсутствуют в ваших контактах. После того, как они примут приглашение в группу, вы сможете пригласить их в свои контакты в один клик ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Следующие %lld участников группы отсутствуют в ваших контактах. После того, как они примут приглашение в группу, вы сможете пригласить их в свои контакты в один клик ☝️."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki grup üyesi kişileriniz arasında değil. Grup davetini kabul ettiğinde onu tek dokunuşla kişilerinize davet edebileceksiniz ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki %lld grup üyesi kişileriniz arasında değil. Grup davetini kabul ettiklerinde onları tek dokunuşla kişilerinize davet edebileceksiniz ☝️."
+                }
               }
             }
           }
@@ -5927,6 +7691,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Наступні %lld учасники групи не в вашому списку контактів. Як тільки вони приймуть запрошення до групи, ви зможете запропонувати їм додатись до ваших контактів в один дотик ☝️."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Наступні %lld учасники групи не в вашому списку контактів. Як тільки вони приймуть запрошення до групи, ви зможете запропонувати їм додатись до ваших контактів в один дотик ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Наступні %lld учасників групи не в вашому списку контактів. Як тільки вони приймуть запрошення до групи, ви зможете запропонувати їм додатись до ваших контактів в один дотик ☝️."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Thành viên nhóm sau đây không có trong danh bạ của bạn. Sau khi họ chấp nhận lời mời vào nhóm, bạn có thể mời họ tham gia danh bạ của bạn chỉ bằng một lần chạm ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld thành viên nhóm sau đây không có trong danh bạ của bạn. Sau khi họ chấp nhận lời mời vào nhóm, bạn có thể mời họ tham gia danh bạ của bạn chỉ bằng một lần chạm ☝️."
                 }
               }
             }
@@ -6080,6 +7874,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniższy członek grupy nie należy jeszcze do twoich kontaktów, ale możesz zaprosić tę osobę jednym stuknięciem ☝️. Wystarczy, że zaakceptuje zaproszenie — bez wymiany kodów 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) nie należą jeszcze do twoich kontaktów, ale możesz ich zaprosić jednym stuknięciem ☝️. Wystarczy, że zaakceptują zaproszenie — bez wymiany kodów 😉."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) nie należą jeszcze do twoich kontaktów, ale możesz ich zaprosić jednym stuknięciem ☝️. Wystarczy, że zaakceptują zaproszenie — bez wymiany kodów 😉."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Poniżsi członkowie grupy (%lld) nie należą jeszcze do twoich kontaktów, ale możesz ich zaprosić jednym stuknięciem ☝️. Wystarczy, że zaakceptują zaproszenie — bez wymiany kodów 😉."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -6130,6 +7954,36 @@
                   "state": "translated",
                   "value": "Следующие %lld участника группы ещё не в ваших контактах, но вы можете пригласить их в один тап ☝️. Им просто нужно будет принять ваше приглашение, нет необходимости обмениваться кодами 😉."
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Следующие %lld участника группы ещё не в ваших контактах, но вы можете пригласить их в один тап ☝️. Им просто нужно будет принять ваше приглашение, нет необходимости обмениваться кодами 😉."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Следующие %lld участников группы ещё не в ваших контактах, но вы можете пригласить их в один тап ☝️. Им просто нужно будет принять ваше приглашение, нет необходимости обмениваться кодами 😉."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki grup üyesi henüz kişileriniz arasında değil, ancak onu tek dokunuşla davet edebilirsiniz ☝️. Bu kişinin yalnızca davetinizi kabul etmesi yeterli; kod alışverişine gerek yok 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aşağıdaki %lld grup üyesi henüz kişileriniz arasında değil, ancak onları tek dokunuşla davet edebilirsiniz ☝️. Bu kişilerin yalnızca davetinizi kabul etmesi yeterli; kod alışverişine gerek yok 😉."
+                }
               }
             }
           }
@@ -6147,6 +8001,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Наступні %lld учасники групи ще не в ваших контактах, але ви можете запросити їх в один дотик ☝️. Їм потрібно буде лише прийняти ваші запрошення, обмінюватися кодами не потрібно 😉."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Наступні %lld учасники групи ще не в ваших контактах, але ви можете запросити їх в один дотик ☝️. Їм потрібно буде лише прийняти ваші запрошення, обмінюватися кодами не потрібно 😉."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Наступні %lld учасників групи ще не в ваших контактах, але ви можете запросити їх в один дотик ☝️. Їм потрібно буде лише прийняти ваші запрошення, обмінюватися кодами не потрібно 😉."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Thành viên nhóm sau đây chưa có trong danh bạ của bạn, nhưng bạn có thể mời họ bằng một cú chạm ☝️. Họ chỉ cần chấp nhận lời mời của bạn, không cần phải trao đổi mã 😉."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld thành viên nhóm sau đây chưa có trong danh bạ của bạn, nhưng bạn có thể mời họ bằng một cú chạm ☝️. Họ chỉ cần chấp nhận lời mời của bạn, không cần phải trao đổi mã 😉."
                 }
               }
             }
@@ -6216,6 +8100,12 @@
             "value": "다음은 그룹 설명 및 사진에 적용된 업데이트입니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wprowadzono następujące zmiany w opisie i zdjęciu grupy:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6234,10 +8124,22 @@
             "value": "В описание и фотографию группы внесены следующие изменения:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup açıklamasında ve fotoğrafında şu güncellemeler yapıldı:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "В груповий опис та фотографію внесено наступні зміни:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các cập nhật sau đây đã được thực hiện cho phần mô tả và ảnh của nhóm:"
           }
         },
         "zh-Hans": {
@@ -6292,6 +8194,12 @@
             "value": "다음과 같이 그룹 설명이 업데이트되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wprowadzono następującą zmianę w opisie grupy:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6310,10 +8218,22 @@
             "value": "В описание группы внесены следующие изменения:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup açıklamasında şu güncelleme yapıldı:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "В груповому описі було внесено наступні зміни:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thông tin mô tả nhóm đã được cập nhật như sau:"
           }
         },
         "zh-Hans": {
@@ -6368,6 +8288,12 @@
             "value": "다음은 그룹 이름 및 설명에 적용된 업데이트입니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wprowadzono następujące zmiany w nazwie i opisie grupy:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6386,10 +8312,22 @@
             "value": "Следующие изменения были внесены в название и описание группы:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adında ve açıklamasında şu güncellemeler yapıldı:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Було внесено наступні зміни в назву та опис групи:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các cập nhật sau đây đã được thực hiện cho tên và mô tả của nhóm:"
           }
         },
         "zh-Hans": {
@@ -6444,6 +8382,12 @@
             "value": "다음은 그룹 이름 및 사진에 적용된 업데이트입니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wprowadzono następujące zmiany w nazwie i zdjęciu grupy:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6462,10 +8406,22 @@
             "value": "Следующие изменения были внесены в название и фотографию группы:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adında ve fotoğrafında şu güncellemeler yapıldı:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "В групі були внесені наступні зміни в назву та фотографію:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các cập nhật sau đây đã được thực hiện cho tên nhóm và ảnh đại diện:"
           }
         },
         "zh-Hans": {
@@ -6520,6 +8476,12 @@
             "value": "다음은 그룹 이름, 설명 및 사진에 적용된 업데이트입니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wprowadzono następujące zmiany w nazwie, opisie i zdjęciu grupy:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6538,10 +8500,22 @@
             "value": "В группе были внесены следующие изменения в название, описание и фотографию:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adında, açıklamasında ve fotoğrafında şu güncellemeler yapıldı:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "В групі були внесені наступні зміни до назви, опису та фотографії:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các cập nhật sau đây đã được thực hiện cho tên nhóm, mô tả và ảnh đại diện:"
           }
         },
         "zh-Hans": {
@@ -6596,6 +8570,12 @@
             "value": "다음은 그룹에 적용된 업데이트 목록입니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wprowadzono następujące zmiany w grupie:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6614,10 +8594,22 @@
             "value": "В группу внесены следующие изменения:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupta şu güncellemeler yapıldı:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "В групі було внесено наступні зміни:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các cập nhật sau đây đã được thực hiện cho nhóm:"
           }
         },
         "zh-Hans": {
@@ -6672,6 +8664,12 @@
             "value": "다음과 같이 그룹 이름이 변경되었습니다:"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wprowadzono następującą zmianę w nazwie grupy:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6690,10 +8688,22 @@
             "value": "В групповом имени были внесены следующие изменения:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup adında şu güncelleme yapıldı:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Назву групи було змінено:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên nhóm đã được cập nhật như sau:"
           }
         },
         "zh-Hans": {
@@ -6748,6 +8758,12 @@
             "value": "다음과 같이 그룹 사진이 업데이트되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wprowadzono następującą zmianę w zdjęciu grupy:"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6766,10 +8782,22 @@
             "value": "Следующее изменение было внесено в фотографию группы:"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup fotoğrafında şu güncelleme yapıldı:"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "В груповому фото було внесено наступні зміни:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ảnh đại diện nhóm đã được cập nhật như sau:"
           }
         },
         "zh-Hans": {
@@ -6908,6 +8936,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pozostała osoba musi zaakceptować zaproszenie do grupy, zanim będzie można ją zaprosić."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pozostałe osoby (%lld) muszą zaakceptować zaproszenie do grupy, zanim będzie można je zaprosić."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pozostałe osoby (%lld) muszą zaakceptować zaproszenie do grupy, zanim będzie można je zaprosić."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pozostałe osoby (%lld) muszą zaakceptować zaproszenie do grupy, zanim będzie można je zaprosić."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -6958,6 +9016,36 @@
                   "state": "translated",
                   "value": "Оставшимся %lld участникам необходимо принять приглашение в группу, прежде чем вы сможете пригласить их."
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Оставшимся %lld участникам необходимо принять приглашение в группу, прежде чем вы сможете пригласить их."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Оставшимся %lld участникам необходимо принять приглашение в группу, прежде чем вы сможете пригласить их."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kalan üyeyi davet edebilmeniz için önce onun grup davetini kabul etmesi gerekir."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kalan %lld üyeyi davet edebilmeniz için önce onların grup davetini kabul etmesi gerekir."
+                }
               }
             }
           }
@@ -6975,6 +9063,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Ще %lld учасників повинні прийняти запрошення в групу, перш ніж ви зможете запросити їх."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ще %lld учасники повинні прийняти запрошення в групу, перш ніж ви зможете запросити їх."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ще %lld учасників повинні прийняти запрошення в групу, перш ніж ви зможете запросити їх."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Chỉ còn một người chưa chấp nhận lời mời tham gia nhóm, bạn cần đợi người đó chấp nhận trước khi có thể mời thêm người khác."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Chỉ còn %lld người chưa chấp nhận lời mời tham gia nhóm, bạn cần đợi họ chấp nhận trước khi có thể mời thêm người khác."
                 }
               }
             }
@@ -7044,6 +9162,12 @@
             "value": "멤버 추가"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj członków"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7062,10 +9186,22 @@
             "value": "Добавить участников"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üye ekle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додати учасників"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm thành viên"
           }
         },
         "zh-Hans": {
@@ -7120,6 +9256,12 @@
             "value": "그룹 멤버"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Członkowie grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7138,10 +9280,22 @@
             "value": "Участники группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grup üyeleri"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Члени групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thành viên nhóm"
           }
         },
         "zh-Hans": {
@@ -7196,6 +9350,12 @@
             "value": "멤버 관리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zarządzaj członkami"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7214,10 +9374,22 @@
             "value": "Управление участниками"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeleri yönet"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Керувати учасниками"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản lý thành viên"
           }
         },
         "zh-Hans": {
@@ -7272,6 +9444,12 @@
             "value": "멤버 삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń członków"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7290,10 +9468,22 @@
             "value": "Удалить участников"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Üyeleri çıkar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити учасників"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loại bỏ thành viên"
           }
         },
         "zh-Hans": {
@@ -7348,6 +9538,12 @@
             "value": "이 업데이트가 기기에 적용되려면, 업데이트를 승인해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aby te zmiany zostały zastosowane na twoim urządzeniu, zaakceptuj je."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7366,10 +9562,22 @@
             "value": "Чтобы эти обновления вступили в силу на вашем устройстве, пожалуйста, примите их."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu güncellemelerin cihazınızda geçerli olması için lütfen bunları kabul edin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Щоб ці оновлення набули чинності на вашому пристрої, будь ласка, підтвердьте їх."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để các bản cập nhật này có hiệu lực trên thiết bị của bạn, vui lòng chấp nhận chúng."
           }
         },
         "zh-Hans": {
@@ -7424,6 +9632,12 @@
             "value": "유효성 검사 필요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymagane zatwierdzenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7442,10 +9656,22 @@
             "value": "Требуется подтверждение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğrulama gerekli"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Потрібна перевірка"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần xác thực"
           }
         },
         "zh-Hans": {
@@ -7500,6 +9726,12 @@
             "value": "당신"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ty"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7518,10 +9750,22 @@
             "value": "Вы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn"
           }
         },
         "zh-Hans": {
@@ -7660,6 +9904,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wysłano już zaproszenie do jednego z tych członków."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wysłano już zaproszenia do %lld z tych członków."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wysłano już zaproszenia do %lld z tych członków."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wysłano już zaproszenia do %lld z tych członków."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -7710,6 +9984,36 @@
                   "state": "translated",
                   "value": "Вы уже пригласили %lld из этих участников."
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы уже пригласили %lld из этих участников."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы уже пригласили %lld из этих участников."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu üyelerden birini zaten davet ettiniz."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bu üyelerden %lld kişiyi zaten davet ettiniz."
+                }
               }
             }
           }
@@ -7727,6 +10031,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Ви вже запросили %lld з цих учасників."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви вже запросили %lld з цих учасників."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви вже запросили %lld з цих учасників."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn đã mời một trong số các thành viên này."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn đã mời %lld trong số các thành viên này."
                 }
               }
             }
@@ -7796,6 +10130,12 @@
             "value": "이미 모든 멤버를 초대했습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysłano już zaproszenia do wszystkich tych członków."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7814,10 +10154,22 @@
             "value": "Вы уже пригласили всех этих участников."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu üyelerin hepsini zaten davet ettiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви вже запросили всіх цих учасників."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn đã mời tất cả các thành viên này rồi."
           }
         },
         "zh-Hans": {
@@ -7872,6 +10224,12 @@
             "value": "이미 해당 사용자를 초대하셨습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysłano już zaproszenie do tego członka."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7890,10 +10248,22 @@
             "value": "Вы уже пригласили этого участника."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu üyeyi zaten davet ettiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви вже запросили цього учасника."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn đã mời thành viên này rồi."
           }
         },
         "zh-Hans": {
@@ -8032,6 +10402,36 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Możesz jednym stuknięciem zaprosić jedną z tych osób do swoich kontaktów ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Możesz jednym stuknięciem zaprosić %lld z tych osób do swoich kontaktów ☝️."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Możesz jednym stuknięciem zaprosić %lld z tych osób do swoich kontaktów ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Możesz jednym stuknięciem zaprosić %lld z tych osób do swoich kontaktów ☝️."
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -8082,6 +10482,36 @@
                   "state": "translated",
                   "value": "Вы можете пригласить %lld из них в свои контакты в один тап ☝️."
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы можете пригласить %lld из них в свои контакты в один тап ☝️."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вы можете пригласить %lld из них в свои контакты в один тап ☝️."
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bunlardan birini tek dokunuşla kişilerinize davet edebilirsiniz ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bunlardan %lld kişiyi tek dokunuşla kişilerinize davet edebilirsiniz ☝️."
+                }
               }
             }
           }
@@ -8099,6 +10529,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Ви можете запросити %lld з них, щоб додати в контакти в один дотик 👆."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви можете запросити %lld з них, щоб додати в контакти в один дотик 👆."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ви можете запросити %lld з них, щоб додати в контакти в один дотик 👆."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn có thể mời một trong số họ tham gia danh bạ của bạn chỉ bằng một cú chạm ☝️."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn có thể mời %lld người trong số họ tham gia danh bạ của bạn chỉ bằng một cú chạm ☝️."
                 }
               }
             }

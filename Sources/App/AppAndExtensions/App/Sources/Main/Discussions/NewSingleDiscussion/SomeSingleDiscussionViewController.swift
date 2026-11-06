@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,4 +30,11 @@ protocol SomeSingleDiscussionViewController: UIViewController {
     var currentOwnedCryptoId: ObvCryptoId { get }
     func addAttachmentFromAirDropFile(at url: URL)
     func scrollTo(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>)
+
+    // The keyboard's find shortcuts — ⌘F, ⌘G and ⇧⌘G. They are declared here so that `MainFlowViewController`, which is where the responder chain answers them, can
+    // hand them to whichever discussion is showing without knowing which of the two screens it is. They are also `UIResponderStandardEditActions` methods, whose
+    // optionality in Objective-C makes a call through a protocol that does not name them awkward; naming them settles it.
+    func find(_ sender: Any?)
+    func findNext(_ sender: Any?)
+    func findPrevious(_ sender: Any?)
 }

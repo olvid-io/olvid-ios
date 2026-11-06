@@ -1130,8 +1130,10 @@ private struct ZipWritingAttachmentsStatusRowView: View {
         switch status {
         case .starting:
             return .inProgress
-        case .inProgress(let sentFylesCount, let failedFylesCount, _, _, let numberOfFylesToSend, _, _, _):
-            if sentFylesCount + failedFylesCount >= numberOfFylesToSend {
+        case .inProgress(let sentFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToSend, _, _, _):
+            // Zip never skips today (the zip transport requests every attachment), but keep the completion
+            // condition consistent with the byte progress below, which counts skipped bytes as done.
+            if sentFylesCount + failedFylesCount + skippedFylesCount >= numberOfFylesToSend {
                 return failedFylesCount > 0 ? .warning : .success
             } else {
                 return .inProgress
@@ -1143,8 +1145,8 @@ private struct ZipWritingAttachmentsStatusRowView: View {
         switch status {
         case .starting:
             return nil
-        case .inProgress(_, _, let byteCountSent, let byteCountFailedToSend, _, let byteCountToSend, _, _):
-            let done = byteCountSent + byteCountFailedToSend
+        case .inProgress(_, _, _, let byteCountSent, let byteCountFailedToSend, let byteCountSkipped, _, let byteCountToSend, _, _):
+            let done = byteCountSent + byteCountFailedToSend + byteCountSkipped
             return done < byteCountToSend ? (Double(done), Double(byteCountToSend)) : nil
         }
     }
@@ -1153,8 +1155,8 @@ private struct ZipWritingAttachmentsStatusRowView: View {
         switch status {
         case .starting:
             return String(localizedInThisBundle: "STARTING")
-        case .inProgress(let sentFylesCount, let failedFylesCount, _, _, let numberOfFylesToSend, _, _, _):
-            if sentFylesCount + failedFylesCount < numberOfFylesToSend {
+        case .inProgress(let sentFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToSend, _, _, _):
+            if sentFylesCount + failedFylesCount + skippedFylesCount < numberOfFylesToSend {
                 return String(localizedInThisBundle: "ADDING_ATTACHMENTS_STATUS_VIEW_SENDING_\(numberOfFylesToSend)_ATTACHMENTS")
             } else {
                 return String(localizedInThisBundle: "ADDING_ATTACHMENTS_STATUS_VIEW_DID_SEND_\(numberOfFylesToSend)_ATTACHMENTS")
@@ -1171,8 +1173,8 @@ private struct ZipWritingAttachmentsStatusRowView: View {
         switch status {
         case .starting:
             return String(localizedInThisBundle: "ADDING_ATTACHMENTS_TO_ZIP_VIEW_TITLE")
-        case .inProgress(let sentFylesCount, let failedFylesCount, _, _, let numberOfFylesToSend, _, _, _):
-            if sentFylesCount + failedFylesCount >= numberOfFylesToSend {
+        case .inProgress(let sentFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToSend, _, _, _):
+            if sentFylesCount + failedFylesCount + skippedFylesCount >= numberOfFylesToSend {
                 return String(localizedInThisBundle: "ADDING_ATTACHMENTS_TO_ZIP_VIEW_TITLE_DONE")
             } else {
                 return String(localizedInThisBundle: "ADDING_ATTACHMENTS_TO_ZIP_VIEW_TITLE")
@@ -1381,8 +1383,10 @@ extension DataSourceForPreviews: TransferServiceForZipExportView {
                         continuation.yield(.sourceTransferStepsState(.sendingAttachments(
                             status: .inProgress(sentFylesCount: sentFylesCount,
                                                 failedFylesCount: 0,
+                                                skippedFylesCount: 0,
                                                 byteCountSent: byteCountSent,
                                                 byteCountFailedToSend: 0,
+                                                byteCountSkipped: 0,
                                                 numberOfFylesToSend: numberOfFylesToSend,
                                                 byteCountToSend: byteCountToSend,
                                                 bytesPerSecond: bytesPerSecondToSimulate,

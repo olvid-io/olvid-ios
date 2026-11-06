@@ -527,7 +527,15 @@ extension SingleGroupV1MainView {
             .init(content: circleAndTitlesViewModelContentForHeaderOrTrustedDetails(model: model),
                   colors: initialCircleViewModelColorsForHeaderOrTrustedDetails(model: model),
                   displayMode: .header,
-                  editionMode: .none)
+                  editionMode: .none,
+                  loadPictureShownLarge: loadPictureShownLarge(model: model))
+        }
+
+        /// The picture in the circle, as stored.
+        private func loadPictureShownLarge(model: Model) -> (@MainActor () async -> CGImage?)? {
+            guard let photoURL = customPhoto != nil ? model.customPhotoURL : (trustedPhoto != nil ? model.trustedPhotoURL : nil) else { return nil }
+            let avatarViewDataSource = dataSources.avatarViewDataSource
+            return { try? await avatarViewDataSource.fetchPictureAsStored(photoURL: photoURL) }
         }
 
         private func userTappedCloneButton() {

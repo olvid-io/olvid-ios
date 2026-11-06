@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -165,7 +165,6 @@ struct OlvidButtonSquare: View {
 }
 
 
-@available(iOS 14, *)
 struct OlvidButton_Previews: PreviewProvider {
     static var previews: some View {
         Group {

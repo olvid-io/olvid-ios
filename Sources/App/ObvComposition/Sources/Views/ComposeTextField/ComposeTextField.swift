@@ -21,10 +21,11 @@ import SwiftUI
 import ObvAppTypes
 import ObvSettings
 
+/// The keys the text editors report: the arrows, which move through the mention suggestions. Return never comes this way — a key that produces a
+/// character is claimed by text input, and the discussion screens take it with a `UIKeyCommand`, see `ComposeView.SharedState.returnWasPressed(with:)`.
 public enum KeyboardActionType {
     case up
     case down
-    case enter
 }
 
 public enum KeyboardResult {
@@ -43,20 +44,61 @@ public enum KeyboardResult {
 }
 
 
+/// A weak box for the underlying `UITextView`, so a SwiftUI `@State` can hold a reference to it — set from `introspect`, read on clear — without
+/// retaining it.
+@MainActor
+final class WeakTextView {
+    weak var view: UITextView?
+}
+
+
 public struct ComposeTextField: View {
     
     private let sharedState: ComposeTextField.SharedState
     private let keyboardAction: (KeyboardActionType) -> KeyboardResult
 
     let pasteDelegate: TextViewPasteDelegate
-    
+
+    /// The height the text needs, as the `UITextView` behind the editor measures it. Nil until it has been measured once.
+    ///
+    /// A `TextEditor` reports the height of a *single line* until that text view has laid its text out, which is one layout pass too late. Measured on
+    /// entering a discussion with a four-line draft, the field was 26.29pt tall on the first pass **every** time, and was corrected only when something
+    /// else happened to invalidate the layout: at 153ms in one visit, at 967ms in another, and not until the bar was tapped 10.6s later in a third. The
+    /// legacy screen converges because `ComposeViewHostingController.viewDidLayoutSubviews` invalidates its intrinsic content size on every pass — which is
+    /// exactly the resize seen during its entering animation — and a SwiftUI host gives no such nudge.
+    ///
+    /// So the text view is asked directly. It has already computed those metrics; re-deriving them in SwiftUI does not work, as a hidden `Text` measured
+    /// 14pt against the editor's 26.29pt for a single line.
+    @State private var heightNeededByTheTextView: CGFloat?
+
     init(sharedState: ComposeTextField.SharedState,
          keyboardAction: @escaping (KeyboardActionType) -> KeyboardResult) {
         self.sharedState = sharedState
         self.keyboardAction = keyboardAction
         self.pasteDelegate = TextViewPasteDelegate(sharedState: sharedState)
     }
-    
+
+
+    /// Applied as a *floor*, and never as a fixed height: once the text view has laid out its text, the editor sizes itself correctly and must keep
+    /// governing — this measurement can lag it by an edit, as it is taken while SwiftUI is updating the text view.
+    private func measureHeightNeeded(of textView: UITextView) {
+        // A zero width yields an enormous height, and the first call can arrive before the text view has been laid out at all.
+        guard textView.bounds.width > 0 else { return }
+        let sizeThatFits = textView.sizeThatFits(CGSize(width: textView.bounds.width, height: .greatestFiniteMagnitude))
+        let heightNeeded = min(max(sizeThatFits.height, LineLimit.defaultLineHeight), LineLimit.toMaxHeight)
+        guard abs((heightNeededByTheTextView ?? -1) - heightNeeded) > 0.5 else { return }
+        // This runs while the representable behind the editor is being updated, where writing state is not allowed. Deferred by one turn of the main queue,
+        // and with animations disabled: the first frame is then one line tall and the second is right, which is a great deal better than the wait it
+        // replaces, and imperceptible as long as it is not animated.
+        Task { @MainActor in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                heightNeededByTheTextView = heightNeeded
+            }
+        }
+    }
+
     @ViewBuilder
     public var body: some View {
         Group {
@@ -82,14 +124,27 @@ public struct ComposeTextField: View {
                 
             }
         }
-        .introspect(.textEditor, on: .iOS(.v16, .v17, .v18, .v26)) { textView in
-            
+        // **The editor has no find of its own.** A `TextEditor` enables UIKit's find interaction on its text view, and a text view with it answers ⌘F itself
+        // while it is the first responder: with the caret in this bar, ⌘F opened a *Done / Find* panel over the draft, in the bar's place, finding nothing —
+        // measured on Catalyst on 2026-10-02 — where with the caret anywhere else the key climbed the responder chain to the discussion's own search. On a
+        // discussion screen ⌘F means that search, so the editor declines, and the key climbs from here too.
+        .findDisabled(true)
+        .introspect(.textEditor, on: .iOS(.v16, .v17, .v18, .v26, .v27)) { textView in
+
             if textView.pasteDelegate == nil || !(textView.pasteDelegate is TextViewPasteDelegate) {
                 // Create and set a custom paste delegate
                 textView.pasteDelegate = pasteDelegate
             }
-            
+
+            // Read by the discussion screen to decide whether its Return key commands apply, see `ComposeView.SharedState.isTheEditorTheFirstResponder`.
+            if sharedState.textView !== textView {
+                sharedState.textView = textView
+            }
+
+            measureHeightNeeded(of: textView)
+
         }
+        .frame(minHeight: heightNeededByTheTextView)
     }
 }
 
@@ -107,157 +162,33 @@ public struct ComposeTextField: View {
 @available(iOS, introduced: 18.0, deprecated: 26.0, message: "Use TextEditorWithTextSelectionAndAttributedString on iOS 26")
 public struct TextEditorWithTextSelection: View {
     
-    private let sharedState: ComposeTextField.SharedState
+    /// Observed, as the iOS 26 editor's is: a newline inserted on behalf of a Return key command arrives through `textToPaste`, and nothing else on
+    /// the screen changes with it — where a pasted link is followed by a change of the bar's state that happened to redraw this editor.
+    @ObservedObject private var sharedState: ComposeTextField.SharedState
     private let keyboardAction: (KeyboardActionType) -> KeyboardResult
 
-    @State private var text: String = ""
+    @State private var text: String
     @State private var selection: TextSelection?
 
-    @State private var discardNextNewLine = true
-    
+    /// Holds the underlying `UITextView` so the clear can resync its input delegate. See ``onTaskForClearingInput()``: emptying the text through the
+    /// SwiftUI binding leaves the text view not rendering the first following keystroke on iOS 18, until its input context is told to re-read.
+    @State private var underlyingTextView = WeakTextView()
+
     init(sharedState: ComposeTextField.SharedState,
          keyboardAction: @escaping (KeyboardActionType) -> KeyboardResult) {
         self.sharedState = sharedState
         self.keyboardAction = keyboardAction
+        // Seeded here rather than from `.onAppear`, so that this editor is measured *with* its text on the very first layout pass — see
+        // `TextEditorWithTextSelectionAndAttributedString.init` for what being filled afterwards costs. Mentions are lost, as they are anyway in this
+        // editor, which holds a plain `String`.
+        _text = State(initialValue: sharedState.initialBodyForTextEditor.map { String($0.characters[...]) } ?? "")
     }
-        
-    
-    /// This method is called whenever the text changes. On Catalyst and iPad, removes newline insertions (when appropriate)
-    /// and handles Enter/Command+Enter actions.
-    ///
-    /// Invoked from `onChange(of: text)`, this method compares the previous and new plain
-    /// text values and detects whether the only change is exactly one newline character
-    /// insertion. If so, it decides whether to keep or discard that newline and whether to
-    /// trigger an action (send message or insert mention) based on the user's configured
-    /// send shortcut.
-    ///
-    /// Behavior by preference:
-    /// - If the user chose "Enter" as a keyboard shortcut to send messages:
-    ///   - If the newline was inserted by the user typing Enter, we discard it and call
-    ///     `keyboardAction(.enter)`. If the newline was inserted
-    ///     programmatically by `insertNewLineOnCmdEnterOnCatalystIfAppropriate(_:)`, we keep it
-    ///     and reset `discardNextNewLine` to `true`.
-    /// - If the user chose "Cmd+Enter" as a keyboard shortcut to send messages:
-    ///   - Typing Enter should only be used to insert a mention (if applicable) or a new line. We call
-    ///     `keyboardAction(.enter)`. If the action is handled (a mention was inserted), we
-    ///     discard the just-inserted newline. If the action is ignored, we keep the newline
-    ///     in the text.
-    ///
-    /// Notes:
-    /// - Detection uses `String.hasExactlyOneNewLineInsertionOnCatalystOrIPad`.
-    /// - The helper `discardNewLineInsertion(oldValue:offset:)` restores the old text and
-    ///   places the insertion point at the appropriate character offset.
 
-    /// This method is called whenever the text changes. On macOS (Catalyst), it potentially filters out newline insertions and handles any appropriate action
-    /// that should be triggered by the Enter key.
-    /// On other platforms, this is a no-op.
-    ///
-    /// This method compares the old and new text values:
-    /// - If a single newline was added AND `discardNextNewLine` is `true`: removes the newline
-    /// - If a newline was intentionally added (via `insertNewLineOnCmdEnterOnCatalystIfAppropriate(_:)`):
-    ///   keeps the newline and resets `discardNextNewLine` to `true`
-    ///
-    /// The principles are very similar to those in `TextEditorWithTextSelectionAndAttributedStringAlternative`, so any change made here should be considered
-    /// in `TextEditorWithTextSelectionAndAttributedStringAlternative` as well.
-    private func discardNewLineInsertionAndHandleEnterKeyboardActionIfAppropriateOnCatalystAndIPad(_ oldValue: String, _ newValue: String) {
 
-        switch newValue.hasExactlyOneNewLineInsertionOnCatalystOrIPad(comparedTo: oldValue) {
-
-        case .no:
-
-            return
-
-        case  .yes(offset: let offset):
-            
-            switch sharedState.sendMessageShortcutType {
-                
-            case .enter:
-                
-                // The keyboard shortcut to send the message is Enter. If the new line was inserted intentionally
-                // (via `insertNewLineOnCmdEnterOnCatalystIfAppropriate(_:)`), we do nothing (excepte resetting discardNextNewLine).
-                // Otherwise, we discard the new line and request the handling of the action. This will either insert a mention,
-                // send the message, or do nothing.
-                
-                if discardNextNewLine {
-                    discardNewLineInsertion(oldValue: oldValue, offset: offset)
-                    _ = keyboardAction(.enter)
-                } else {
-                    discardNextNewLine = true
-                }
-                
-            case .commandEnter:
-                
-                // The keyboard shortcut to send the message is Cmd+Enter so the only possibilty for the keyboard
-                // action to be handled is the insertion of a mention. In that case, we want to remove the new line inserted
-                // in the text field. If the keyboard action is ignored (meaning there was no mention to insert)
-                // we keep the new line insertion.
-                
-                let result = keyboardAction(.enter)
-                switch result {
-                case .ignored:
-                    break
-                case .handled:
-                    discardNewLineInsertion(oldValue: oldValue, offset: offset)
-                }
-                
-            }
- 
-        }
-
-    }
-    
-    
-    /// Helper method for `discardNewLineInsertionAndHandleEnterKeyboardActionIfAppropriateOnCatalyst`
-    ///
-    /// This helper restores the old text and places the insertion point at the appropriate character offset.
-    private func discardNewLineInsertion(oldValue: String, offset: Int) {
-        self.selection = nil // Required to prevent an out-of-bounds crash on the next line
-        self.text = oldValue
-        let newInsertionPoint = self.text.index(self.text.startIndex, offsetBy: offset, limitedBy: offset >= 0 ? self.text.endIndex : self.text.startIndex)
-        self.selection = .init(insertionPoint: newInsertionPoint ?? self.text.endIndex)
-    }
-    
-    
     /// This method is called whenever the text changes. The new text is sent to the shared state, allowing for other
     /// views to be updated accordingly (e.g., for the send button to appear).
     private func shareTextWithSharedState(_ oldValue: String, _ newValue: String) {
         self.sharedState.onTextChangeInTextEditor(.string(newValue))
-    }
-    
-    
-    /// This method is called whenever a key is pressed in the TextEditor.
-    /// It handles Cmd+Enter on Catalyst and iPad to insert a newline or send the message.
-    ///
-    /// On Catalyst and iPad, when the user presses Command+Enter:
-    /// - If `sendMessageShortcutType == .enter`, a newline is inserted at the current insertion point
-    ///   and `discardNextNewLine` is set to `false` so that the newline is not removed by
-    ///   `discardNewLineInsertionAndHandleEnterKeyboardActionIfAppropriateOnCatalystAndIPad(_:_:)`.
-    /// - If `sendMessageShortcutType == .commandEnter`, the draft is sent immediately via
-    ///   `sharedState.userWantsToSendDraft(...)`.
-    ///
-    /// For other platforms (e.g., iPhone) or other key presses, this is a no-op.
-    ///
-    /// This method relies on `KeyPress.isCommandPlusEnterOnCatalystOrIPad` to detect the key combo.
-    private func insertNewLineOnCmdEnterOnCatalystAndIpadIfAppropriate(_ keyPress: KeyPress) -> KeyPress.Result {
-        
-        guard keyPress.isCommandPlusEnterOnCatalystOrIPad else { return .ignored }
-        
-        switch sharedState.sendMessageShortcutType {
-
-        case .enter:
-            guard let selection, let index = selection.indexOfInsertionPoint else { return .ignored }
-            guard text.startIndex <= index, index <= text.endIndex else { assertionFailure(); return .ignored }
-            discardNextNewLine = false
-            self.text.insert("\n", at: index)
-            self.selection = .init(insertionPoint: self.text.index(index, offsetBy: 1))
-            return .handled
-
-        case .commandEnter:
-            do { try sharedState.userWantsToSendDraft(currentTextInTextEditor: .string(self.text)) } catch { assertionFailure() }
-            return .handled
-
-        }
-
     }
     
     
@@ -273,11 +204,7 @@ public struct TextEditorWithTextSelection: View {
     private func onSelectionChange(_ oldValue: TextSelection?, _ newValue: TextSelection?) {
         
         guard let newValue, let index = newValue.indexOfInsertionPoint else { return }
-        guard index <= self.text.endIndex else {
-            // This happens when a new line is programmatically deleted in
-            // discardNewLineInsertionAndHandleEnterKeyboardActionIfAppropriateOnCatalyst(_:_:)
-            return
-        }
+        guard index <= self.text.endIndex else { return }
         
         // Search for the last mention string before the current insertion point.
         // Note that, most of the time, the returned mentionString is nil
@@ -358,20 +285,28 @@ public struct TextEditorWithTextSelection: View {
     private func onTaskForClearingInput() async {
         let stream = sharedState.getAsyncStreamOfClearInputRequests()
         for await _ in stream {
-            self.selection = nil
+            // **Never feed the focused editor a nil selection.** The primary source of that on iOS 18 is the `.constant(nil)` selection binding during a
+            // send — see the `TextEditor` in `body`. This is the second source: leaving the selection nil *here* would do the same. Every other site
+            // (mention insert, paste) already ends on a valid insertion point, and so does the iOS 26 editor's own clear — which never
+            // wedged. Mirror it: a valid insertion point before and after the text is emptied.
+            self.selection = .init(insertionPoint: self.text.startIndex)
             self.text = ""
-            self.discardNextNewLine = true
+            self.selection = .init(insertionPoint: self.text.startIndex)
+            // **Resync the text input system once the emptied text has settled.** Emptying the text through the SwiftUI binding leaves the underlying
+            // `UITextView` with the new content but a stale input context, so on iOS 18 the first following keystroke updates `$text` yet paints no
+            // glyph until the second. Telling the input delegate the document and selection changed makes it re-read, so the next keystroke renders —
+            // *without* touching first responder. A full resign+become also fixed it but dismissed the keyboard and dragged the transcript with it, far
+            // worse than the one-glyph lag. These are pure notifications: no focus change, no content change, no scroll — worst case they simply do not
+            // help. Not needed on iOS 26, whose attributed editor renders the first keystroke without this.
+            Task { @MainActor in
+                guard self.isFocused, let tv = self.underlyingTextView.view, tv.isFirstResponder else { return }
+                tv.inputDelegate?.textDidChange(tv)
+                tv.inputDelegate?.selectionDidChange(tv)
+            }
         }
     }
     
     
-    private func setInitialBodyTextIfNecessary() {
-        if let initialBody = self.sharedState.consumeInitialBody() {
-            self.text = String(initialBody.characters[...])
-            // For now, mentions are lost
-        }
-    }
-
     @FocusState private var isFocused: Bool
     
     /// Called when the focus of the `TextEditor` changes. When it gains focus (i.e., when
@@ -430,19 +365,28 @@ public struct TextEditorWithTextSelection: View {
     
     @ViewBuilder
     public var body: some View {
-        TextEditor(text: sharedState.isPreventingEdition ? .constant("") : $text, selection: sharedState.isPreventingEdition ? .constant(nil) : $selection)
+        // **Neither binding may be swapped on iOS 18**, and the two failures are why. Swapping *selection* to `.constant(nil)` — the original code, on
+        // every send as `isPreventingEdition` flips — feeds a focused `TextEditor` a nil selection and kills its input session: you can type and pick
+        // QuickType suggestions but nothing reaches `$text` until a focus cycle rebuilds it. Swapping *text* to `.constant("")` while selection stays on
+        // `$selection` then crashes instead: the caret still holds an index into the *old* text, and resolving it against the empty constant is a String
+        // index out of bounds in `_toUTF16Offsets`. So bind both to state and never swap — text and selection then always agree (no crash) and the
+        // selection is never nilled under the focused editor (no wedge). The "busy" state during a send or a load is already shown by ComposeView: the
+        // field dims to 0.1 opacity, a spinner overlays it, and the send button is disabled. (The iOS 26 attributed editor tolerates the text swap; the
+        // String-based iOS 18 one does not.)
+        TextEditor(text: $text, selection: $selection)
             .autocorrectionObv(autocorrection: sharedState.autocorrection, spellChecking: .yes)
             .textEditorStyle(.plain)
             .scrollContentBackground(.hidden)
-            .onChange(of: text, discardNewLineInsertionAndHandleEnterKeyboardActionIfAppropriateOnCatalystAndIPad)
+            .introspect(.textEditor, on: .iOS(.v18)) { self.underlyingTextView.view = $0 }
             .onChange(of: text, shareTextWithSharedState)
             .onChange(of: selection, onSelectionChange)
             .onChange(of: sharedState.textToPaste, onChangeOfTextToPaste)
-            .onKeyPress(action: insertNewLineOnCmdEnterOnCatalystAndIpadIfAppropriate)
             .task(onTaskForClearingInput)
-            .onKeyPress(.downArrow) { keyboardAction(.down).toKeyPress }
-            .onKeyPress(.upArrow) { keyboardAction(.up).toKeyPress }
-            .onAppear(perform: setInitialBodyTextIfNecessary)
+            // `keyboardAction` is captured *by value*, and not read from `self`. Read from `self`, these closures capture this whole view — and so its
+            // `sharedState` — and SwiftUI keeps the handlers of `onKeyPress` alive well past the life of the view that installed them. Seen in a memory
+            // graph: an array of `KeyPress.Handler` holding a closure whose capture held a `ComposeTextField.SharedState` that should have been gone.
+            .onKeyPress(.downArrow) { [keyboardAction] in keyboardAction(.down).toKeyPress }
+            .onKeyPress(.upArrow) { [keyboardAction] in keyboardAction(.up).toKeyPress }
             .frame(minHeight: ComposeTextField.LineLimit.defaultLineHeight, maxHeight: ComposeTextField.LineLimit.toMaxHeight)
             .focused($isFocused)
             .onChange(of: isFocused, onFocusChange)
@@ -466,15 +410,19 @@ public struct TextEditorWithTextSelection: View {
 @available(iOS, introduced: 16.0, deprecated: 18.0, message: "Use TextEditorWithTextSelection on iOS 18")
 private struct LegacyTextEditor: View {
     
-    private let sharedState: ComposeTextField.SharedState
+    /// Observed for the same reason as in `TextEditorWithTextSelection`.
+    @ObservedObject private var sharedState: ComposeTextField.SharedState
     private let keyboardAction: (KeyboardActionType) -> KeyboardResult
 
-    @State private var text: String = ""
-    
+    @State private var text: String
+
     init(sharedState: ComposeTextField.SharedState,
          keyboardAction: @escaping (KeyboardActionType) -> KeyboardResult) {
         self.sharedState = sharedState
         self.keyboardAction = keyboardAction
+        // Seeded here rather than from `.onAppear`, see `TextEditorWithTextSelectionAndAttributedString.init`. Mentions are lost, as they are anyway in
+        // this editor, which holds a plain `String`.
+        _text = State(initialValue: sharedState.initialBodyForTextEditor.map { String($0.characters[...]) } ?? "")
     }
 
     
@@ -496,16 +444,8 @@ private struct LegacyTextEditor: View {
     }
     
     
-    private func setInitialBodyTextIfNecessary() {
-        if let initialBody = self.sharedState.consumeInitialBody() {
-            self.text = String(initialBody.characters[...])
-            // For now, mentions are lost
-        }
-    }
-
-    
     @FocusState private var isFocused: Bool
-    
+
 
     /// Called each time the shared state's `attributedTextToPaste` is updated.
     ///
@@ -520,11 +460,20 @@ private struct LegacyTextEditor: View {
         // Ensure there is a string to paste
         
         guard let newValue, !newValue.isEmpty else { return }
-        
-        // Insert the new string at the end of the current text
-        
-        self.text += newValue
-        
+
+        // This editor has no selection binding, but the `UITextView` behind it is known, and `insertText` puts the string at its caret, replacing a
+        // selection if there is one, and reports the change through the delegate the `TextEditor` already listens to. That matters for a newline
+        // inserted on behalf of a Return key: appended, it lands after the last word whatever the caret was doing. Appending is kept for the
+        // moment before the text view has been introspected, and while edition is prevented: the editor is then bound to a constant empty
+        // string, so the text view holds nothing and an insert into it is discarded when the draft is restored, where `text` keeps the draft
+        // throughout. The lock is lifted in the same turn as the paste on every current path, but that is one deferred completion away.
+
+        if let textView = sharedState.textView, !sharedState.isPreventingEdition {
+            textView.insertText(newValue)
+        } else {
+            self.text += newValue
+        }
+
     }
 
     
@@ -535,7 +484,6 @@ private struct LegacyTextEditor: View {
             .onChange(of: text, perform: shareTextWithSharedState)
             .onChange(of: sharedState.textToPaste, perform: onChangeOfTextToPaste)
             .task(onTaskForClearingInput)
-            .onAppear(perform: setInitialBodyTextIfNecessary)
             .frame(minHeight: ComposeTextField.LineLimit.defaultLineHeight, maxHeight: ComposeTextField.LineLimit.toMaxHeight)
             .focused($isFocused)
             .overlay(alignment: .leading, content: { overlay })
@@ -557,38 +505,6 @@ private struct LegacyTextEditor: View {
 
 extension String {
     
-    enum HasExactlyOneNewLineInsertion {
-        case no
-        case yes(offset: Int)
-    }
-    
-    func hasExactlyOneNewLineInsertion(comparedTo other: String) -> HasExactlyOneNewLineInsertion {
-        guard self.count == other.count + 1 else { return .no }
-        let differences = self.difference(from: other)
-        guard differences.count == 1, let insertion = differences.insertions.first else { return .no }
-        switch insertion {
-        case .remove:
-            return .no
-        case .insert(offset: let offset, element: let element, associatedWith: _):
-            return element.isNewline ? .yes(offset: offset) : .no
-        }
-    }
-    
-    
-    @MainActor
-    func hasExactlyOneNewLineInsertionOnCatalystOrIPad(comparedTo other: String) -> HasExactlyOneNewLineInsertion {
-        #if targetEnvironment(macCatalyst)
-        return self.hasExactlyOneNewLineInsertion(comparedTo: other)
-        #else
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            return self.hasExactlyOneNewLineInsertion(comparedTo: other)
-        } else {
-            return .no
-        }
-        #endif
-    }
-    
-    
     func wordBefore(index: String.Index) -> String? {
         guard index >= self.startIndex, index <= self.endIndex else { return nil }
         var result = ""
@@ -607,25 +523,6 @@ extension String {
     
 }
 
-
-
-@available(iOS 17.0, *)
-extension KeyPress {
-    
-    @MainActor
-    var isCommandPlusEnterOnCatalystOrIPad: Bool {
-        #if targetEnvironment(macCatalyst)
-        return self.key == .return && self.modifiers == [.command]
-        #else
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            return self.key == .return && self.modifiers == [.command]
-        } else {
-            return false
-        }
-        #endif
-    }
-    
-}
 
 
 @available(iOS 18.0, *)
@@ -738,87 +635,6 @@ extension String {
 }
 
 
-extension AttributedString {
-    
-    enum HasExactlyOneNewLineInsertion {
-        case no
-        case yes(offsetByCharacters: Int)
-    }
-
-    /// Determines if this attributed string differs from another by exactly one newline insertion.
-    ///
-    /// This method compares the attributed string with another and checks if the only difference
-    /// is a single "\n" character present in this string but not in the other.
-    ///
-    /// - Parameter other: The attributed string to compare against, expected to be identical
-    ///                    except for one missing newline character.
-    ///
-    /// - Returns: A `HasExactlyOneNewLineInsertion` enum value:
-    ///   - `.no` if the strings differ in any way other than a single newline insertion
-    ///   - `.yes(offsetByCharacters:)` if the only difference is exactly one "\n" character, with the
-    ///     offsetByCharacters indicating the position of that newline in this string.
-    ///
-    /// If this method returns `.yes(offsetByCharacters:)`, the index of the '\n' character is
-    /// `self.index(self.startIndex, offsetByCharacters: offsetByCharacters)`
-    func hasExactlyOneNewLineInsertion(comparedTo other: AttributedString) -> HasExactlyOneNewLineInsertion {
-
-        let selfChars = Array(self.characters)
-        let otherChars = Array(other.characters)
-        
-        guard selfChars.count == otherChars.count + 1 else {
-            return .no
-        }
-
-        // Find the position where the AttributedStrings differ
-        
-        let indexOfFirstDifference: Int? = (0..<otherChars.count).first(where: { selfChars[$0] != otherChars[$0] })
-        
-        // If we did not find a difference, check the last character of self
-        
-        guard let indexOfFirstDifference else {
-            print("indexOfFirstDifference is nil")
-            // Note that since selfChars.count == otherChars.count + 1, we know selfChars.count-1 >= 0
-            return selfChars.last?.isNewline == true ? .yes(offsetByCharacters: selfChars.count-1) : .no
-        }
-
-        // We found a difference. Check that the remaining characters are equal
-        
-        if indexOfFirstDifference+1 < otherChars.count {
-            guard (indexOfFirstDifference+1..<otherChars.count).allSatisfy({ selfChars[$0+1] == otherChars[$0] }) else {
-                return .no
-            }
-        }
-        
-        // The only difference is at index indexOfFirstDifference. Check if its a "\n"
-        
-        guard selfChars[indexOfFirstDifference].isNewline else {
-            return .no
-        }
-
-        // The only difference is indeed a new line. Turn the indexOfFirstDifference into and index in 'self'
-        
-        //let index = self.index(self.startIndex, offsetByCharacters: indexOfFirstDifference)
-        return .yes(offsetByCharacters: indexOfFirstDifference)
-        
-    }
-
-    
-    @MainActor
-    func hasExactlyOneNewLineInsertionOnCatalystOrIPad(comparedTo other: AttributedString) -> HasExactlyOneNewLineInsertion {
-        #if targetEnvironment(macCatalyst)
-        return self.hasExactlyOneNewLineInsertion(comparedTo: other)
-        #else
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            return self.hasExactlyOneNewLineInsertion(comparedTo: other)
-        } else {
-            return .no
-        }
-        #endif
-    }
-
-}
-
-
 @available(iOS 26.0, *)
 extension AttributedTextSelection {
     
@@ -925,7 +741,7 @@ extension TextSelection.Indices {
 
 
 extension ComposeTextField {
-    
+
     @MainActor
     struct LineLimit {
         
@@ -961,7 +777,6 @@ extension ComposeTextField {
 #if canImport(UIKit)
 import UniformTypeIdentifiers
 
-@available(iOS 16.0, *)
 final class TextViewPasteDelegate: NSObject, UITextPasteDelegate {
     
     weak var sharedState: ComposeTextField.SharedState?

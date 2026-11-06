@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
@@ -69,6 +69,8 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForRemoteIdentityProtocol.logCategory)
+
             let remoteIdentity = receivedMessage.remoteIdentity
             
             // Send the server query
@@ -76,8 +78,17 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = ServerQueryMessage(coreProtocolMessage: coreMessage)
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.deviceDiscovery(of: remoteIdentity)
-            guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
-            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: concreteCryptoProtocol.prng, within: obvContext)
+            guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else {
+                assertionFailure()
+                return CancelledState()
+            }
+            do {
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: concreteCryptoProtocol.prng, within: obvContext)
+            } catch {
+                logger.fault("Could not post channel message: \(error.localizedDescription, privacy: .public)")
+                assertionFailure()
+                return CancelledState()
+            }
             
             // Return the new state
             
@@ -105,20 +116,20 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForRemoteIdentityProtocol.logCategory)
+            let logger = Logger(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForRemoteIdentityProtocol.logCategory)
             
             let remoteIdentity = startState.remoteIdentity
             
             guard let contactDeviceDiscoveryResult = receivedMessage.contactDeviceDiscoveryResult else {
-                os_log("The received server response does not contain a result. This is a bug", log: log, type: .error)
+                logger.fault("The received server response does not contain a result. This is a bug.")
                 assertionFailure()
                 return CancelledState()
             }
             
             switch contactDeviceDiscoveryResult {
             case .failure:
-                assertionFailure()
-                return CancelledState()
+                logger.error("The contact device discovery server query failed.")
+                return ServerQueryFailedState()
             case .success(result: let result):
                 return DeviceUidsReceivedState(remoteIdentity: remoteIdentity, result: result)
             }

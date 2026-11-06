@@ -85,9 +85,15 @@ public enum SendingAttachmentsStatus: Sendable, Hashable, Equatable {
     case starting
     /// `bytesPerSecond` and `eta` are `nil` until enough time has elapsed to produce a meaningful rate.
     /// `eta` is expressed in seconds and represents the estimated time until all attachment bytes are sent.
-    /// At completion: `sentFylesCount + failedFylesCount == numberOfFylesToSend`
-    /// and `byteCountSent + byteCountFailedToSend == byteCountToSend`.
-    case inProgress(sentFylesCount: Int, failedFylesCount: Int, byteCountSent: UInt64, byteCountFailedToSend: UInt64, numberOfFylesToSend: Int, byteCountToSend: UInt64, bytesPerSecond: Double?, eta: TimeInterval?)
+    ///
+    /// `skippedFylesCount` / `byteCountSkipped` account for attachments that were part of the negotiated total
+    /// (`numberOfFylesToSend` / `byteCountToSend`) but that the destination ultimately did not request (it replied
+    /// with a `DstDoNotRequestSha256`, or never requested them). They were neither sent nor failed; they are simply
+    /// not transferred. Tracking them as a distinct bucket lets the attachment step reach a terminal state instead
+    /// of appearing frozen mid-progress while the transfer is reported as done.
+    /// At completion: `sentFylesCount + failedFylesCount + skippedFylesCount == numberOfFylesToSend`
+    /// and `byteCountSent + byteCountFailedToSend + byteCountSkipped == byteCountToSend`.
+    case inProgress(sentFylesCount: Int, failedFylesCount: Int, skippedFylesCount: Int, byteCountSent: UInt64, byteCountFailedToSend: UInt64, byteCountSkipped: UInt64, numberOfFylesToSend: Int, byteCountToSend: UInt64, bytesPerSecond: Double?, eta: TimeInterval?)
 }
 
 public enum ComputingZipFileStatus: Sendable, Hashable, Equatable {
@@ -108,9 +114,9 @@ extension SendingAttachmentsStatus {
         switch self {
         case .starting:
             return nil
-        case .inProgress(sentFylesCount: _, failedFylesCount: _, byteCountSent: let byteCountSent, byteCountFailedToSend: let byteCountFailedToSend, numberOfFylesToSend: _, byteCountToSend: let byteCountToSend, bytesPerSecond: _, eta: _):
+        case .inProgress(sentFylesCount: _, failedFylesCount: _, skippedFylesCount: _, byteCountSent: let byteCountSent, byteCountFailedToSend: let byteCountFailedToSend, byteCountSkipped: let byteCountSkipped, numberOfFylesToSend: _, byteCountToSend: let byteCountToSend, bytesPerSecond: _, eta: _):
             let total = Int64(byteCountToSend)
-            let completed = Int64(byteCountSent) + Int64(byteCountFailedToSend)
+            let completed = Int64(byteCountSent) + Int64(byteCountFailedToSend) + Int64(byteCountSkipped)
             return (completed, total)
         }
     }

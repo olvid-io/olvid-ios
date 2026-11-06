@@ -151,11 +151,15 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
                 return localStatus
             case .unknown, .licensesExhausted, .expired, .free, .awaitingPaymentGracePeriod, .awaitingPaymentOnHold, .freeTrialExpired:
                 if let context = managedObjectContext, (localStatus == .free || localStatus == .unknown) {
-                    let anotherProfileHasValiAPIKey = (try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context).first(where: { $0.rawAPIKeyStatus == APIKeyStatus.valid.rawValue })) != nil
+                    // An API key only grants capabilities on the server that issued it, so we only let another profile's status augment
+                    // this one when both profiles are on the same server (see ownedCryptoIdAllowedToEmitSecureCall for the same rationale).
+                    let serverURL = self.cryptoId.serverURL
+                    let profilesOnSameServer = (try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context).filter({ $0.cryptoId.belongsTo(serverURL: serverURL) })) ?? []
+                    let anotherProfileHasValiAPIKey = profilesOnSameServer.contains(where: { $0.rawAPIKeyStatus == APIKeyStatus.valid.rawValue })
                     if anotherProfileHasValiAPIKey {
                         return .anotherOwnedIdentityHasValidAPIKey
                     }
-                    let anotherProfileHasFreeTrial = (try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context).first(where: { $0.rawAPIKeyStatus == APIKeyStatus.freeTrial.rawValue })) != nil
+                    let anotherProfileHasFreeTrial = profilesOnSameServer.contains(where: { $0.rawAPIKeyStatus == APIKeyStatus.freeTrial.rawValue })
                     if anotherProfileHasFreeTrial {
                         return .freeTrial
                     }
@@ -186,14 +190,19 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     
     /// If this owned identity has the canCall permission, this method returns her crypto Id. Otherwise, it looks for another owned identity allowed to emit a call. If one is found, this methods returns her owned identity.
     /// If no owned identity has the canCall permission, this method returns `nil`.
+    ///
+    /// Borrowing the permission from another owned identity only works when both profiles are on the *same* server: emitting a secure call relies on
+    /// turn credentials delivered by the server that issued the borrowed profile's API key. If the other profile is on a different server, its
+    /// credentials would be rejected by this profile's server, so we only consider sibling profiles sharing this owned identity's server.
     public var ownedCryptoIdAllowedToEmitSecureCall: ObvCryptoId? {
         if apiPermissions.contains(.canCall) {
             return self.cryptoId
         } else {
-            // This owned identity hasn't the canCall permission. But if any other active non-hidden owned identity has the permission, we know this one will be allowed to make calls too.
+            // This owned identity hasn't the canCall permission. But if any other active non-hidden owned identity on the same server has the permission, we know this one will be allowed to make calls too.
             if let context = managedObjectContext {
+                let serverURL = self.cryptoId.serverURL
                 let anotherProfileThatHasCanCallPermission = try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context)
-                    .filter({ $0.cryptoId != self.cryptoId })
+                    .filter({ $0.cryptoId != self.cryptoId && $0.cryptoId.belongsTo(serverURL: serverURL) })
                     .first(where: {
                         // We do not directly access the apiPermissions var to prevent an infinite loop
                         let otherAPIPermissions = APIPermissions(rawValue: $0.rawAPIPermissions)
@@ -665,25 +674,34 @@ extension PersistedObvOwnedIdentity {
     
 
     /// When  receiving an `ObvMessage` from a contact, we fetch the persisted contact indicated in the message and then call this method to create the `PersistedMessageReceived`.
-    public func createOrOverridePersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, source: ObvMessageSource) throws -> (discussionPermanentID: DiscussionPermanentID, messageReceivedPermanentId: MessageReceivedPermanentID?) {
-        
+    public func createOrOverridePersistedMessageReceived(
+        obvMessage: ObvMessage,
+        messageJSON: MessageJSON,
+        returnReceiptJSON: ReturnReceiptJSON?,
+        source: ObvMessageSource,
+        pendingSiriReadIntentDate: Date?,
+        nseAlreadyPostedDeliveredReceipt: Bool
+    ) throws -> (discussionPermanentID: DiscussionPermanentID, messageReceivedPermanentId: MessageReceivedPermanentID?, deliveredReceiptToSend: ObvReturnReceiptToSend?, readReceiptToSend: ObvReturnReceiptToSend?, attachmentDeliveredReceiptsToSend: [ObvReturnReceiptToSend]) {
+
         guard obvMessage.fromContactIdentity.ownedCryptoId == self.cryptoId else {
             assertionFailure()
             throw ObvUICoreDataError.unexpectedOwnedCryptoId
         }
-        
+
         guard let contact = try PersistedObvContactIdentity.get(cryptoId: obvMessage.fromContactIdentity.contactCryptoId, ownedIdentity: self, whereOneToOneStatusIs: .any) else {
             throw ObvUICoreDataError.couldNotFindContactWithId(contactIdentifier: obvMessage.fromContactIdentity)
         }
-        
+
         let values = try contact.createOrOverridePersistedMessageReceived(
             obvMessage: obvMessage,
             messageJSON: messageJSON,
             returnReceiptJSON: returnReceiptJSON,
-            source: source)
-        
+            source: source,
+            pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+            nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt)
+
         return values
-        
+
     }
     
 }
@@ -1635,7 +1653,7 @@ extension PersistedObvOwnedIdentity {
             try oneToOneDiscussion.processLocalDetectionThatSensitiveMessagesWereCapturedInThisDiscussion(by: self)
             
             screenCaptureDetectionJSON = ScreenCaptureDetectionJSON(oneToOneIdentifier: try oneToOneDiscussion.oneToOneIdentifier)
-            recipients = Set([oneToOneDiscussion.contactIdentity?.cryptoId].compactMap({$0}))
+            recipients = Set([try? oneToOneDiscussion.contactIdentity?.cryptoId].compactMap({$0}))
                                     
         case .groupV1(withContactGroup: let group):
             
@@ -1646,7 +1664,7 @@ extension PersistedObvOwnedIdentity {
             try group.processLocalDetectionThatSensitiveMessagesWereCapturedInThisDiscussion(by: self)
 
             screenCaptureDetectionJSON = ScreenCaptureDetectionJSON(groupV1Identifier: try group.getGroupId())
-            recipients = Set(group.contactIdentities.compactMap({ $0.cryptoId }))
+            recipients = Set(group.contactIdentities.compactMap({ try? $0.cryptoId }))
 
         case .groupV2(withGroup: let group):
             
@@ -1657,7 +1675,7 @@ extension PersistedObvOwnedIdentity {
             try group.processLocalDetectionThatSensitiveMessagesWereCapturedInThisDiscussion(by: self)
 
             screenCaptureDetectionJSON = ScreenCaptureDetectionJSON(groupV2Identifier: group.groupIdentifier)
-            recipients = Set(group.contactsAmongOtherPendingAndNonPendingMembers.map({ $0.cryptoId }))
+            recipients = Set(group.contactsAmongOtherPendingAndNonPendingMembers.compactMap({ try? $0.cryptoId }))
 
         }
 
@@ -2311,18 +2329,16 @@ extension PersistedObvOwnedIdentity {
     }
 
     
-    public func markAllMessagesAsNotNew(discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier], dateWhenMessageTurnedNotNew: Date, requestedOnAnotherOwnedDevice: Bool) throws -> Date? {
-        
+    public func markAllMessagesAsNotNew(discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier], dateWhenMessageTurnedNotNew: Date, requestedOnAnotherOwnedDevice: Bool) throws -> (lastReadMessageServerTimestamp: Date?, readReceiptsToSend: [ObvReturnReceiptToSend]) {
+
         guard let discussion = try PersistedDiscussion.getPersistedDiscussion(ownedIdentity: self, discussionId: discussionId) else {
             throw ObvUICoreDataError.couldNotFindDiscussion
         }
 
-        let lastReadMessageServerTimestamp = try discussion.markAllMessagesAsNotNew(messageIds: messageIds,
-                                                                                    dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew,
-                                                                                    requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
-        
-        return lastReadMessageServerTimestamp
-        
+        return try discussion.markAllMessagesAsNotNew(messageIds: messageIds,
+                                                      dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew,
+                                                      requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
+
     }
     
     
@@ -2334,7 +2350,7 @@ extension PersistedObvOwnedIdentity {
 
         switch try discussion.kind {
         case .oneToOne(withContactIdentity: let contact):
-            guard let contactCryptoId = contact?.cryptoId else {
+            guard let contactCryptoId = try? contact?.cryptoId else {
                 throw ObvUICoreDataError.contactIdentityIsNil
             }
             return DiscussionReadJSON(
@@ -2745,6 +2761,17 @@ extension PersistedObvOwnedIdentity {
                      cacheName: nil)
     }
     
+    public static func getFetchedResultsControllerForAllNonHiddenOwnedIdentities(within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvOwnedIdentity> {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.predicate = Predicate.isHidden(false)
+        request.sortDescriptors = Self.defaultSortDescriptors
+        request.fetchBatchSize = 20
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+    
     
     /// Default sort descriptors for fetching lists of `PersistedObvOwnedIdentity`.
     ///
@@ -3031,7 +3058,9 @@ struct PersistedObvOwnedIdentityDeviceSnapshotNode: ObvSyncSnapshotNode {
 
 
 struct PersistedObvOwnedIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
-    
+
+    private static let logger = Logger(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedObvOwnedIdentitySyncSnapshotNode")
+
     private let domain: Set<CodingKeys>
     private let customDisplayName: String?
     private let contacts: [ObvCryptoId: PersistedObvContactIdentitySyncSnapshotNode]
@@ -3064,7 +3093,14 @@ struct PersistedObvOwnedIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
         self.customDisplayName = customDisplayName
         // contacts
         do {
-            let keysAndValues: [(ObvCryptoId, PersistedObvContactIdentitySyncSnapshotNode)] = contacts.compactMap { ($0.cryptoId, $0.syncSnapshotNode) }
+            let keysAndValues: [(ObvCryptoId, PersistedObvContactIdentitySyncSnapshotNode)] = contacts.compactMap {
+                guard let contactCryptoId = try? $0.cryptoId else {
+                    // Empty bytes are a contact deleted under a fault; any other length is an identity that does not parse
+                    Self.logger.fault("Leaving out of the snapshot a contact whose identity cannot be read (\($0.identity.count, privacy: .public) bytes)")
+                    return nil
+                }
+                return (contactCryptoId, $0.syncSnapshotNode)
+            }
             self.contacts = Dictionary(keysAndValues, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
         }
         // groupsV1
@@ -3224,7 +3260,8 @@ struct PersistedObvOwnedIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
         switch discussionKind {
         case .oneToOne(withContactIdentity: let persistedContact):
             guard let persistedContact else { assertionFailure(); return nil }
-            return .oneToOne(contactCryptoId: persistedContact.cryptoId)
+            guard let contactCryptoId = try? persistedContact.cryptoId else { return nil }
+            return .oneToOne(contactCryptoId: contactCryptoId)
         case .groupV1(withContactGroup: let groupV1):
             guard let groupV1 else { assertionFailure(); return nil }
             guard let groupId = try? groupV1.getGroupId() else { assertionFailure(); return nil }

@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import AVFAudio
 import CoreData
 import Combine
 import ObvTypes
@@ -107,6 +108,30 @@ extension TipCellViewAppDataSource: TipCellViewDataSourceActions {
     /// Called when the user taps the dismiss button of the `RequestUserNotificationsAuthorizationTipView`.
     func userWantsToDismissRequestUserNotificationsAuthorizationTipView(_ view: ObvDiscussionsList.RequestUserNotificationsAuthorizationTipView) {
         ObvMessengerSettings.ObvTips.setDateWhenUserDimissedTip(to: .now)
+        for manager in self.tipCellViewModelStreamManagerForStreamUUID.values {
+            manager.createAndYieldModelIfNeeded()
+        }
+    }
+
+
+    /// Called when the user dismisses the `NewerAppVersionAvailableTipView`, either by tapping the dismiss button or after tapping the
+    /// "Open the App Store" button. We record the dismissal date (one-day cooldown, see `createNewerAppVersionAvailableTip()`) and request
+    /// a refresh of the data source. This will dismiss the tip.
+    func userWantsToDismissNewerAppVersionAvailableTipView(_ view: ObvDiscussionsList.NewerAppVersionAvailableTipView) {
+        guard let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) else { assertionFailure(); return }
+        userDefaults.setDate(.now, for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastNewerAppVersionAvailableTipDisplay)
+        for manager in self.tipCellViewModelStreamManagerForStreamUUID.values {
+            manager.createAndYieldModelIfNeeded()
+        }
+    }
+
+
+    /// Called when the user dismisses the `GrantRecordPermissionTipView`, either via the "Later" button or after tapping the primary
+    /// button (grant in-app / open Settings). We record the dismissal date (per-variant cooldown enforced in
+    /// `createGrantRecordPermissionTip()`) and request a refresh of the data source. This will dismiss the tip.
+    func userWantsToDismissGrantRecordPermissionTipView(_ view: ObvDiscussionsList.GrantRecordPermissionTipView) {
+        guard let userDefaults = UserDefaults(suiteName: ObvAppCoreConstants.appGroupIdentifier) else { assertionFailure(); return }
+        userDefaults.setDate(.now, for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastGrantRecordPermissionTipDisplay)
         for manager in self.tipCellViewModelStreamManagerForStreamUUID.values {
             manager.createAndYieldModelIfNeeded()
         }
@@ -234,15 +259,30 @@ extension TipCellViewAppDataSource {
         }
         
         
+        /// **The manager is captured, not read back from the property, and that is the whole of a crash found on 2026-09-01.**
+        ///
+        /// This is called once, from `init`, so nothing starts streams repeatedly. What happens is narrower: the `Task` used to read
+        /// `self.ownedIdentitiesAndOwnedDevicesStreamManager` *after* awaiting `startStream()`, and ``finishStream()`` may have set it to nil in
+        /// between — whereupon the optional chain yielded nil, the `guard` tripped, and the `assertionFailure()` on it killed the app in Debug. It was
+        /// met by dragging an iPad's Split View divider quickly with the discussions list showing, which creates and tears these down fast enough to
+        /// land in that window.
+        ///
+        /// **The assertion is kept rather than removed**, and capturing the manager is what makes it mean something again: it now fires only if
+        /// `startStream()` genuinely threw. Removing it — which was done first, to get through an unrelated walk — left a bare `return` covering two
+        /// quite different states, one a real fault and one entirely ordinary, and told nobody which had happened.
+        ///
+        /// **The identity check is the half that is easy to leave out.** A manager whose owner was torn down while the stream was starting is a
+        /// manager nobody holds and nobody will finish, so it finishes itself. The original code avoided that leak only by never getting that far.
         private func continuouslyObserveDeactivatedOwnedCryptoIds(context: NSManagedObjectContext) {
             self.ownedIdentitiesAndOwnedDevicesStreamManager = .init(context: context)
+            guard let manager = self.ownedIdentitiesAndOwnedDevicesStreamManager else { assertionFailure(); return }
             Task {
-                guard let (_, stream) = try? await self.ownedIdentitiesAndOwnedDevicesStreamManager?.startStream() else { assertionFailure(); return }
+                guard let (_, stream) = try? await manager.startStream() else { assertionFailure(); return }
+                guard self.ownedIdentitiesAndOwnedDevicesStreamManager === manager else { return manager.finishStream() }
                 for await model in stream {
                     self.ownedIdentitiesAndOwnedDevices = model
                     self.createAndYieldModelIfNeeded()
                 }
-                debugPrint("End of stream")
             }
         }
         
@@ -276,38 +316,50 @@ extension TipCellViewAppDataSource {
             }
 
             // Priority 3: backups
-            
+
             if let backupModel = createModelForTipBackup(
                 userDidSetupBackupsAtLeastOnce: userDidSetupBackupsAtLeastOnce,
                 dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey) {
                 return TipCellViewModel.backup(backupModel)
             }
 
+            // Priority 4: a newer version of the app is available on the App Store
+
+            if createNewerAppVersionAvailableTip() {
+                return TipCellViewModel.newerAppVersionAvailable
+            }
+
+            // Priority 5: grant microphone access (shown only after the user missed an incoming call because the permission was off)
+
+            if let permission = createGrantRecordPermissionTip() {
+                return TipCellViewModel.grantRecordPermission(permission)
+            }
+
             // The following tips are shown only if no tip was shown for a long time
-            
+
             guard previousTipWasShownLongTimeAgo else {
                 return nil
             }
-            
-            // Priority 4: Send read receipts
+
+            // Priority 6: Send read receipts
 
             if !doSendReadReceiptIsSet {
                 return TipCellViewModel.doSendReadReceipt
             }
-            
-            // Priority 5: Olvid+
-            
+
+            // Priority 7: Olvid+
+
             if let olvidPlusTipViewModel = createOlvidPlusTipViewModel() {
                 return TipCellViewModel.olvidPlus(olvidPlusTipViewModel)
             }
-            
-            // Priority 6: OS upgrade
+
+            // Priority 8: OS upgrade
             
             if let upgradeTip = createOSUpgradeTip() {
                 return TipCellViewModel.osUpgrade(upgradeTip)
             }
             
-            // Priority 7: Request User notifications authorization
+            // Priority 9: Request User notifications authorization
             
             if await notificationAuthorizationStatusIsNotDetermined {
                 return TipCellViewModel.requestUserNotificationsAuthorization
@@ -427,8 +479,63 @@ extension TipCellViewAppDataSource {
             }
             return nil
         }
-        
-        
+
+
+        /// Returns `true` when a newer version of Olvid is available on the App Store and the tip has not been dismissed recently.
+        /// Mirrors the logic that used to live in the `SnackBarManager` for the `newerAppVersionAvailable` snack bar: a one-day
+        /// cooldown after dismissal, and a comparison between the latest build number advertised by the server and the local build.
+        private func createNewerAppVersionAvailableTip() -> Bool {
+            guard let userDefaults else { assertionFailure(); return false }
+            let lastDisplayDate = userDefaults.dateOrNil(for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastNewerAppVersionAvailableTipDisplay) ?? Date.distantPast
+            let didDismissTipRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(days: 1)
+            guard !didDismissTipRecently else { return false }
+            guard let latestBuildNumberAvailable = ObvMessengerSettings.AppVersionAvailable.latest else { return false }
+            return latestBuildNumberAvailable > ObvAppCoreConstants.bundleVersionAsInt
+        }
+
+
+        /// Returns the appropriate "grant microphone access" variant when the user has missed an incoming call because the record
+        /// permission is off, or `nil` otherwise. Mirrors the logic that used to live in the `SnackBarManager`: it only nudges after a
+        /// rejected incoming call, picks `.requestInApp` when the permission is undetermined and `.openSettings` when it was denied,
+        /// and enforces a per-variant cooldown (1 day for the in-app prompt, 7 days for the Settings round-trip).
+        private func createGrantRecordPermissionTip() -> TipCellViewModel.GrantRecordPermission? {
+            assert(Thread.isMainThread)
+
+            let permission: TipCellViewModel.GrantRecordPermission
+            let cooldown: TimeInterval
+            switch AVAudioSession.sharedInstance().recordPermission {
+            case .granted:
+                return nil
+            case .denied:
+                permission = .openSettings
+                cooldown = TimeInterval(days: 7)
+            case .undetermined:
+                permission = .requestInApp
+                cooldown = TimeInterval(days: 1)
+            @unknown default:
+                assertionFailure()
+                return nil
+            }
+
+            // Only nudge if the user actually missed an incoming call because of the missing permission.
+            let hasRejectedIncomingCall: Bool
+            do {
+                hasRejectedIncomingCall = try PersistedMessageSystem.hasRejectedIncomingCallBecauseOfDeniedRecordPermission(within: viewContext)
+            } catch {
+                assertionFailure()
+                return nil
+            }
+            guard hasRejectedIncomingCall else { return nil }
+
+            // Enforce the cooldown for the matched variant.
+            guard let userDefaults else { assertionFailure(); return nil }
+            let lastDisplayDate = userDefaults.dateOrNil(for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastGrantRecordPermissionTipDisplay) ?? Date.distantPast
+            guard abs(lastDisplayDate.timeIntervalSinceNow) >= cooldown else { return nil }
+
+            return permission
+        }
+
+
         private func createModelForTipBackup(userDidSetupBackupsAtLeastOnce: Bool, dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: Date?) -> TipCellViewModel.SetupNewBackupsCellViewModel? {
             if userDidSetupBackupsAtLeastOnce && dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey == nil {
                 // The "setup backup cell" should not be displayed.
@@ -460,7 +567,7 @@ extension TipCellViewAppDataSource {
             switch previouslyYieldedModel {
             case .olvidPlus, .ownedDeviceExpriginSoon:
                 break
-            case .backup, .doSendReadReceipt, .archivedDiscussionsHelpMessage, .none, .olvidPlusSuccessfulSubscription, .osUpgrade, .profileIsDeactivatedOnThisDevice, .requestUserNotificationsAuthorization:
+            case .backup, .doSendReadReceipt, .archivedDiscussionsHelpMessage, .none, .olvidPlusSuccessfulSubscription, .osUpgrade, .profileIsDeactivatedOnThisDevice, .requestUserNotificationsAuthorization, .newerAppVersionAvailable, .grantRecordPermission:
                 return
             }
             userDefaults?.setDate(.now, for: ObvMessengerConstants.UserDefaultsKeys.dateOfLastOlvidPlusTipDisplay)
@@ -536,13 +643,30 @@ extension TipCellViewAppDataSource {
 
 extension TipCellViewAppDataSource {
     
+    /// This model is a *change detector*, not a source of values: nothing ever reads its `devices`, and the tips are always
+    /// recomputed from Core Data by `createModel()`. Its only job is to differ whenever something a tip depends on has changed,
+    /// so that `createAndYieldModelIfNeeded()` gets called — the stream manager skips a yield when the new model equals the
+    /// previous one.
+    ///
+    /// **So every value a tip reads off a device must appear here, and `expirationDate` was missing.** What that cost was a tip
+    /// that outlived the fact it described. Adding a second device to a profile with no multidevice subscription schedules a
+    /// deactivation, and the source device is the one the server picks first: it rightly showed "This device will be deactivated
+    /// in less than …". The user then chose to keep *that* device active, so the server moved the expiration onto the new device
+    /// and cleared it here — the devices' identifiers and `isCurrentDevice` were untouched, this model came out identical, no
+    /// yield was made, and the tip stayed on screen counting down to a deactivation that was no longer going to happen. The list
+    /// of devices, one screen away, read the same store and said the opposite, which is the fingerprint of a stale observer
+    /// rather than of bad data.
     fileprivate struct OwnedIdentityAndDevices: Sendable, Hashable {
         let ownedCryptoId: ObvCryptoId
         let isActiveOnThisDevice: Bool
-        let devices: [Device]
+        let devices: Set<Device>
         struct Device: Sendable, Hashable {
             let isCurrentDevice: Bool
             let identifier: Data
+            /// Read by the "device expiring soon" tip, both to decide whether to show it and to say when the deactivation happens.
+            let expirationDate: Date?
+            /// Displayed by the "device expiring soon" tip when the expiring device is not the current one.
+            let name: String
         }
     }
     
@@ -598,7 +722,7 @@ extension TipCellViewModel.OwnedDeviceExpriginSoonModel {
 extension TipCellViewAppDataSource.OwnedIdentityAndDevices {
     
     init(ownedIdentity: PersistedObvOwnedIdentity) {
-        let devices: [Device] = ownedIdentity.devices.map { .init(device: $0) }
+        let devices = Set(ownedIdentity.devices.map { Device(device: $0) })
         self = .init(ownedCryptoId: ownedIdentity.cryptoId,
                      isActiveOnThisDevice: ownedIdentity.isActive,
                      devices: devices)
@@ -611,7 +735,9 @@ extension TipCellViewAppDataSource.OwnedIdentityAndDevices.Device {
     
     init(device: PersistedObvOwnedDevice) {
         self = .init(isCurrentDevice: device.isCurrentDevice,
-                     identifier: device.identifier)
+                     identifier: device.identifier,
+                     expirationDate: device.expirationDate,
+                     name: device.name)
     }
     
 }

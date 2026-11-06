@@ -31,18 +31,14 @@ fileprivate struct OptionalWrapper<T> {
 
 public enum ObvMessengerSettingsNotifications {
 	case contactsSortOrderDidChange
-	case preferredComposeMessageViewActionsDidChange
 	case isIncludesCallsInRecentsEnabledSettingDidChange
 	case performInteractionDonationSettingDidChange
-	case identityColorStyleDidChange
 	case receiveCallsOnThisDeviceSettingDidChange
 
 	private enum Name {
 		case contactsSortOrderDidChange
-		case preferredComposeMessageViewActionsDidChange
 		case isIncludesCallsInRecentsEnabledSettingDidChange
 		case performInteractionDonationSettingDidChange
-		case identityColorStyleDidChange
 		case receiveCallsOnThisDeviceSettingDidChange
 
 		private var namePrefix: String { String(describing: ObvMessengerSettingsNotifications.self) }
@@ -57,10 +53,8 @@ public enum ObvMessengerSettingsNotifications {
 		static func forInternalNotification(_ notification: ObvMessengerSettingsNotifications) -> NSNotification.Name {
 			switch notification {
 			case .contactsSortOrderDidChange: return Name.contactsSortOrderDidChange.name
-			case .preferredComposeMessageViewActionsDidChange: return Name.preferredComposeMessageViewActionsDidChange.name
 			case .isIncludesCallsInRecentsEnabledSettingDidChange: return Name.isIncludesCallsInRecentsEnabledSettingDidChange.name
 			case .performInteractionDonationSettingDidChange: return Name.performInteractionDonationSettingDidChange.name
-			case .identityColorStyleDidChange: return Name.identityColorStyleDidChange.name
 			case .receiveCallsOnThisDeviceSettingDidChange: return Name.receiveCallsOnThisDeviceSettingDidChange.name
 			}
 		}
@@ -70,13 +64,9 @@ public enum ObvMessengerSettingsNotifications {
 		switch self {
 		case .contactsSortOrderDidChange:
 			info = nil
-		case .preferredComposeMessageViewActionsDidChange:
-			info = nil
 		case .isIncludesCallsInRecentsEnabledSettingDidChange:
 			info = nil
 		case .performInteractionDonationSettingDidChange:
-			info = nil
-		case .identityColorStyleDidChange:
 			info = nil
 		case .receiveCallsOnThisDeviceSettingDidChange:
 			info = nil
@@ -96,6 +86,8 @@ public enum ObvMessengerSettingsNotifications {
 
 	func postOnDispatchQueue(_ queue: DispatchQueue) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		queue.async {
 			NotificationCenter.default.post(name: name, object: nil, userInfo: userInfo)
 		}
@@ -103,6 +95,9 @@ public enum ObvMessengerSettingsNotifications {
 
 	private func postOnDispatchQueue(withLabel label: String, object anObject: Any? = nil) {
 		let name = Name.forInternalNotification(self)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
+		nonisolated(unsafe) let anObject = anObject
 		DispatchQueue(label: label).async {
 			NotificationCenter.default.post(name: name, object: anObject, userInfo: userInfo)
 		}
@@ -110,13 +105,8 @@ public enum ObvMessengerSettingsNotifications {
 
 	public static func observeContactsSortOrderDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.contactsSortOrderDidChange.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
-	public static func observePreferredComposeMessageViewActionsDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.preferredComposeMessageViewActionsDidChange.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -124,6 +114,8 @@ public enum ObvMessengerSettingsNotifications {
 
 	public static func observeIsIncludesCallsInRecentsEnabledSettingDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.isIncludesCallsInRecentsEnabledSettingDidChange.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -131,13 +123,8 @@ public enum ObvMessengerSettingsNotifications {
 
 	public static func observePerformInteractionDonationSettingDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.performInteractionDonationSettingDidChange.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
-	public static func observeIdentityColorStyleDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.identityColorStyleDidChange.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -145,6 +132,8 @@ public enum ObvMessengerSettingsNotifications {
 
 	public static func observeReceiveCallsOnThisDeviceSettingDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.receiveCallsOnThisDeviceSettingDidChange.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}

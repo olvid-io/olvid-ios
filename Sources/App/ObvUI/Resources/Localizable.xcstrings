@@ -45,6 +45,12 @@
             "value": "취소"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anuluj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -63,10 +69,22 @@
             "value": "Отмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy"
           }
         },
         "zh-Hans": {
@@ -121,6 +139,12 @@
             "value": "하나 이상의 대화를 선택하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybierz jedną lub więcej dyskusji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -139,10 +163,22 @@
             "value": "Выберите одну или несколько дискуссий"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir veya daha fazla sohbet seçin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Виберіть одну або декілька розмов"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn một hoặc nhiều cuộc trò chuyện"
           }
         },
         "zh-Hans": {
@@ -197,6 +233,12 @@
             "value": "15일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 dni"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -215,10 +257,22 @@
             "value": "15 дней"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 gün"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "15 днів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 ngày"
           }
         },
         "zh-Hans": {
@@ -273,6 +327,12 @@
             "value": "5년"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 lat"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -291,10 +351,22 @@
             "value": "5 лет"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 yıl"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "5 років"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 năm"
           }
         },
         "zh-Hans": {
@@ -349,6 +421,12 @@
             "value": "Command 키를 길게 눌러 여러 대화 항목을 한 번에 선택하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przytrzymaj klawisz Command, aby zaznaczyć wiele dyskusji naraz."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -367,10 +445,22 @@
             "value": "Пожалуйста, удерживайте клавишу Command, чтобы выбрать несколько диалогов одновременно."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aynı anda birden fazla sohbet seçmek için lütfen Command tuşunu basılı tutun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Будь ласка, утримуйте клавішу Command, щоб вибрати кілька розмов одночасно."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng giữ phím Command để chọn nhiều cuộc trò chuyện cùng một lúc."
           }
         },
         "zh-Hans": {
@@ -425,6 +515,12 @@
             "value": "90일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 dni"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -443,10 +539,22 @@
             "value": "90 дней"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 gün"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "90 днів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 ngày"
           }
         },
         "zh-Hans": {
@@ -501,6 +609,12 @@
             "value": "1일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 dzień"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -519,10 +633,22 @@
             "value": "1 день"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 gün"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "1 день"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 ngày"
           }
         },
         "zh-Hans": {
@@ -577,6 +703,12 @@
             "value": "180일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 dni"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -595,10 +727,22 @@
             "value": "180 дней"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 gün"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "180 днів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "180 ngày"
           }
         },
         "zh-Hans": {
@@ -653,6 +797,12 @@
             "value": "1년"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 rok"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -671,10 +821,22 @@
             "value": "1 год"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 yıl"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "1 рік"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 năm"
           }
         },
         "zh-Hans": {
@@ -729,6 +891,12 @@
             "value": "7일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 dni"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -747,10 +915,22 @@
             "value": "7 дней"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 gün"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "7 днів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 ngày"
           }
         },
         "zh-Hans": {
@@ -805,6 +985,12 @@
             "value": "6시간"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 godzin"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -823,10 +1009,22 @@
             "value": "6 часов"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 saat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "6 годин"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 giờ"
           }
         },
         "zh-Hans": {
@@ -881,6 +1079,12 @@
             "value": "30일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 dni"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -899,10 +1103,22 @@
             "value": "30 дней"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 gün"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "30 днів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 ngày"
           }
         },
         "zh-Hans": {
@@ -957,6 +1173,12 @@
             "value": "3년"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 lata"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -975,10 +1197,22 @@
             "value": "3 года"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 yıl"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "3 роки"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 năm"
           }
         },
         "zh-Hans": {
@@ -1033,6 +1267,12 @@
             "value": "12시간"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 godzin"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1051,10 +1291,22 @@
             "value": "12 часов"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 saat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "12 годин"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 giờ"
           }
         },
         "zh-Hans": {
@@ -1109,6 +1361,12 @@
             "value": "2일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 dni"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1127,10 +1385,22 @@
             "value": "2 дня"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 gün"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "2 дні"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 ngày"
           }
         },
         "zh-Hans": {
@@ -1186,6 +1456,12 @@
             "value": "무제한"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bez ograniczeń"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1204,10 +1480,22 @@
             "value": "Неограниченный"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sınırsız"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Необмежено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không giới hạn"
           }
         },
         "zh-Hans": {
@@ -1388,6 +1676,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "z jednym uczestnikiem"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "z %lld uczestnika"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "z %lld uczestnikami"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "z %lld uczestnikami"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "bez uczestników"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -1456,6 +1780,42 @@
                   "state": "translated",
                   "value": "без участников"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "с %lld участниками"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "с %lld участниками"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "bir katılımcı ile"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld katılımcı ile"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "katılımcı olmadan"
+                }
               }
             }
           }
@@ -1479,6 +1839,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "без учасників"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "з %lld учасниками"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "з %lld учасниками"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "với một người tham gia"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "với %lld người tham gia"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "không có người tham gia"
                 }
               }
             }

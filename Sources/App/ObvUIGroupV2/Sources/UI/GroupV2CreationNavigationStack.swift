@@ -183,11 +183,7 @@ public struct GroupV2CreationNavigationStack: View {
                         actions: self)
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    ObvButtonWithCancelRole(action: userTappedCancelButton)
-                }
-            }
+            .escapeKeyGoesBackOrCloses(isAtRoot: path.isEmpty, goBack: { path.removeLast() }, close: userTappedCancelButton)
         }
     }
     

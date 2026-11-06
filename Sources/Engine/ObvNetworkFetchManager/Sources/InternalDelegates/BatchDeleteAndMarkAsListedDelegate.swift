@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,8 +25,16 @@ import OlvidUtils
 import ObvServerInterface
 
 protocol BatchDeleteAndMarkAsListedDelegate {
-    
-    func markSpecificMessagesAsListed(ownedCryptoId: ObvCryptoIdentity, messageUIDs: [UID], flowId: FlowIdentifier) async throws
+
+    /// Tells the server, for each of the given messages, either that we are aware of it or that it can be deleted.
+    ///
+    /// The caller chooses the category per message. It is the only one that can: the decision turns on whether everything the server holds for a message is
+    /// already in our database, and the authoritative account of what the server holds is the listing the caller has just received — not our own database, which
+    /// may hold fewer attachments than the server does when an insertion failed.
+    func markSpecificMessagesAsListedOrRequestTheirDeletion(ownedCryptoId: ObvCryptoIdentity, messageUIDsAndCategories: [ObvServerDeleteMessageAndAttachmentsMethod.MessageUIDAndCategory], flowId: FlowIdentifier) async throws
+
     func batchDeleteAndMarkAsListed(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws
-    
+
+    func deleteInboxMessagesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws
+
 }

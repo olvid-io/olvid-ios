@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,16 +19,17 @@
 
 import Foundation
 import CoreData
-import os.log
+import OSLog
 import ObvTypes
 import ObvMetaManager
 import OlvidUtils
 
 
 final class BootstrapWorker {
-    
+
     private static let logCategory = "BootstrapWorker"
     private static var log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+    private static var logger = Logger(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
 
     private let inbox: URL
 
@@ -37,6 +38,7 @@ final class BootstrapWorker {
     init(inbox: URL, logPrefix: String) {
         let logSubsystem = "\(logPrefix).\(ObvNetworkFetchDelegateManager.defaultLogSubsystem)"
         Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
+        Self.logger = Logger(subsystem: logSubsystem, category: Self.logCategory)
         self.inbox = inbox
     }
 
@@ -44,7 +46,7 @@ final class BootstrapWorker {
     func finalizeInitialization(flowId: FlowIdentifier) {
         
         guard let delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             return
         }
@@ -62,19 +64,19 @@ final class BootstrapWorker {
     func applicationWasInitializedButWasNeverOnScreen(flowId: FlowIdentifier) async {
 
         guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             return
         }
 
         guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Context Creator is not set")
             assertionFailure()
             return
         }
 
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The notification delegate is not set")
             assertionFailure()
             return
         }
@@ -93,34 +95,35 @@ final class BootstrapWorker {
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
 
         guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Delegate Manager is not set")
             assertionFailure()
             return
         }
 
         guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Context Creator is not set")
             assertionFailure()
             return
         }
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The notification delegate is not set")
             assertionFailure()
             return
         }
         
         guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The identity delegate is not set")
             assertionFailure()
             return
         }
         
-        // These operations used to be scheduled in the `finalizeInitialization` method. In order to speed up the boot process, we schedule them here instead
-        try? await delegateManager.downloadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessions(flowId: flowId)
-        performBatchDeleteAndMarkAsListedForAllOwnedIdentities(flowId: flowId, log: Self.log, identityDelegate: identityDelegate, contextCreator: contextCreator, delegateManager: delegateManager)
-
         if forTheFirstTime {
+            
+            // These operations used to be scheduled in the `finalizeInitialization` method. In order to speed up the boot process, we schedule them here instead
+            try? await delegateManager.downloadAttachmentChunksDelegate.cleanExistingInboxAttachmentSessions(flowId: flowId)
+            performBatchDeleteAndMarkAsListedForAllOwnedIdentities(flowId: flowId, log: Self.log, identityDelegate: identityDelegate, contextCreator: contextCreator, delegateManager: delegateManager)
+
             Task { [weak self] in
                 guard let self else { return }
                 await removeExpectedContactForReProcessingIfAppropriate(flowId: flowId, contextCreator: contextCreator, identityDelegate: identityDelegate, delegateManager: delegateManager)
@@ -128,23 +131,27 @@ final class BootstrapWorker {
                 await deleteAllWebSocketServerQueries(delegateManager: delegateManager, flowId: flowId, logOnFailure: Self.log)
 
                 do { try await delegateManager.wellKnownCacheDelegate.downloadAndUpdateCache(flowId: flowId) } catch { assertionFailure(error.localizedDescription) }
-                
+
                 do { try await delegateManager.serverQueryDelegate.deletePendingServerQueryOfNonExistingOwnedIdentities(flowId: flowId) } catch { assertionFailure(error.localizedDescription) }
                 do { try await postAllPendingServerQuery(delegateManager: delegateManager, flowId: flowId) } catch { assertionFailure(error.localizedDescription) }
                 reNotifyAboutAPIKeyStatus(contextCreator: contextCreator, notificationDelegate: notificationDelegate, flowId: flowId)
             }
-        }
-
-        await deleteOrphanedDatabaseObjects(flowId: flowId, log: Self.log, delegateManager: delegateManager)
-
-        Task { [weak self] in
-            guard let self else { return }
-            cleanInboxFromOrphanedMessagesDirectories(flowId: flowId)
-            do {
-                try await deleteOrRefreshServerUserData(flowId: flowId)
-            } catch {
-                assertionFailure(error.localizedDescription)
+            Task(priority: .low) { [weak self] in
+                await self?.deleteOldPendingUserDataUploads()
             }
+            
+            await deleteOrphanedDatabaseObjects(flowId: flowId, log: Self.log, delegateManager: delegateManager)
+
+            Task { [weak self] in
+                guard let self else { return }
+                cleanInboxFromOrphanedMessagesDirectories(flowId: flowId)
+                do {
+                    try await deleteOrRefreshServerUserData(flowId: flowId)
+                } catch {
+                    //assertionFailure(error.localizedDescription)
+                }
+            }
+
         }
         
     }
@@ -387,7 +394,8 @@ extension BootstrapWorker {
         }
         
         guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: Self.log, type: .fault)
+            Self.logger.fault("The Context Creator is not set")
+            assertionFailure()
             return
         }
 
@@ -430,21 +438,58 @@ extension BootstrapWorker {
             do {
                 existingMessages = try InboxMessage.getAll(within: context)
             } catch {
-                os_log("Could not clean outbox: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                os_log("Could not clean inbox: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 return
             }
 
-            let messageDirectoriesToKeep: Set<URL> = Set(existingMessages.compactMap({ $0.getAttachmentsDirectory(withinInbox: inbox) }) )
-            
-            messageDirectoriesToDelete = messageDirectories.subtracting(messageDirectoriesToKeep)
-            
+            // **Nothing is deleted while anything is unknown.** `getAttachmentsDirectory(withinInbox:)` returns nil when the message was deleted on another
+            // thread — its own doc comment says so — and a message that answers nil silently drops out of the keep-set, whereupon its directory is deleted.
+            // That is the same data loss as the URL comparison below, by a second route. The two failure directions here are not symmetric: leaving an orphan
+            // directory on disk costs a few bytes until the next sweep, and deleting a live one destroys a download in flight. So doubt means keep, and doubt
+            // about any one message means this sweep does nothing at all — it cannot know which directory the unknown message would have claimed.
+            let directoriesOfExistingMessages = existingMessages.map({ $0.getAttachmentsDirectory(withinInbox: inbox) })
+            guard !directoriesOfExistingMessages.contains(where: { $0 == nil }) else {
+                Self.logger.error("Not sweeping the inbox: an InboxMessage could not say which directory is its own, and nothing may be deleted while that is true")
+                return
+            }
+
+            // **Compared by name, and never by URL.** This was a `Set<URL>` subtraction until 2026-08-31, and it deleted **every** message directory in the
+            // inbox on **every** launch and every return to the foreground. The two sides are built differently — the candidates come from
+            // `contentsOfDirectory(at:)`, which answers `file:///private/var/mobile/…`, and the keep-set from `inbox.appendingPathComponent(_:isDirectory:)`,
+            // which answers `file:///var/mobile/…` — so `subtracting` matched nothing and the keep-set was inert. Measured on an iPhone 13 with both forms
+            // printed side by side: *found 1 message directory, 1 InboxMessage, keeps 1, DELETES 1*.
+            //
+            // **What it cost was silent data loss on a download in flight.** A completed attachment has already been moved into the app's `Fyle` store, so its
+            // directory really is disposable and the mistake is invisible; an attachment still downloading has its bytes here, and they went. The chunk flags
+            // live in Core Data and survived, so nothing re-requested the lost chunks: a 1GB attachment came out the right size with its first 590MB reading as
+            // zeros and failed its sha256 with no way back — twice in one download, once per return to the foreground. Small attachments finish inside one
+            // foreground session, which is the whole reason this survived in production.
+            //
+            // **A name rather than a canonicalised URL**, deliberately, and the alternatives were weighed: `resolvingSymlinksInPath()` fixes the difference
+            // that was measured and leaves a path-string match that can break again on percent-encoding or normalisation, and `fileResourceIdentifierKey` is
+            // the canonical answer but needs both sides to exist on disk. Every candidate and every keep-URL is a direct child of `inbox`, so within that one
+            // directory the name **is** the identity: a 64-character hex string, needing no filesystem access, and correct for a directory not yet created.
+            // This does not canonicalise the URLs; it removes the need to.
+            let namesOfDirectoriesToKeep = Set(directoriesOfExistingMessages.compactMap({ $0?.lastPathComponent }))
+
+            messageDirectoriesToDelete = messageDirectories.filter({ !namesOfDirectoriesToKeep.contains($0.lastPathComponent) })
+
+            // **It says so when it deletes, and stays quiet otherwise.** Not a probe left behind: what made the bug above invisible for as long as it lasted is
+            // that a sweep removed a live download's bytes and said nothing, and the counts are what would have shown it in a single line. A healthy inbox is
+            // silent, so this costs nothing in the ordinary case.
+            if !messageDirectoriesToDelete.isEmpty {
+                Self.logger.info("Sweeping \(messageDirectoriesToDelete.count) orphaned message director(ies) from the inbox, of \(messageDirectories.count) found, against \(existingMessages.count) InboxMessage(s)")
+            }
         }
         
         for url in messageDirectoriesToDelete {
+            // **Named one by one, not counted.** This sweep deleted every live message directory in the inbox for as long as it compared URLs, and what made
+            // that invisible is that it said nothing about *which* directory it removed. A healthy inbox is still silent: the loop does not run.
             do {
                 try FileManager.default.removeItem(at: url)
+                Self.logger.info("📁 Swept the orphaned message directory \(url.path, privacy: .public) from the inbox, and every attachment file in it")
             } catch {
-                os_log("Could not properly clean the outbox", log: Self.log, type: .error)
+                Self.logger.error("📁 Could not sweep the orphaned message directory \(url.path, privacy: .public) from the inbox: \(error.localizedDescription, privacy: .public)")
             }
 
         }
@@ -490,5 +535,76 @@ extension BootstrapWorker {
         case couldNotProcessMessageMarkedForDeletion
         case identityDelegateIsNil
     }
-    
+
+}
+
+
+// MARK: - Orphan cleanup for the `pendingUserDataUploads` staging directory
+
+extension BootstrapWorker {
+
+    /// When the network manager receives a `putUserData` server query, it hardlinks the caller-supplied
+    /// source file into the `pendingUserDataUploads` staging directory. The file is normally removed once
+    /// the upload completes (success or permanent failure). However, if the app is terminated mid-upload
+    /// the hardlink may be left behind.
+    ///
+    /// This sweep runs at the first `applicationAppearedOnScreen` of each launch and removes files that:
+    ///   1. are **not referenced** by any active `PendingServerQuery` row (so we never pull a file out
+    ///      from under a still-pending upload), and
+    ///   2. are at least one hour old (a small TTL guard against racing with an in-progress adoption
+    ///      whose `PendingServerQuery` row exists in a context that has not yet saved).
+    fileprivate func deleteOldPendingUserDataUploads() async {
+
+        guard let delegateManager else {
+            Self.logger.fault("The Delegate Manager is not set")
+            assertionFailure()
+            return
+        }
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            Self.logger.fault("The Context Creator is not set")
+            assertionFailure()
+            return
+        }
+
+        let pendingUserDataUploads = delegateManager.pendingUserDataUploads
+        let includingPropertiesForKeys: [URLResourceKey] = [
+            .creationDateKey,
+            .isWritableKey,
+            .isRegularFileKey,
+        ]
+        let fileURLs: [URL]
+        do {
+            fileURLs = try FileManager.default.contentsOfDirectory(at: pendingUserDataUploads, includingPropertiesForKeys: includingPropertiesForKeys, options: .skipsHiddenFiles)
+        } catch {
+            Self.logger.fault("Could not enumerate the pendingUserDataUploads directory: \(error.localizedDescription, privacy: .public)")
+            assertionFailure()
+            return
+        }
+
+        guard !fileURLs.isEmpty else { return }
+
+        // Collect the set of file paths still referenced by an active `.putUserData` server query. Any
+        // file in `pendingUserDataUploads` outside this set is an orphan and a candidate for deletion.
+        let referencedPaths: Set<String>
+        do {
+            referencedPaths = Set(try await PendingServerQuery.getAllPutUserDataFileURLs(contextCreator: contextCreator).map(\.path))
+        } catch {
+            Self.logger.fault("Could not enumerate pending server queries while sweeping pendingUserDataUploads: \(error.localizedDescription, privacy: .public)")
+            assertionFailure()
+            return
+        }
+
+        let dateLimit = Date(timeIntervalSinceNow: -TimeInterval(hours: 1))
+
+        for fileURL in fileURLs {
+            guard !referencedPaths.contains(fileURL.path) else { continue }
+            guard let attributes = try? fileURL.resourceValues(forKeys: Set(includingPropertiesForKeys)) else { continue }
+            guard attributes.isWritable == true else { continue }
+            guard attributes.isRegularFile == true else { continue }
+            guard let creationDate = attributes.creationDate, creationDate < dateLimit else { continue }
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+    }
+
 }

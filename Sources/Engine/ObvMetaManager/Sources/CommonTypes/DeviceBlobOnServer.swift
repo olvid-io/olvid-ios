@@ -186,10 +186,13 @@ public struct DevicePreKey: ObvCodable {
 // MARK: - ResultOfUnwrapWithPreKey
 
 public enum ResultOfUnwrapWithPreKey {
-    
+
     case couldNotUnwrap
     case unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: ObvCryptoIdentity)
     case unwrapSucceeded(messageKey: any AuthenticatedEncryptionKey, receptionChannelInfo: ObvProtocolReceptionChannelInfo)
     case contactIsRevokedAsCompromised
-    
+    /// A prekey decrypted the key but the sender's signature was already accepted with that prekey, so the message was already
+    /// processed, by this process or by another one sharing the store. The message is to be discarded, not kept for another try.
+    case signatureWasAlreadyAccepted
+
 }

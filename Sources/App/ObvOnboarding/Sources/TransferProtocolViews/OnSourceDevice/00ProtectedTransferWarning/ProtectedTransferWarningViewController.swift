@@ -54,16 +54,6 @@ final class ProtectedTransferWarningViewController: UIHostingController<Protecte
     private func configureNavigation(animated: Bool) {
         navigationItem.largeTitleDisplayMode = .never
         navigationController?.setNavigationBarHidden(false, animated: animated)
-        let handler: UIActionHandler = { [weak self] _ in self?.closeAction() }
-        let closeButton = UIBarButtonItem(systemItem: .close, primaryAction: .init(handler: handler))
-        navigationItem.rightBarButtonItem = closeButton
-    }
-
-    private func closeAction() {
-        Task { [weak self] in
-            guard let self else { return }
-            await delegate?.userWantsToCloseOnboarding(controller: self)
-        }
     }
 
 }
@@ -78,6 +68,10 @@ extension ProtectedTransferWarningViewController: ProtectedTransferWarningViewAc
     }
     
     func userTouchedBackButton() async {
+        await delegate?.userWantsToCloseOnboarding(controller: self)
+    }
+    
+    func userWantsToCloseOnboarding() async {
         await delegate?.userWantsToCloseOnboarding(controller: self)
     }
     
@@ -96,6 +90,10 @@ private final class ProtectedTransferWarningViewActions: ProtectedTransferWarnin
     
     func userTouchedBackButton() async {
         await delegate?.userTouchedBackButton()
+    }
+    
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding()
     }
     
 }

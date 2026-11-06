@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,12 +31,17 @@ import ObvAppCoreConstants
 final class UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation: ContextualOperationWithSpecificReasonForCancel<UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation.ReasonForCancel>, @unchecked Sendable {
     
     private let obvOwnedAttachment: ObvOwnedAttachment
-    private let obvEngine: ObvEngine
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation.self))
 
-    init(obvOwnedAttachment: ObvOwnedAttachment, obvEngine: ObvEngine) {
+    /// Set when the file the engine reported as complete cannot be used, and saying which way.
+    ///
+    /// The twin of the property of the same name on `UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation`, and for the same reasons, which are
+    /// written out there. An attachment of a message sent from another owned device is **downloaded** by this device, through the same inbox and the same chunk
+    /// machinery as one from a contact, so it fails in the same two ways. Only where it is recorded differs.
+    private(set) var whatWasWrongWithTheFile: WhatWasWrongWithADownloadedFile?
+
+    init(obvOwnedAttachment: ObvOwnedAttachment) {
         self.obvOwnedAttachment = obvOwnedAttachment
-        self.obvEngine = obvEngine
         super.init()
     }
 
@@ -59,10 +64,19 @@ final class UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation: C
                 switch uiCoreDataError {
                 case .cannotCreateSentFyleMessageJoinWithStatusForWipedMessage:
                     // The sent message was wiped, we can request a deletion of the attachment from the server.
-                    // This will be determined by the `DetermineAttachmentsProcessingRequestForMessageSentOperation` operation.
+                    // This will be determined by the `DetermineAttachmentsProcessingRequestOperation` operation.
                     return
+                case .couldNotFindSourceFile:
+                    // In rare circumstances, the engine might announce a downloaded attachment although there is no file on disk.
+                    whatWasWrongWithTheFile = .thereIsNoFileAtAll
+                    return cancel(withReason: .coreDataError(error: error))
+                case .sha256OfReceivedFileReferenceByObvAttachmentDoesNotMatchWhatWeExpect:
+                    // Nothing is done here: see `whatWasWrongWithTheFile`. No assertion either — both of these are handled
+                    // conditions now, and a debug build that stops here cannot walk the repair.
+                    whatWasWrongWithTheFile = .theFileDoesNotHashAsExpected
+                    return cancel(withReason: .coreDataError(error: error))
                 default:
-                    assertionFailure(error.localizedDescription)
+                    //assertionFailure(error.localizedDescription)
                     return cancel(withReason: .coreDataError(error: error))
                 }
             } else {

@@ -48,6 +48,12 @@
             "value": "%@ 님이 Olvid에서 대화를 나누고 싶어합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ chce porozmawiać z tobą w Olvid"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -66,10 +72,22 @@
             "value": "%@ хотел(а) бы обсудить с вами в Olvid"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sizinle Olvid'de sohbet etmek istiyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ хотів би/хотіла би обговорити з вами на Olvid"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ muốn thảo luận với bạn trên Olvid"
           }
         },
         "zh-Hans": {
@@ -124,6 +142,12 @@
             "value": "%@님이 Olvid에서 대화에 참여하도록 초대합니다. 참여하려면 첨부된 링크를 클릭하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ zaprasza cię do rozmowy w Olvid. Aby zaakceptować, kliknij załączony link."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -142,10 +166,22 @@
             "value": "%@ приглашает вас обсудить на Olvid. Чтобы принять, пожалуйста, нажмите на прикрепленную ссылку."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sizi Olvid'de sohbet etmeye davet ediyor. Kabul etmek için lütfen ekteki bağlantıya tıklayın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ запрошує вас обговорити це на Olvid. Щоб прийняти запрошення, натисніть на посилання нижче."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ mời bạn tham gia thảo luận trên Olvid. Để chấp nhận, vui lòng nhấp vào liên kết được đính kèm."
           }
         },
         "zh-Hans": {
@@ -200,6 +236,12 @@
             "value": "%lld개의 추가 검색 결과가 있습니다. 검색어를 구체적으로 입력해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dostępne dodatkowe wyniki wyszukiwania: %lld. Zawęź wyszukiwanie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -218,10 +260,22 @@
             "value": "Доступно %lld дополнительных результатов поиска. Пожалуйста, уточните ваш запрос."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld arama sonucu daha var. Lütfen aramanızı daraltın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Доступно %lld додаткових результатів пошуку. Будь ласка, уточніть свій запит."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kết quả tìm kiếm khác đã có. Vui lòng điều chỉnh tìm kiếm của bạn."
           }
         },
         "zh-Hans": {
@@ -278,6 +332,12 @@
             "value": "다른 사용자와 연결"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nawiąż kontakt z innym użytkownikiem"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -296,10 +356,22 @@
             "value": "Подключитесь к другому пользователю"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir kullanıcıyla bağlantı kur"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підключіться до іншого користувача"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kết nối với người dùng khác"
           }
         },
         "zh-Hans": {
@@ -354,6 +426,12 @@
             "value": "초대"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaproś"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -372,10 +450,22 @@
             "value": "Пригласить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запросити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mời"
           }
         },
         "zh-Hans": {
@@ -430,6 +520,12 @@
             "value": "토론하기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmawiaj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -448,10 +544,22 @@
             "value": "Обсудить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Обговорити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thảo luận"
           }
         },
         "zh-Hans": {
@@ -506,6 +614,12 @@
             "value": "초대 삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń zaproszenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -524,10 +638,22 @@
             "value": "Удалить приглашение"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daveti kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити запрошення"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa lời mời"
           }
         },
         "zh-Hans": {
@@ -584,6 +710,12 @@
             "value": "이 링크는 본인 초대 링크입니다. 다른 Olvid 사용자들과 공유하여 원격으로 초대할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To twój własny link z zaproszeniem. Możesz udostępnić go innym użytkownikom Olvid, aby mogli zaprosić cię zdalnie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -602,10 +734,22 @@
             "value": "Это ваша личная ссылка-приглашение. Вы можете поделиться ею с другими пользователями Olvid, чтобы они могли пригласить вас удаленно."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu sizin kendi davet bağlantınız. Sizi uzaktan davet edebilmeleri için diğer Olvid kullanıcılarıyla paylaşabilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Це ваше особисте запрошення. Ви можете поділитися ним з іншими користувачами Olvid, щоб вони могли запросити вас віддалено."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đây là liên kết mời cá nhân của bạn. Bạn có thể chia sẻ nó với những người dùng Olvid khác để họ có thể mời bạn tham gia từ xa."
           }
         },
         "zh-Hans": {
@@ -662,6 +806,12 @@
             "value": "본인은 초대할 수 없습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie można zaprosić siebie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -680,10 +830,22 @@
             "value": "Нельзя пригласить самого себя"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kendinizi davet edemezsiniz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не можна запросити себе"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thể mời chính mình"
           }
         },
         "zh-Hans": {
@@ -738,6 +900,12 @@
             "value": "새 연락처"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowy kontakt"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -756,10 +924,22 @@
             "value": "Новый контакт"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni kişi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Новий контакт"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ mới"
           }
         },
         "zh-Hans": {
@@ -814,6 +994,12 @@
             "value": "새 그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowa grupa"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -832,10 +1018,22 @@
             "value": "Новая группа"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni grup"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Нова група"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm mới"
           }
         },
         "zh-Hans": {
@@ -890,6 +1088,12 @@
             "value": "사용자"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Użytkownicy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -908,10 +1112,22 @@
             "value": "Пользователи"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanıcılar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Користувачі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Người dùng"
           }
         },
         "zh-Hans": {
@@ -966,6 +1182,12 @@
             "value": "전문가 디렉터리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Katalog firmowy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -984,10 +1206,22 @@
             "value": "Каталог профессионалов"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kurumsal rehber"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Профіль користувачів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh bạ chuyên gia"
           }
         },
         "zh-Hans": {
@@ -1044,6 +1278,12 @@
             "value": "그룹"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1062,10 +1302,22 @@
             "value": "Группы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm"
           }
         },
         "zh-Hans": {
@@ -1120,6 +1372,12 @@
             "value": "새 메시지가 도착했습니다..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowa wiadomość do…"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1138,10 +1396,22 @@
             "value": "Новое сообщение от…"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni mesaj: Kime…"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Нове повідомлення від…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tin nhắn mới đến từ…"
           }
         },
         "zh-Hans": {
@@ -1196,6 +1466,12 @@
             "value": "연락처가 없습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak dostępnych kontaktów"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1214,10 +1490,22 @@
             "value": "Контактов не найдено"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanılabilir kişi yok"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакт недоступний"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có danh bạ nào."
           }
         },
         "zh-Hans": {
@@ -1274,6 +1562,12 @@
             "value": "연락처가 아직 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak kontaktów"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1292,10 +1586,22 @@
             "value": "Пока нет контактов"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz kişi yok"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Поки що жодних контактів"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có danh bạ nào"
           }
         },
         "zh-Hans": {
@@ -1352,6 +1658,12 @@
             "value": "Olvid는 사용자의 선택 없이 누구도 추가하지 않습니다. 사용자가 직접 초대할 사람을 결정합니다. 직접 초대하거나 원격으로 초대할 수 있습니다. '새 연락처'를 탭하여 시작하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid nie dodaje nikogo bez twojej zgody. To ty decydujesz, kogo zaprosić — osobiście lub zdalnie. Stuknij „Nowy kontakt”, aby zacząć."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1370,10 +1682,22 @@
             "value": "Olvid не добавляет никого без вашего выбора. Вы решаете, кого приглашать — лично или удаленно. Нажмите «Новый контакт», чтобы начать."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid, sizin seçiminiz olmadan kimseyi eklemez. Kimi davet edeceğinize siz karar verirsiniz: yüz yüze ya da uzaktan. Başlamak için ‘Yeni kişi’ seçeneğine dokunun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Olvid ніколи не додає нікого без вашого дозволу. Ви вирішуєте, кого запрошувати – особисто чи віддалено. Натисніть «Новий контакт», щоб розпочати."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid sẽ không thêm bất kỳ ai vào danh bạ của bạn mà không có sự cho phép. Bạn sẽ quyết định ai được mời tham gia—có thể là gặp trực tiếp hoặc từ xa. Nhấn vào \"Liên hệ mới\" để bắt đầu."
           }
         },
         "zh-Hans": {
@@ -1430,6 +1754,12 @@
             "value": "복사됨!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skopiowano!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1448,10 +1778,22 @@
             "value": "Скопировано!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopyalandı!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скопійовано!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã sao chép!"
           }
         },
         "zh-Hans": {
@@ -1506,6 +1848,12 @@
             "value": "초대 링크를 클립보드에 복사"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj mój link z zaproszeniem do schowka"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1524,10 +1872,22 @@
             "value": "Скопировать ссылку-приглашение в буфер обмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet bağlantımı panoya kopyala"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скопіювати моє запрошення в буфер обміну"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép liên kết mời của tôi vào khay nhớ tạm"
           }
         },
         "zh-Hans": {
@@ -1584,6 +1944,12 @@
             "value": "연락하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nawiąż kontakt"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1602,10 +1968,22 @@
             "value": "Связаться"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İletişime geç"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зв'яжіться"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ"
           }
         },
         "zh-Hans": {
@@ -1662,6 +2040,12 @@
             "value": "원격으로 연락하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nawiąż kontakt zdalnie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1680,10 +2064,22 @@
             "value": "Связаться удаленно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzaktan iletişime geç"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зв'яжіться віддалено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên lạc từ xa"
           }
         },
         "zh-Hans": {
@@ -1740,6 +2136,12 @@
             "value": "이 연락처를 어떻게 추가하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jak chcesz dodać ten kontakt?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1758,10 +2160,22 @@
             "value": "Как вы хотите добавить этот контакт?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kişiyi nasıl eklemek istersiniz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Як ви хочете додати цей контакт?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn muốn thêm liên hệ này như thế nào?"
           }
         },
         "zh-Hans": {
@@ -1818,6 +2232,12 @@
             "value": "%@에게 이 QR 코드를 스캔하도록 하여 즉시 연락하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poproś użytkownika %@ o zeskanowanie tego kodu QR, aby od razu nawiązać kontakt."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1836,10 +2256,22 @@
             "value": "Попросите %@ отсканировать этот QR-код, чтобы немедленно установить контакт."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hemen iletişime geçmek için bu QR kodunu %@ adlı kişiye taratın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Попросіть %@ відсканувати цей QR-код, щоб негайно встановити контакт."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yêu cầu %@ quét mã QR này để liên lạc ngay lập tức."
           }
         },
         "zh-Hans": {
@@ -1894,6 +2326,12 @@
             "value": "로그인"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaloguj się"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1912,10 +2350,22 @@
             "value": "Войти"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giriş yap"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Увійти"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng nhập"
           }
         },
         "zh-Hans": {
@@ -1970,6 +2420,12 @@
             "value": "다른 사용자를 찾고 연결하려면 다시 로그인하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aby wyszukiwać innych i nawiązywać z nimi kontakt, zaloguj się ponownie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1988,10 +2444,22 @@
             "value": "Чтобы найти и связаться с другими, пожалуйста, войдите в систему еще раз."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başkalarını bulmak ve onlarla bağlantı kurmak için lütfen tekrar giriş yapın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Щоб знайти та зв’язатися з іншими, будь ласка, увійдіть ще раз."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để tìm và kết nối với những người khác, vui lòng đăng nhập lại."
           }
         },
         "zh-Hans": {
@@ -2046,6 +2514,12 @@
             "value": "다시 연결할 시간입니다!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czas zalogować się ponownie!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2064,10 +2538,22 @@
             "value": "Пора подключиться снова!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden giriş yapma zamanı!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Час під'єднатися знову!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã đến lúc kết nối lại!"
           }
         },
         "zh-Hans": {
@@ -2122,6 +2608,12 @@
             "value": "나중에"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Później"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2140,10 +2632,22 @@
             "value": "Позже"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha sonra"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пізніше"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sau"
           }
         },
         "zh-Hans": {
@@ -2198,6 +2702,12 @@
             "value": "연락처를 추가하는 다른 방법입니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inne sposoby dodawania kontaktu."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2216,10 +2726,22 @@
             "value": "Дополнительные способы добавления контакта."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi eklemenin diğer yolları."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додаткові способи додавання контакту."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các phương thức bổ sung để thêm một liên hệ."
           }
         },
         "zh-Hans": {
@@ -2276,6 +2798,12 @@
             "value": "알겠습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2294,10 +2822,22 @@
             "value": "ОК"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Гаразд"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Được"
           }
         },
         "zh-Hans": {
@@ -2354,6 +2894,12 @@
             "value": "옵션 1: 대면"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcja 1: osobiście"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2372,10 +2918,22 @@
             "value": "Вариант 1: личная встреча"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1. seçenek: yüz yüze"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Варіант 1: особиста зустріч"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lựa chọn 1: gặp mặt trực tiếp"
           }
         },
         "zh-Hans": {
@@ -2432,6 +2990,12 @@
             "value": "옵션 2: 원격으로"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcja 2: zdalnie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2450,10 +3014,22 @@
             "value": "Вариант 2: удаленно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2. seçenek: uzaktan"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Варіант 2: віддалено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lựa chọn 2: từ xa"
           }
         },
         "zh-Hans": {
@@ -2508,6 +3084,12 @@
             "value": "붙여넣은 내용이 올비드 ID가 아닌 것 같습니다. 😥"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To, co wklejono, nie wygląda na Olvid ID 🧐"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2526,10 +3108,22 @@
             "value": "Похоже, то, что вы вставили, не является Olvid ID 🤦‍♀️"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yapıştırdığınız şey bir Olvid ID'si gibi görünmüyor 🧐"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Те, що ви вставили, не схоже на Olvid ID 🤦‍♀️"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Văn bản bạn vừa dán có vẻ không phải là ID Olvid."
           }
         },
         "zh-Hans": {
@@ -2584,6 +3178,12 @@
             "value": "클립보드에서 Olvid 링크를 붙여넣으세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wklej link Olvid ze schowka"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2602,10 +3202,22 @@
             "value": "Вставьте ссылку Olvid из буфера обмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panodan Olvid bağlantısı yapıştır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вставте посилання Olvid з буфера обміну"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dán một liên kết Olvid từ bộ nhớ tạm"
           }
         },
         "zh-Hans": {
@@ -2660,6 +3272,12 @@
             "value": "복사"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2678,10 +3296,22 @@
             "value": "Копировать"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopyala"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Копіювати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép"
           }
         },
         "zh-Hans": {
@@ -2736,6 +3366,12 @@
             "value": "다운로드"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pobierz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2754,10 +3390,22 @@
             "value": "Скачать"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İndir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Завантажити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tải xuống"
           }
         },
         "zh-Hans": {
@@ -2812,6 +3460,12 @@
             "value": "공유"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Udostępnij"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2830,10 +3484,22 @@
             "value": "Поделиться"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaş"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Поділитися"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chia sẻ"
           }
         },
         "zh-Hans": {
@@ -2888,6 +3554,12 @@
             "value": "다른 방법을 사용하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Użyj innych sposobów"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2906,10 +3578,22 @@
             "value": "Использовать другие способы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka yöntemler kullan"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Використовуйте інші способи"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sử dụng các phương thức khác"
           }
         },
         "zh-Hans": {
@@ -2964,6 +3648,12 @@
             "value": "원격으로 초대"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaproś zdalnie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2982,10 +3672,22 @@
             "value": "Пригласить удаленно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzaktan davet et"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Запросити віддалено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mời từ xa"
           }
         },
         "zh-Hans": {
@@ -3040,6 +3742,12 @@
             "value": "QR 코드를 스캔할 수 없나요?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie możesz zeskanować?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3058,10 +3766,22 @@
             "value": "Вы не можете сканировать?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarayamıyor musunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви не можете сканувати?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn không thể quét được à?"
           }
         },
         "zh-Hans": {
@@ -3116,6 +3836,12 @@
             "value": "연락처가 QR 코드를 스캔할 수 없나요?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twój kontakt nie może zeskanować?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3134,10 +3860,22 @@
             "value": "Ваш контакт не может сканировать?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişiniz tarayamıyor mu?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваш контакт не може сканувати?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ của bạn không thể quét mã?"
           }
         },
         "zh-Hans": {
@@ -3192,6 +3930,12 @@
             "value": "상대방의 QR 코드를 스캔하여 연결하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeskanujcie nawzajem swoje kody QR, aby nawiązać kontakt"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3210,10 +3954,22 @@
             "value": "Отсканируйте QR-код друг друга, чтобы подключиться"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlantı kurmak için birbirinizin QR kodunu tarayın"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відскануйте QR-код один одного, щоб підключитися"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quét mã QR của nhau để kết nối"
           }
         },
         "zh-Hans": {
@@ -3268,6 +4024,12 @@
             "value": "코드가 스캔되었습니다!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeskanowano kod!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3286,10 +4048,22 @@
             "value": "Код отсканирован!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod tarandı!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Код скановано!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã quét mã!"
           }
         },
         "zh-Hans": {
@@ -3346,6 +4120,12 @@
             "value": "연락처 추가 중..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodawanie kontaktu…"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3364,10 +4144,22 @@
             "value": "Добавление контакта…"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kişi ekleniyor…"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додавання контакту…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang thêm liên hệ..."
           }
         },
         "zh-Hans": {
@@ -3424,6 +4216,12 @@
             "value": "다시 온라인 상태가 되면 연락처가 즉시 추가됩니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakt zostanie dodany, gdy tylko znów będziesz online."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3442,10 +4240,22 @@
             "value": "Ваш контакт будет добавлен, как только вы вернетесь в онлайн."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrar çevrimiçi olduğunuzda kişiniz eklenecek."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваш контакт буде додано, як тільки ви знову підключитесь до мережі."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ của bạn sẽ được thêm vào ngay khi bạn kết nối lại."
           }
         },
         "zh-Hans": {
@@ -3502,6 +4312,12 @@
             "value": "%@님이 이제 연락처에 추가되었습니다. 지금 바로 대화를 시작하세요!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ jest teraz w twoich kontaktach. Zacznij rozmawiać!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3520,10 +4336,22 @@
             "value": "%@ теперь в ваших контактах. Начните общение!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ artık kişileriniz arasında. Hemen sohbete başlayın!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ тепер у ваших контактах. Почніть спілкування!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hiện đã có trong danh bạ của bạn. Bắt đầu trò chuyện ngay!"
           }
         },
         "zh-Hans": {
@@ -3578,6 +4406,12 @@
             "value": "상대방이 QR 코드를 스캔할 차례입니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teraz druga osoba skanuje twój kod QR."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3596,10 +4430,22 @@
             "value": "Их очередь сканировать ваш QR-код."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdi QR kodunuzu tarama sırası onda."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Їхня черга сканувати ваш QR-код."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đến lượt họ quét mã QR của bạn."
           }
         },
         "zh-Hans": {
@@ -3656,6 +4502,12 @@
             "value": "사용자와 그룹 검색"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Szukaj użytkowników i grup"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3674,10 +4526,22 @@
             "value": "Поиск пользователей и групп"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanıcı ve grup ara"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пошук користувачів та груп"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tìm kiếm người dùng và nhóm"
           }
         },
         "zh-Hans": {
@@ -3732,6 +4596,12 @@
             "value": "프로필을 공유하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Udostępnij swój profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3750,10 +4620,22 @@
             "value": "Поделитесь своим профилем"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilinizi paylaşın"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Поділіться своїм профілем"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chia sẻ hồ sơ của bạn"
           }
         },
         "zh-Hans": {
@@ -3808,6 +4690,12 @@
             "value": "원격으로"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zdalnie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3826,10 +4714,22 @@
             "value": "Удалённо"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzaktan"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Віддалено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Từ xa"
           }
         },
         "zh-Hans": {
@@ -3884,6 +4784,12 @@
             "value": "직접 대면"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Osobiście"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3902,10 +4808,22 @@
             "value": "Лицом к лицу"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yüz yüze"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Опліччя до обличчя"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gặp mặt trực tiếp"
           }
         },
         "zh-Hans": {
@@ -3960,6 +4878,12 @@
             "value": "음, 제대로 작동하지 않았네요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hmm, to nie zadziałało"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3978,10 +4902,22 @@
             "value": "Хмм, что-то пошло не так"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hmm, bu işe yaramadı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Гм, не вийшло"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hmm, hình như không được."
           }
         },
         "zh-Hans": {
@@ -4036,6 +4972,12 @@
             "value": "Olvid이 카메라에 접근할 수 없습니다. QR 코드를 스캔하려면 장치 설정에서 카메라 접근 권한을 활성화하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid nie ma dostępu do aparatu. Aby skanować kody QR, włącz dostęp do aparatu w ustawieniach urządzenia."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4054,10 +4996,22 @@
             "value": "Olvid не может получить доступ к камере. Чтобы сканировать QR-коды, включите доступ к камере в настройках вашего устройства."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid kameraya erişemiyor. QR kodlarını taramak için cihaz ayarlarınızdan kamera erişimini etkinleştirin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Olvid не може отримати доступ до камери. Щоб сканувати QR-коди, увімкніть доступ до камери в налаштуваннях пристрою."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid không thể truy cập vào camera. Để quét mã QR, hãy bật quyền truy cập camera trong cài đặt thiết bị của bạn."
           }
         },
         "zh-Hans": {
@@ -4112,6 +5066,12 @@
             "value": "카메라 접근 거부됨"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odmówiono dostępu do aparatu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4130,10 +5090,22 @@
             "value": "Доступ к камере отклонен"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera Erişimi Reddedildi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Доступ до камери заборонено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Từ chối quyền truy cập camera"
           }
         },
         "zh-Hans": {
@@ -4188,6 +5160,12 @@
             "value": "장치 제한으로 인해 Olvid이 카메라에 접근할 수 없습니다. QR 코드를 스캔하려면 장치 설정을 확인하고 이 앱에 대한 카메라 접근 권한이 허용되었는지 확인하십시오."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid nie ma dostępu do aparatu z powodu ograniczeń na urządzeniu. Aby skanować kody QR, sprawdź ustawienia urządzenia i upewnij się, że ta aplikacja ma dostęp do aparatu."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4206,10 +5184,22 @@
             "value": "Olvid не может получить доступ к камере из-за ограничений устройства. Чтобы сканировать QR-коды, проверьте настройки вашего устройства и убедитесь, что приложению разрешен доступ к камере."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz kısıtlamaları nedeniyle Olvid kameraya erişemiyor. QR kodlarını taramak için cihaz ayarlarınızı kontrol edin ve bu uygulamanın kameraya erişimine izin verildiğinden emin olun."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Olvid не може отримати доступ до камери через обмеження пристрою. Щоб сканувати QR-коди, перевірте налаштування свого пристрою та переконайтеся, що для цієї програми дозволено доступ до камери."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid không thể truy cập camera do các hạn chế của thiết bị. Để quét mã QR, hãy kiểm tra cài đặt thiết bị của bạn và đảm bảo rằng quyền truy cập camera được cấp cho ứng dụng này."
           }
         },
         "zh-Hans": {
@@ -4264,6 +5254,12 @@
             "value": "카메라 접근 권한 제한됨"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dostęp do aparatu ograniczony"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4282,10 +5278,22 @@
             "value": "Доступ к камере ограничен"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera Erişimi Kısıtlı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Доступ до камери обмежено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Truy cập Camera bị hạn chế"
           }
         },
         "zh-Hans": {
@@ -4340,6 +5348,12 @@
             "value": "초대 링크를 클립보드에 복사할 수 없습니다. 다시 시도해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się skopiować linku z zaproszeniem do schowka 🥲. Spróbuj ponownie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4358,10 +5372,22 @@
             "value": "Не удалось скопировать ссылку-приглашение в буфер обмена 😔. Пожалуйста, попробуйте еще раз."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet bağlantınız panoya kopyalanamadı 🥲. Lütfen tekrar deneyin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не вдалося скопіювати ваше запрошення до буфера обміну 😔. Будь ласка, спробуйте ще раз."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thể sao chép liên kết mời của bạn vào khay nhớ tạm. Vui lòng thử lại."
           }
         },
         "zh-Hans": {
@@ -4416,6 +5442,12 @@
             "value": "초대 링크가 클립보드에 복사되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skopiowano link z zaproszeniem do schowka"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4434,10 +5466,22 @@
             "value": "Ваша ссылка-приглашение скопирована в буфер обмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Davet bağlantınız panoya kopyalandı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваше запрошення скопійовано в буфер обміну"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên kết mời của bạn đã được sao chép vào khay nhớ tạm"
           }
         },
         "zh-Hans": {
@@ -4492,6 +5536,12 @@
             "value": "위쪽에 있는 ‘새 그룹’ 버튼을 사용하여 첫 번째 그룹을 만드세요!"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Użyj przycisku „Nowa grupa” powyżej, aby utworzyć pierwszą grupę!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4510,10 +5560,22 @@
             "value": "Используйте кнопку «Новая группа» выше, чтобы создать свою первую группу!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İlk grubunuzu oluşturmak için yukarıdaki ‘Yeni grup’ düğmesini kullanın!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Використовуйте кнопку \"Нова група\" вище, щоб створити свою першу групу!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sử dụng nút ‘Tạo nhóm mới’ ở trên để tạo nhóm đầu tiên của bạn!"
           }
         },
         "zh-Hans": {
@@ -4568,6 +5630,12 @@
             "value": "아직 그룹이 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie masz jeszcze żadnych grup."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4586,10 +5654,22 @@
             "value": "У вас пока нет групп."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz hiç grubunuz yok."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "У вас ще немає груп."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn chưa có nhóm nào."
           }
         },
         "zh-Hans": {

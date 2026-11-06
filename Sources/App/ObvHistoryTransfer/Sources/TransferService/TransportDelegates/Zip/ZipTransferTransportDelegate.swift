@@ -159,16 +159,17 @@ extension ZipTransferTransportDelegate: TransferTransportSendJsonMessageDelegate
     }
 
     func send(attachmentAtURL url: URL, sha256: Data, progressUpdater: any FyleProgressUpdater) async throws {
-        Self.logger.debug("📰 Adding file \(sha256.hexString().prefix(8)) to the zip archive")
+        Self.logger.debug("📰 Adding file \(sha256.hexString().prefix(8), privacy: .public) to the zip archive")
         let attachmentDirectory = try self.createAttachmentDirectoryIfRequired()
         let destinationURL = attachmentDirectory.appendingPathComponent(sha256.hexString())
         do {
             try FileManager.default.linkItem(at: url, to: destinationURL)
         } catch {
-            Self.logger.error("📰 Could not create a hardlink to a file, will try to copy the file.")
+            Self.logger.error("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Could not create a hardlink to the attachment file (\(String(describing: error), privacy: .public)), will try to copy the file.")
             try FileManager.default.copyItem(at: url, to: destinationURL)
         }
         guard let fileSize = try? destinationURL.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+            Self.logger.error("📰 [\(sha256.hexString().prefix(8), privacy: .public)] Could not determine the size of the attachment file added to the zip archive")
             assertionFailure()
             throw ObvError.couldNotDetermineFileSize
         }
@@ -352,6 +353,7 @@ extension ZipTransferTransportDelegate: TransferTransportSendJsonMessageDelegate
             if deleteTemporaryFilesAndZipFileWasCalled {
                 throw CancellationError()
             } else {
+                Self.logger.error("📰 [\(hexString.prefix(8), privacy: .public)] The requested attachment does not exist in the unzipped archive")
                 assertionFailure()
                 throw ObvError.requestedSha256DoesNotExistInZip
             }
@@ -360,11 +362,13 @@ extension ZipTransferTransportDelegate: TransferTransportSendJsonMessageDelegate
             if deleteTemporaryFilesAndZipFileWasCalled {
                 throw CancellationError()
             } else {
+                Self.logger.error("📰 [\(hexString.prefix(8), privacy: .public)] Could not determine the size of the attachment file found in the unzipped archive")
                 assertionFailure()
                 throw ObvError.couldNotDetermineFileSize
             }
         }
         guard expectedFileSize == fileSize else {
+            Self.logger.error("📰 [\(hexString.prefix(8), privacy: .public)] Unexpected size for the attachment file found in the unzipped archive: expected \(expectedFileSize) bytes, found \(fileSize)")
             assertionFailure()
             throw ObvError.unexpectedFileSize
         }

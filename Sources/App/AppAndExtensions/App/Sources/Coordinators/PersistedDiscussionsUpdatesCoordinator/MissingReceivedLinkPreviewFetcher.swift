@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -88,24 +88,9 @@ actor MissingReceivedLinkPreviewFetcher: MissingReceivedLinkPreviewFetcherDelega
             
             guard let link = await getLinkFromMessage(with: objectID, cacheDelegate: cacheDelegate) else { return }
             
-            guard let fileNameForArchiving = link.toFileNameForArchiving() else { return }
-            
-            let fyleURL = ObvUICoreDataConstants.ContainerURL.forPreviews.appendingPathComponent(fileNameForArchiving)
-            
             var previewAttached: Bool = false
             
-            if !FileManager.default.fileExists(atPath: fyleURL.path) {
-                os_log("[MissingPreviewFetcherCoordinator] Fyle does not exist for %{public}@", log: MissingReceivedLinkPreviewFetcher.log, type: .info, objectID.objectID)
-                
-                let previewMetadataProvider = LPMetadataProvider()
-                let linkMetadataFromProvider = try await previewMetadataProvider.startFetchingMetadata(for: link)
-                let linkMetadata = await ObvLinkMetadata.from(linkMetadata: linkMetadataFromProvider)
-                
-                os_log("[MissingPreviewFetcherCoordinator] Metadatas have been fetched for: %{public}@ from %{public}@", log: MissingReceivedLinkPreviewFetcher.log, type: .info, link.absoluteString, objectID.debugDescription)
-                
-                // Save metadata to file and get pieces of information to use afterwise
-                try await saveMetadataToFile(from: linkMetadata, saveTo: fyleURL)
-            }
+            let fyleURL = try await fileHoldingTheMetadata(ofLink: link)
             
             previewAttached = await createReceivedFyleJoinWithStatus(fromURL: fyleURL, filename: link.absoluteString, linkTo: objectID) != nil
             
@@ -119,6 +104,62 @@ actor MissingReceivedLinkPreviewFetcher: MissingReceivedLinkPreviewFetcherDelega
     }
     
     
+    /// Where the metadata of a link is held on disk, fetching it if this is the first time it is asked for.
+    ///
+    /// Extracted from ``createTaskForFetchingPreview(with:cacheDelegate:)``, whose behaviour it leaves unchanged, so that a caller wanting only the metadata need
+    /// not also create an attachment: the SwiftUI discussion screen reads the file and shows what it says, where the legacy screen goes on creating a
+    /// `ReceivedFyleMessageJoinWithStatus` in the view context for its cell to find.
+    ///
+    /// The file is the cache. One link, one name — the sha256 of the URL — so a link already fetched costs nothing, and `removeCachedPreviewFilesGenerated(olderThan:)`
+    /// prunes them by age at bootstrap.
+    func fileHoldingTheMetadata(ofLink link: URL) async throws -> URL {
+
+        guard let fileNameForArchiving = link.toFileNameForArchiving() else {
+            throw ObvError.couldNotDetermineFileNameForArchiving
+        }
+
+        let fyleURL = ObvUICoreDataConstants.ContainerURL.forPreviews.appendingPathComponent(fileNameForArchiving)
+
+        guard !FileManager.default.fileExists(atPath: fyleURL.path) else { return fyleURL }
+
+        os_log("[MissingPreviewFetcherCoordinator] Fyle does not exist for %{public}@", log: Self.log, type: .info, link.absoluteString)
+
+        // A link asked for twice while its first fetch is in flight is fetched once: the two callers of this — a cell of the legacy screen and a cell of the new
+        // one — may well be showing the same message.
+        if let fetchInProgress = fetches[link] {
+            return try await fetchInProgress.value
+        }
+
+        let fetch = Task {
+            let previewMetadataProvider = LPMetadataProvider()
+            let linkMetadataFromProvider = try await previewMetadataProvider.startFetchingMetadata(for: link)
+            let linkMetadata = await ObvLinkMetadata.from(linkMetadata: linkMetadataFromProvider)
+
+            os_log("[MissingPreviewFetcherCoordinator] Metadatas have been fetched for: %{public}@", log: Self.log, type: .info, link.absoluteString)
+
+            try await saveMetadataToFile(from: linkMetadata, saveTo: fyleURL)
+            return fyleURL
+        }
+
+        fetches[link] = fetch
+        defer { fetches[link] = nil }
+
+        return try await fetch.value
+
+    }
+
+
+    /// The fetches in flight, one per link, so that two cells showing the same message do not each go to the network.
+    private var fetches = [URL: Task<URL, Error>]()
+
+
+    enum ObvError: Error {
+        /// `URL.toFileNameForArchiving()` is the sha256 of the URL and an extension, so this cannot happen; where the previous code gave up silently, the caller is
+        /// now told.
+        case couldNotDetermineFileNameForArchiving
+    }
+
+
     @MainActor
     private func getLinkFromMessage(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>, cacheDelegate: DiscussionCacheDelegate?) async -> URL? {
         

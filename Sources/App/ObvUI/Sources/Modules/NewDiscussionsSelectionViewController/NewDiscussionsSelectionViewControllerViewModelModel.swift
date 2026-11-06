@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,6 @@ import ObvTypes
 import ObvUICoreData
 import ObvSystemIcon
 
-@available(iOS 16.0, *)
 extension NewDiscussionsSelectionViewController {
     
     public struct ViewModel {

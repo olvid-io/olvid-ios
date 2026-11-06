@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,6 +59,7 @@ extension GroupV2Protocol {
         case blobKeysBatchAfterChannelCreation = 27
         case blobKeysAfterChannelCreation = 28
         case initiateTargetedPing = 30
+        case preShotVersionSeed = 31
         case dialogInformative = 50
         case dialogFreezeGroupV2Invitation = 200
         case initiateUpdateKeycloakGroups = 300
@@ -97,6 +98,7 @@ extension GroupV2Protocol {
             case .blobKeysBatchAfterChannelCreation   : return BlobKeysBatchAfterChannelCreationMessage.self
             case .blobKeysAfterChannelCreation        : return BlobKeysAfterChannelCreationMessage.self
             case .initiateTargetedPing                : return InitiateTargetedPingMessage.self
+            case .preShotVersionSeed                  : return PreShotVersionSeedMessage.self
             case .dialogFreezeGroupV2Invitation       : return DialogFreezeGroupV2InvitationMessage.self
             case .initiateUpdateKeycloakGroups        : return InitiateUpdateKeycloakGroupsMessage.self
             case .autoAcceptInvitation                : return AutoAcceptInvitationMessage.self
@@ -1321,6 +1323,57 @@ extension GroupV2Protocol {
             }
         }
 
+    }
+    
+    
+    // MARK: - PreShotVersionSeedMessage
+
+    /// Sent by a group administrator to all current members immediately after initiating a group update
+    /// that removes at least one member.
+    ///
+    /// When a member is removed, the updated blob will be encrypted with a fresh `blobVersionSeed` so the
+    /// removed member cannot decrypt it. Rather than distributing that seed only after the blob has been
+    /// uploaded (which would leave remaining members unable to decrypt in the meantime), the administrator
+    /// pre-shots it — sending it here, before the lock is even acquired — so members can decrypt the new
+    /// blob as soon as it appears on the server.
+    ///
+    /// The receiver stores the seed and uses it to decrypt the next version of the blob for this group.
+    /// Members who are being added by the same update are not recipients of this message; they receive the
+    /// seed later via ``InvitationOrMembersUpdateMessage``.
+    struct PreShotVersionSeedMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.preShotVersionSeed
+        let coreProtocolMessage: CoreProtocolMessage
+
+        // Properties specific to this concrete protocol message
+
+        let groupIdentifier: GroupV2.Identifier
+        let blobVersionSeed: Seed
+        
+        init(coreProtocolMessage: CoreProtocolMessage, groupIdentifier: GroupV2.Identifier, blobVersionSeed: Seed) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.groupIdentifier = groupIdentifier
+            self.blobVersionSeed = blobVersionSeed
+        }
+        
+        var encodedInputs: [ObvEncoded] {
+            return [groupIdentifier.obvEncode(), blobVersionSeed.obvEncode()]
+        }
+
+        // Init when receiving this message
+
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = try CoreProtocolMessage(with: message)
+            let encodedInputs = try message.encodedInputs
+            guard encodedInputs.count == 2 else { assertionFailure(); throw ObvError.unexpectedNumberOfEncodedInputs }
+            self.groupIdentifier = try encodedInputs[0].obvDecode()
+            self.blobVersionSeed = try encodedInputs[1].obvDecode()
+        }
+
+        enum ObvError: Error {
+            case unexpectedNumberOfEncodedInputs
+        }
+        
     }
     
     

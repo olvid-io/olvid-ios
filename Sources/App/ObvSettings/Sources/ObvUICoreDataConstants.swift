@@ -64,12 +64,14 @@ public struct ObvUICoreDataConstants {
         case mainApp
         case shareExtension
         case notificationExtension
+        case intentExtension
 
         public var pathComponent: String {
             switch self {
             case .mainApp: return "MainApp"
             case .shareExtension: return "ShareExtension"
             case .notificationExtension: return "NotificationExtension"
+            case .intentExtension: return "IntentExtension"
             }
         }
         
@@ -78,6 +80,7 @@ public struct ObvUICoreDataConstants {
             case .mainApp: return "mainApp"
             case .shareExtension: return "shareExtension"
             case .notificationExtension: return "notificationExtension"
+            case .intentExtension: return "intentExtension"
             }
         }
     }
@@ -100,7 +103,7 @@ public struct ObvUICoreDataConstants {
         case forProfilePicturesCache
         case forFylesHardlinksWithinMainApp
         case forFylesHardlinksWithinShareExtension
-        case forThumbnailsWithinMainApp
+        case forFylesHardlinksWithinIntentExtension
         /// This is for a place to store and process dropped attachments
         case forTemporaryDroppedItems
 
@@ -154,8 +157,8 @@ public struct ObvUICoreDataConstants {
                 return Self.mainAppContainer.url.appendingPathComponent("FylesHardLinks", isDirectory: true).appendingPathComponent(ObvUICoreDataConstants.AppCategory.mainApp.pathComponent, isDirectory: true)
             case .forFylesHardlinksWithinShareExtension:
                 return Self.mainAppContainer.url.appendingPathComponent("FylesHardLinks", isDirectory: true).appendingPathComponent(ObvUICoreDataConstants.AppCategory.shareExtension.pathComponent, isDirectory: true)
-            case .forThumbnailsWithinMainApp:
-                return Self.mainAppContainer.url.appendingPathComponent("Thumbnails", isDirectory: true).appendingPathComponent(ObvUICoreDataConstants.AppCategory.mainApp.pathComponent, isDirectory: true)
+            case .forFylesHardlinksWithinIntentExtension:
+                return Self.mainAppContainer.url.appendingPathComponent("FylesHardLinks", isDirectory: true).appendingPathComponent(ObvUICoreDataConstants.AppCategory.intentExtension.pathComponent, isDirectory: true)
             case .forTemporaryDroppedItems:
                 return Self.forTempFiles.url.appendingPathComponent("dropped_items", isDirectory: true)
             }
@@ -163,7 +166,7 @@ public struct ObvUICoreDataConstants {
 
         public var printInitialDebugLogs: Bool {
             switch self {
-            case .forDocuments, .forTempFiles, .forFylesHardlinksWithinMainApp, .forThumbnailsWithinMainApp, .forTrash, .forTemporaryDroppedItems:
+            case .forDocuments, .forTempFiles, .forFylesHardlinksWithinMainApp, .forTrash, .forTemporaryDroppedItems:
                 return true
             default:
                 return false
@@ -172,7 +175,7 @@ public struct ObvUICoreDataConstants {
 
         private var penultimateIsTitle: Bool {
             switch self {
-            case .forFylesHardlinksWithinMainApp, .forFylesHardlinksWithinShareExtension, .forThumbnailsWithinMainApp:
+            case .forFylesHardlinksWithinMainApp, .forFylesHardlinksWithinShareExtension:
                 return true
             default: return false
             }

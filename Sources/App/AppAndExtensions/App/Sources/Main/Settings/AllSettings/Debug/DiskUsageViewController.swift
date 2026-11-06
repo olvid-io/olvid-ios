@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,7 +58,7 @@ fileprivate class DiskUsageModel: ObservableObject {
     init() {
         // Database
         self.databaseInfo = DirectoryInfo(title: NSLocalizedString("ATTACHMENTS_INFO", comment: ""), subtitle: nil, computationStatus: .computing)
-        ObvStack.shared.performBackgroundTask { context in
+        ObvStack.shared.performBackgroundTask { [weak self] context in
             let newStatus: DirectoryInfo.ComputationStatus
             do {
                 let allFyles = try Fyle.getAll(within: context)
@@ -68,7 +68,7 @@ fileprivate class DiskUsageModel: ObservableObject {
             } catch {
                 newStatus = .failed
             }
-            DispatchQueue.main.async { [weak self] in
+            DispatchQueue.main.async {
                 withAnimation {
                     self?.databaseInfo = DirectoryInfo(title: NSLocalizedString("ATTACHMENTS_INFO", comment: ""), subtitle: nil, computationStatus: newStatus)
                 }
@@ -79,7 +79,7 @@ fileprivate class DiskUsageModel: ObservableObject {
             let url = containerURL.url
             let info = DirectoryInfo(title: containerURL.title, subtitle: containerURL.subtitle, computationStatus: .computing)
             appDirectoryInfos[url] = info
-            backgroundQueue.addOperation {
+            backgroundQueue.addOperation { [weak self] in
                 let newStatus: DirectoryInfo.ComputationStatus
                 do {
                     if let size = FileManager.default.directorySize(url) {
@@ -90,7 +90,7 @@ fileprivate class DiskUsageModel: ObservableObject {
                     }
                 }
                 let newInfo = DirectoryInfo(title: containerURL.title, subtitle: containerURL.subtitle, computationStatus: newStatus)
-                DispatchQueue.main.async { [weak self] in
+                DispatchQueue.main.async {
                     withAnimation {
                         self?.appDirectoryInfos[url] = newInfo
                     }
@@ -99,11 +99,11 @@ fileprivate class DiskUsageModel: ObservableObject {
         }
                 
 
-        for name in ["inbox", "outbox", "database", "identityPhotos", "downloadedUserData", "uploadingUserData"] {
+        for name in ["inbox", "outbox", "database", "identityPhotos", "downloadedUserData", "uploadingUserData", "pendingUserDataUploads"] {
             let url = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url.appendingPathComponent(name, isDirectory: true)
             let info = DirectoryInfo(title: name.capitalized, subtitle: nil, computationStatus: .computing)
             engineDirectoryInfos[url] = info
-            backgroundQueue.addOperation {
+            backgroundQueue.addOperation { [weak self] in
                 let newStatus: DirectoryInfo.ComputationStatus
                 do {
                     if let size = FileManager.default.directorySize(url) {
@@ -114,7 +114,7 @@ fileprivate class DiskUsageModel: ObservableObject {
                     }
                 }
                 let newInfo = DirectoryInfo(title: name.capitalized, subtitle: nil, computationStatus: newStatus)
-                DispatchQueue.main.async { [weak self] in
+                DispatchQueue.main.async {
                     withAnimation {
                         self?.engineDirectoryInfos[url] = newInfo
                     }

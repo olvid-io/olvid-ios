@@ -98,11 +98,11 @@ final class SendPersistedDiscussionSharedConfigurationIfAllowedToOperation: Oper
             do {
                 switch try discussion.kind {
                 case .oneToOne(withContactIdentity: let contactIdentity):
-                    guard let contactIdentity = contactIdentity else {
+                    guard let contactIdentity = contactIdentity, let contactCryptoId = try? contactIdentity.cryptoId else {
                         os_log("Could not find contact identity", log: log, type: .fault)
                         return cancel(withReason: .couldNotFindContactIdentity)
                     }
-                    contactCryptoIds = Set([contactIdentity.cryptoId])
+                    contactCryptoIds = Set([contactCryptoId])
                 case .groupV1(withContactGroup: let contactGroup):
                     guard let contactGroup = contactGroup else {
                         return cancel(withReason: .couldNotFindContactGroup)
@@ -112,7 +112,7 @@ final class SendPersistedDiscussionSharedConfigurationIfAllowedToOperation: Oper
                         // Only the group owner can do that.
                         return
                     }
-                    contactCryptoIds = Set(contactGroup.contactIdentities.map({ $0.cryptoId }))
+                    contactCryptoIds = Set(contactGroup.contactIdentities.compactMap({ try? $0.cryptoId }))
                 case .groupV2(withGroup: let group):
                     guard let group = group else {
                         return cancel(withReason: .couldNotFindContactGroup)

@@ -252,11 +252,7 @@ public struct ObvPresentedNavigationStack: View {
                     }
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    ObvButtonWithCancelRole(action: userWantsToDismissPresentedNavigationStack)
-                }
-            }
+            .escapeKeyGoesBackOrCloses(isAtRoot: path.isEmpty, goBack: { path.removeLast() }, close: userWantsToDismissPresentedNavigationStack)
         }
     }
     

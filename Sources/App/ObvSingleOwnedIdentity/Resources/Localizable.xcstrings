@@ -47,6 +47,12 @@
             "value": "이 장치를 활성화하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktywuj to urządzenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -65,10 +71,22 @@
             "value": "Активировать это устройство"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihazı etkinleştir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Активуйте цей пристрій"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kích hoạt thiết bị này"
           }
         },
         "zh-Hans": {
@@ -123,6 +141,12 @@
             "value": "장치 추가"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj urządzenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -141,10 +165,22 @@
             "value": "Добавить устройство"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz ekle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додати пристрій"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm thiết bị"
           }
         },
         "zh-Hans": {
@@ -199,6 +235,12 @@
             "value": "프로필 추가"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -217,10 +259,22 @@
             "value": "Добавить профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil ekle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Додати профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm hồ sơ"
           }
         },
         "zh-Hans": {
@@ -275,6 +329,12 @@
             "value": "귀하의 닉네임은 귀하만을 위한 것이며, 여러 프로필을 쉽게 구별하는 데 도움이 됩니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pseudonim jest widoczny tylko dla ciebie i pozwala łatwo odróżnić od siebie twoje profile."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -293,10 +353,22 @@
             "value": "Ваш ник виден только вам и позволяет легко различать ваши профили."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma adınızı yalnızca siz görebilirsiniz; bu sayede profillerinizi birbirinden kolayca ayırt edebilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваше ім'я користувача призначене лише для вас і дозволяє легко розрізняти ваші профілі між собою."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên biệt danh của bạn chỉ dành cho bạn và giúp bạn dễ dàng phân biệt các hồ sơ khác nhau của mình."
           }
         },
         "zh-Hans": {
@@ -353,6 +425,12 @@
             "value": "내 닉네임 변경"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj mój pseudonim"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -371,10 +449,22 @@
             "value": "Изменить мой никнейм"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma adımı düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Змінити мій нікнейм"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa biệt danh của tôi"
           }
         },
         "zh-Hans": {
@@ -431,6 +521,12 @@
             "value": "API 키"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klucz API"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -449,10 +545,22 @@
             "value": "Ключ API"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API Anahtarı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ключ API"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khóa API"
           }
         },
         "zh-Hans": {
@@ -507,6 +615,12 @@
             "value": "최소한 하나 이상의 프로필이 표시되어야 합니다. 이 프로필이 현재 유일한 프로필이므로 숨길 수 없습니다. 새 프로필을 만들고 다시 시도해 보세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musisz mieć co najmniej jeden widoczny profil. Ponieważ jest to twój jedyny profil, nie możesz go ukryć. Możesz jednak utworzyć nowy profil i spróbować ponownie."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -525,10 +639,22 @@
             "value": "У вас должен быть хотя бы один видимый профиль. Поскольку этот профиль — единственный, которым вы располагаете, вы не можете его скрыть. Тем не менее, вы можете создать новый профиль и попробовать снова."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En az bir görünür profiliniz olmalıdır. Bu profil sahip olduğunuz tek profil olduğundan onu gizleyemezsiniz. Yine de yeni bir profil oluşturup tekrar deneyebilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вам потрібно мати хоча б один видимий профіль. Оскільки цей профіль є єдиним, який у вас є, ви не можете його приховати. Проте ви можете створити новий профіль та спробувати ще раз."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn phải có ít nhất một hồ sơ hiển thị. Vì đây là hồ sơ duy nhất bạn có, bạn không thể ẩn nó. Tuy nhiên, bạn có thể tạo một hồ sơ mới và thử lại."
           }
         },
         "zh-Hans": {
@@ -583,6 +709,12 @@
             "value": "현재는 이 프로필을 숨길 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tego profilu nie można teraz ukryć"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -601,10 +733,22 @@
             "value": "Этот профиль сейчас нельзя скрыть"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profil şu anda gizlenemiyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей профіль зараз неможливо приховати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện tại không thể ẩn hồ sơ này."
           }
         },
         "zh-Hans": {
@@ -661,6 +805,12 @@
             "value": "활성"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktywny"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -679,10 +829,22 @@
             "value": "Активный"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etkin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Активний"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang hoạt động"
           }
         },
         "zh-Hans": {
@@ -739,6 +901,12 @@
             "value": "뒤로"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wstecz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -757,10 +925,22 @@
             "value": "Назад"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Назад"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quay lại"
           }
         },
         "zh-Hans": {
@@ -817,6 +997,12 @@
             "value": "내 프로필 업데이트를 게시"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opublikuj aktualizację mojego profilu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -835,10 +1021,22 @@
             "value": "Опубликовать обновление моего профиля"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil güncellememi yayınla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Опублікувати оновлення мого профілю"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chia sẻ bản cập nhật hồ sơ của tôi"
           }
         },
         "zh-Hans": {
@@ -895,6 +1093,12 @@
             "value": "취소"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anuluj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -913,10 +1117,22 @@
             "value": "Отмена"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İptal"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Скасувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy"
           }
         },
         "zh-Hans": {
@@ -973,6 +1189,12 @@
             "value": "기능"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Możliwości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -991,10 +1213,22 @@
             "value": "Возможности"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yetenekler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Можливості"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính năng"
           }
         },
         "zh-Hans": {
@@ -1051,6 +1285,12 @@
             "value": "그룹 v2"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupy v2"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1069,10 +1309,22 @@
             "value": "Группы v2"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruplar v2"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Групи v2"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm (phiên bản 2)"
           }
         },
         "zh-Hans": {
@@ -1129,6 +1381,12 @@
             "value": "일대일 연락처"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakty One2One "
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1147,10 +1405,22 @@
             "value": "Контакты личных сообщений"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One2One kişiler "
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Контакти віч-на-віч"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh bạ trò chuyện riêng"
           }
         },
         "zh-Hans": {
@@ -1207,6 +1477,12 @@
             "value": "VoIP v2"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP v2"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1225,10 +1501,22 @@
             "value": "VoIP v2"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP v2"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "VoIP v2"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoIP phiên bản 2"
           }
         },
         "zh-Hans": {
@@ -1285,6 +1573,12 @@
             "value": "ID 공급업체 인증"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certyfikowany przez dostawcę tożsamości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1303,10 +1597,22 @@
             "value": "Подтверждено поставщиком удостоверений"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcısı tarafından onaylı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підтверджено постачальником ідентифікаційних даних"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã được nhà cung cấp danh tính xác thực"
           }
         },
         "zh-Hans": {
@@ -1361,6 +1667,12 @@
             "value": "프로필 사진을 선택하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybierz zdjęcie profilowe"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1379,10 +1691,22 @@
             "value": "Выберите фотографию профиля"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil fotoğrafı seç"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оберіть фото профілю"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn ảnh đại diện"
           }
         },
         "zh-Hans": {
@@ -1437,6 +1761,12 @@
             "value": "장치 이름을 선택하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybierz nazwę urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1455,10 +1785,22 @@
             "value": "Выберите имя устройства"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir cihaz adı seçin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оберіть назву пристрою"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn tên thiết bị"
           }
         },
         "zh-Hans": {
@@ -1515,6 +1857,12 @@
             "value": "비밀번호를 선택하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybierz hasło"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1533,10 +1881,22 @@
             "value": "Выберите пароль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şifre seçin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оберіть пароль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn mật khẩu"
           }
         },
         "zh-Hans": {
@@ -1591,6 +1951,12 @@
             "value": "모든 기기에서 삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zresetuj wszystkie urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1609,10 +1975,22 @@
             "value": "Удалить все устройства"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazları sıfırla"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Очистити всі пристрої"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa tất cả thiết bị"
           }
         },
         "zh-Hans": {
@@ -1667,6 +2045,12 @@
             "value": "모든 기기를 삭제하면 해당 기기와 연결된 모든 보안 채널이 재설정되고, 기기가 새로 검색된 후 모든 보안 채널이 다시 생성됩니다. 이러한 모든 단계는 자동으로 수행되지만 시간이 다소 걸릴 수 있습니다. 보안 채널을 다시 생성하려면 다른 기기가 온라인 상태여야 합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zresetowanie wszystkich urządzeń spowoduje zamknięcie wszystkich bezpiecznych kanałów z nimi, ponowne wykrycie twoich urządzeń, a następnie odtworzenie z nimi wszystkich bezpiecznych kanałów. Choć wszystkie te kroki są automatyczne, mogą zająć trochę czasu. Odtworzenie bezpiecznych kanałów wymaga, aby twoje inne urządzenia były online."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1685,10 +2069,22 @@
             "value": "Очистка всех устройств приведет к сбросу всех защищенных каналов с ними, выполнит повторное обнаружение ваших устройств и затем воссоздаст все защищенные каналы. Хотя все эти шаги выполняются автоматически, они могут занять некоторое время. Для воссоздания защищенных каналов требуется, чтобы другие ваши устройства были онлайн."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazları sıfırlamak, onlarla olan tüm güvenli kanalları sıfırlar, cihazlarınızı yeniden keşfeder ve ardından onlarla tüm güvenli kanalları yeniden oluşturur. Tüm bu adımlar otomatik olsa da biraz zaman alabilir. Güvenli kanalların yeniden oluşturulması için diğer cihazlarınızın çevrimiçi olması gerekir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Очищення всіх пристроїв призведе до скидання всіх захищених каналів з ними, повторного виявлення ваших пристроїв та відтворення всіх захищених каналів з ними. Хоча всі ці кроки автоматичні, вони можуть зайняти певний час. Відтворення захищених каналів потребує, щоб ваші інші пристрої були онлайн."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa tất cả các thiết bị sẽ đặt lại tất cả các kênh bảo mật với chúng, thực hiện tìm kiếm lại các thiết bị của bạn, sau đó tạo lại tất cả các kênh bảo mật với chúng. Mặc dù tất cả các bước này đều tự động, nhưng chúng có thể mất một khoảng thời gian. Việc tạo lại các kênh bảo mật yêu cầu các thiết bị khác của bạn phải trực tuyến."
           }
         },
         "zh-Hans": {
@@ -1743,6 +2139,12 @@
             "value": "모든 기기에서 삭제하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zresetować wszystkie urządzenia?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1761,10 +2163,22 @@
             "value": "Очистить все устройства?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm cihazlar sıfırlansın mı?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Очистити всі пристрої?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa tất cả thiết bị?"
           }
         },
         "zh-Hans": {
@@ -1821,6 +2235,12 @@
             "value": "비밀번호 확인"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Potwierdź hasło"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1839,10 +2259,22 @@
             "value": "Подтвердите пароль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifreyi doğrula"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Підтвердіть пароль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xác nhận mật khẩu"
           }
         },
         "zh-Hans": {
@@ -1899,6 +2331,12 @@
             "value": "비밀번호 생성"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utwórz hasło"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1917,10 +2355,22 @@
             "value": "Создать пароль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifre oluştur"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Створити пароль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo mật khẩu"
           }
         },
         "zh-Hans": {
@@ -1977,6 +2427,12 @@
             "value": "이 장치"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To urządzenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -1995,10 +2451,22 @@
             "value": "Это устройство"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей пристрій"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị này"
           }
         },
         "zh-Hans": {
@@ -2055,6 +2523,12 @@
             "value": "(이 장치)"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(to urządzenie)"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2073,10 +2547,22 @@
             "value": "(это устройство)"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(bu cihaz)"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "(цей пристрій)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(thiết bị này)"
           }
         },
         "zh-Hans": {
@@ -2131,6 +2617,12 @@
             "value": "%1$@를 비활성화하고 %2$@를 활성화합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dezaktywuj urządzenie %1$@ i aktywuj urządzenie %2$@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2149,10 +2641,22 @@
             "value": "Деактивируйте %1$@ и активируйте %2$@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ cihazını devre dışı bırak ve %2$@ cihazını etkinleştir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вимкнути %1$@ та активувати %2$@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tắt %1$@ và kích hoạt %2$@"
           }
         },
         "zh-Hans": {
@@ -2209,6 +2713,12 @@
             "value": "선택한 기기를 비활성화하고 이 기기를 활성화합니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dezaktywuj wybrane urządzenie i aktywuj to"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2227,10 +2737,22 @@
             "value": "Деактивировать выбранное устройство и активировать это"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçili cihazı devre dışı bırak ve bunu etkinleştir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вимкнути вибраний пристрій та активувати цей"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vô hiệu hóa thiết bị đã chọn và kích hoạt thiết bị này"
           }
         },
         "zh-Hans": {
@@ -2285,6 +2807,12 @@
             "value": "비활성화 중..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dezaktywowanie…"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2303,10 +2831,22 @@
             "value": "Отключение…"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırakılıyor…"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вимкнення…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tắt..."
           }
         },
         "zh-Hans": {
@@ -2361,6 +2901,12 @@
             "value": "삭제된 프로필"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usunięty profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2379,10 +2925,22 @@
             "value": "Удалённый профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silinmiş profil"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалено профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ đã bị xóa"
           }
         },
         "zh-Hans": {
@@ -2437,6 +2995,12 @@
             "value": "이 프로필은 더 이상 이 장치에 존재하지 않습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten profil nie istnieje już na tym urządzeniu."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2455,10 +3019,22 @@
             "value": "Этот профиль больше не существует на этом устройстве."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profil artık bu cihazda mevcut değil."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей профіль більше не існує на цьому пристрої."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ này không còn tồn tại trên thiết bị này."
           }
         },
         "zh-Hans": {
@@ -2515,6 +3091,12 @@
             "value": "이 프로필 삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń ten profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2533,10 +3115,22 @@
             "value": "Удалить этот профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profili sil"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити цей профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa hồ sơ này"
           }
         },
         "zh-Hans": {
@@ -2593,6 +3187,12 @@
             "value": "ID 공급자가 서명한 세부 정보"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dane podpisane przez dostawcę tożsamości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2611,10 +3211,22 @@
             "value": "Детали, подписанные поставщиком удостоверений"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcısı tarafından imzalanan bilgiler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Деталі, підписані провайдером ідентифікації"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chi tiết được xác nhận bởi nhà cung cấp danh tính"
           }
         },
         "zh-Hans": {
@@ -2671,6 +3283,12 @@
             "value": "기기 %lld"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urządzenie %lld"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2689,10 +3307,22 @@
             "value": "Устройство %lld"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz %lld"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пристрій %lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị %lld"
           }
         },
         "zh-Hans": {
@@ -2747,6 +3377,12 @@
             "value": "비활성화됨"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dezaktywowane"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2765,10 +3401,22 @@
             "value": "Деактивирован"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вимкнено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã tắt"
           }
         },
         "zh-Hans": {
@@ -2825,6 +3473,12 @@
             "value": "비활성화 %@"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dezaktywacja %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2843,10 +3497,22 @@
             "value": "Деактивация %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırakılma: %@"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Деактивація %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vô hiệu hóa %@"
           }
         },
         "zh-Hans": {
@@ -2903,6 +3569,12 @@
             "value": "마지막 접속 시간: %@"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ostatnio online %@"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2921,10 +3593,22 @@
             "value": "Был(а) в сети последний раз %@"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son çevrimiçi: %@"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Був(-ла) в мережі востаннє %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã trực tuyến lần cuối lúc %@"
           }
         },
         "zh-Hans": {
@@ -2981,6 +3665,12 @@
             "value": "비활성화 예정 없음"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie zaplanowano dezaktywacji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -2999,10 +3689,22 @@
             "value": "Деактивация не запланирована"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planlanmış devre dışı bırakma yok"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Деактивація не запланована"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có kế hoạch tắt thiết bị"
           }
         },
         "zh-Hans": {
@@ -3057,6 +3759,12 @@
             "value": "현재 귀하의 프로필은 회사 ID 공급업체에서 관리합니다. 일반, 비관리 프로필로 전환하려는 것입니다.\n\n계속하면 회사에서 Olvid에 연락처를 쉽게 추가할 수 없게 됩니다. 자세한 내용은 관리자에게 문의하십시오.\n\n계속하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twój profil jest obecnie zarządzany przez dostawcę tożsamości twojej firmy. Zamierzasz przełączyć się na zwykły, niezarządzany profil.\n\nPo kontynuowaniu nie będzie już można bezproblemowo dodawać do Olvid kontaktów z twojej firmy. Aby uzyskać więcej informacji, skontaktuj się z administratorem.\n\nCzy chcesz kontynuować?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3075,10 +3783,22 @@
             "value": "В настоящее время ваш профиль управляется поставщиком удостоверений вашей компании. Вы собираетесь переключиться на обычный, неуправляемый профиль.\n\nЕсли вы продолжите, вы больше не сможете легко добавлять контакты из своей компании в Olvid. Пожалуйста, свяжитесь с вашим администратором для получения более подробной информации.\n\nВы хотите продолжить?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz şu anda şirketinizin kimlik sağlayıcısı tarafından yönetiliyor. Normal, yönetilmeyen bir profile geçmek üzeresiniz.\n\nDevam ederseniz şirketinizdeki kişileri artık Olvid'e sorunsuzca ekleyemeyeceksiniz. Daha fazla bilgi için lütfen yöneticinizle iletişime geçin.\n\nDevam etmek istiyor musunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Наразі ваш профіль керується постачальником ідентифікації вашої компанії. Ви збираєтесь перейти на звичайний, некерований профіль.\n\nЯкщо ви продовжите, ви більше не зможете безперешкодно додавати контакти з вашої компанії до Olvid. Зверніться до адміністратора для отримання додаткової інформації.\n\nВи хочете продовжити?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện tại, hồ sơ của bạn đang được quản lý bởi nhà cung cấp danh tính của công ty. Bạn sắp chuyển sang sử dụng hồ sơ thông thường, không được quản lý.\n\nNếu bạn tiếp tục, bạn sẽ không thể dễ dàng thêm liên hệ từ công ty vào Olvid nữa. Vui lòng liên hệ với quản trị viên để biết thêm chi tiết.\n\nBạn có muốn tiếp tục không?"
           }
         },
         "zh-Hans": {
@@ -3135,6 +3855,12 @@
             "value": "닫기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamknij"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3153,10 +3879,22 @@
             "value": "Закрыть"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapat"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Закрити"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đóng"
           }
         },
         "zh-Hans": {
@@ -3213,6 +3951,12 @@
             "value": "자세히"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Szczegóły"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3231,10 +3975,22 @@
             "value": "Подробности"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıntılar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Деталі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chi tiết"
           }
         },
         "zh-Hans": {
@@ -3291,6 +4047,12 @@
             "value": "기기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3309,10 +4071,22 @@
             "value": "Устройства"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlar"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пристрої"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị"
           }
         },
         "zh-Hans": {
@@ -3367,6 +4141,12 @@
             "value": "내 프로필 수정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj mój profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3385,10 +4165,22 @@
             "value": "Редактировать мой профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Редагувати мій профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa hồ sơ của tôi"
           }
         },
         "zh-Hans": {
@@ -3443,6 +4235,12 @@
             "value": "내 닉네임 수정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj mój pseudonim"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3461,10 +4259,22 @@
             "value": "Изменить мой никнейм"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma adımı düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Змінити мій нікнейм"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa biệt danh của tôi"
           }
         },
         "zh-Hans": {
@@ -3521,6 +4331,12 @@
             "value": "비밀번호를 입력하세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wpisz hasło"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3539,10 +4355,22 @@
             "value": "Введите пароль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şifre girin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Введіть пароль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhập mật khẩu"
           }
         },
         "zh-Hans": {
@@ -3597,6 +4425,12 @@
             "value": "위에 표시된 이름은 사용자의 ID 공급업체에서 가져온 것으로 변경할 수 없습니다. 프로필 사진은 자유롭게 선택할 수 있습니다. 이 정보는 Olvid 서버로 전송되지 않습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Powyższa nazwa została pobrana od twojego dostawcy tożsamości i nie można jej zmienić. Nadal możesz wybrać zdjęcie profilowe. Te dane nigdy nie zostaną wysłane na serwery Olvid."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3615,10 +4449,22 @@
             "value": "Имя выше было получено от вашего поставщика удостоверений и не может быть изменено. Вы все еще можете выбрать фотографию профиля. Эти данные никогда не будут отправлены на серверы Olvid."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yukarıdaki ad kimlik sağlayıcınızdan alınmıştır ve değiştirilemez. Yine de bir profil fotoğrafı seçebilirsiniz. Bu bilgiler hiçbir zaman Olvid sunucularına gönderilmez."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я вище було отримано від вашого провайдера ідентифікації та не може бути змінено. Ви все ще можете вибрати фотографію профілю. Ці дані ніколи не будуть надіслані на сервери Olvid."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên hiển thị được lấy từ nhà cung cấp danh tính của bạn và không thể thay đổi. Bạn vẫn có thể chọn ảnh đại diện. Những thông tin này sẽ không bao giờ được gửi đến máy chủ của Olvid."
           }
         },
         "zh-Hans": {
@@ -3675,6 +4521,12 @@
             "value": "회사"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firma"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3693,10 +4545,22 @@
             "value": "Компания"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şirket"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Компанія"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Công ty"
           }
         },
         "zh-Hans": {
@@ -3753,6 +4617,12 @@
             "value": "이름"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imię"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3771,10 +4641,22 @@
             "value": "Имя"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ad"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên"
           }
         },
         "zh-Hans": {
@@ -3831,6 +4713,12 @@
             "value": "성"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nazwisko"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3849,10 +4737,22 @@
             "value": "Фамилия"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyadı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прізвище"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Họ"
           }
         },
         "zh-Hans": {
@@ -3907,6 +4807,12 @@
             "value": "닉네임"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pseudonim"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -3925,10 +4831,22 @@
             "value": "Никнейм"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takma ad"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прізвисько"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biệt danh"
           }
         },
         "zh-Hans": {
@@ -3985,6 +4903,12 @@
             "value": "위치"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stanowisko"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4003,10 +4927,22 @@
             "value": "Позиция"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unvan"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Позиція"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí"
           }
         },
         "zh-Hans": {
@@ -4063,6 +4999,12 @@
             "value": "숨겨진 프로필은 비밀번호로 보호되며, 해당 비밀번호를 입력하기 전까지는 프로필 목록에 표시되지 않습니다.\n숨겨진 프로필에 접근하려면 각 탭에 표시된 왼쪽 상단 버튼을 길게 누르세요.\n이 비밀번호를 잊으면 해당 프로필에 영구적으로 접근할 수 없게 됩니다! 😥"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ukryte profile są chronione hasłem i nie pojawiają się na liście profili, dopóki nie wpiszesz tego hasła.\nAby uzyskać dostęp do ukrytego profilu, przytrzymaj przycisk w lewym górnym rogu widoczny na każdej karcie.\nJeśli zapomnisz to hasło, na zawsze stracisz dostęp do tego profilu 😱!"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4081,10 +5023,22 @@
             "value": "Скрытые профили защищены паролем и не отображаются в вашем списке профилей, пока вы не введете этот пароль.\nДля доступа к скрытому профилю требуется длительное нажатие на кнопку в верхнем левом углу на каждой вкладке.\nЕсли вы забудете этот пароль, вы навсегда потеряете доступ к этому профилю 😥!"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gizli profiller bir şifreyle korunur ve bu şifreyi girene kadar profil listenizde görünmez.\nGizli bir profile erişmek için her sekmede gösterilen sol üstteki düğmeye uzun basın.\nBu şifreyi unutursanız bu profile erişiminizi kalıcı olarak kaybedersiniz 😱!"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Приховані профілі захищені паролем і не відображаються у вашому списку профілів, поки ви не введете цей пароль.\nДоступ до прихованого профілю вимагає тривалого натискання на ліву верхню кнопку, показану на кожній вкладці.\nЯкщо ви забудете цей пароль, ви назавжди втратите доступ до цього профілю 😥!"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ ẩn được bảo vệ bằng mật khẩu và sẽ không hiển thị trong danh sách hồ sơ của bạn cho đến khi bạn nhập mật khẩu này.\nĐể truy cập hồ sơ ẩn, bạn cần nhấn và giữ nút ở góc trên cùng bên trái, hiển thị trên mỗi tab.\nNếu bạn quên mật khẩu này, bạn sẽ vĩnh viễn mất quyền truy cập vào hồ sơ đó 😱!"
           }
         },
         "zh-Hans": {
@@ -4141,6 +5095,12 @@
             "value": "이 프로필 숨기기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ukryj ten profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4159,10 +5119,22 @@
             "value": "Скрыть этот профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profili gizle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Приховати цей профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ẩn hồ sơ này"
           }
         },
         "zh-Hans": {
@@ -4217,6 +5189,12 @@
             "value": "이 기기에서는 프로필이 활성화되어 있지 않지만, 지금 다시 활성화할 수 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twój profil nie jest aktywny na tym urządzeniu, ale możesz go teraz ponownie aktywować."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4235,10 +5213,22 @@
             "value": "Ваш профиль не активен на этом устройстве, но вы можете активировать его сейчас."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz bu cihazda etkin değil, ancak şimdi yeniden etkinleştirebilirsiniz."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваш профіль неактивний на цьому пристрої, але ви можете активувати його зараз."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ của bạn chưa được kích hoạt trên thiết bị này, nhưng bạn có thể kích hoạt lại ngay bây giờ."
           }
         },
         "zh-Hans": {
@@ -4295,6 +5285,12 @@
             "value": "프로필 전송이 제한됩니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przenoszenie profilu jest ograniczone"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4313,10 +5309,22 @@
             "value": "Перенос профиля ограничен"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil aktarımı kısıtlı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Перенесення профілю обмежено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chuyển đổi hồ sơ bị hạn chế"
           }
         },
         "zh-Hans": {
@@ -4373,6 +5381,12 @@
             "value": "신원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tożsamość"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4391,10 +5405,22 @@
             "value": "Личность"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ідентичність"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh tính"
           }
         },
         "zh-Hans": {
@@ -4449,6 +5475,12 @@
             "value": "장치 활성 상태 유지 중..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utrzymywanie aktywności urządzenia…"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4467,10 +5499,22 @@
             "value": "Поддержание активности устройства…"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz etkin tutuluyor…"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пристрій залишається активним…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duy trì trạng thái hoạt động của thiết bị..."
           }
         },
         "zh-Hans": {
@@ -4525,6 +5569,12 @@
             "value": "여러 기기에서 동시에 Olvid를 사용할 수 있도록 해주는 멀티 기기 기능을 구독하지 않은 것으로 보입니다. 기기 %@를 활성 상태로 유지하면 기기 %@가 대신 비활성화됩니다. 모든 기기를 활성 상태로 유지하려면 구독 요금제를 확인해 주세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wygląda na to, że nie masz subskrypcji funkcji wielu urządzeń, która pozwala korzystać z Olvid na kilku urządzeniach jednocześnie. Pozostawienie aktywnego urządzenia %@ oznacza, że zamiast niego zostanie dezaktywowane urządzenie %@. Jeśli chcesz, aby wszystkie twoje urządzenia pozostały aktywne, zapoznaj się z planami subskrypcji."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4543,10 +5593,22 @@
             "value": "Похоже, вы не подписались на функцию использования Olvid на нескольких устройствах одновременно. Поддержание активности устройства %@ означает, что устройство %@ будет деактивировано вместо него. Если вы хотите, чтобы все ваши устройства оставались активными, пожалуйста, ознакомьтесь с вариантами подписки."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'i aynı anda birden fazla cihazda kullanmanızı sağlayan çoklu cihaz özelliğine abone olmadığınız anlaşılıyor. %@ cihazını etkin tutmak, bunun yerine %@ cihazının devre dışı bırakılacağı anlamına gelir. Tüm cihazlarınızı etkin tutmak istiyorsanız lütfen abonelik planlarına göz atın."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви, здається, не підписалися на функцію багатопристройності, яка дозволяє використовувати Olvid на декількох пристроях одночасно. Підтримання активності пристрою %@ передбачає деактивацію пристрою %@ замість нього. Якщо ви хочете, щоб усі ваші пристрої були активні, ознайомтеся з планами підписки."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có vẻ như bạn chưa đăng ký tính năng đa thiết bị, cho phép bạn sử dụng Olvid trên nhiều thiết bị cùng lúc. Việc giữ cho thiết bị %@ hoạt động có nghĩa là thiết bị %@ sẽ bị hủy kích hoạt thay vào đó. Nếu bạn muốn tất cả các thiết bị của mình đều hoạt động, vui lòng xem các gói đăng ký."
           }
         },
         "zh-Hans": {
@@ -4601,6 +5663,12 @@
             "value": "활성 상태 유지"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozostaw aktywne"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4619,10 +5687,22 @@
             "value": "Оставаться активным"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etkin tut"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Залишати активним"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ thiết bị hoạt động"
           }
         },
         "zh-Hans": {
@@ -4679,6 +5759,12 @@
             "value": "Keycloak ID"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID Keycloak"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4697,7 +5783,19 @@
             "value": "ID Keycloak"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keycloak ID"
+          }
+        },
         "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID Keycloak"
+          }
+        },
+        "vi": {
           "stringUnit": {
             "state": "translated",
             "value": "ID Keycloak"
@@ -4757,6 +5855,12 @@
             "value": "나중에 할게요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Może później"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4775,10 +5879,22 @@
             "value": "Может быть, позже"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belki sonra"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Можливо пізніше"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có thể để sau"
           }
         },
         "zh-Hans": {
@@ -4833,6 +5949,12 @@
             "value": "내 기기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moje urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4851,10 +5973,22 @@
             "value": "Мои устройства"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlarım"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Мої пристрої"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị của tôi"
           }
         },
         "zh-Hans": {
@@ -4909,6 +6043,12 @@
             "value": "내 프로필"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mój profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -4927,10 +6067,22 @@
             "value": "Мой профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilim"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Мій профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ của tôi"
           }
         },
         "zh-Hans": {
@@ -4987,6 +6139,12 @@
             "value": "장치 활성화"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktywacja urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5005,10 +6163,22 @@
             "value": "Активация устройства"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihaz etkinleştirme"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Активація пристрою"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kích hoạt thiết bị"
           }
         },
         "zh-Hans": {
@@ -5065,6 +6235,12 @@
             "value": "내 프로필 수정"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edytuj mój profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5083,10 +6259,22 @@
             "value": "Редактировать мой профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi düzenle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Редагувати мій профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh sửa hồ sơ của tôi"
           }
         },
         "zh-Hans": {
@@ -5141,6 +6329,12 @@
             "value": "귀하의 기기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoje urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5159,10 +6353,22 @@
             "value": "Ваши устройства"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cihazlarınız"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваші пристрої"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các thiết bị của bạn"
           }
         },
         "zh-Hans": {
@@ -5219,6 +6425,12 @@
             "value": "아니요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5237,10 +6449,22 @@
             "value": "Нет"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ні"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không"
           }
         },
         "zh-Hans": {
@@ -5297,6 +6521,12 @@
             "value": "없음"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5315,10 +6545,22 @@
             "value": "Нет"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yok"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Жоден"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có"
           }
         },
         "zh-Hans": {
@@ -5373,6 +6615,12 @@
             "value": "알겠습니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5391,10 +6639,22 @@
             "value": "Ок"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Гаразд"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Được rồi"
           }
         },
         "zh-Hans": {
@@ -5451,6 +6711,12 @@
             "value": "사진 라이브러리"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biblioteka zdjęć"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5469,10 +6735,22 @@
             "value": "Фототека"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf arşivi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Фототека"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thư viện ảnh"
           }
         },
         "zh-Hans": {
@@ -5529,6 +6807,12 @@
             "value": "파일"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plik"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5547,10 +6831,22 @@
             "value": "Файл"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Файл"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp"
           }
         },
         "zh-Hans": {
@@ -5607,6 +6903,12 @@
             "value": "사진 삭제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5625,10 +6927,22 @@
             "value": "Удалить фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğrafı kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa ảnh"
           }
         },
         "zh-Hans": {
@@ -5685,6 +6999,12 @@
             "value": "게시된 사진 복원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróć opublikowane zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5703,10 +7023,22 @@
             "value": "Восстановить опубликованное фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yayınlanan fotoğrafı geri yükle"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновити опубліковане фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục ảnh đã đăng"
           }
         },
         "zh-Hans": {
@@ -5763,6 +7095,12 @@
             "value": "사진 찍기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrób zdjęcie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5781,10 +7119,22 @@
             "value": "Сделать фото"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf çek"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зробити фото"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp ảnh"
           }
         },
         "zh-Hans": {
@@ -5841,6 +7191,12 @@
             "value": "관리하는 프로필에 대한 기타 정보"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inne informacje o twoim zarządzanym profilu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5859,10 +7215,22 @@
             "value": "Другая информация о вашем управляемом профиле"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yönetilen profiliniz hakkında diğer bilgiler"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Інша інформація про ваш керований профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thông tin khác về hồ sơ được quản lý của bạn"
           }
         },
         "zh-Hans": {
@@ -5919,6 +7287,12 @@
             "value": "프리미엄 멀티 디바이스 기능에 대한 유효한 구독이 있으므로 지금 이 기기를 안전하게 다시 활성화할 수 있습니다. 다시 활성화하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponieważ masz ważną subskrypcję funkcji premium wielu urządzeń 😎, możesz bezpiecznie ponownie aktywować to urządzenie już teraz. Czy chcesz to zrobić?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -5937,10 +7311,22 @@
             "value": "Поскольку у вас есть действующая подписка на премиум-функцию мультидевайс 😎, вы можете безопасно реактивировать это устройство сейчас. Хотите ли вы это сделать?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium çoklu cihaz özelliğine geçerli bir aboneliğiniz olduğundan 😎 bu cihazı şimdi güvenle yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оскільки у вас є дійсна підписка на преміум-функцію багатопристроєвості 🥳, ви можете безпечно реактивувати цей пристрій зараз. Чи бажаєте ви це зробити?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vì bạn đã có đăng ký hợp lệ cho tính năng đa thiết bị cao cấp 😎, bạn có thể an toàn kích hoạt lại thiết bị này. Bạn có muốn làm điều đó không?"
           }
         },
         "zh-Hans": {
@@ -5997,6 +7383,12 @@
             "value": "이 기기는 지금 다시 활성화할 수 있습니다. 🥳"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To urządzenie można teraz ponownie aktywować 🙌"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6015,10 +7407,22 @@
             "value": "Это устройство теперь можно реактивировать ✨"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz şimdi yeniden etkinleştirilebilir 🙌"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей пристрій можна активувати зараз 🙌"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị này có thể được kích hoạt lại ngay bây giờ 🙌"
           }
         },
         "zh-Hans": {
@@ -6075,6 +7479,12 @@
             "value": "현재 활성 기기가 없는 것으로 보입니다. 지금 이 기기를 안전하게 다시 활성화할 수 있습니다. 활성화하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wygląda na to, że nie masz obecnie żadnego aktywnego urządzenia. Możesz bezpiecznie ponownie aktywować to urządzenie już teraz. Czy chcesz to zrobić?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6093,10 +7503,22 @@
             "value": "Похоже, у вас в данный момент нет активного устройства. Вы можете безопасно активировать это устройство сейчас. Хотите ли вы это сделать?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu anda etkin bir cihazınız yok gibi görünüyor. Bu cihazı şimdi güvenle yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musunuz?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Виглядає, у вас зараз немає активного пристрою. Ви можете безпечно активувати цей пристрій зараз. Чи бажаєте ви це зробити?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có vẻ như hiện tại bạn không có thiết bị nào đang hoạt động. Bạn có thể kích hoạt lại thiết bị này một cách an toàn ngay bây giờ. Bạn có muốn làm điều đó không?"
           }
         },
         "zh-Hans": {
@@ -6153,6 +7575,12 @@
             "value": "이제 이 기기를 다시 활성화할 수 있습니다. 🥳"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To urządzenie można teraz ponownie aktywować 🙌"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6171,10 +7599,22 @@
             "value": "Это устройство можно активировать сейчас 🙌"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz şimdi yeniden etkinleştirilebilir 🙌"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей пристрій можна реактивувати зараз 🙌"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị này có thể được kích hoạt lại ngay bây giờ 🙌"
           }
         },
         "zh-Hans": {
@@ -6357,6 +7797,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Masz już jedno aktywne urządzenie. Ponieważ w przyszłości zostanie ono dezaktywowane, możesz bezpiecznie ponownie aktywować to urządzenie już teraz. Czy chcesz to zrobić?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Masz już %lld aktywnego urządzenia. Ponieważ w przyszłości zostaną one dezaktywowane, możesz bezpiecznie ponownie aktywować to urządzenie już teraz. Czy chcesz to zrobić?"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Masz już %lld aktywne urządzenia. Ponieważ w przyszłości zostaną one dezaktywowane, możesz bezpiecznie ponownie aktywować to urządzenie już teraz. Czy chcesz to zrobić?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Masz już %lld aktywnych urządzeń. Ponieważ w przyszłości zostaną one dezaktywowane, możesz bezpiecznie ponownie aktywować to urządzenie już teraz. Czy chcesz to zrobić?"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Wygląda na to, że nie masz obecnie żadnego aktywnego urządzenia. Możesz bezpiecznie ponownie aktywować to urządzenie już teraz. Czy chcesz to zrobić?"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -6425,6 +7901,42 @@
                   "state": "translated",
                   "value": "Похоже, у вас в настоящее время нет активных устройств. Вы можете безопасно повторно активировать это устройство сейчас. Вы хотите это сделать?"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "У вас уже %lld активных устройства. Поскольку они будут деактивированы в будущем, вы можете безопасно повторно активировать это устройство сейчас. Вы хотите это сделать?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "У вас уже %lld активных устройств. Поскольку они будут деактивированы в будущем, вы можете безопасно повторно активировать это устройство сейчас. Вы хотите это сделать?"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zaten etkin bir cihazınız var. O cihaz ileride devre dışı bırakılacağından bu cihazı şimdi güvenle yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musunuz?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zaten %lld etkin cihazınız var. Bunlar ileride devre dışı bırakılacağından bu cihazı şimdi güvenle yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musunuz?"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Şu anda etkin bir cihazınız yok gibi görünüyor. Bu cihazı şimdi güvenle yeniden etkinleştirebilirsiniz. Bunu yapmak istiyor musunuz?"
+                }
               }
             }
           }
@@ -6448,6 +7960,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Здається, у вас зараз немає активних пристроїв. Ви можете безпечно реактивувати цей пристрій зараз. Ви бажаєте це зробити?"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "У вас вже є %lld активні пристрої. Оскільки їх буде деактивовано в майбутньому, ви можете безпечно реактивувати цей пристрій зараз. Ви бажаєте це зробити?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "У вас вже є %lld активних пристроїв. Оскільки їх буде деактивовано в майбутньому, ви можете безпечно реактивувати цей пристрій зараз. Ви бажаєте це зробити?"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn đã có một thiết bị đang hoạt động. Vì thiết bị này sẽ bị hủy kích hoạt trong tương lai, bạn có thể kích hoạt lại thiết bị này ngay bây giờ. Bạn có muốn làm điều đó không?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn đã có %lld thiết bị đang hoạt động. Vì chúng sẽ bị hủy kích hoạt trong tương lai, bạn có thể kích hoạt lại thiết bị này ngay bây giờ. Bạn có muốn làm điều đó không?"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Có vẻ như bạn hiện không có thiết bị nào đang hoạt động. Bạn có thể kích hoạt lại thiết bị này ngay bây giờ. Bạn có muốn làm điều đó không?"
                 }
               }
             }
@@ -6525,6 +8073,12 @@
             "value": "이 장치는 지금 다시 활성화할 수 있습니다. 🎉"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To urządzenie można teraz ponownie aktywować 🙌"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6543,10 +8097,22 @@
             "value": "Это устройство можно реактивировать сейчас 🙌"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz şimdi yeniden etkinleştirilebilir 🙌"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей пристрій можна реактивувати зараз 🙌"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị này có thể được kích hoạt lại ngay bây giờ 🙌"
           }
         },
         "zh-Hans": {
@@ -6601,6 +8167,12 @@
             "value": "여러 기기에서 동시에 Olvid를 사용할 수 있도록 해주는 멀티 기기 기능을 구독하지 않은 것으로 보입니다. 이 기기를 활성화하려면 다른 기기를 비활성화해야 합니다.\n\n그렇게 하시려면 아래 목록에서 비활성화할 기기를 선택하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wygląda na to, że nie masz subskrypcji funkcji wielu urządzeń, która pozwala korzystać z Olvid na kilku urządzeniach jednocześnie. Aktywacja tego urządzenia wymaga dezaktywacji innego z twoich urządzeń.\n\nJeśli chcesz to zrobić, wybierz z poniższej listy urządzenie do dezaktywacji."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6619,10 +8191,22 @@
             "value": "Похоже, вы не подключили функцию использования Olvid на нескольких устройствах одновременно. Активация этого устройства потребует деактивации другого вашего устройства.\n\nЕсли вы хотите это сделать, выберите устройство, которое хотите деактивировать, из списка ниже."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvid'i aynı anda birden fazla cihazda kullanmanızı sağlayan çoklu cihaz özelliğine abone olmadığınız anlaşılıyor. Bu cihazı etkinleştirmek için diğer cihazlarınızdan birini devre dışı bırakmanız gerekir.\n\nBunu yapmak istiyorsanız lütfen aşağıdaki listeden devre dışı bırakmak istediğiniz cihazı seçin."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви, здається, не підписалися на функцію використання на багатьох пристроях, яка дозволяє використовувати Olvid одночасно на кількох пристроях. Активація цього пристрою вимагає деактивації іншого вашого пристрою.\n\nЯкщо ви бажаєте це зробити, будь ласка, виберіть пристрій, який ви хочете деактивувати зі списку нижче."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có vẻ như bạn chưa đăng ký tính năng đa thiết bị, cho phép sử dụng Olvid trên nhiều thiết bị cùng lúc. Việc kích hoạt thiết bị này sẽ yêu cầu tắt một thiết bị khác của bạn.\n\nNếu bạn muốn làm như vậy, vui lòng chọn thiết bị bạn muốn tắt từ danh sách bên dưới."
           }
         },
         "zh-Hans": {
@@ -6679,6 +8263,12 @@
             "value": "비활성화할 장치를 선택하세요."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybierz urządzenie do dezaktywacji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6697,10 +8287,22 @@
             "value": "Выберите устройство, которое будет деактивировано"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devre dışı bırakılacak cihazı seçin"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Оберіть пристрій, який буде деактивовано"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn thiết bị bạn muốn tắt."
           }
         },
         "zh-Hans": {
@@ -6755,6 +8357,12 @@
             "value": "이 장치를 활성 상태로 유지하고 다른 장치의 활성 상태를 해제하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozostawić urządzenie aktywne i dezaktywować inne?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6773,10 +8381,22 @@
             "value": "Поддерживать устройство активным и отключить другое?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz etkin tutulsun ve diğer cihaz devre dışı bırakılsın mı?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Чи залишити пристрій активним та деактивувати інший?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục kích hoạt thiết bị này và tắt thiết bị khác?"
           }
         },
         "zh-Hans": {
@@ -6833,6 +8453,12 @@
             "value": "귀하의 기기 \"%@\"를 다시 활성화할 수 있는지 확인하는 동안 잠시만 기다려 주십시오..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poczekaj, sprawdzamy, czy twoje urządzenie „%@” można ponownie aktywować..."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6851,10 +8477,22 @@
             "value": "Пожалуйста, подождите, пока мы проверяем, можно ли реактивировать ваше устройство \"%@\"..."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%@\" cihazınızın yeniden etkinleştirilip etkinleştirilemeyeceği kontrol edilirken lütfen bekleyin..."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Будь ласка, зачекайте, поки ми перевіряємо, чи можна реактивувати ваш пристрій \"%@\"..."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng chờ trong khi chúng tôi kiểm tra xem thiết bị \"%@\" của bạn có thể được kích hoạt lại hay không..."
           }
         },
         "zh-Hans": {
@@ -6911,6 +8549,12 @@
             "value": "이 장치에 이미 연결되어 있습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To urządzenie jest już osiągalne"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -6929,10 +8573,22 @@
             "value": "Это устройство уже доступно"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaza zaten ulaşılabiliyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей пристрій вже доступний"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị này đã có thể liên lạc được"
           }
         },
         "zh-Hans": {
@@ -6989,6 +8645,12 @@
             "value": "이 장치에 연결하려면 보안 채널이 필요합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aby połączyć się z tym urządzeniem, wymagany jest bezpieczny kanał"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7007,10 +8669,22 @@
             "value": "Для связи с этим устройством требуется защищенный канал."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaza ulaşmak için güvenli bir kanal gerekiyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Для зв’язку з цим пристроєм необхідний захищений канал."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần có một kênh bảo mật để kết nối với thiết bị này."
           }
         },
         "zh-Hans": {
@@ -7065,6 +8739,12 @@
             "value": "이 기기에서 내 프로필을 다시 활성화"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktywuj ponownie mój profil na tym urządzeniu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7083,10 +8763,22 @@
             "value": "Активировать мой профиль на этом устройстве"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilimi bu cihazda yeniden etkinleştir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Активувати мій профіль на цьому пристрої"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kích hoạt lại hồ sơ của tôi trên thiết bị này"
           }
         },
         "zh-Hans": {
@@ -7141,6 +8833,12 @@
             "value": "안전한 연결을 다시 설정합니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odtwórz bezpieczny kanał"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7159,10 +8857,22 @@
             "value": "Восстановить защищенный канал"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanalı yeniden oluştur"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновити захищений канал"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo lại kênh liên lạc an toàn"
           }
         },
         "zh-Hans": {
@@ -7217,6 +8927,12 @@
             "value": "보안 채널을 다시 설정 중..."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odtwarzanie bezpiecznego kanału…"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7235,10 +8951,22 @@
             "value": "Восстановление защищенного канала..."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal yeniden oluşturuluyor…"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Відновлення безпечного каналу..."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang thiết lập lại kênh bảo mật..."
           }
         },
         "zh-Hans": {
@@ -7293,6 +9021,12 @@
             "value": "ID 공급자 제거"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usuń dostawcę tożsamości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7311,10 +9045,22 @@
             "value": "Удалить поставщика удостоверений"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik sağlayıcısını kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Видалити провайдера ідентифікації"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa nhà cung cấp danh tính"
           }
         },
         "zh-Hans": {
@@ -7369,6 +9115,12 @@
             "value": "지금 비활성화"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dezaktywuj teraz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7387,10 +9139,22 @@
             "value": "Отключить сейчас"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şimdi devre dışı bırak"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Вимкнути зараз"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tắt ngay"
           }
         },
         "zh-Hans": {
@@ -7447,6 +9211,12 @@
             "value": "이름 변경"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmień nazwę"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7465,10 +9235,22 @@
             "value": "Переименовать"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden adlandır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Перейменувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đổi tên"
           }
         },
         "zh-Hans": {
@@ -7525,6 +9307,12 @@
             "value": "프로필 사진 변경"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zastąp zdjęcie profilowe"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7543,10 +9331,22 @@
             "value": "Заменить фото профиля"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil fotoğrafını değiştir"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Замінити фото профілю"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thay đổi ảnh đại diện"
           }
         },
         "zh-Hans": {
@@ -7601,6 +9401,12 @@
             "value": "저장"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zapisz"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7619,10 +9425,22 @@
             "value": "Сохранить"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydet"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Зберегти"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lưu"
           }
         },
         "zh-Hans": {
@@ -7677,6 +9495,12 @@
             "value": "분실된 기기를 검색합니다"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyszukaj brakujące urządzenia"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7695,10 +9519,22 @@
             "value": "Поиск неподключенных устройств"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksik cihazları ara"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Пошук відсутніх пристроїв"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tìm kiếm các thiết bị bị thiếu"
           }
         },
         "zh-Hans": {
@@ -7755,6 +9591,12 @@
             "value": "안전한 채널이 생성되었습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utworzono bezpieczny kanał"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7773,10 +9615,22 @@
             "value": "Безопасный канал создан"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturuldu"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Захищений канал створено"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kênh bảo mật đã được tạo"
           }
         },
         "zh-Hans": {
@@ -7833,6 +9687,12 @@
             "value": "안전한 채널 생성 중"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trwa tworzenie bezpiecznego kanału"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7851,10 +9711,22 @@
             "value": "Создание защищенного канала в процессе"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal oluşturuluyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Створення захищеного каналу в процесі"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tạo kênh bảo mật..."
           }
         },
         "zh-Hans": {
@@ -7909,6 +9781,12 @@
             "value": "이 장치"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To urządzenie"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -7927,10 +9805,22 @@
             "value": "Это устройство"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu cihaz"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Цей пристрій"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị này"
           }
         },
         "zh-Hans": {
@@ -7987,6 +9877,12 @@
             "value": "안전 채널 상태를 확인할 수 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stan bezpiecznego kanału jest niedostępny."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8005,10 +9901,22 @@
             "value": "Статус защищенного канала недоступен."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenli kanal durumu kullanılamıyor."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Статус безпечного каналу недоступний."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thể xác định trạng thái kênh bảo mật."
           }
         },
         "zh-Hans": {
@@ -8065,6 +9973,12 @@
             "value": "프로필 정보 보기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż informacje o profilu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8083,10 +9997,22 @@
             "value": "Показать информацию о профиле"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil bilgilerini göster"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати інформацію про профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị thông tin hồ sơ"
           }
         },
         "zh-Hans": {
@@ -8143,6 +10069,12 @@
             "value": "서명 날짜"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data podpisu"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8161,10 +10093,22 @@
             "value": "Дата подписи"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İmza tarihi"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Дата підпису"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày ký"
           }
         },
         "zh-Hans": {
@@ -8219,6 +10163,12 @@
             "value": "구독 상태"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stan subskrypcji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8237,10 +10187,22 @@
             "value": "Статус подписки"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik durumu"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Статус підписки"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trạng thái đăng ký"
           }
         },
         "zh-Hans": {
@@ -8295,6 +10257,12 @@
             "value": "ID 기반 인증 지원"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obsługiwane uwierzytelnianie na podstawie tożsamości"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8313,10 +10281,22 @@
             "value": "Аутентификация на основе идентификатора поддерживается"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimlik tabanlı kimlik doğrulama destekleniyor"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Аутентифікація на основі ідентифікатора підтримується"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hỗ trợ xác thực dựa trên ID"
           }
         },
         "zh-Hans": {
@@ -8371,6 +10351,12 @@
             "value": "구독 요금제 보기"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zobacz plany subskrypcji"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8389,10 +10375,22 @@
             "value": "Посмотреть тарифные планы"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonelik planlarını gör"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Переглянути тарифні плани"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem các gói đăng ký"
           }
         },
         "zh-Hans": {
@@ -8449,6 +10447,12 @@
             "value": "회사"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firma"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8467,10 +10471,22 @@
             "value": "Компания"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şirket"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Компанія"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Công ty"
           }
         },
         "zh-Hans": {
@@ -8527,6 +10543,12 @@
             "value": "이름"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imię"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8545,10 +10567,22 @@
             "value": "Имя"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ad"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ім'я"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên"
           }
         },
         "zh-Hans": {
@@ -8605,6 +10639,12 @@
             "value": "성"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nazwisko"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8623,10 +10663,22 @@
             "value": "Фамилия"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyadı"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Прізвище"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Họ"
           }
         },
         "zh-Hans": {
@@ -8683,6 +10735,12 @@
             "value": "위치"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stanowisko"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8701,10 +10759,22 @@
             "value": "Позиция"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unvan"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Позиція"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vị trí"
           }
         },
         "zh-Hans": {
@@ -8761,6 +10831,12 @@
             "value": "숨김 해제하지 마세요"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozostaw ukryty"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8779,10 +10855,22 @@
             "value": "Не показывать"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gizli kalsın"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Не показувати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không ẩn đi"
           }
         },
         "zh-Hans": {
@@ -8839,6 +10927,12 @@
             "value": "숨김 해제"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odkryj"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8857,10 +10951,22 @@
             "value": "Показать"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gizlemeyi kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị lại"
           }
         },
         "zh-Hans": {
@@ -8917,6 +11023,12 @@
             "value": "프로필을 다시 보이게 하려고 합니다. 이렇게 하면 프로필 전환기에 프로필이 표시되며, 특정 비밀번호를 입력할 필요가 없습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamierzasz odkryć profil. Jeśli to zrobisz, profil będzie zawsze widoczny w przełączniku profili i nie będzie wymagać żadnego hasła."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -8935,10 +11047,22 @@
             "value": "Вы собираетесь скрыть профиль. Если вы это сделаете, профиль будет систематически отображаться в переключателе профилей, без необходимости использования пароля."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir profilin gizlemesini kaldırmak üzeresiniz. Bunu yaparsanız profil, özel bir şifre gerekmeden profil değiştiricide her zaman gösterilir."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ви збираєтесь зробити профіль видимим. Якщо ви це зробите, профіль буде систематично відображатися в перемикачі профілів, без потреби в конкретному паролі."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn sắp hiển thị lại một hồ sơ. Nếu bạn làm vậy, hồ sơ đó sẽ được hiển thị một cách tự động trong trình chuyển đổi hồ sơ, không cần mật khẩu đặc biệt."
           }
         },
         "zh-Hans": {
@@ -8995,6 +11119,12 @@
             "value": "이 프로필을 다시 보이게 하시겠습니까?"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odkryć ten profil?"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9013,10 +11143,22 @@
             "value": "Показать этот профиль?"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profilin gizlemesi kaldırılsın mı?"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати цей профіль?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị lại hồ sơ này?"
           }
         },
         "zh-Hans": {
@@ -9073,6 +11215,12 @@
             "value": "이 프로필을 다시 표시"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odkryj ten profil"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9091,10 +11239,22 @@
             "value": "Показать этот профиль"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu profilin gizlemesini kaldır"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Показати цей профіль"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiển thị lại hồ sơ này"
           }
         },
         "zh-Hans": {
@@ -9151,6 +11311,12 @@
             "value": "예"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tak"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9169,10 +11335,22 @@
             "value": "Да"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Так"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có"
           }
         },
         "zh-Hans": {
@@ -9355,6 +11533,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Twoje drugie urządzenie"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Twoje inne urządzenia (%lld)"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Twoje inne urządzenia (%lld)"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Twoje inne urządzenia (%lld)"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Brak innych urządzeń"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -9423,6 +11637,42 @@
                   "state": "translated",
                   "value": "Других устройств нет"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ваши другие %lld устройства"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ваши другие %lld устройств"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Diğer cihazınız"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Diğer %lld cihazınız"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Başka cihaz yok"
+                }
               }
             }
           }
@@ -9446,6 +11696,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Інших пристроїв немає"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ваші інші %lld пристрої"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ваші інші %lld пристроїв"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Thiết bị khác của bạn"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Các thiết bị khác của bạn (%lld)"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Không có thiết bị nào khác"
                 }
               }
             }
@@ -9523,6 +11809,12 @@
             "value": "귀하의 프로필이 이제 숨겨졌습니다."
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twój profil jest teraz ukryty."
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9541,10 +11833,22 @@
             "value": "Ваш профиль теперь скрыт."
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiliniz artık gizli."
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Ваш профіль тепер приховано."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ của bạn hiện đã được ẩn."
           }
         },
         "zh-Hans": {
@@ -9725,6 +12029,42 @@
             }
           }
         },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Masz jedno urządzenie"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Masz %lld urządzenia"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Masz %lld urządzenia"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Masz %lld urządzeń"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nie masz żadnego urządzenia"
+                }
+              }
+            }
+          }
+        },
         "pt-BR": {
           "variations": {
             "plural": {
@@ -9793,6 +12133,42 @@
                   "state": "translated",
                   "value": "У вас нет устройств"
                 }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "У вас %lld устройства"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "У вас %lld устройств"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bir cihazınız var"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld cihazınız var"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hiç cihazınız yok"
+                }
               }
             }
           }
@@ -9816,6 +12192,42 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "У вас немає пристроїв"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "У вас %lld пристрої"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "У вас %lld пристроїв"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn có một thiết bị"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn có %lld thiết bị"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bạn chưa có thiết bị nào"
                 }
               }
             }
@@ -9891,6 +12303,12 @@
             "value": "예"
           }
         },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tak"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -9909,16 +12327,123 @@
             "value": "Да"
           }
         },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evet"
+          }
+        },
         "uk": {
           "stringUnit": {
             "state": "translated",
             "value": "Так"
           }
         },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có"
+          }
+        },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "是"
+          }
+        }
+      }
+    },
+    "Server": {
+      "comment": "A label displayed next to the server URL of an owned identity.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serveur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サーバー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "서버"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serwer"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidor"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sunucu"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy chủ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务器"
           }
         }
       }

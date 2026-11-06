@@ -173,7 +173,9 @@ extension ObvDiscussionsArchivedListViewAppDataSource {
             self.initialPredicateWhenUserPerformsSearch = PersistedDiscussion.getPredicateForAllArchivedDiscussionsForOwnedIdentity(ownedCryptoId: ownedCryptoId)
             let frc = PersistedDiscussion.getFetchedResultsControllerWithPinnedDiscussionsSplitIntoSections(predicate: self.initialPredicateWhenUserDoesNotPerformSearch, within: context)
             super.init(frc: frc)
-            self.updateWithSearchText(searchStatus: .notPerformingSearch, doPerformFetch: false)
+            // A stream created while a search is running must start filtered: the view requests its streams again each time it appears, and the search
+            // text is still on screen when it does. `askedBy` is what decides that a text is a search, here as in the view.
+            self.updateWithSearchText(searchStatus: .askedBy(searchText: initialSearchText ?? ""), doPerformFetch: false)
         }
 
         func updateWithSearchText(searchStatus: ObvDiscussionsListViewModel.SearchStatus, doPerformFetch: Bool) {

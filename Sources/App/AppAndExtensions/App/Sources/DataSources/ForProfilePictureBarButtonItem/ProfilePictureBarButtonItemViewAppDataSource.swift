@@ -154,8 +154,20 @@ extension ProfilePictureBarButtonItemViewAppDataSource {
         // Methods required to update the red dot when appropriate
         
         func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {
+            await refreshModelUnlessThisProfileIsGone()
+        }
+
+
+        /// Refetches and yields, treating *this profile no longer exists* as an ordinary outcome rather than a fault.
+        ///
+        /// Both callers are told that *some* profile changed, and one of those changes is this very profile being deleted — whereupon the fetched results
+        /// controller has nothing to build a model from. There is nothing to show and the button is on its way out with the profile, so the answer is to stop.
+        /// Asserting instead is a crash on the ordinary path of deleting a profile, in every Debug build.
+        private func refreshModelUnlessThisProfileIsGone() async {
             do {
                 try await getFetchedObjectsAndYieldModelIfNeeded()
+            } catch ObvError.couldNotFindPersistedObvOwnedIdentity {
+                return
             } catch {
                 assertionFailure(error.localizedDescription)
             }
@@ -169,11 +181,7 @@ extension ProfilePictureBarButtonItemViewAppDataSource {
                     guard self?.ownedCryptoId != concernedOwnedIdentity else { return }
                     Task { [weak self] in
                         guard let self else { return }
-                        do {
-                            try await getFetchedObjectsAndYieldModelIfNeeded()
-                        } catch {
-                            assertionFailure(error.localizedDescription)
-                        }
+                        await refreshModelUnlessThisProfileIsGone()
                     }
                 },
             ])

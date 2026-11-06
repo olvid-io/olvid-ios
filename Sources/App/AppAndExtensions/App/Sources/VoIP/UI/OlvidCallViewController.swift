@@ -94,9 +94,9 @@ extension OlvidCallViewController: OlvidCallAddParticipantsActionsProtocol {
             multipleContactsVC.navigationItem.searchController = multipleContactsVC.searchController
             multipleContactsVC.navigationItem.hidesSearchBarWhenScrolling = false
 
-            multipleContactsVC.navigationItem.rightBarButtonItem = .init(systemItem: .cancel, primaryAction: .init(handler: { _ in
-                multipleContactsVC.dismiss(animated: true)
-            }))
+            multipleContactsVC.whatCancelDoes = { [weak multipleContactsVC] in
+                multipleContactsVC?.dismiss(animated: true)
+            }
 
             let nav = UINavigationController(rootViewController: multipleContactsVC)
             

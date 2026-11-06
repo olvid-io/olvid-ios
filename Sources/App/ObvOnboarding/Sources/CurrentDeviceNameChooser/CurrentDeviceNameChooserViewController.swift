@@ -32,12 +32,9 @@ final class CurrentDeviceNameChooserViewController: UIHostingController<CurrentD
         
     private weak var delegate: CurrentDeviceNameChooserViewControllerDelegate?
     
-    private let showCloseButton: Bool
-
     init(model: CurrentDeviceNameChooserView.Model, delegate: CurrentDeviceNameChooserViewControllerDelegate, showCloseButton: Bool) {
-        self.showCloseButton = showCloseButton
         let actions = CurrentDeviceNameChooserViewActions()
-        let view = CurrentDeviceNameChooserView(actions: actions, model: model)
+        let view = CurrentDeviceNameChooserView(actions: actions, model: model, showCloseButton: showCloseButton)
         super.init(rootView: view)
         self.delegate = delegate
         actions.delegate = self
@@ -71,19 +68,6 @@ final class CurrentDeviceNameChooserViewController: UIHostingController<CurrentD
     private func configureNavigation(animated: Bool) {
         navigationItem.largeTitleDisplayMode = .never
         navigationController?.setNavigationBarHidden(false, animated: animated)
-        if showCloseButton && navigationItem.rightBarButtonItem == nil {
-            let handler: UIActionHandler = { [weak self] _ in self?.closeAction() }
-            let closeButton = UIBarButtonItem(systemItem: .close, primaryAction: .init(handler: handler))
-            navigationItem.setRightBarButton(closeButton, animated: animated)
-        }
-    }
-    
-    
-    private func closeAction() {
-        Task { [weak self] in
-            guard let self else { return }
-            await delegate?.userWantsToCloseOnboarding(controller: self)
-        }
     }
 
     
@@ -91,6 +75,11 @@ final class CurrentDeviceNameChooserViewController: UIHostingController<CurrentD
 
     func userDidChooseCurrentDeviceName(deviceName: String) async {
         await delegate?.userDidChooseCurrentDeviceName(controller: self, deviceName: deviceName)
+    }
+
+    
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding(controller: self)
     }
 
 }
@@ -104,6 +93,10 @@ private final class CurrentDeviceNameChooserViewActions: CurrentDeviceNameChoose
         
     func userDidChooseCurrentDeviceName(deviceName: String) async {
         await delegate?.userDidChooseCurrentDeviceName(deviceName: deviceName)
+    }
+    
+    func userWantsToCloseOnboarding() async {
+        await delegate?.userWantsToCloseOnboarding()
     }
     
 }

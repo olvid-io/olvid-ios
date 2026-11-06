@@ -59,6 +59,9 @@ class ObvFlowController: UINavigationController {
 
     let delegatesStack = ObvFlowControllerDelegatesStack()
 
+    /// Stops the discussions of this stack from sliding on a Mac, including for the moves UIKit makes on its own. See `TheTransitionBetweenDiscussions`.
+    private let theTransitionBetweenDiscussions = TheTransitionBetweenDiscussions()
+
     private(set) lazy var appNavigationRouter: ObvAppNavigationRouter = {
         .init(dataSources: dataSources.appNavigationRouterDataSources,
               actions: self,
@@ -79,8 +82,9 @@ class ObvFlowController: UINavigationController {
         self.doAddFloatingButton = doAddFloatingButton
         
         super.init(rootViewController: UIViewController())
-        
+
         self.delegate = delegatesStack
+        self.delegatesStack.addDelegate(theTransitionBetweenDiscussions)
 
     }
     
@@ -96,6 +100,28 @@ class ObvFlowController: UINavigationController {
             guard newValue is ObvFlowControllerDelegatesStack else { assertionFailure(); return }
             super.delegate = newValue
         }
+    }
+
+    // MARK: - The interactive pop gesture
+
+    /// What the `gestureRecognizerShouldBegin(_:)` of every flow controller answers, so that the four of them say the same thing.
+    ///
+    /// The first test is why these flow controllers are the gesture's delegate at all: since iOS 17 (18 for the discussions flow), UIKit stops offering the
+    /// interactive pop unless somebody answers for it, and `viewControllers.count > 1` is the answer that restores it.
+    ///
+    /// The second test refuses the swipe on a Mac wherever the transition answers, which is when a discussion is on *either* side of the move: the screen at
+    /// the top of the stack, and the one a pop would reveal under it — a contact's details pushed on top of a discussion is the second case. UIKit refuses
+    /// such a swipe by itself when the delegate returns an animation controller with no interaction controller, there being nothing for a finger to scrub
+    /// through, but the test above takes that refusal away: the swipe would begin and run to completion from its first millimetre. Leaving by the back
+    /// button, ⌘0 or another discussion is unaffected. See `TheTransitionBetweenDiscussions`.
+    @MainActor
+    func theInteractivePopMayBegin() -> Bool {
+        guard viewControllers.count > 1 else { return false }
+        if !TheTransitionBetweenDiscussions.isAnimated {
+            let bothSidesOfThePop = viewControllers.suffix(2)
+            if bothSidesOfThePop.contains(where: { $0 is any SomeSingleDiscussionViewController }) { return false }
+        }
+        return true
     }
 
     // MARK: - Switching current owned identity
@@ -198,53 +224,6 @@ extension ObvFlowController {
 }
 
 
-// MARK: - Showing/Hiding SnackBar
-
-extension ObvFlowController {
-    
-    func showSnackBar(with category: OlvidSnackBarCategory, currentOwnedCryptoId: ObvCryptoId, completion: @escaping () -> Void) {
-    
-        removeSnackBar { [weak self] in
-            guard let _self = self else { completion(); return }
-            guard let firstVC = _self.children.first else { completion(); return }
-            let snackBar = OlvidSnackBarView()
-            snackBar.alpha = 0.0
-            snackBar.configure(with: category, ownedCryptoId: currentOwnedCryptoId)
-            firstVC.view.addSubview(snackBar)
-            snackBar.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                snackBar.trailingAnchor.constraint(equalTo: firstVC.view.trailingAnchor),
-                snackBar.bottomAnchor.constraint(equalTo: firstVC.view.safeAreaLayoutGuide.bottomAnchor),
-                snackBar.leadingAnchor.constraint(equalTo: firstVC.view.leadingAnchor),
-            ])
-            UIView.animate(withDuration: 0.3) {
-                snackBar.alpha = 1.0
-            } completion: { _ in
-                completion()
-            }
-
-        }
-        
-    }
-    
-    
-    func removeSnackBar(completion: @escaping () -> Void) {
-        guard let firstVC = children.first else { completion(); return }
-        guard let snackBar = firstVC.view.subviews.compactMap({ $0 as? OlvidSnackBarView }).first else {
-            completion()
-            return
-        }
-        UIView.animate(withDuration: 0.3) {
-            snackBar.alpha = 0.0
-        } completion: { _ in
-            snackBar.removeFromSuperview()
-            completion()
-        }
-
-    }
-    
-}
-
 
 // MARK: - Implementing PublishedDetailsValidationViewActionsProtocol
 
@@ -300,7 +279,7 @@ extension ObvFlowController: SelectUsersToAddViewActionsForEdition {
                             assertionFailure()
                             throw ObvFlowControllerError.unexpectedOwnedCryptoId
                         }
-                        return contact.cryptoId
+                        return try contact.cryptoId
                     }
                 }
             
@@ -458,7 +437,7 @@ extension ObvFlowController: SelectUsersToRemoveViewActions {
                         assertionFailure()
                         throw ObvFlowControllerError.unexpectedOwnedCryptoId
                     }
-                    return contact.cryptoId
+                    return try contact.cryptoId
                 case .objectIDOfPersistedPendingGroupMember(let objectID):
                     let objectID = TypeSafeManagedObjectID<PersistedPendingGroupMember>(objectID: objectID)
                     guard let pendingMember = try PersistedPendingGroupMember.get(objectID: objectID, within: ObvStack.shared.viewContext) else {
@@ -469,7 +448,7 @@ extension ObvFlowController: SelectUsersToRemoveViewActions {
                         assertionFailure()
                         throw ObvFlowControllerError.unexpectedOwnedCryptoId
                     }
-                    return pendingMember.cryptoId
+                    return try pendingMember.cryptoId
                 }
             }
             
@@ -510,7 +489,7 @@ extension ObvFlowController: SelectUsersToRemoveViewActions {
                         assertionFailure()
                         throw ObvFlowControllerError.groupMemberNotFound
                     }
-                    let cryptoId = groupMemberToRemove.cryptoId
+                    let cryptoId = try groupMemberToRemove.userIdentifier.contactCryptoId
                     return .memberRemoved(contactCryptoId: cryptoId)
                 }
             })
@@ -675,7 +654,11 @@ extension ObvFlowController: ObvSingleContactViewActions {
     }
 
     
-    func userWantsToRemoveContactFromTheirContacts(_ view: ObvSingleContact.ObvSingleContactView, contactIdentifier: ObvTypes.ObvContactIdentifier, contactDeletionType: ObvSingleContact.ObvSingleContactView.Model.ContactDeletionType) async throws {
+    func userWantsToRemoveContactFromTheirContacts(
+        _ view: ObvSingleContact.ObvSingleContactView,
+        contactIdentifier: ObvTypes.ObvContactIdentifier,
+        contactDeletionType: ObvSingleContact.ObvSingleContactView.Model.ContactDeletionType
+    ) async throws {
         
         assert(Thread.isMainThread)
 
@@ -700,6 +683,18 @@ extension ObvFlowController: ObvSingleContactViewActions {
                     assertionFailure()
                     throw ObvFlowControllerError.inappropriateContactDeletionType
                 }
+                
+                // The other owned devices are told that the user removed this contact: an Android device only learns it from the sync atom.
+                // This comes before the downgrade. The downgrade also sets the flag, when the engine reports it, but sends no atom. Coming
+                // after it, this call would find the flag already set, and send nothing.
+                
+                do {
+                    try await flowDelegate?.userWantsToStopSuggestingContact(self, contactIdentifier: contactIdentifier)
+                } catch {
+                    Self.logger.fault("Could not stop suggesting a contact the user removed: \(error, privacy: .public)")
+                }
+                
+                // Request the downgrade to the engine.
                 
                 try await obvEngine.downgradeOneToOneContact(contactIdentifier: contactIdentifier)
 
@@ -886,9 +881,15 @@ extension ObvFlowController: EditNicknameAndCustomPictureViewControllerDelegate 
 
 extension ObvFlowController: SingleDiscussionViewControllerDelegate {
     
-    func userWantsToForwardMessage(_ vc: any SomeSingleDiscussionViewController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
+    func userWantsToForwardMessages(_ vc: any SomeSingleDiscussionViewController, identifiersOfMessagesToForward: [ObvMessageAppIdentifier], identifiersOfDiscussionsWhereMessagesShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws {
         guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
-        try await flowDelegate.userWantsToForwardMessage(self, identifierOfMessageToForwad: identifierOfMessageToForwad, identifiersOfDiscussionsWhereMessageShouldBeForwarded: identifiersOfDiscussionsWhereMessageShouldBeForwarded)
+        try await flowDelegate.userWantsToForwardMessages(self, identifiersOfMessagesToForward: identifiersOfMessagesToForward, identifiersOfDiscussionsWhereMessagesShouldBeForwarded: identifiersOfDiscussionsWhereMessagesShouldBeForwarded)
+    }
+
+
+    func userWantsToDeleteMessages(_ vc: any SomeSingleDiscussionViewController, persistedMessageObjectIDs: Set<NSManagedObjectID>, deletionType: DeletionType) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        try await flowDelegate.userWantsToDeleteMessages(self, persistedMessageObjectIDs: persistedMessageObjectIDs, deletionType: deletionType)
     }
     
     
@@ -902,8 +903,14 @@ extension ObvFlowController: SingleDiscussionViewControllerDelegate {
         guard let flowDelegate else { assertionFailure(); return }
         try await flowDelegate.userWantsToDeleteDraftAttachment(self, draftFyleJoinObjectID: draftFyleJoinObjectID)
     }
-    
-    func userTappedTitleOfDiscussion(_ vc: NewSingleDiscussionViewController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
+
+    func userWantsToChangeTheMediaFormatOfTheDraft(_ singleDiscussionViewController: SomeSingleDiscussionViewController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, format: ObvMediaFormat) async throws {
+        guard let flowDelegate else { assertionFailure(); return }
+        try await flowDelegate.userWantsToChangeTheMediaFormatOfTheDraft(self, draftObjectID: draftObjectID, format: format)
+    }
+
+
+    func userTappedTitleOfDiscussion(_ vc: SomeSingleDiscussionViewController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
         guard let flowDelegate else { assertionFailure(); return }
         do {
             
@@ -959,6 +966,14 @@ extension ObvFlowController: SingleDiscussionViewControllerDelegate {
     }
         
     
+    /// Shows the reader a contact, named by its identifier — see `SingleDiscussionViewControllerDelegate`. The same destination as
+    /// `userDidTapOnContactImage(contactObjectID:)` below, without the fetch that one needs to arrive at this identifier.
+    func userWantsToSeeAContact(_ vc: SomeSingleDiscussionViewController, contactIdentifier: ObvContactIdentifier) {
+        assert(Thread.isMainThread)
+        appNavigationRouter.presentNavigationStack(root: .contactDetails(contactIdentifier: contactIdentifier), on: self)
+    }
+
+
     func userDidTapOnContactImage(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) {
         
         assert(Thread.isMainThread)
@@ -1147,14 +1162,27 @@ extension ObvFlowController: SingleDiscussionViewControllerDelegate {
     
     func discussionViewWillAppear(_ singleDiscussionViewController: any SomeSingleDiscussionViewController) {
         guard let discussionId = singleDiscussionViewController.discussionId else { return }
-        OlvidUserActivitySingleton.shared.switchCurrentDiscussion(to: discussionId, viewController: self)
+        discussionAppeared(discussionIdentifier: discussionId)
     }
 
-    
+
     func discussionViewWillDisappear(_ singleDiscussionViewController: any SomeSingleDiscussionViewController) {
         guard let discussionId = singleDiscussionViewController.discussionId else { return }
+        discussionDisappeared(discussionIdentifier: discussionId)
+    }
+
+
+    /// What the two above do, given the identifier they read from their sender — and what the SwiftUI screen calls directly, having no controller to offer once its
+    /// view has gone. The `viewController` the singleton is given is *this* flow controller in either case, as it always was.
+    func discussionAppeared(discussionIdentifier: ObvDiscussionIdentifier) {
+        OlvidUserActivitySingleton.shared.switchCurrentDiscussion(to: discussionIdentifier, viewController: self)
+    }
+
+
+    func discussionDisappeared(discussionIdentifier: ObvDiscussionIdentifier) {
         guard let currentUserActivity = OlvidUserActivitySingleton.shared.currentUserActivity else { return }
-        if currentUserActivity.currentDiscussion == discussionId {
+        // Only the discussion that *is* current may give the claim up: a screen going away after another has already taken it must not clear it.
+        if currentUserActivity.currentDiscussion == discussionIdentifier {
             OlvidUserActivitySingleton.shared.switchCurrentDiscussion(to: nil, viewController: self)
         }
     }
@@ -1241,20 +1269,6 @@ extension ObvFlowController {
     }
 
     
-    /// Helper method when a discussion gets deleted.
-    func refreshAllSingleDiscussionViewControllerForDiscussion(_ discussion: PersistedDiscussion) async throws {
-        let newStack = try self.viewControllers.compactMap { viewController in
-            guard let someSingleDiscussionVC = viewController as? SomeSingleDiscussionViewController else { return viewController }
-            if someSingleDiscussionVC.discussionPermanentID != discussion.discussionPermanentID {
-                return someSingleDiscussionVC
-            } else {
-                return try getNewSingleDiscussionViewController(discussionObjectID: discussion.typedObjectID, initialScroll: .newMessageSystemOrLastMessage)
-            }
-        }
-        self.setViewControllers(newStack, animated: false)
-    }
-
-    
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion) {
         Task {
             await userWantsToNavigateToDiscussion(discussionObjectID: discussion.typedObjectID, messageToShowObjectID: nil)
@@ -1267,26 +1281,65 @@ extension ObvFlowController {
             guard let someSingleDiscussionVC = viewController as? SomeSingleDiscussionViewController else { return viewController }
             return (someSingleDiscussionVC.discussionPermanentID == discussionPermanentID) ? nil : someSingleDiscussionVC
         }
-        self.setViewControllers(newStack, animated: true)
+        // Leaving a deleted discussion is a move out of a discussion, so it does not slide on a Mac. See `TheTransitionBetweenDiscussions`.
+        self.setViewControllers(newStack, animated: TheTransitionBetweenDiscussions.isAnimated)
     }
 
     
+    /// Returns the view controller of the single discussion screen. In production, this is always the ``NewSingleDiscussionViewController``. When
+    /// beta options are available, the user can set the ``discussionLayoutType`` setting to `SwiftUI` so as to get the full SwiftUI implementation
+    /// currently under development.
     func getNewSingleDiscussionViewController(
         discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>,
-        initialScroll: NewSingleDiscussionViewController.InitialScroll) throws -> NewSingleDiscussionViewController {
+        initialScroll: NewSingleDiscussionViewController.InitialScroll) throws -> SomeSingleDiscussionViewController {
             guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else {
                 throw ObvFlowControllerError.couldNotFindDiscussion
             }
             assert(Thread.isMainThread)
-            let singleDiscussionVC = try NewSingleDiscussionViewController(
+            let singleDiscussionVC: SomeSingleDiscussionViewController
+            switch ObvMessengerSettings.Interface.discussionLayoutType {
+            case .swiftUI:
+                // **The message to show is passed on**, which it was not: the SwiftUI branch used to drop `initialScroll` entirely, so opening a notification or
+                // picking a result out of the global search landed at the end of the discussion instead of on the message asked for. Nothing warned, the parameter
+                // simply going unread.
+                let messageToScrollTo: TypeSafeManagedObjectID<PersistedMessage>?
+                switch initialScroll {
+                case .specificMessage(let messageObjectID):
+                    messageToScrollTo = messageObjectID
+                case .newMessageSystemOrLastMessage:
+                    messageToScrollTo = nil
+                }
+                if let swiftUISingleDiscussionVC = try? SwiftUISingleDiscussionViewController(
+                    discussion: discussion,
+                    dataSources: self.dataSources.singleDiscussionViewDataSources,
+                    actions: self.dataSources.singleDiscussionViewActions,
+                    composeViewDataSources: self.dataSources.composeViewDataSources,
+                    messageToScrollTo: messageToScrollTo) {
+                    swiftUISingleDiscussionVC.delegate = self
+                    singleDiscussionVC = swiftUISingleDiscussionVC
+                } else {
+                    // The SwiftUI implementation requires a discussion identifier, which cannot be determined for a locked
+                    // discussion. In that case, we fall back to the legacy implementation.
+                    singleDiscussionVC = try self.getLegacySingleDiscussionViewController(discussion: discussion, initialScroll: initialScroll)
+                }
+            case .productionLayout:
+                singleDiscussionVC = try self.getLegacySingleDiscussionViewController(discussion: discussion, initialScroll: initialScroll)
+            }
+            singleDiscussionVC.hidesBottomBarWhenPushed = true
+            return singleDiscussionVC
+    }
+
+
+    private func getLegacySingleDiscussionViewController(
+        discussion: PersistedDiscussion,
+        initialScroll: NewSingleDiscussionViewController.InitialScroll) throws -> NewSingleDiscussionViewController {
+            return try NewSingleDiscussionViewController(
                 discussion: discussion,
                 delegate: self,
                 initialScroll: initialScroll,
                 composeViewDataSources: self.dataSources.composeViewDataSources,
                 avatarViewDataSource: self.dataSources.avatarViewDataSource,
                 messageReactionsViewDataSource: self.dataSources.messageReactionsViewDataSource)
-            singleDiscussionVC.hidesBottomBarWhenPushed = true
-            return singleDiscussionVC
     }
 
 }
@@ -1402,7 +1455,7 @@ extension ObvFlowController {
                         assertionFailure()
                         continue
                     }
-                    let contactIdentifier = ObvContactIdentifier(contactCryptoId: pendingMember.cryptoId, ownedCryptoId: try pendingMember.ownedCryptoId)
+                    let contactIdentifier = ObvContactIdentifier(contactCryptoId: try pendingMember.cryptoId, ownedCryptoId: try pendingMember.ownedCryptoId)
                     // We want to make sure the pending member is indeed a contact before returning the contact identifier
                     guard try PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) != nil else {
                         // The pending members is not a contact, we do not return a contact identifier for them
@@ -1572,7 +1625,7 @@ extension ObvFlowController {
                 assertionFailure()
                 return
             }
-            let contactCryptoIds = Set(group.contactIdentities.compactMap(\.cryptoId))
+            let contactCryptoIds = Set(group.contactIdentities.compactMap { try? $0.cryptoId })
             flowDelegate.userWantsToSelectAndCallContacts(flowController: self,
                                                           ownedCryptoId: groupIdentifier.ownedCryptoId,
                                                           contactCryptoIds: contactCryptoIds,
@@ -1743,14 +1796,18 @@ extension ObvFlowController {
             .filter { $0.discussionObjectID == discussionObjectID }
             .first
         
+        // A move between discussions does not slide on a Mac. See `TheTransitionBetweenDiscussions`.
+
+        let animated = TheTransitionBetweenDiscussions.isAnimated
+
         if let existingDiscussionVC {
-            nav.popToViewController(existingDiscussionVC, animated: true)
+            nav.popToViewController(existingDiscussionVC, animated: animated)
             if let messageToShowObjectID {
                 existingDiscussionVC.scrollTo(messageObjectID: messageToShowObjectID)
             }
         } else {
             let discussionVC = try buildSingleDiscussionVC(discussionObjectID: discussionObjectID, messageToShowObjectID: messageToShowObjectID)
-            nav.pushViewController(discussionVC, animated: true)
+            nav.pushViewController(discussionVC, animated: animated)
             // No need to explicitely scroll to the messageToShow, this is automatically done during during the discussion initialisation.
         }
         
@@ -1850,7 +1907,7 @@ extension ObvUIGroupV2.ObvGroupV2CreationRouter.ValuesOfClonedGroup {
         // userIdentifiersOfAddedUsers
         
         let contactsAmongPendingMembers = Set(persistedContactGroup.pendingMembers
-            .map({ $0.cryptoId })
+            .compactMap({ try? $0.cryptoId })
             .compactMap({ try? PersistedObvContactIdentity.get(cryptoId: $0, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .any) }))
         let candidates = persistedContactGroup.contactIdentities.union(contactsAmongPendingMembers)
         
@@ -1898,6 +1955,7 @@ protocol ObvFlowControllerDelegate: AnyObject {
     func userWantsToAddAttachmentsToDraftFromURLs(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL]) async throws
     func userWantsToUpdateDraftBodyAndMentions(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: AttributedString) async throws
     func userWantsToDeleteDraftAttachment(_ flowController: ObvFlowController, draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) async throws
+    func userWantsToChangeTheMediaFormatOfTheDraft(_ flowController: ObvFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, format: ObvMediaFormat) async throws
     func userWantsToReplyToMessage(_ flowController: ObvFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
     func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ flowController: ObvFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
     func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ flowController: ObvFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
@@ -1954,6 +2012,9 @@ protocol ObvFlowControllerDelegate: AnyObject {
     
     func userWantsToUpdatePersonalNote(_ flowController: ObvFlowController, with newText: String?, about: PersonalNoteEditorView.Model.About) async throws
     func userDidSeeNewDetailsOfContact(_ flowController: ObvFlowController, contactIdentifier: ObvContactIdentifier)
+    func userWantsToStopSuggestingContact(_ flowController: ObvFlowController, contactIdentifier: ObvContactIdentifier) async throws
+    func contactSuggestionsWereSeen(_ flowController: ObvFlowController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, invitationUUIDs: Set<UUID>)
+    func contactsSuggestionsBadgeWasRecounted(_ flowController: ObvFlowController, badgeCount: Int, hasANewCard: Bool)
 
     func userWantsToReplaceTrustedDetailsByPublishedDetails(_ flowController: ObvFlowController, groupIdentifier: ObvGroupV1Identifier) async throws
 
@@ -1970,7 +2031,10 @@ protocol ObvFlowControllerDelegate: AnyObject {
 
     func userWantsToUpdateDiscussionLocalConfiguration(_ vc: ObvFlowController, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedDiscussionLocalConfiguration>) async throws
 
-    func userWantsToForwardMessage(_ vc: ObvFlowController, identifierOfMessageToForwad: ObvMessageAppIdentifier, identifiersOfDiscussionsWhereMessageShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
+    func userWantsToForwardMessages(_ vc: ObvFlowController, identifiersOfMessagesToForward: [ObvMessageAppIdentifier], identifiersOfDiscussionsWhereMessagesShouldBeForwarded: Set<ObvDiscussionIdentifier>) async throws
+
+    /// Deletes several messages of one discussion at once.
+    func userWantsToDeleteMessages(_ vc: ObvFlowController, persistedMessageObjectIDs: Set<NSManagedObjectID>, deletionType: DeletionType) async throws
 
     /// Called when the user taps the "Allow Notifications" button inside the tip card. The delegate is responsible
     /// for invoking the system authorization dialog.

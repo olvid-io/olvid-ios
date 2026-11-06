@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -64,7 +64,7 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable {
         set {
             assert(newValue != nil)
             if let value = newValue {
-                self.rawIdentityIdentity = value.cryptoId.getIdentity()
+                self.rawIdentityIdentity = value.identity
             }
             self.rawIdentity = newValue
         }
@@ -192,7 +192,10 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable {
     convenience init(obvContactDevice device: ObvContactDevice, persistedContact: PersistedObvContactIdentity, isRestoringSyncSnapshotOrBackup: Bool) throws {
         
         guard let context = persistedContact.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
-        
+
+        // The `identity` setter writes the contact's identity into `rawIdentityIdentity`, so it must be readable
+        _ = try persistedContact.cryptoId
+
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvContactDevice.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         
@@ -218,9 +221,7 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable {
     }
 
     // MARK: - For deletion
-    
-    private var contactIdentityCryptoIdForDeletion: ObvCryptoId?
-    
+
     func deleteThisDevice() throws {
         guard let context = managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
         context.delete(self)
@@ -332,11 +333,15 @@ extension PersistedObvContactDevice {
     }
     
     
+    /// **No sort descriptor, and never one naming a binary attribute.** A fetched results controller places a row *in memory* whenever one is
+    /// merged in, and it does so by sending `compare:` to the sort-descriptor values — which `NSData` does not implement, so a controller
+    /// sorting on `identifier` aborts the app as soon as a device is merged in while it already holds one. The order of these rows is read by
+    /// nobody.
     public static func getFetchedResultsController(contactDeviceIdentifier: ObvContactDeviceIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactDevice> {
         let request: NSFetchRequest<PersistedObvContactDevice> = self.fetchRequest()
         request.predicate = Predicate.withObvContactDeviceIdentifier(contactDeviceIdentifier)
         request.fetchLimit = 1
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.identifier.rawValue, ascending: true)]
+        request.sortDescriptors = []
         let frc = NSFetchedResultsController(fetchRequest: request,
                                              managedObjectContext: context,
                                              sectionNameKeyPath: nil,
@@ -345,11 +350,13 @@ extension PersistedObvContactDevice {
     }
 
     
+    /// See the comment on the controller above: no sort descriptor here either, this one being the more exposed of the two — it matches
+    /// *every* device of the contact, so a second device merged in while its screen is up is enough.
     public static func getFetchedResultsController(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactDevice> {
         let request: NSFetchRequest<PersistedObvContactDevice> = self.fetchRequest()
         request.predicate = Predicate.withContactIdentifier(contactIdentifier)
         request.fetchBatchSize = 100
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.identifier.rawValue, ascending: true)]
+        request.sortDescriptors = []
         let frc = NSFetchedResultsController(fetchRequest: request,
                                              managedObjectContext: context,
                                              sectionNameKeyPath: nil,
@@ -363,14 +370,7 @@ extension PersistedObvContactDevice {
 // MARK: - Sending notifications on change
 
 extension PersistedObvContactDevice {
-    
-    public override func prepareForDeletion() {
-        super.prepareForDeletion()
-        guard managedObjectContext?.concurrencyType != .mainQueueConcurrencyType else { return }
-        self.contactIdentityCryptoIdForDeletion = rawIdentity?.cryptoId
-    }
-    
-    
+
     public override func willSave() {
         super.willSave()
         changedKeys = Set<String>(self.changedValues().keys)

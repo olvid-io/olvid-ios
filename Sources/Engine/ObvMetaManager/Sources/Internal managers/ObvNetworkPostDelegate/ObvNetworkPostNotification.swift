@@ -137,6 +137,8 @@ public enum ObvNetworkPostNotification {
 		let name = Name.forInternalNotification(self)
 		let label = "Queue for posting \(name.rawValue) notification"
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
+		// The payload crosses to the posting queue unchecked: it is `Any`, and each notification's author decides what it may carry.
+		nonisolated(unsafe) let userInfo = self.userInfo
 		backgroundQueue.async {
 			notificationDelegate.post(name: name, userInfo: userInfo)
 		}
@@ -144,6 +146,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observeNewOutboxMessageAndAttachmentsToUpload(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, [ObvAttachmentIdentifier], FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.newOutboxMessageAndAttachmentsToUpload.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let attachmentIds = notification.userInfo!["attachmentIds"] as! [ObvAttachmentIdentifier]
@@ -154,6 +158,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observeOutboxMessageAndAttachmentsDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessageAndAttachmentsDeleted.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -163,6 +169,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observeAttachmentUploadRequestIsTakenCareOf(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentUploadRequestIsTakenCareOf.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -172,6 +180,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observePostNetworkOperationFailedSinceOwnedIdentityIsNotActive(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.postNetworkOperationFailedSinceOwnedIdentityIsNotActive.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -181,6 +191,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observeOutboxMessageWasUploaded(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, Date, Bool, Bool, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessageWasUploaded.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let timestampFromServer = notification.userInfo!["timestampFromServer"] as! Date
@@ -193,6 +205,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observeOutboxAttachmentWasAcknowledged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxAttachmentWasAcknowledged.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -202,6 +216,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping ([(messageId: ObvMessageIdentifier, timestampFromServer: Date)], FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let messageIdsAndTimestampsFromServer = notification.userInfo!["messageIdsAndTimestampsFromServer"] as! [(messageId: ObvMessageIdentifier, timestampFromServer: Date)]
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -211,6 +227,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observeOutboxMessageCouldNotBeSentToServer(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessageCouldNotBeSentToServer.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
@@ -220,6 +238,8 @@ public enum ObvNetworkPostNotification {
 
 	public static func observeDeletedOutboxMessageWasCreated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.deletedOutboxMessageWasCreated.name
+		// Handed to the observation unchecked: the block is called on the delivery queue, which its author chose.
+		nonisolated(unsafe) let block = block
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier

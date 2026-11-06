@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -68,32 +68,16 @@ private struct BackupKeyViewEditable: View {
     }
 
     var body: some View {
-        Group {
-            if #available(iOS 16, *) {
-                ZStack {
-                    TextField("", text: $value, axis: .vertical)
-                        .lineLimit(2, reservesSpace: true)
-                        .frame(width: BackupKeyView.Constant.width)
-                    Text(verbatim: "0123456789ABCDEFGHIJKLMNOPQRSTUV")
-                        .lineLimit(2)
-                        .frame(width: BackupKeyView.Constant.width)
-                        .foregroundStyle(.tertiary)
-                        .allowsHitTesting(false)
-                        .opacity(textOpacity)
-                }
-            } else {
-                ZStack {
-                    TextField("", text: $value)
-                        .lineLimit(1)
-                        .frame(width: BackupKeyView.Constant.width)
-                    Text(verbatim: "0123456789ABCDEFGHIJKLMNOPQRSTUV")
-                        .lineLimit(1)
-                        .frame(width: BackupKeyView.Constant.width)
-                        .foregroundStyle(.tertiary)
-                        .allowsHitTesting(false)
-                        .opacity(textOpacity)
-                }
-            }
+        ZStack {
+            TextField("", text: $value, axis: .vertical)
+                .lineLimit(2, reservesSpace: true)
+                .frame(width: BackupKeyView.Constant.width)
+            Text(verbatim: "0123456789ABCDEFGHIJKLMNOPQRSTUV")
+                .lineLimit(2)
+                .frame(width: BackupKeyView.Constant.width)
+                .foregroundStyle(.tertiary)
+                .allowsHitTesting(false)
+                .opacity(textOpacity)
         }
         .font(.system(size: BackupKeyView.Constant.fontSizeForEditableValue, weight: .semibold, design: .monospaced))
         .textInputAutocapitalization(.characters)

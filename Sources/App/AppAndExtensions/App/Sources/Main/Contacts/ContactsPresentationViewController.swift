@@ -71,20 +71,21 @@ final class ContactsPresentationViewController: UINavigationController {
             configuration: configuration,
             delegate: nil)
         
-        multipleContactsVC.navigationItem.rightBarButtonItem = .init(systemItem: .cancel, primaryAction: .init(handler: { [weak self] _ in
+        // The chooser builds its Cancel button and answers Esc from this, leaving a search first; every other presenter of it does the same.
+        multipleContactsVC.whatCancelDoes = { [weak self] in
             guard let self else { return }
             dismissAction()
-        }))
-        
+        }
+
         multipleContactsVC.navigationItem.searchController = multipleContactsVC.searchController
         multipleContactsVC.navigationItem.hidesSearchBarWhenScrolling = false
 
         multipleContactsVC.title = self.title
-        
+
         self.viewControllers = [multipleContactsVC]
 
     }
-    
+
     private func userDidSelectContactsToIntroduce(_ contactCryptoIds: Set<ObvCryptoId>) {
         guard !contactCryptoIds.isEmpty else { assertionFailure(); return }
         self.userWantsToIntroduce(presentedContactCryptoId: presentedContactCryptoId, to: contactCryptoIds, ofOwnedCryptoId: ownedCryptoId)

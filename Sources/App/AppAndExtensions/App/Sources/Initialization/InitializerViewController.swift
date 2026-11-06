@@ -72,7 +72,7 @@ final class InitializerViewController: UIViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        let newDisableRequestIdentifier = IdleTimerManager.shared.disableIdleTimer()
+        let newDisableRequestIdentifier = IdleTimerManager.shared.disableIdleTimer(reason: .currentUserActivity)
         if let disableRequestIdentifier {
             IdleTimerManager.shared.enableIdleTimer(disableRequestIdentifier: disableRequestIdentifier)
         }

@@ -712,21 +712,22 @@ private struct SendingAttachmentsStatusView: View {
         switch sendingAttachmentsStatus {
         case .starting:
             return .inProgress
-        case .inProgress(sentFylesCount: let sentFylesCount, failedFylesCount: let failedFylesCount, byteCountSent: _, byteCountFailedToSend: _, numberOfFylesToSend: let numberOfFylesToSend, byteCountToSend: _, bytesPerSecond: _, eta: _):
-            if sentFylesCount + failedFylesCount >= numberOfFylesToSend {
+        case .inProgress(let sentFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToSend, _, _, _):
+            if sentFylesCount + failedFylesCount + skippedFylesCount >= numberOfFylesToSend {
+                // Skipped attachments (declined by the destination) are not an error, so they don't trigger a warning.
                 return failedFylesCount > 0 ? .warning : .success
             } else {
                 return .inProgress
             }
         }
     }
-    
+
     private var progress: (value: Double, total: Double)? {
         switch sendingAttachmentsStatus {
         case .starting:
             return nil
-        case .inProgress(sentFylesCount: _, failedFylesCount: _, byteCountSent: let byteCountSent, byteCountFailedToSend: let byteCountFailedToSend, numberOfFylesToSend: _, byteCountToSend: let byteCountToSend, bytesPerSecond: _, eta: _):
-            let byteCountDone = byteCountSent + byteCountFailedToSend
+        case .inProgress(_, _, _, let byteCountSent, let byteCountFailedToSend, let byteCountSkipped, _, let byteCountToSend, _, _):
+            let byteCountDone = byteCountSent + byteCountFailedToSend + byteCountSkipped
             if byteCountDone < byteCountToSend {
                 return (Double(byteCountDone), Double(byteCountToSend))
             } else {
@@ -739,22 +740,34 @@ private struct SendingAttachmentsStatusView: View {
         switch sendingAttachmentsStatus {
         case .starting:
             return String(localizedInThisBundle: "STARTING")
-        case .inProgress(sentFylesCount: let sentFylesCount, failedFylesCount: let failedFylesCount, byteCountSent: _, byteCountFailedToSend: _, numberOfFylesToSend: let numberOfFylesToSend, byteCountToSend: _, bytesPerSecond: _, eta: _):
-            if sentFylesCount + failedFylesCount < numberOfFylesToSend {
+        case .inProgress(let sentFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToSend, _, _, _):
+            if sentFylesCount + failedFylesCount + skippedFylesCount < numberOfFylesToSend {
                 return String(localizedInThisBundle: "SENDING_ATTACHMENTS_STATUS_VIEW_SENDING_\(numberOfFylesToSend)_ATTACHMENTS")
             } else {
-                return String(localizedInThisBundle: "SENDING_ATTACHMENTS_STATUS_VIEW_DID_SEND_\(numberOfFylesToSend)_ATTACHMENTS")
+                // Report the count actually sent, which may be lower than the negotiated total if the destination
+                // declined some attachments (see subtitleForSkippedAttachments).
+                return String(localizedInThisBundle: "SENDING_ATTACHMENTS_STATUS_VIEW_DID_SEND_\(sentFylesCount)_ATTACHMENTS")
             }
         }
     }
-    
+
     private var subtitleForFailedAttachments: String? {
         switch sendingAttachmentsStatus {
         case .starting:
             return nil
-        case .inProgress(sentFylesCount: _, failedFylesCount: let failedFylesCount, byteCountSent: _, byteCountFailedToSend: _, numberOfFylesToSend: _, byteCountToSend: _, bytesPerSecond: _, eta: _):
+        case .inProgress(_, let failedFylesCount, _, _, _, _, _, _, _, _):
             guard failedFylesCount > 0 else { return nil }
             return String(localizedInThisBundle: "SENDING_ATTACHMENTS_STATUS_VIEW_\(failedFylesCount)_ATTACHMENTS_COULD_NOT_BE_SENT")
+        }
+    }
+
+    private var subtitleForSkippedAttachments: String? {
+        switch sendingAttachmentsStatus {
+        case .starting:
+            return nil
+        case .inProgress(_, _, let skippedFylesCount, _, _, _, _, _, _, _):
+            guard skippedFylesCount > 0 else { return nil }
+            return String(localizedInThisBundle: "SENDING_ATTACHMENTS_STATUS_VIEW_\(skippedFylesCount)_ATTACHMENTS_NOT_REQUESTED_BY_DESTINATION")
         }
     }
 
@@ -768,16 +781,16 @@ private struct SendingAttachmentsStatusView: View {
         switch sendingAttachmentsStatus {
         case .starting:
             return nil
-        case .inProgress(sentFylesCount: _, failedFylesCount: _, byteCountSent: _, byteCountFailedToSend: _, numberOfFylesToSend: _, byteCountToSend: _, bytesPerSecond: _, eta: let eta):
+        case .inProgress(_, _, _, _, _, _, _, _, _, let eta):
             return progressItemState == .inProgress ? eta : nil
         }
     }
-    
+
     private var bytesPerSecond: Double? {
         switch sendingAttachmentsStatus {
         case .starting:
             return nil
-        case .inProgress(sentFylesCount: _, failedFylesCount: _, byteCountSent: _, byteCountFailedToSend: _, numberOfFylesToSend: _, byteCountToSend: _, bytesPerSecond: let bytesPerSecond, eta: _):
+        case .inProgress(_, _, _, _, _, _, _, _, let bytesPerSecond, _):
             return progressItemState == .inProgress ? bytesPerSecond : nil
         }
     }
@@ -800,8 +813,8 @@ private struct SendingAttachmentsStatusView: View {
         switch sendingAttachmentsStatus {
         case .starting:
             return String(localizedInThisBundle: "SENDING_ATTACHMENTS_VIEW_TITLE")
-        case .inProgress(let sentFylesCount, let failedFylesCount, _, _, let numberOfFylesToSend, _, _, _):
-            if sentFylesCount + failedFylesCount >= numberOfFylesToSend {
+        case .inProgress(let sentFylesCount, let failedFylesCount, let skippedFylesCount, _, _, _, let numberOfFylesToSend, _, _, _):
+            if sentFylesCount + failedFylesCount + skippedFylesCount >= numberOfFylesToSend {
                 return String(localizedInThisBundle: "SENDING_ATTACHMENTS_VIEW_TITLE_DONE")
             } else {
                 return String(localizedInThisBundle: "SENDING_ATTACHMENTS_VIEW_TITLE")
@@ -816,6 +829,10 @@ private struct SendingAttachmentsStatusView: View {
                     .foregroundStyle(.secondary)
                 if let subtitleForFailedAttachments {
                     Text(subtitleForFailedAttachments)
+                        .foregroundStyle(.secondary)
+                }
+                if let subtitleForSkippedAttachments {
+                    Text(subtitleForSkippedAttachments)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -1243,8 +1260,10 @@ extension MockTransferServiceForLocalNetworkExportView: TransferServiceForLocalN
                         continuation.yield(.sourceTransferStepsState(.sendingAttachments(
                             status: .inProgress(sentFylesCount: sentFylesCount,
                                                 failedFylesCount: 0,
+                                                skippedFylesCount: 0,
                                                 byteCountSent: byteCountSent,
                                                 byteCountFailedToSend: 0,
+                                                byteCountSkipped: 0,
                                                 numberOfFylesToSend: numberOfFylesToSend,
                                                 byteCountToSend: byteCountToSend,
                                                 bytesPerSecond: bytesPerSecondToSimulate,

@@ -20,6 +20,7 @@
 import Foundation
 import CallKit
 import AVFoundation
+import os
 import ObvSettings
 
 
@@ -40,7 +41,7 @@ protocol CallProviderHolderDelegate: AnyObject {
     func provider(_ provider: CallProviderHolder, perform: CXSetMutedCallAction) async
     //func provider(_ provider: CallProviderHolder, perform: CXSetGroupCallAction) async
     //func provider(_ provider: CallProviderHolder, perform: CXPlayDTMFCallAction) async
-    //func provider(_ provider: CallProviderHolder, timedOutPerforming action: CXAction) async
+    func provider(_ provider: CallProviderHolder, timedOutPerforming action: CXAction) async
 
     // Handling Changes to Audio Session Activation State
     func provider(_ provider: CallProviderHolder, didActivate audioSession: AVAudioSession) async
@@ -53,10 +54,18 @@ final class CallProviderHolder: NSObject {
     
     private let cxProvider: CXProvider
     private let nxProvider: NCXProvider
-    
+
+    /// The reports that open or end a call in CallKit are written to the in-app logs.
     var provider: CallProviderProtocol {
-        ObvUICoreDataConstants.useCallKit ? cxProvider : nxProvider
+        InAppLoggingCallProvider(wrapped: ObvUICoreDataConstants.useCallKit ? cxProvider : nxProvider)
     }
+
+    /// The number of times CallKit has activated the audio session in this process, so that an activation that does not come can be noticed.
+    var numberOfCallKitAudioSessionActivations: Int {
+        callKitAudioSessionActivations.withLock { $0 }
+    }
+
+    private let callKitAudioSessionActivations = OSAllocatedUnfairLock(initialState: 0)
     
     var ncxCallControllerDelegate: NCXCallControllerDelegate {
         nxProvider
@@ -100,7 +109,10 @@ extension CallProviderHolder: CXProviderDelegate {
     
     // Handling Provider Events
 
+    // The in-app lines written by the three callbacks that follow are written where CallKit calls them, before the hop to the delegate.
+
     func providerDidReset(_ provider: CXProvider) {
+        OlvidCallInAppLog.log(call: nil, "CallKit reset the provider")
         genericProviderDidReset(provider)
     }
     
@@ -122,14 +134,64 @@ extension CallProviderHolder: CXProviderDelegate {
         genericProvider(provider, perform: action)
     }
 
+    func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
+        guard let delegate else { assertionFailure(); return }
+        Task { [weak self] in
+            guard let self else { return }
+            await delegate.provider(self, timedOutPerforming: action)
+        }
+    }
+
     // Handling Changes to Audio Session Activation State
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        callKitAudioSessionActivations.withLock { $0 += 1 }
+        OlvidCallInAppLog.log(call: nil, "CallKit called didActivate")
         genericProvider(provider, didActivate: audioSession)
     }
-    
+
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        OlvidCallInAppLog.log(call: nil, "CallKit called didDeactivate")
         genericProvider(provider, didDeactivate: audioSession)
+    }
+
+}
+
+
+// MARK: - Writing the reports to CallKit to the in-app logs
+
+/// Writes each report that opens or ends a call in CallKit to the in-app logs, then hands it to the wrapped provider.
+private struct InAppLoggingCallProvider: CallProviderProtocol {
+
+    let wrapped: CallProviderProtocol
+
+    func reportNewIncomingCall(with uuid: UUID, update: CXCallUpdate, completion: @escaping @Sendable (Error?) -> Void) {
+        OlvidCallInAppLog.log(call: uuid, "reporting a new incoming call to CallKit")
+        wrapped.reportNewIncomingCall(with: uuid, update: update) { error in
+            if let error {
+                OlvidCallInAppLog.log(call: uuid, "CallKit refused the new incoming call: \(error.localizedDescription)")
+            } else {
+                OlvidCallInAppLog.log(call: uuid, "CallKit accepted the new incoming call")
+            }
+            completion(error)
+        }
+    }
+
+    func reportOutgoingCall(with uuid: UUID, startedConnectingAt date: Date?) {
+        wrapped.reportOutgoingCall(with: uuid, startedConnectingAt: date)
+    }
+
+    func reportOutgoingCall(with uuid: UUID, connectedAt date: Date?) {
+        wrapped.reportOutgoingCall(with: uuid, connectedAt: date)
+    }
+
+    func reportCall(with uuid: UUID, updated update: CXCallUpdate) {
+        wrapped.reportCall(with: uuid, updated: update)
+    }
+
+    func reportCall(with uuid: UUID, endedAt date: Date?, reason: CXCallEndedReason) {
+        OlvidCallInAppLog.log(call: uuid, "reporting to CallKit that the call ended, reason: \(OlvidCallInAppLog.description(of: reason))")
+        wrapped.reportCall(with: uuid, endedAt: date, reason: reason)
     }
 
 }

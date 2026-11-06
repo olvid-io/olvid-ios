@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -86,7 +86,7 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
             guard let ownedCryptoId = ownedIdentity?.cryptoId else {
                 throw ObvUICoreDataError.ownedIdentityIsNil
             }
-            if let contactCryptoId = contactIdentity?.cryptoId {
+            if let contactCryptoId = try? contactIdentity?.cryptoId {
                 return OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
             } else if let contactIdentityIdentity = self.rawContactIdentityIdentity, let contactCryptoId = try? ObvCryptoId(identity: contactIdentityIdentity) {
                 return OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
@@ -339,24 +339,41 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
     
     // MARK: - Receiving messages and attachments from a contact or another owned device
 
-    override func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, source: ObvMessageSource, receivedLocation: ReceivedLocation?) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?) {
-        
+    override func createOrOverridePersistedMessageReceived(
+        from contact: PersistedObvContactIdentity,
+        obvMessage: ObvMessage,
+        messageJSON: MessageJSON,
+        returnReceiptJSON: ReturnReceiptJSON?,
+        source: ObvMessageSource,
+        receivedLocation: ReceivedLocation?,
+        pendingSiriReadIntentDate: Date?,
+        nseAlreadyPostedDeliveredReceipt: Bool
+    ) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?, deliveredReceiptToSend: ObvReturnReceiptToSend?, readReceiptToSend: ObvReturnReceiptToSend?, attachmentDeliveredReceiptsToSend: [ObvReturnReceiptToSend]) {
+
         guard self.contactIdentity == contact else {
             throw ObvUICoreDataError.unexpectedContact
         }
-        
+
         return try super.createOrOverridePersistedMessageReceived(
             from: contact,
             obvMessage: obvMessage,
             messageJSON: messageJSON,
             returnReceiptJSON: returnReceiptJSON,
             source: source,
-            receivedLocation: receivedLocation)
-        
+            receivedLocation: receivedLocation,
+            pendingSiriReadIntentDate: pendingSiriReadIntentDate,
+            nseAlreadyPostedDeliveredReceipt: nseAlreadyPostedDeliveredReceipt)
+
     }
     
     
-    override func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, sentLocation: SentLocation?) throws -> MessageSentPermanentID? {
+    override func createPersistedMessageSentFromOtherOwnedDevice(
+        from ownedIdentity: PersistedObvOwnedIdentity,
+        obvOwnedMessage: ObvOwnedMessage,
+        messageJSON: MessageJSON,
+        returnReceiptJSON: ReturnReceiptJSON?,
+        sentLocation: SentLocation?
+    ) throws -> MessageSentPermanentID? {
         
         guard self.ownedIdentity == ownedIdentity else {
             throw ObvUICoreDataError.unexpectedContact
@@ -410,16 +427,16 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
     }
 
     
-    override func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> PersistedMessage {
-        
+    override func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date, overrideExistingReaction: Bool) throws -> (updatedMessage: PersistedMessage, reactionUpdateOutcome: ReactionUpdateOutcome) {
+
         guard self.contactIdentity == contact else {
             throw ObvUICoreDataError.unexpectedContact
         }
 
-        let updatedMessage = try super.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
-        
-        return updatedMessage
-        
+        let updatedMessageAndOutcome = try super.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, overrideExistingReaction: overrideExistingReaction)
+
+        return updatedMessageAndOutcome
+
     }
     
     
@@ -446,16 +463,16 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
     }
 
     
-    override func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage {
-        
+    override func processSetOrUpdatePollVoteOnMessageRequest(_ pollVoteJSON: PollVoteJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> (updatedMessage: PersistedMessage, votesVisiblyChanged: Bool) {
+
         guard self.contactIdentity == contact else {
             throw ObvUICoreDataError.unexpectedContact
         }
 
-        let updatedMessage = try super.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-        
-        return updatedMessage
-        
+        let updatedMessageAndOutcome = try super.processSetOrUpdatePollVoteOnMessageRequest(pollVoteJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+        return updatedMessageAndOutcome
+
     }
     
     

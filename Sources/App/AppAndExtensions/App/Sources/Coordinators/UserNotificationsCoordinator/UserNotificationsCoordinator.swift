@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2025 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,9 @@ import ObvAppTypes
 import ObvUserNotificationsCreator
 import ObvUserNotificationsDatabase
 import ObvUserNotificationsTypes
+import ObvSiriReadIntents
 import OlvidUtils
+import ObvSettings
 import ObvUICoreData
 import ObvUICoreDataStructs
 import ObvCrypto
@@ -54,9 +56,16 @@ final class UserNotificationsCoordinator: NSObject, @unchecked Sendable {
     private var cancellables = Set<AnyCancellable>()
 
     private var obvEngine: ObvEngine?
-    
+
     var coordinator: CoordinatorOfObvMessagesReceivedFromUserNotificationExtension?
-    
+
+    /// Consumes user-notifications-database writes made by other processes — chiefly the NSE inserting
+    /// freshly-decrypted pending messages — so this process's long-lived coordinator doesn't drain
+    /// against a stale row cache (missing just-arrived rows, or acting on already-deleted ones). Built
+    /// once via ``setupUserNotificationsHistoryMerger()`` *after* the launch-time prune, and retained
+    /// for the app's lifetime so it keeps observing `NSPersistentStoreRemoteChange`.
+    private var nseHistoryMerger: ObvPersistentHistoryMerger?
+
     override init() {
         super.init()
         registerAsUNUserNotificationCenterDelegate()
@@ -76,6 +85,25 @@ final class UserNotificationsCoordinator: NSObject, @unchecked Sendable {
     func setObvEngine(to obvEngine: ObvEngine) {
         assert(self.obvEngine == nil)
         self.obvEngine = obvEngine
+    }
+
+
+    /// Builds the user-notifications history merger so the app's drain path stays in sync with NSE
+    /// writes. Must be called **after** the launch-time prune (`ObvPersistentHistoryMerger.pruneHistory`
+    /// in `AppMainManager`): the merger is this process's in-flight consumer, and the prune-before-merger
+    /// invariant requires no such consumer to exist while pruning. `ObvUserNotificationsStack` must be
+    /// initialized by then. Idempotent.
+    func setupUserNotificationsHistoryMerger() {
+        guard nseHistoryMerger == nil else { return }
+        let targetContext = ObvUserNotificationsStack.shared.newBackgroundContext()
+        targetContext.automaticallyMergesChangesFromParent = true
+        nseHistoryMerger = ObvPersistentHistoryMerger(
+            backgroundContext: targetContext,
+            logSubsystem: ObvAppCoreConstants.logSubsystem,
+            localTransactionAuthor: ObvUICoreDataConstants.AppCategory.mainApp.transactionAuthor,
+            contextCreator: ObvUserNotificationsStack.shared,
+            persistentStoreCoordinator: ObvUserNotificationsStack.shared.persistentStoreCoordinator,
+            tokenStore: ObvUserNotificationsStack.historyConsumerTokenStore)
     }
     
     
@@ -107,6 +135,8 @@ final class UserNotificationsCoordinator: NSObject, @unchecked Sendable {
             await persistExistingObvMessagesWithUserNotifications()
             removeStaticNotifications()
             await removeOldNotificationsThatAreNoLongerShown()
+            await pruneStaleSiriReadIntents()
+            await Self.requestCarPlayNotificationAuthorizationUnlessEnabled()
         }
     }
     
@@ -131,6 +161,44 @@ final class UserNotificationsCoordinator: NSObject, @unchecked Sendable {
 
 extension UserNotificationsCoordinator {
     
+    /// During bootstrap, drop ``SiriReadIntentStore`` entries that have been sitting unused for
+    /// more than a week. Entries are normally consumed the next time the corresponding message
+    /// surfaces in the app database (via the engine fetch or the NSE drain); the ones that
+    /// never get consumed are the rare-race cases (NSE-DB row removed between Siri search and
+    /// mark, message never resurfaced), and without this sweep the App Group `UserDefaults`
+    /// would grow unboundedly.
+    private func pruneStaleSiriReadIntents() async {
+        await SiriReadIntentStore.shared.pruneEntriesOlderThan(TimeInterval(days: 7))
+    }
+
+
+    /// Asks for the `.carPlay` option unless *Show in CarPlay* is already on.
+    ///
+    /// The system shows *Show in CarPlay* only to an app that asked for `.carPlay`, and an installation that authorized
+    /// notifications before we asked for it never sees our authorization screens again. The settings cannot tell us
+    /// whether we asked: `.notSupported` also means that the device knows no CarPlay car, even after a granted request.
+    /// So we ask whenever the setting is not `.enabled`, which on a device that knows no car is every launch. That is
+    /// harmless: with notifications authorized, the request shows no dialog. A user who turned the setting off did so
+    /// after we asked, so asking again leaves their choice alone.
+    ///
+    /// When notifications are `.provisional`, the request would show a dialog, so we do not ask.
+    ///
+    /// Called during bootstrap, and when CarPlay connects, because a launch for CarPlay alone never reaches the bootstrap.
+    static func requestCarPlayNotificationAuthorizationUnlessEnabled() async {
+        let center = UNUserNotificationCenter.current()
+        let notificationSettings = await center.notificationSettings()
+        guard notificationSettings.authorizationStatus == .authorized else { return }
+        guard notificationSettings.carPlaySetting != .enabled else { return }
+        do {
+            let granted = try await center.requestAuthorization(options: .requestedByOlvid)
+            let carPlaySetting = await center.notificationSettings().carPlaySetting
+            Self.logger.notice("Asked for the CarPlay notification option, as the CarPlay setting was \(notificationSettings.carPlaySetting.nameForLogs, privacy: .public). Granted: \(granted, privacy: .public). CarPlay setting is now \(carPlaySetting.nameForLogs, privacy: .public)")
+        } catch {
+            Self.logger.error("Could not ask for the CarPlay notification option: \(error, privacy: .public)")
+        }
+    }
+
+
     /// During bootstrap, we remove old `PersistedUserNotification` if they are no longer shown in the notification center.
     private func removeOldNotificationsThatAreNoLongerShown() async {
         
@@ -219,19 +287,22 @@ extension UserNotificationsCoordinator {
     private func listenToNotifications() {
         
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observePostUserNotificationAsAnotherCallParticipantStartedCamera { otherParticipantNames in
-                Task { [weak self] in await self?.processPostUserNotificationAsAnotherCallParticipantStartedCamera(otherParticipantNames: otherParticipantNames) }
+            ObvMessengerInternalNotification.observePostUserNotificationAsAnotherCallParticipantStartedCamera { [weak self] otherParticipantNames in
+                Task { await self?.processPostUserNotificationAsAnotherCallParticipantStartedCamera(otherParticipantNames: otherParticipantNames) }
             },
         ])
         
     }
 
     
-    func processNewMessagesReceivedNotification(messages: [ObvMessageOrObvOwnedMessage]) async {
+    /// Called once the messages are saved. `reactionsAndPollVotesThatVisiblyChanged` says what the save did, which the database can no
+    /// longer tell.
+    func processNewMessagesReceivedNotification(messages: [ObvMessageOrObvOwnedMessage], reactionsAndPollVotesThatVisiblyChanged: Set<ObvMessageIdentifier>) async {
         for message in messages {
             switch message {
             case .obvMessage(let obvMessage):
-                await processNewMessageReceivedNotification(obvMessage: obvMessage)
+                let isAReactionOrPollVoteThatVisiblyChanged = reactionsAndPollVotesThatVisiblyChanged.contains(obvMessage.messageId)
+                await processNewMessageReceivedNotification(obvMessage: obvMessage, receivedMessageSave: .alreadySaved(isAReactionOrPollVoteThatVisiblyChanged: isAReactionOrPollVoteThatVisiblyChanged))
             case .obvOwnedMessage(let ownedMessage):
                 await processNewMessageReceivedNotification(ownedMessage: ownedMessage)
             }
@@ -301,7 +372,7 @@ extension UserNotificationsCoordinator: PersistedCallLogItemObserver {
         do {
             let requestIdentifier = UUID().uuidString
             let content = try await ObvUserNotificationContentCreator.createNotificationContentForCallLog(callLog: callLog)
-            let notification = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: nil)
+            let notification = UNNotificationRequest(identifier: requestIdentifier, content: ObvUserNotificationContentCreator.ensuringPrivacy(of: content), trigger: nil)
             try await UNUserNotificationCenter.current().add(notification)
         } catch {
             Self.logger.fault("Could not schedule a local user notification for the call log: \(error.localizedDescription)")
@@ -535,7 +606,7 @@ extension UserNotificationsCoordinator: PersistedInvitationObserver {
 
             // We create and add the user notification based on the content
             
-            let notification = UNNotificationRequest(identifier: requestIdentifier, content: content.content, trigger: nil)
+            let notification = UNNotificationRequest(identifier: requestIdentifier, content: ObvUserNotificationContentCreator.ensuringPrivacy(of: content.content), trigger: nil)
         
             do {
                 // Note that if the user disallowed notifications (e.g., from the Settings app), the following method call does nothing.
@@ -583,7 +654,7 @@ extension UserNotificationsCoordinator {
             Self.logger.fault("Could not create notification content: \(error.localizedDescription)")
             return
         }
-        let notification = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: nil)
+        let notification = UNNotificationRequest(identifier: requestIdentifier, content: ObvUserNotificationContentCreator.ensuringPrivacy(of: content), trigger: nil)
         do {
             // Note that if the user disallowed notifications (e.g., from the Settings app), the following method call does nothing.
             try await UNUserNotificationCenter.current().add(notification)
@@ -599,7 +670,7 @@ extension UserNotificationsCoordinator {
     }
     
     
-    private func processNewMessageReceivedNotification(obvMessage: ObvMessage) async {
+    private func processNewMessageReceivedNotification(obvMessage: ObvMessage, receivedMessageSave: ObvUserNotificationContentCreator.ReceivedMessageSave) async {
         
         // Don't publish a user notification of "old" messages
         
@@ -617,7 +688,7 @@ extension UserNotificationsCoordinator {
                 
                 // Determine the kind of notification to show
                 
-                let notificationToShow = try await ObvUserNotificationContentCreator.determineNotificationToShow(obvMessage: obvMessage, obvStackShared: ObvStack.shared)
+                let notificationToShow = try await ObvUserNotificationContentCreator.determineNotificationToShow(obvMessage: obvMessage, receivedMessageSave: receivedMessageSave, obvStackShared: ObvStack.shared)
                 
                 // Construct the actual notification depending on the kind of notification to show
                 
@@ -631,7 +702,7 @@ extension UserNotificationsCoordinator {
                     
                     content = _content
                     
-                case .addReceivedMessage(content: let _content, messageAppIdentifier: let messageAppIdentifier, userNotificationCategory: let userNotificationCategory, contactDeviceUIDs: _):
+                case .addReceivedMessage(content: let _content, messageAppIdentifier: let messageAppIdentifier, userNotificationCategory: let userNotificationCategory):
                     
                     // Make sure we are in charge of posting the notification by trying to create a PersistedUserNotification
                     
@@ -656,9 +727,15 @@ extension UserNotificationsCoordinator {
                     case .created:
                         Self.logger.info("We just persisted the ObvMessage in the user notification DB, we will schedule a local user notification.")
                     }
-                    
+
+                    // Note that the content carries no badge value: the ObvUserNotificationContentCreator never sets one, leaving
+                    // the app icon badge to the RefreshAppBadgeOperation, which computes it from the app database. This matters as,
+                    // at this point, the received message was already persisted by the persistedDiscussionsUpdatesCoordinator
+                    // (see AppCoordinatorsHolder, where the insertion is awaited *before* this coordinator runs), and that insertion
+                    // already incremented the badge count in database. Setting a badge here would double-count this message.
+
                     content = _content
-                    
+
                 case .addReactionOnSentMessage(content: let _content, sentMessageReactedTo: let sentMessageReactedTo, reactor: let reactor, userNotificationCategory: let userNotificationCategory):
                     
                     let existingNotifications = await UNUserNotificationCenter.current().deliveredNotifications()
@@ -868,7 +945,7 @@ extension UserNotificationsCoordinator {
 
             // If we reach this point, we are in charge of posting the notification
 
-            let notification = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: nil)
+            let notification = UNNotificationRequest(identifier: requestIdentifier, content: ObvUserNotificationContentCreator.ensuringPrivacy(of: content), trigger: nil)
 
             do {
                 // Note that if the user disallowed notifications (e.g., from the Settings app), the following method call does nothing.
@@ -935,7 +1012,7 @@ extension UserNotificationsCoordinator {
             
             // If we reach this point, we are in charge of posting the notification
 
-            let notification = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: nil)
+            let notification = UNNotificationRequest(identifier: requestIdentifier, content: ObvUserNotificationContentCreator.ensuringPrivacy(of: content), trigger: nil)
 
             do {
                 // Note that if the user disallowed notifications (e.g., from the Settings app), the following method call does nothing.
@@ -976,8 +1053,7 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
         // We expect all notification to have an ObvUserNotificationCategoryIdentifier
         
         guard let obvCategoryIdentifier = notification.request.content.obvCategoryIdentifier else {
-            Self.logger.fault("Could not determine the ObvUserNotificationCategoryIdentifier of the notification to present. Not showing the notification.")
-            assertionFailure()
+            Self.logger.fault("Could not determine the ObvUserNotificationCategoryIdentifier of the notification to present. Not showing the notification. This typicially happens when the notifications were deactivated by the user.")
             return []
         }
         
@@ -1055,8 +1131,8 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
             
             return [.badge, .banner, .sound, .list]
             
-        case .newReaction, .pollVote:
-            
+        case .newReaction, .newReactionWithHiddenContent, .pollVote:
+
             guard let discussionIdentifier = notification.request.content.discussionIdentifier else {
                 assertionFailure()
                 return []
@@ -1080,7 +1156,7 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
                 return [.badge, .banner, .sound, .list]
             }
 
-        case .missedCall, .postUserNotificationAsAnotherCallParticipantStartedCamera, .rejectedIncomingCallBecauseOfDeniedRecordPermission:
+        case .missedCall, .missedCallWithHiddenContent, .postUserNotificationAsAnotherCallParticipantStartedCamera, .rejectedIncomingCallBecauseOfDeniedRecordPermission:
             
             return [.badge, .banner, .sound, .list]
             
@@ -1123,6 +1199,7 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
                     .newMessageWithLimitedVisibility,
                     .newMessageWithHiddenContent,
                     .newReaction,
+                    .newReactionWithHiddenContent,
                     .pollVote:
                 
                 try await processUNNotificationResponseForNewMessageUserNotificationCategory(response: response)
@@ -1135,8 +1212,8 @@ extension UserNotificationsCoordinator: UNUserNotificationCenterDelegate {
 
                 try await processUNNotificationResponseForInvitationWithAcceptInviteUserNotificationCategory(response: response)
                 
-            case .missedCall:
-                
+            case .missedCall, .missedCallWithHiddenContent:
+
                 try await processUNNotificationResponseForMissedCallUserNotificationCategory(response: response)
 
             case .rejectedIncomingCallBecauseOfDeniedRecordPermission:
@@ -1683,4 +1760,21 @@ extension UserNotificationsCoordinator {
         return discussion.discussionPermanentID
     }
     
+}
+
+
+// MARK: - Logging
+
+private extension UNNotificationSetting {
+
+    /// A readable name for the logs, where `rawValue` would print a bare integer.
+    var nameForLogs: String {
+        switch self {
+        case .notSupported: return "notSupported"
+        case .disabled: return "disabled"
+        case .enabled: return "enabled"
+        @unknown default: return "unknown (\(rawValue))"
+        }
+    }
+
 }

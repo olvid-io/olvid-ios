@@ -37,6 +37,9 @@ final class ObvFlowControllerDelegatesStack: NSObject, UINavigationControllerDel
     private var delegates = [Weak<UINavigationControllerDelegate>]()
     
     func addDelegate(_ newDelegate: UINavigationControllerDelegate) {
+        // Drop the entries whose delegate is gone. `ObvFlowController` adds its floating button animator from `viewWillAppear`, which runs again on every tab
+        // switch and every dismissal, so the array would otherwise grow for the lifetime of the flow controller.
+        self.delegates.removeAll { $0.value == nil }
         self.delegates.append(.init(newDelegate))
     }
     
@@ -55,13 +58,27 @@ final class ObvFlowControllerDelegatesStack: NSObject, UINavigationControllerDel
     }
     
     // UINavigationController: Supporting custom transition animations
+    //
+    // Unlike the two above, these two return a value and UIKit takes exactly one, so each delegate is asked in turn and the first with an answer decides.
+    // Asking `delegates.first` alone left every delegate added afterwards unable to answer, and which one is first depends on the order in
+    // which they were added.
 
     func navigationController(_ navigationController: UINavigationController, animationControllerFor operation: UINavigationController.Operation, from fromVC: UIViewController, to toVC: UIViewController) -> (any UIViewControllerAnimatedTransitioning)? {
-        return delegates.first?.value?.navigationController?(navigationController, animationControllerFor: operation, from: fromVC, to: toVC)
+        for delegate in delegates {
+            if let animationController = delegate.value?.navigationController?(navigationController, animationControllerFor: operation, from: fromVC, to: toVC) {
+                return animationController
+            }
+        }
+        return nil
     }
-    
+
     func navigationController(_ navigationController: UINavigationController, interactionControllerFor animationController: any UIViewControllerAnimatedTransitioning) -> (any UIViewControllerInteractiveTransitioning)? {
-        return delegates.first?.value?.navigationController?(navigationController, interactionControllerFor: animationController)
+        for delegate in delegates {
+            if let interactionController = delegate.value?.navigationController?(navigationController, interactionControllerFor: animationController) {
+                return interactionController
+            }
+        }
+        return nil
     }
         
 }

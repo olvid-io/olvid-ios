@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2026 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,6 @@
 
 import UIKit
 
-@available(iOS 14.0, *)
 final class UIImageViewForOlvidStack: ViewForOlvidStack {
     
     let imageView = UIImageView()

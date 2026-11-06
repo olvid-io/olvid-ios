@@ -17,6 +17,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.Shared.obvTypes,
         .Olvid.Engine.obvCrypto,
         .Olvid.Engine.obvEncoder,
+        .Olvid.Shared.olvidUtils,
     ])
 
 private let frameworkTestsTarget = Target.makeFrameworkUnitTestsTarget(
